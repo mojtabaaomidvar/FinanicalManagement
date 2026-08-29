@@ -1,8 +1,16 @@
 -- ═══════════════════════════════════════════════════════════
--- مالی من — اسکیمای Supabase (PostgreSQL) — نسخه ۳
+-- مالی من — اسکیمای Supabase (PostgreSQL) — نسخه ۳.۱
 -- ورود با شماره موبایل + رمز + تأیید دو مرحله‌ای پیامکی
+--
 -- اجرا در: Supabase Dashboard → SQL Editor → New query → Run
 -- (روی پروژه جدید یا قبلی قابل اجراست — idempotent)
+--
+-- امنیت نسخه ۳.۱:
+--   • هیچ جدولی مستقیماً از کلاینت قابل خواندن/نوشتن نیست (RLS بسته)
+--   • همه دسترسی‌ها از طریق توابع RPC با security definer
+--   • نشست با توکن ۶۴ کاراکتری (انقضا ۶۰ روز)
+--   • OTP برای ورود، ثبت‌نام و پذیرش دعوت اجباری است
+--   • قفل ۱۵ دقیقه‌ای پس از ۱۰ تلاش ناموفق (رمز یا کد)
 -- ═══════════════════════════════════════════════════════════
 
 -- ─────────── جدول خانواده‌ها ───────────
@@ -80,6 +88,27 @@ create table if not exists public.otp_codes (
 
 create index if not exists idx_otp_phone on public.otp_codes(phone);
 
+-- ─────────── جدول نشست‌ها (توکن لاگین) ───────────
+create table if not exists public.sessions (
+  id         uuid primary key default gen_random_uuid(),
+  token      text not null unique,
+  member_id  uuid not null references public.members(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null
+);
+
+create index if not exists idx_sessions_member on public.sessions(member_id);
+
+-- ─────────── جدول تلاش‌های ورود (ضد brute-force) ───────────
+create table if not exists public.auth_attempts (
+  id         uuid primary key default gen_random_uuid(),
+  phone      text not null,
+  ok         boolean not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_attempts_phone on public.auth_attempts(phone, created_at);
+
 -- ─────────── جدول دعوت‌نامه‌های خانواده ───────────
 create table if not exists public.family_invites (
   id         uuid primary key default gen_random_uuid(),
@@ -105,7 +134,7 @@ insert into public.app_settings (id, dev_mode) values (1, true)
 on conflict (id) do nothing;
 
 -- ═══════════════════════════════════════════════════════════
--- Row Level Security
+-- Row Level Security — همه جداول بسته؛ فقط RPC دسترسی دارد
 -- ═══════════════════════════════════════════════════════════
 
 alter table public.families       enable row level security;
@@ -115,51 +144,42 @@ alter table public.sms_messages   enable row level security;
 alter table public.otp_codes      enable row level security;
 alter table public.family_invites enable row level security;
 alter table public.app_settings   enable row level security;
+alter table public.sessions       enable row level security;
+alter table public.auth_attempts  enable row level security;
 
--- خواندن
+-- حذف پالیسی‌های باز نسخه‌های قبلی (اگر وجود داشته باشند)
 drop policy if exists "families_select"     on public.families;
 drop policy if exists "members_select"      on public.members;
 drop policy if exists "transactions_select" on public.transactions;
 drop policy if exists "sms_select"          on public.sms_messages;
 drop policy if exists "settings_select"     on public.app_settings;
-create policy "families_select"     on public.families       for select using (true);
-create policy "members_select"      on public.members        for select using (true);
-create policy "transactions_select" on public.transactions   for select using (true);
-create policy "sms_select"          on public.sms_messages   for select using (true);
-create policy "settings_select"     on public.app_settings   for select using (true);
-
--- نوشتن
 drop policy if exists "families_insert"     on public.families;
 drop policy if exists "members_insert"      on public.members;
 drop policy if exists "transactions_insert" on public.transactions;
 drop policy if exists "sms_insert"          on public.sms_messages;
-create policy "families_insert"     on public.families       for insert with check (true);
-create policy "members_insert"      on public.members        for insert with check (true);
-create policy "transactions_insert" on public.transactions   for insert with check (true);
-create policy "sms_insert"          on public.sms_messages   for insert with check (true);
-
--- ویرایش
 drop policy if exists "families_update"     on public.families;
 drop policy if exists "transactions_update" on public.transactions;
 drop policy if exists "sms_update"          on public.sms_messages;
 drop policy if exists "members_update"      on public.members;
-create policy "families_update"     on public.families       for update using (true) with check (true);
-create policy "transactions_update" on public.transactions   for update using (true) with check (true);
-create policy "sms_update"          on public.sms_messages   for update using (true) with check (true);
-create policy "members_update"      on public.members        for update using (true) with check (true);
-
--- حذف
 drop policy if exists "transactions_delete" on public.transactions;
 drop policy if exists "sms_delete"          on public.sms_messages;
 drop policy if exists "members_delete"      on public.members;
-create policy "transactions_delete" on public.transactions   for delete using (true);
-create policy "sms_delete"          on public.sms_messages   for delete using (true);
-create policy "members_delete"      on public.members        for delete using (true);
 
--- otp_codes و family_invites فقط از طریق توابع RPC (security definer) دسترسی دارند
+-- هیچ پالیسی‌ای ساخته نمی‌شود → دسترسی مستقیم PostgREST به همه جداول منع می‌شود.
+-- فقط توابع security definer (زیر) و کلید service_role (تابع سرورless) اجازه دارند.
 
 -- ═══════════════════════════════════════════════════════════
--- توابع کمکی
+-- حذف توابع نسخه قبلی که امضایشان تغییر کرده است
+-- (CREATE OR REPLACE با امضای متفاوت، اورلود می‌سازد — باید DROP شوند)
+-- ═══════════════════════════════════════════════════════════
+
+drop function if exists public.auth_register(text, text, text, text);
+drop function if exists public.accept_invite(text, text, text, text);
+drop function if exists public.create_invite(uuid);
+drop function if exists public.auth_check_otp(text, text);
+
+-- ═══════════════════════════════════════════════════════════
+-- توابع کمکی داخلی
 -- ═══════════════════════════════════════════════════════════
 
 -- تولید کد نمایشی ۶ رقمی یکتا
@@ -175,20 +195,110 @@ begin
   return new_code;
 end $$;
 
+-- یافتن شناسه عضو از توکن نشست (یا خطا)
+create or replace function public._session_member_id(p_token text)
+returns uuid
+language plpgsql security definer set search_path = public as $$
+declare
+  v_member_id uuid;
+begin
+  delete from public.sessions where expires_at < now();
+
+  select member_id into v_member_id from public.sessions
+  where token = p_token and expires_at > now();
+
+  if v_member_id is null then
+    raise exception 'SESSION_EXPIRED';
+  end if;
+  return v_member_id;
+end $$;
+
+-- یافتن شناسه خانواده از توکن نشست
+create or replace function public._family_id(p_token text)
+returns uuid
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+begin
+  select m.family_id into v_family_id
+  from public.members m
+  where m.id = public._session_member_id(p_token);
+
+  if v_family_id is null then
+    raise exception 'SESSION_EXPIRED';
+  end if;
+  return v_family_id;
+end $$;
+
+-- ساخت نشست جدید برای عضو → توکن
+create or replace function public._create_session(p_member_id uuid)
+returns text
+language plpgsql security definer set search_path = public as $$
+declare
+  v_token text;
+begin
+  v_token := encode(gen_random_bytes(32), 'hex');
+  insert into public.sessions (token, member_id, expires_at)
+  values (v_token, p_member_id, now() + interval '60 days');
+  return v_token;
+end $$;
+
+-- مصرف کد OTP (بررسی + used کردن) — با قفل ضد brute-force
+create or replace function public._consume_otp(p_phone text, p_code text)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_otp record;
+  v_fails int;
+begin
+  select count(*) into v_fails from public.auth_attempts
+  where phone = p_phone and ok = false and created_at > now() - interval '15 minutes';
+  if v_fails >= 10 then
+    raise exception 'TOO_MANY_ATTEMPTS';
+  end if;
+
+  select * into v_otp from public.otp_codes
+  where phone = p_phone and code = p_code and used = false
+    and expires_at > now()
+  order by created_at desc limit 1;
+
+  if not found then
+    insert into public.auth_attempts (phone, ok) values (p_phone, false);
+    raise exception 'INVALID_OTP';
+  end if;
+
+  update public.otp_codes set used = true where id = v_otp.id;
+  delete from public.auth_attempts where phone = p_phone and ok = false;
+end $$;
+
 -- ═══════════════════════════════════════════════════════════
 -- توابع احراز هویت (RPC — security definer)
 -- ═══════════════════════════════════════════════════════════
 
--- بررسی رمز عبور (مرحله ۱ ورود)
+-- بررسی رمز عبور (مرحله ۱ ورود) — با قفل ضد brute-force
 create or replace function public.auth_check_password(
   p_phone text, p_password_hash text
 ) returns boolean
 language plpgsql security definer set search_path = public as $$
+declare
+  v_ok boolean;
+  v_fails int;
 begin
-  return exists (
+  select count(*) into v_fails from public.auth_attempts
+  where phone = p_phone and ok = false and created_at > now() - interval '15 minutes';
+  if v_fails >= 10 then
+    raise exception 'TOO_MANY_ATTEMPTS';
+  end if;
+
+  select exists (
     select 1 from public.members
     where phone = p_phone and password_hash = p_password_hash
-  );
+  ) into v_ok;
+
+  insert into public.auth_attempts (phone, ok) values (p_phone, v_ok);
+  delete from public.auth_attempts where created_at < now() - interval '1 day';
+
+  return v_ok;
 end $$;
 
 -- درج کد OTP (برای تابع سرورless و حالت توسعه)
@@ -233,37 +343,46 @@ begin
   return v_code;
 end $$;
 
--- بررسی صحت کد OTP (بدون استفاده کردن — برای ثبت‌نام)
-create or replace function public.auth_check_otp(
+-- ورود نهایی: تأیید OTP + ساخت نشست + بازگرداندن عضو و خانواده
+create or replace function public.auth_login(
   p_phone text, p_code text
-) returns boolean
+) returns json
 language plpgsql security definer set search_path = public as $$
 declare
-  v_otp record;
+  v_member public.members;
+  v_family public.families;
+  v_token  text;
 begin
-  select * into v_otp from public.otp_codes
-  where phone = p_phone and code = p_code and used = false
-    and expires_at > now()
-  order by created_at desc limit 1;
+  perform public._consume_otp(p_phone, p_code);
 
+  select * into v_member from public.members where phone = p_phone;
   if not found then
-    return false;
+    raise exception 'NO_MEMBER';
   end if;
 
-  update public.otp_codes set used = true where id = v_otp.id;
-  return true;
+  select * into v_family from public.families where id = v_member.family_id;
+  v_token := public._create_session(v_member.id);
+
+  return json_build_object(
+    'member', to_jsonb(v_member),
+    'family', to_jsonb(v_family),
+    'session_token', v_token
+  );
 end $$;
 
--- ثبت‌نام: ساخت خانواده + عضو مدیر (بعد از تأیید OTP صدا زده می‌شود)
+-- ثبت‌نام: تأیید OTP + ساخت خانواده + عضو مدیر + نشست
 create or replace function public.auth_register(
   p_family_name text, p_member_name text,
-  p_phone text, p_password_hash text
+  p_phone text, p_password_hash text, p_otp_code text
 ) returns json
 language plpgsql security definer set search_path = public as $$
 declare
   v_family public.families;
   v_member public.members;
+  v_token  text;
 begin
+  perform public._consume_otp(p_phone, p_otp_code);
+
   if exists (select 1 from public.members where phone = p_phone) then
     raise exception 'PHONE_EXISTS';
   end if;
@@ -276,57 +395,35 @@ begin
   values (v_family.id, p_member_name, 'owner', p_phone, p_password_hash)
   returning * into v_member;
 
-  return json_build_object('member', to_jsonb(v_member), 'family', to_jsonb(v_family));
-end $$;
+  v_token := public._create_session(v_member.id);
 
--- ورود نهایی: تأیید OTP + بازگرداندن عضو و خانواده
-create or replace function public.auth_login(
-  p_phone text, p_code text
-) returns json
-language plpgsql security definer set search_path = public as $$
-declare
-  v_otp record;
-  v_member public.members;
-  v_family public.families;
-begin
-  select * into v_otp from public.otp_codes
-  where phone = p_phone and code = p_code and used = false
-    and expires_at > now()
-  order by created_at desc limit 1;
-
-  if not found then
-    raise exception 'INVALID_OTP';
-  end if;
-
-  update public.otp_codes set used = true where id = v_otp.id;
-
-  select * into v_member from public.members where phone = p_phone;
-  if not found then
-    raise exception 'NO_MEMBER';
-  end if;
-
-  select * into v_family from public.families where id = v_member.family_id;
-
-  return json_build_object('member', to_jsonb(v_member), 'family', to_jsonb(v_family));
+  return json_build_object(
+    'member', to_jsonb(v_member),
+    'family', to_jsonb(v_family),
+    'session_token', v_token
+  );
 end $$;
 
 -- ─────────── دعوت اعضا ───────────
 
--- ساخت لینک دعوت جدید (لینک‌های قبلی خانواده غیرفعال می‌شوند)
+-- ساخت لینک دعوت جدید (خانواده از نشست کاربر مشخص می‌شود)
 create or replace function public.create_invite(
-  p_family_id uuid
+  p_token text
 ) returns text
 language plpgsql security definer set search_path = public as $$
 declare
-  v_token text;
+  v_token    text;
+  v_family_id uuid;
 begin
+  v_family_id := public._family_id(p_token);
+
   update public.family_invites
   set active = false
-  where family_id = p_family_id and active = true;
+  where family_id = v_family_id and active = true;
 
   v_token := encode(gen_random_bytes(20), 'hex');
   insert into public.family_invites (family_id, token, expires_at)
-  values (p_family_id, v_token, now() + interval '30 days');
+  values (v_family_id, v_token, now() + interval '30 days');
 
   return v_token;
 end $$;
@@ -349,22 +446,23 @@ begin
 
   select * into v_family from public.families where id = v_inv.family_id;
 
-  return json_build_object(
-    'family_name', v_family.name,
-    'family_id',   v_family.id
-  );
+  return json_build_object('family_name', v_family.name);
 end $$;
 
--- پذیرش دعوت: ثبت‌نام عضو جدید در خانواده (بعد از تأیید OTP)
+-- پذیرش دعوت: تأیید OTP + ثبت‌نام عضو جدید در خانواده + نشست
 create or replace function public.accept_invite(
   p_token text, p_member_name text,
-  p_phone text, p_password_hash text
+  p_phone text, p_password_hash text, p_otp_code text
 ) returns json
 language plpgsql security definer set search_path = public as $$
 declare
-  v_inv record;
-  v_member public.members;
+  v_inv     record;
+  v_member  public.members;
+  v_family  public.families;
+  v_session text;
 begin
+  perform public._consume_otp(p_phone, p_otp_code);
+
   select * into v_inv from public.family_invites
   where token = p_token and active = true and expires_at > now();
 
@@ -380,5 +478,317 @@ begin
   values (v_inv.family_id, p_member_name, 'member', p_phone, p_password_hash)
   returning * into v_member;
 
-  return json_build_object('member', to_jsonb(v_member));
+  select * into v_family from public.families where id = v_inv.family_id;
+  v_session := public._create_session(v_member.id);
+
+  return json_build_object(
+    'member', to_jsonb(v_member),
+    'family', to_jsonb(v_family),
+    'session_token', v_session
+  );
+end $$;
+
+-- ═══════════════════════════════════════════════════════════
+-- نشست
+-- ═══════════════════════════════════════════════════════════
+
+-- اعتبارسنجی نشست: عضو + خانواده + اعضا (یک درخواست برای ورود به اپ)
+create or replace function public.validate_session(
+  p_token text
+) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_member public.members;
+  v_family public.families;
+begin
+  select * into v_member from public.members
+  where id = public._session_member_id(p_token);
+
+  select * into v_family from public.families where id = v_member.family_id;
+
+  return json_build_object(
+    'member', to_jsonb(v_member),
+    'family', to_jsonb(v_family),
+    'members', coalesce((
+      select json_agg(row_to_json(m))
+      from (
+        select id, name, role, phone, created_at
+        from public.members
+        where family_id = v_member.family_id
+        order by created_at asc
+      ) m
+    ), '[]'::json)
+  );
+end $$;
+
+-- خروج: حذف نشست
+create or replace function public.logout_session(
+  p_token text
+) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  delete from public.sessions where token = p_token;
+end $$;
+
+-- ═══════════════════════════════════════════════════════════
+-- دسترسی داده — همه با توکن نشست
+-- ═══════════════════════════════════════════════════════════
+
+-- اطلاعات خانواده خود کاربر
+create or replace function public.get_family(p_token text)
+returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family public.families;
+begin
+  select * into v_family from public.families
+  where id = public._family_id(p_token);
+  return to_jsonb(v_family);
+end $$;
+
+-- اعضای خانواده خود کاربر
+create or replace function public.get_members(p_token text)
+returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+begin
+  v_family_id := public._family_id(p_token);
+  return coalesce((
+    select json_agg(row_to_json(m))
+    from (
+      select id, name, role, phone, created_at
+      from public.members
+      where family_id = v_family_id
+      order by created_at asc
+    ) m
+  ), '[]'::json);
+end $$;
+
+-- حذف عضو (فقط مدیر؛ مدیر قابل حذف نیست)
+create or replace function public.remove_member(
+  p_token text, p_member_id uuid
+) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_actor public.members;
+  v_target public.members;
+begin
+  select * into v_actor from public.members
+  where id = public._session_member_id(p_token);
+
+  select * into v_target from public.members where id = p_member_id;
+  if not found or v_target.family_id <> v_actor.family_id then
+    raise exception 'NOT_FOUND';
+  end if;
+  if v_actor.role <> 'owner' then
+    raise exception 'FORBIDDEN';
+  end if;
+  if v_target.role = 'owner' then
+    raise exception 'CANNOT_REMOVE_OWNER';
+  end if;
+
+  delete from public.sessions where member_id = v_target.id;
+  delete from public.members where id = v_target.id;
+end $$;
+
+-- همه تراکنش‌های خانواده
+create or replace function public.list_transactions(p_token text)
+returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+begin
+  v_family_id := public._family_id(p_token);
+  return coalesce((
+    select json_agg(row_to_json(t))
+    from (
+      select * from public.transactions
+      where family_id = v_family_id
+      order by created_at desc
+    ) t
+  ), '[]'::json);
+end $$;
+
+-- افزودن تراکنش (اعتبارسنجی کامل سمت سرور)
+create or replace function public.add_transaction(
+  p_token text, p_member_id uuid, p_type text, p_amount numeric,
+  p_category text, p_date date, p_note text
+) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+  v_row public.transactions;
+begin
+  v_family_id := public._family_id(p_token);
+
+  if p_type not in ('expense','income') then
+    raise exception 'INVALID_TYPE';
+  end if;
+  if p_amount is null or p_amount <= 0 then
+    raise exception 'INVALID_AMOUNT';
+  end if;
+  if p_category is null or btrim(p_category) = '' then
+    raise exception 'INVALID_CATEGORY';
+  end if;
+  if p_date is null then
+    raise exception 'INVALID_DATE';
+  end if;
+  if not exists (select 1 from public.members
+                 where id = p_member_id and family_id = v_family_id) then
+    raise exception 'INVALID_MEMBER';
+  end if;
+
+  insert into public.transactions (family_id, member_id, type, amount, category, date, note)
+  values (v_family_id, p_member_id, p_type, p_amount, p_category, p_date, nullif(btrim(coalesce(p_note, '')), ''))
+  returning * into v_row;
+
+  return to_jsonb(v_row);
+end $$;
+
+-- ویرایش تراکنش (فقط تراکنش‌های خانواده خود کاربر)
+create or replace function public.update_transaction(
+  p_token text, p_tx_id uuid, p_member_id uuid, p_type text, p_amount numeric,
+  p_category text, p_date date, p_note text
+) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+begin
+  v_family_id := public._family_id(p_token);
+
+  if p_type not in ('expense','income') then
+    raise exception 'INVALID_TYPE';
+  end if;
+  if p_amount is null or p_amount <= 0 then
+    raise exception 'INVALID_AMOUNT';
+  end if;
+  if p_category is null or btrim(p_category) = '' then
+    raise exception 'INVALID_CATEGORY';
+  end if;
+  if p_date is null then
+    raise exception 'INVALID_DATE';
+  end if;
+  if not exists (select 1 from public.members
+                 where id = p_member_id and family_id = v_family_id) then
+    raise exception 'INVALID_MEMBER';
+  end if;
+
+  update public.transactions
+  set member_id = p_member_id,
+      type      = p_type,
+      amount    = p_amount,
+      category  = p_category,
+      date      = p_date,
+      note      = nullif(btrim(coalesce(p_note, '')), '')
+  where id = p_tx_id and family_id = v_family_id;
+
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+end $$;
+
+-- حذف تراکنش (فقط تراکنش‌های خانواده خود کاربر)
+create or replace function public.delete_transaction(
+  p_token text, p_tx_id uuid
+) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  delete from public.transactions
+  where id = p_tx_id and family_id = public._family_id(p_token);
+
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+end $$;
+
+-- پیامک‌های خانواده (با فیلتر اختیاری وضعیت)
+create or replace function public.list_sms(p_token text, p_status text default null)
+returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+begin
+  v_family_id := public._family_id(p_token);
+  return coalesce((
+    select json_agg(row_to_json(s))
+    from (
+      select * from public.sms_messages
+      where family_id = v_family_id
+        and (p_status is null or status = p_status)
+      order by created_at desc
+    ) s
+  ), '[]'::json);
+end $$;
+
+-- افزودن دسته‌ای پیامک بانکی (وضعیت pending)
+-- p_items: آرایه‌ای از {raw_text, bank, type, amount, balance, date}
+create or replace function public.add_sms_messages(
+  p_token text, p_items jsonb
+) returns integer
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id  uuid;
+  v_member_id  uuid;
+  v_count      integer;
+begin
+  v_family_id := public._family_id(p_token);
+  v_member_id := public._session_member_id(p_token);
+
+  with ins as (
+    insert into public.sms_messages
+      (family_id, member_id, raw_text, bank, type, amount, balance, date, status)
+    select
+      v_family_id,
+      v_member_id,
+      (i->>'raw_text')::text,
+      nullif(i->>'bank', ''),
+      case when i->>'type' in ('expense','income') then i->>'type' end,
+      nullif(i->>'amount', '')::numeric,
+      nullif(i->>'balance', '')::numeric,
+      nullif(i->>'date', '')::date,
+      'pending'
+    from jsonb_array_elements(p_items) as i
+    where i->>'raw_text' is not null and btrim(i->>'raw_text') <> ''
+    returning 1
+  )
+  select count(*) into v_count from ins;
+
+  return v_count;
+end $$;
+
+-- تغییر وضعیت پیامک (recorded / ignored)
+create or replace function public.set_sms_status(
+  p_token text, p_sms_id uuid, p_status text
+) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if p_status not in ('pending','recorded','ignored') then
+    raise exception 'INVALID_STATUS';
+  end if;
+
+  update public.sms_messages
+  set status = p_status
+  where id = p_sms_id and family_id = public._family_id(p_token);
+
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+end $$;
+
+-- ذخیره تنظیمات خانواده (بودجه، واحد، تم)
+create or replace function public.update_family_settings(
+  p_token text, p_budget numeric, p_currency text, p_dark boolean
+) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  update public.families
+  set budget   = greatest(coalesce(p_budget, 0), 0),
+      currency = coalesce(nullif(btrim(coalesce(p_currency, '')), ''), 'تومان'),
+      dark     = coalesce(p_dark, true)
+  where id = public._family_id(p_token);
+
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
 end $$;

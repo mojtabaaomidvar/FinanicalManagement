@@ -581,7 +581,7 @@
     const tx = {
       type: state.modalType,
       amount,
-      cat: state.modalCat,
+      category: state.modalCat,
       date: toISO(...parsed),
       note: $("#input-note").value.trim(),
     };
@@ -676,10 +676,11 @@
 
     let added = 0;
     try {
+      const items = [];
       for (const b of blocks) {
         const p = SmsParser.parse(b);
         if (!p) continue;
-        await DB.addSms(state.family.id, state.memberId, {
+        items.push({
           rawText: b,
           bank: p.bank,
           type: p.type,
@@ -687,8 +688,8 @@
           balance: p.balance,
           date: p.date ? isoFromG(p.date.gy, p.date.gm, p.date.gd) : null,
         });
-        added++;
       }
+      if (items.length) added = (await DB.addSmsBatch(items)) || 0;
     } catch (e) {
       toast(e.message || "خطا در ذخیره پیامک‌ها");
       return;
@@ -750,7 +751,7 @@
 
     $("#pending-body").innerHTML = `
       <div class="pending-progress">
-        <div class="pending-progress-fill" style="width:${(idx / list.length) * 100}%"></div>
+        <div class="pending-progress-fill" style="width:${((idx + 1) / list.length) * 100}%"></div>
       </div>
       <div class="pending-card">
         <div class="pending-raw">${esc(sms.raw_text)}</div>
@@ -850,7 +851,7 @@
       await DB.addTx(state.family.id, memberId, {
         type,
         amount,
-        cat,
+        category: cat,
         date: toISO(...parsed),
         note,
       });
@@ -997,28 +998,29 @@
       if (otpFlow.mode === "login") {
         /* ورود: تأیید OTP → عضو + خانواده */
         const r = await DB.loginWithOtp(otpFlow.phone, code);
-        await startSession(r.member, r.family);
+        await startSession(r.member, r.family, r.session_token);
       } else if (otpFlow.mode === "register") {
-        /* ثبت‌نام: ساخت خانواده + عضو مدیر */
+        /* ثبت‌نام: تأیید OTP (سمت سرور) + ساخت خانواده و عضو مدیر */
         const r = await DB.register(
           otpFlow.familyName,
           otpFlow.memberName,
           otpFlow.phone,
           otpFlow.password,
+          code,
         );
         toast("خانواده ساخته شد — خوش آمدید");
-        await startSession(r.member, r.family);
+        await startSession(r.member, r.family, r.session_token);
       } else if (otpFlow.mode === "invite") {
-        /* پذیرش دعوت: عضویت در خانواده */
+        /* پذیرش دعوت: تأیید OTP (سمت سرور) + عضویت در خانواده */
         const r = await DB.acceptInvite(
           otpFlow.inviteToken,
           otpFlow.memberName,
           otpFlow.phone,
           otpFlow.password,
+          code,
         );
-        const family = await DB.getFamilyById(r.member.family_id);
         toast("به خانواده خوش آمدید");
-        await startSession(r.member, family);
+        await startSession(r.member, r.family, r.session_token);
       }
       otpFlow = null;
     } catch (err) {
@@ -1026,7 +1028,7 @@
     }
   }
 
-  async function startSession(member, family) {
+  async function startSession(member, family, token) {
     state.family = family;
     state.memberId = member.id;
     DB.setSession({
@@ -1036,6 +1038,7 @@
       familyName: family.name,
       phone: member.phone,
       role: member.role,
+      token,
     });
     await enterApp();
   }
@@ -1086,7 +1089,7 @@
   /* ساخت لینک دعوت + نمایش QR */
   async function openInviteModal() {
     try {
-      const token = await DB.createInvite(state.family.id);
+      const token = await DB.createInvite();
       const link =
         location.origin +
         location.pathname +
@@ -1200,8 +1203,8 @@
 
   /* ─────────── خروج ─────────── */
 
-  function logout() {
-    DB.clearSession();
+  async function logout() {
+    await DB.logout();
     location.reload();
   }
 
@@ -1471,33 +1474,27 @@
       return;
     }
 
-    /* بررسی نشست */
+    /* بررسی نشست (توکن) */
     const session = DB.getSession();
-    if (!session) {
+    if (!session || !session.token) {
+      if (session) DB.clearSession();
       showAuth();
       return;
     }
 
     try {
-      const family = await DB.getFamilyById(session.familyId);
-      if (!family) {
-        DB.clearSession();
-        showAuth();
-        return;
-      }
-      state.family = family;
-      state.memberId = session.memberId;
-
-      const members = await DB.getMembers(family.id);
-      if (!members.find((m) => m.id === session.memberId)) {
-        DB.clearSession();
-        showAuth();
-        return;
-      }
-      state.members = members;
+      const r = await DB.validateSession(session.token);
+      state.family = r.family;
+      state.memberId = r.member.id;
+      state.members = r.members;
       await enterApp();
     } catch (e) {
-      toast(e.message || "خطا در ارتباط با سرور");
+      DB.clearSession();
+      if (/منقضی/.test(e.message || "")) {
+        toast(e.message);
+      } else {
+        toast(e.message || "خطا در ارتباط با سرور");
+      }
       showAuth();
     }
   }

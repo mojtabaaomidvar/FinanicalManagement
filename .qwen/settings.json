@@ -3,7 +3,10 @@
     "allow": [
       "Bash(get-childitem *)",
       "Bash(where-object *)",
-      "Bash(select-object *)"
+      "Bash(select-object *)",
+      "Bash(node *)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
     ]
   },
   "$version": 4

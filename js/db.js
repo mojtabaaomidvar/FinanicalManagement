@@ -1,48 +1,17 @@
 /* ═══════════════════════════════════════════════
-   لایه دیتابیس — Supabase (PostgREST)
+   لایه دیتابیس — Supabase (PostgREST RPC)
    بدون SDK — fetch خالص روی REST API
-   نسخه ۳ — ورود با موبایل + رمز + OTP پیامکی
+   نسخه ۳.۱ — نشست با توکن؛ همه دسترسی‌ها از طریق RPC امن
+   (هیچ جدولی مستقیماً از کلاینت خوانده/نوشته نمی‌شود)
    ═══════════════════════════════════════════════ */
 
 const DB = (() => {
   const BASE = SUPABASE_CONFIG.url.replace(/\/$/, "");
   const KEY = SUPABASE_CONFIG.anonKey;
-  const REST = BASE + "/rest/v1";
   const RPC = BASE + "/rest/v1/rpc";
 
   const LS_SESSION =
-    "pfa_session_v3"; /* { memberId, memberName, familyId, familyName, phone, role } */
-
-  /* ── درخواست پایه ── */
-  async function req(path, { method = "GET", body, query = "" } = {}) {
-    const res = await fetch(REST + path + query, {
-      method,
-      headers: {
-        apikey: KEY,
-        Authorization: "Bearer " + KEY,
-        "Content-Type": "application/json",
-        Prefer: method === "POST" ? "return=representation" : "return=minimal",
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-
-    if (!res.ok) {
-      let msg = "خطای ارتباط با سرور (" + res.status + ")";
-      try {
-        const err = await res.json();
-        if (err.message) msg = err.message;
-      } catch {
-        /* ignore */
-      }
-      throw new Error(msg);
-    }
-
-    if (method === "GET" || method === "POST") {
-      const text = await res.text();
-      return text ? JSON.parse(text) : null;
-    }
-    return null;
-  }
+    "pfa_session_v4"; /* { memberId, memberName, familyId, familyName, phone, role, token } */
 
   /* ── فراخوانی تابع RPC ── */
   async function rpc(fnName, params) {
@@ -67,11 +36,18 @@ const DB = (() => {
     if (!res.ok) {
       /* کد خطای داخل پیام Supabase را استخراج کن */
       const msg = data?.message || text || "";
+      if (/SESSION_EXPIRED/.test(msg)) {
+        clearSession();
+        throw new Error("نشست منقضی شده — لطفاً دوباره وارد شوید");
+      }
       if (/OTP_API_ONLY/.test(msg)) {
         throw new Error("OTP_API_ONLY");
       }
       if (/TOO_SOON/.test(msg)) {
         throw new Error("TOO_SOON");
+      }
+      if (/TOO_MANY_ATTEMPTS/.test(msg)) {
+        throw new Error("تلاش‌های ناموفق زیاد بوده — ۱۵ دقیقه بعد امتحان کنید");
       }
       if (/PHONE_EXISTS/.test(msg)) {
         throw new Error("این شماره قبلاً ثبت‌نام کرده است");
@@ -85,12 +61,30 @@ const DB = (() => {
       if (/NO_MEMBER/.test(msg)) {
         throw new Error("کاربری با این شماره یافت نشد");
       }
+      if (/INVALID_MEMBER/.test(msg)) {
+        throw new Error("عضو انتخاب‌شده معتبر نیست");
+      }
+      if (/CANNOT_REMOVE_OWNER/.test(msg)) {
+        throw new Error("مدیر خانواده قابل حذف نیست");
+      }
+      if (/FORBIDDEN/.test(msg)) {
+        throw new Error("اجازه انجام این کار را ندارید");
+      }
+      if (/INVALID_(TYPE|AMOUNT|CATEGORY|DATE)/.test(msg)) {
+        throw new Error("اطلاعات تراکنش معتبر نیست");
+      }
+      if (/NOT_FOUND/.test(msg)) {
+        throw new Error("مورد یافت نشد");
+      }
       throw new Error(msg || "خطا در ارتباط با سرور (" + res.status + ")");
     }
     return data;
   }
 
-  const enc = encodeURIComponent;
+  /* ── توکن نشست فعلی ── */
+  function tok() {
+    return getSession()?.token || "";
+  }
 
   /* ═══════════════════════════════════════════
      نشست (session)
@@ -173,19 +167,20 @@ const DB = (() => {
     });
   }
 
-  /* مرحله ۲ ورود: تأیید OTP → عضو + خانواده */
+  /* مرحله ۲ ورود: تأیید OTP → عضو + خانواده + توکن نشست */
   async function loginWithOtp(phone, code) {
     return rpc("auth_login", { p_phone: phone, p_code: code });
   }
 
-  /* ثبت‌نام (بعد از تأیید OTP) */
-  async function register(familyName, memberName, phone, password) {
+  /* ثبت‌نام — کد OTP در سرور اعتبارسنجی می‌شود */
+  async function register(familyName, memberName, phone, password, otpCode) {
     const hash = await hashPassword(phone, password);
     return rpc("auth_register", {
       p_family_name: familyName,
       p_member_name: memberName,
       p_phone: phone,
       p_password_hash: hash,
+      p_otp_code: otpCode,
     });
   }
 
@@ -193,91 +188,101 @@ const DB = (() => {
      دعوت اعضا — لینک + QR
      ═══════════════════════════════════════════ */
 
-  async function createInvite(familyId) {
-    return rpc("create_invite", { p_family_id: familyId });
+  async function createInvite() {
+    return rpc("create_invite", { p_token: tok() });
   }
 
   async function getInvite(token) {
     return rpc("get_invite", { p_token: token });
   }
 
-  async function acceptInvite(token, memberName, phone, password) {
+  /* پذیرش دعوت — کد OTP در سرور اعتبارسنجی می‌شود */
+  async function acceptInvite(token, memberName, phone, password, otpCode) {
     const hash = await hashPassword(phone, password);
     return rpc("accept_invite", {
       p_token: token,
       p_member_name: memberName,
       p_phone: phone,
       p_password_hash: hash,
+      p_otp_code: otpCode,
     });
+  }
+
+  /* ═══════════════════════════════════════════
+     نشست: اعتبارسنجی و خروج
+     ═══════════════════════════════════════════ */
+
+  /* اعتبارسنجی توکن → { member, family, members } */
+  async function validateSession(token) {
+    return rpc("validate_session", { p_token: token });
+  }
+
+  /* خروج: حذف نشست از سرور + پاک‌سازی محلی */
+  async function logout() {
+    const token = tok();
+    clearSession();
+    if (token) {
+      try {
+        await rpc("logout_session", { p_token: token });
+      } catch {
+        /* بی‌صدا — نشست سمت سرور خودش منقضی می‌شود */
+      }
+    }
   }
 
   /* ═══════════════════════════════════════════
      خانواده‌ها و اعضا
      ═══════════════════════════════════════════ */
 
-  async function getFamilyById(familyId) {
-    const rows = await req("/families", {
-      query: "?select=*&id=eq." + enc(familyId),
-    });
-    return rows[0] || null;
+  async function getFamilyById() {
+    return rpc("get_family", { p_token: tok() });
   }
 
-  async function getMembers(familyId) {
-    return req("/members", {
-      query:
-        "?select=id,name,role,phone,created_at&family_id=eq." +
-        enc(familyId) +
-        "&order=created_at.asc",
-    });
+  async function getMembers() {
+    return rpc("get_members", { p_token: tok() });
   }
 
   async function deleteMember(memberId) {
-    return req("/members", {
-      method: "DELETE",
-      query: "?id=eq." + enc(memberId),
-    });
+    return rpc("remove_member", { p_token: tok(), p_member_id: memberId });
   }
 
   /* ═══════════════════════════════════════════
      تراکنش‌ها
      ═══════════════════════════════════════════ */
 
-  async function getTransactions(familyId) {
-    return req("/transactions", {
-      query:
-        "?select=*&family_id=eq." + enc(familyId) + "&order=created_at.desc",
-    });
+  async function getTransactions() {
+    return rpc("list_transactions", { p_token: tok() });
   }
 
+  /* tx: { type, amount, category, date: 'YYYY-MM-DD' میلادی, note } */
   async function addTx(familyId, memberId, tx) {
-    const [row] = await req("/transactions", {
-      method: "POST",
-      body: {
-        family_id: familyId,
-        member_id: memberId,
-        type: tx.type,
-        amount: tx.amount,
-        category: tx.cat,
-        date: tx.date /* 'YYYY-MM-DD' میلادی */,
-        note: tx.note || null,
-      },
+    return rpc("add_transaction", {
+      p_token: tok(),
+      p_member_id: memberId,
+      p_type: tx.type,
+      p_amount: tx.amount,
+      p_category: tx.category,
+      p_date: tx.date,
+      p_note: tx.note || null,
     });
-    return row;
   }
 
+  /* patch: { member_id, type, amount, category, date, note } */
   async function updateTx(id, patch) {
-    return req("/transactions", {
-      method: "PATCH",
-      query: "?id=eq." + enc(id),
-      body: patch,
+    return rpc("update_transaction", {
+      p_token: tok(),
+      p_tx_id: id,
+      p_member_id: patch.member_id,
+      p_type: patch.type,
+      p_amount: patch.amount,
+      p_category: patch.category,
+      p_date: patch.date,
+      p_note: patch.note || null,
     });
   }
 
   async function deleteTx(id) {
-    return req("/transactions", {
-      method: "DELETE",
-      query: "?id=eq." + enc(id),
-    });
+    return rpc("delete_transaction", { p_token: tok(), p_tx_id: id });
   }
 
   /* ═══════════════════════════════════════════
@@ -285,35 +290,37 @@ const DB = (() => {
      ═══════════════════════════════════════════ */
 
   async function getSms(familyId, status = null) {
-    let q =
-      "?select=*&family_id=eq." + enc(familyId) + "&order=created_at.desc";
-    if (status) q += "&status=eq." + status;
-    return req("/sms_messages", { query: q });
+    return rpc("list_sms", {
+      p_token: tok(),
+      p_status: status || null,
+    });
   }
 
-  async function addSms(familyId, memberId, sms) {
-    const [row] = await req("/sms_messages", {
-      method: "POST",
-      body: {
-        family_id: familyId,
-        member_id: memberId,
-        raw_text: sms.rawText,
-        bank: sms.bank || null,
-        type: sms.type || null,
-        amount: sms.amount || null,
-        balance: sms.balance || null,
-        date: sms.date || null,
-        status: "pending",
-      },
+  /* افزودن دسته‌ای: [{ rawText, bank, type, amount, balance, date }] */
+  async function addSmsBatch(items) {
+    return rpc("add_sms_messages", {
+      p_token: tok(),
+      p_items: items.map((s) => ({
+        raw_text: s.rawText,
+        bank: s.bank || null,
+        type: s.type || null,
+        amount: s.amount ?? null,
+        balance: s.balance ?? null,
+        date: s.date || null,
+      })),
     });
-    return row;
+  }
+
+  /* افزودن تکی (پایگاه سازگاری) */
+  async function addSms(familyId, memberId, sms) {
+    return addSmsBatch([sms]);
   }
 
   async function updateSms(id, patch) {
-    return req("/sms_messages", {
-      method: "PATCH",
-      query: "?id=eq." + enc(id),
-      body: patch,
+    return rpc("set_sms_status", {
+      p_token: tok(),
+      p_sms_id: id,
+      p_status: patch.status,
     });
   }
 
@@ -321,11 +328,8 @@ const DB = (() => {
      تنظیمات (بر اساس خانواده)
      ═══════════════════════════════════════════ */
 
-  async function getFamilySettings(familyId) {
-    const rows = await req("/families", {
-      query: "?select=*&id=eq." + enc(familyId),
-    });
-    const f = rows[0];
+  async function getFamilySettings() {
+    const f = await rpc("get_family", { p_token: tok() });
     return {
       budget: f?.budget ?? 0,
       currency: f?.currency ?? "تومان",
@@ -334,14 +338,11 @@ const DB = (() => {
   }
 
   async function saveFamilySettings(familyId, s) {
-    return req("/families", {
-      method: "PATCH",
-      query: "?id=eq." + enc(familyId),
-      body: {
-        budget: s.budget,
-        currency: s.currency,
-        dark: s.dark,
-      },
+    return rpc("update_family_settings", {
+      p_token: tok(),
+      p_budget: s.budget,
+      p_currency: s.currency,
+      p_dark: s.dark,
     });
   }
 
@@ -363,6 +364,10 @@ const DB = (() => {
     getInvite,
     acceptInvite,
 
+    /* session */
+    validateSession,
+    logout,
+
     /* data */
     getFamilyById,
     getMembers,
@@ -373,6 +378,7 @@ const DB = (() => {
     deleteTx,
     getSms,
     addSms,
+    addSmsBatch,
     updateSms,
     getFamilySettings,
     saveFamilySettings,
