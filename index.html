@@ -411,6 +411,21 @@
         <path d="M16 17l5-5-5-5" />
         <path d="M21 12H9" />
       </symbol>
+      <symbol
+        id="i-qr"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+        <path d="M14 14h3v3h-3z" />
+        <path d="M21 14v.01M17 21h.01M21 17v4" />
+      </symbol>
     </svg>
 
     <!-- ═══════════ صفحه ورود/ثبت‌نام خانواده ═══════════ -->
@@ -422,95 +437,180 @@
         <h1>مالی من</h1>
         <p class="auth-sub">مدیریت مالی خانواده، ساده و مشترک</p>
 
-        <!-- تب انتخاب حالت -->
-        <div class="seg-control" id="auth-mode">
-          <button class="seg-btn active" data-mode="login">ورود با کد</button>
-          <button class="seg-btn" data-mode="create">ساخت خانواده</button>
+        <!-- ═══ مرحله ۱: ورود / ثبت‌نام ═══ -->
+        <div id="auth-step-1">
+          <div class="seg-control" id="auth-mode">
+            <button class="seg-btn active" data-mode="login">ورود</button>
+            <button class="seg-btn" data-mode="register">ثبت‌نام</button>
+          </div>
+
+          <!-- فرم ورود -->
+          <form id="form-login" class="auth-form">
+            <div class="form-row">
+              <label for="login-phone">شماره موبایل</label>
+              <input
+                type="tel"
+                id="login-phone"
+                class="num-input big"
+                inputmode="tel"
+                placeholder="۰۹۱۲۳۴۵۶۷۸۹"
+                autocomplete="tel"
+                dir="ltr"
+              />
+            </div>
+            <div class="form-row">
+              <label for="login-password">رمز عبور</label>
+              <input
+                type="password"
+                id="login-password"
+                class="text-input"
+                placeholder="••••••••"
+                autocomplete="current-password"
+                dir="ltr"
+              />
+            </div>
+            <button type="submit" class="btn-primary btn-block">ورود</button>
+          </form>
+
+          <!-- فرم ثبت‌نام -->
+          <form id="form-register" class="auth-form hidden">
+            <div class="form-row">
+              <label for="reg-family">نام خانواده</label>
+              <input
+                type="text"
+                id="reg-family"
+                class="text-input"
+                placeholder="مثلاً خانواده احمدی"
+              />
+            </div>
+            <div class="form-row">
+              <label for="reg-name">نام شما</label>
+              <input
+                type="text"
+                id="reg-name"
+                class="text-input"
+                placeholder="مثلاً علی"
+              />
+            </div>
+            <div class="form-row">
+              <label for="reg-phone">شماره موبایل</label>
+              <input
+                type="tel"
+                id="reg-phone"
+                class="num-input big"
+                inputmode="tel"
+                placeholder="۰۹۱۲۳۴۵۶۷۸۹"
+                autocomplete="tel"
+                dir="ltr"
+              />
+            </div>
+            <div class="form-row">
+              <label for="reg-password">رمز عبور</label>
+              <input
+                type="password"
+                id="reg-password"
+                class="text-input"
+                placeholder="حداقل ۴ کاراکتر"
+                autocomplete="new-password"
+                dir="ltr"
+              />
+            </div>
+            <button type="submit" class="btn-primary btn-block">
+              ثبت‌نام و ساخت خانواده
+            </button>
+          </form>
         </div>
 
-        <!-- فرم ورود -->
-        <form id="form-login" class="auth-form">
-          <div class="form-row">
-            <label for="login-code">کد خانواده</label>
-            <input
-              type="text"
-              id="login-code"
-              class="num-input big"
-              inputmode="numeric"
-              placeholder="۱۲۳۴۵۶"
-              autocomplete="off"
-            />
-          </div>
-          <button type="submit" class="btn-primary btn-block">ورود</button>
-        </form>
-
-        <!-- فرم ساخت -->
-        <form id="form-create" class="auth-form hidden">
-          <div class="form-row">
-            <label for="create-family">نام خانواده</label>
-            <input
-              type="text"
-              id="create-family"
-              class="text-input"
-              placeholder="مثلاً خانواده احمدی"
-            />
-          </div>
-          <div class="form-row">
-            <label for="create-name">نام شما</label>
-            <input
-              type="text"
-              id="create-name"
-              class="text-input"
-              placeholder="مثلاً علی"
-            />
-          </div>
-          <button type="submit" class="btn-primary btn-block">
-            ساخت خانواده
-          </button>
-        </form>
+        <!-- ═══ مرحله ۲: کد تأیید پیامکی ═══ -->
+        <div id="auth-step-2" class="hidden">
+          <p class="otp-desc" id="otp-desc">
+            کد ۶ رقمی ارسال‌شده به <b id="otp-phone">—</b> را وارد کنید
+          </p>
+          <form id="form-otp" class="auth-form">
+            <div class="form-row">
+              <input
+                type="text"
+                id="otp-input"
+                class="num-input big otp-input"
+                inputmode="numeric"
+                maxlength="6"
+                placeholder="------"
+                autocomplete="one-time-code"
+                dir="ltr"
+              />
+            </div>
+            <div class="otp-dev-hint hidden" id="otp-dev-hint"></div>
+            <button type="submit" class="btn-primary btn-block">تأیید</button>
+            <button type="button" class="btn-ghost btn-block" id="btn-otp-back">
+              بازگشت
+            </button>
+            <button
+              type="button"
+              class="btn-ghost btn-block"
+              id="btn-otp-resend"
+            >
+              ارسال مجدد کد
+            </button>
+          </form>
+        </div>
 
         <p class="auth-hint">
-          برای اعضای جدید: کد خانواده را به آن‌ها بدهید تا با «ورود با کد» وارد
-          شوند.
+          ورود دو مرحله‌ای: بعد از رمز عبور، کد تأیید پیامکی برای شما ارسال
+          می‌شود.
         </p>
       </div>
     </section>
 
-    <!-- ═══════════ صفحه انتخاب عضو ═══════════ -->
-    <section id="page-member" class="page">
-      <header class="app-header">
-        <div class="header-title">
-          <h1>خوش آمدید</h1>
-          <p id="member-family-name">—</p>
+    <!-- ═══════════ صفحه پذیرش دعوت (لینک/QR) ═══════════ -->
+    <section id="page-invite" class="page auth-page">
+      <div class="auth-wrap">
+        <div class="auth-logo">
+          <svg><use href="#i-users" /></svg>
         </div>
-        <button class="icon-btn" id="btn-logout" aria-label="خروج">
-          <svg><use href="#i-logout" /></svg>
-        </button>
-      </header>
+        <h1 id="invite-family-title">دعوت به خانواده</h1>
+        <p class="auth-sub" id="invite-family-name">—</p>
 
-      <div class="content">
-        <p class="section-hint">شما کدام عضو خانواده هستید؟</p>
-        <div id="member-list" class="member-list"></div>
-
-        <div class="card">
-          <div class="card-head">
-            <h3>عضو جدید</h3>
-          </div>
-          <div class="add-member-row">
+        <form id="form-invite" class="auth-form">
+          <div class="form-row">
+            <label for="inv-name">نام شما</label>
             <input
               type="text"
-              id="new-member-name"
+              id="inv-name"
               class="text-input"
-              placeholder="نام عضو جدید"
+              placeholder="مثلاً سارا"
             />
-            <button class="action-btn" id="btn-add-member">
-              <svg style="width: 16px; height: 16px">
-                <use href="#i-plus" />
-              </svg>
-              افزودن
-            </button>
           </div>
-        </div>
+          <div class="form-row">
+            <label for="inv-phone">شماره موبایل</label>
+            <input
+              type="tel"
+              id="inv-phone"
+              class="num-input big"
+              inputmode="tel"
+              placeholder="۰۹۱۲۳۴۵۶۷۸۹"
+              autocomplete="tel"
+              dir="ltr"
+            />
+          </div>
+          <div class="form-row">
+            <label for="inv-password">رمز عبور</label>
+            <input
+              type="password"
+              id="inv-password"
+              class="text-input"
+              placeholder="حداقل ۴ کاراکتر"
+              autocomplete="new-password"
+              dir="ltr"
+            />
+          </div>
+          <button type="submit" class="btn-primary btn-block">
+            عضویت در خانواده
+          </button>
+        </form>
+
+        <p class="auth-hint">
+          بعد از ثبت‌نام، کد تأیید پیامکی برای شما ارسال می‌شود.
+        </p>
       </div>
     </section>
 
@@ -524,13 +624,6 @@
         <div class="header-actions">
           <button class="icon-btn" id="btn-sms-import" aria-label="ورود پیامک">
             <svg><use href="#i-sms" /></svg>
-          </button>
-          <button
-            class="icon-btn"
-            id="btn-switch-member"
-            aria-label="تغییر عضو"
-          >
-            <svg><use href="#i-users" /></svg>
           </button>
         </div>
       </header>
@@ -695,19 +788,27 @@
             <span class="badge" id="family-code-badge">کد: —</span>
           </div>
           <div id="settings-members" class="settings-members"></div>
-          <div class="add-member-row">
-            <input
-              type="text"
-              id="new-member-name-2"
-              class="text-input"
-              placeholder="نام عضو جدید"
-            />
-            <button class="action-btn" id="btn-add-member-2">
-              <svg style="width: 16px; height: 16px">
-                <use href="#i-plus" />
-              </svg>
-              افزودن
-            </button>
+
+          <!-- دعوت عضو جدید -->
+          <div class="invite-box">
+            <p class="invite-title">دعوت عضو جدید</p>
+            <p class="invite-sub">
+              لینک یا QR را برای عضو خانواده بفرستید تا ثبت‌نام کند
+            </p>
+            <div class="invite-actions">
+              <button class="action-btn" id="btn-invite-link">
+                <svg style="width: 16px; height: 16px">
+                  <use href="#i-share" />
+                </svg>
+                ساخت لینک
+              </button>
+              <button class="action-btn" id="btn-invite-qr">
+                <svg style="width: 16px; height: 16px">
+                  <use href="#i-qr" />
+                </svg>
+                نمایش QR
+              </button>
+            </div>
           </div>
         </div>
 
@@ -777,7 +878,7 @@
           </div>
         </div>
 
-        <p class="version-tag">نسخه ۲.۰.۰ — Supabase + PWA</p>
+        <p class="version-tag">نسخه ۳.۰.۰ — ورود با موبایل + دعوت QR</p>
       </div>
     </section>
 
@@ -897,6 +998,40 @@
       </div>
     </div>
 
+    <!-- ═══════════ مودال دعوت عضو (لینک + QR) ═══════════ -->
+    <div id="modal-invite" class="modal-overlay hidden">
+      <div class="modal-sheet invite-sheet">
+        <div class="modal-grabber"></div>
+        <div class="pending-head">
+          <h3>دعوت عضو جدید</h3>
+          <span class="badge" id="invite-family-badge">—</span>
+        </div>
+
+        <div class="invite-qr-wrap">
+          <canvas id="invite-qr-canvas"></canvas>
+        </div>
+
+        <p class="invite-link-label">لینک دعوت:</p>
+        <div class="invite-link-row">
+          <input
+            type="text"
+            id="invite-link-input"
+            class="text-input"
+            readonly
+            dir="ltr"
+          />
+          <button class="action-btn" id="btn-copy-invite">کپی</button>
+        </div>
+        <button class="btn-ghost btn-block" id="btn-share-invite">
+          اشتراک‌گذاری لینک
+        </button>
+
+        <div class="modal-actions">
+          <button class="btn-secondary" id="btn-close-invite">بستن</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ═══════════ Toast ═══════════ -->
     <div id="toast" class="toast hidden" role="status"></div>
 
@@ -923,6 +1058,7 @@
     <script src="js/config.js"></script>
     <script src="js/jalali.js"></script>
     <script src="js/sms-parser.js"></script>
+    <script src="js/qrcode.min.js"></script>
     <script src="js/db.js"></script>
     <script src="js/charts.js"></script>
     <script src="js/app.js"></script>

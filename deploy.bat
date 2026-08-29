@@ -86,7 +86,7 @@ git config user.email "!GIT_EMAIL!"
 
 :git_id_ok
 git add -A
-git commit -m "Mali-Man v2.0 - Supabase + family + SMS" >nul 2>nul
+git commit -m "Mali-Man v3.0 - phone auth + OTP + QR invite" >nul 2>nul
 git branch -M main
 
 REM ── اتصال به مخزن راه دور ──

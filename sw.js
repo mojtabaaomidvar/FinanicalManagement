@@ -3,7 +3,7 @@
    استراتژی: cache-first برای شل اپلیکیشن
    ═══════════════════════════════════════════════ */
 
-const CACHE_NAME = "mali-man-v2";
+const CACHE_NAME = "mali-man-v3";
 
 const ASSETS = [
   "./",
@@ -13,6 +13,7 @@ const ASSETS = [
   "./js/config.js",
   "./js/jalali.js",
   "./js/sms-parser.js",
+  "./js/qrcode.min.js",
   "./js/db.js",
   "./js/charts.js",
   "./js/app.js",

@@ -1,136 +1,216 @@
-/* تست یکپارچگی — اجرای همه اسکریپت‌ها در محیط شبیه‌سازی‌شده */
+/* ═══════════════════════════════════════════════
+   تست یکپارچگی — همه اسکریپت‌ها را با DOM ساختگی
+   در یک اسکوپ مشترک بارگذاری و API ها را بررسی می‌کند
+   اجرا: node tools/integration-test.js
+   ═══════════════════════════════════════════════ */
+
 const fs = require("fs");
 const path = require("path");
+const vm = require("vm");
 
-const ROOT = path.join(__dirname, "..");
-
-/* Mock browser environment */
-const elements = {};
-function makeEl(id) {
-  return {
-    id,
-    innerHTML: "",
-    textContent: "",
-    value: "",
-    checked: false,
+/* ── DOM ساختگی ── */
+function makeEl() {
+  const el = {
     style: {},
     dataset: {},
     classList: {
-      _set: new Set(),
-      add(c) {
-        this._set.add(c);
-      },
-      remove(c) {
-        this._set.delete(c);
-      },
-      toggle(c, f) {
-        if (f) this._set.add(c);
-        else this._set.delete(c);
-      },
-      contains(c) {
-        return this._set.has(c);
+      add() {},
+      remove() {},
+      toggle() {},
+      contains() {
+        return false;
       },
     },
     addEventListener() {},
+    removeEventListener() {},
+    appendChild() {},
+    remove() {},
+    focus() {},
+    select() {},
+    click() {},
+    setAttribute() {},
+    getAttribute() {
+      return null;
+    },
+    querySelector() {
+      return makeEl();
+    },
     querySelectorAll() {
       return [];
     },
-    querySelector() {
-      return null;
+    getContext() {
+      return { fillRect() {}, set fillStyle(v) {} };
     },
-    focus() {},
-    files: [],
+    innerHTML: "",
+    textContent: "",
+    value: "",
+    width: 0,
+    height: 0,
   };
+  return el;
 }
 
-global.document = {
-  querySelector(sel) {
-    if (!elements[sel]) elements[sel] = makeEl(sel);
-    return elements[sel];
+const sandbox = {
+  console,
+  window: { devicePixelRatio: 2, addEventListener() {} },
+  document: {
+    querySelector: () => makeEl(),
+    querySelectorAll: () => [],
+    getElementById: () => makeEl(),
+    createElement: () => makeEl(),
+    addEventListener() {},
+    documentElement: { dataset: {} },
+    body: { style: {} },
   },
-  querySelectorAll() {
-    return [];
+  navigator: { serviceWorker: undefined },
+  localStorage: {
+    _s: {},
+    getItem(k) {
+      return this._s[k] ?? null;
+    },
+    setItem(k, v) {
+      this._s[k] = String(v);
+    },
+    removeItem(k) {
+      delete this._s[k];
+    },
   },
-  addEventListener() {},
-  documentElement: { dataset: {} },
-  createElement() {
-    return makeEl("tmp");
+  location: {
+    origin: "https://test.app",
+    pathname: "/",
+    search: "",
+    reload() {},
   },
-  body: { style: {} },
+  URLSearchParams,
+  fetch: async () => ({ ok: false, status: 404, json: async () => ({}) }),
+  crypto: {
+    subtle: {
+      digest: async (alg, data) => {
+        /* هش ساختگی برای تست */
+        return new Uint8Array(32).fill(1);
+      },
+    },
+  },
+  TextEncoder,
+  Blob: class {},
+  setTimeout,
+  clearTimeout,
+  setInterval,
+  clearInterval,
 };
-global.window = { scrollTo() {}, addEventListener() {} };
-global.navigator = {};
-global.localStorage = {
-  getItem: () => null,
-  setItem: () => {},
-  removeItem: () => {},
-};
-global.location = { reload() {} };
-global.confirm = () => true;
-global.fetch = async () => ({
-  ok: true,
-  text: async () => "[]",
-  json: async () => ({}),
-});
+sandbox.window.localStorage = sandbox.localStorage;
 
-/* Load all scripts in one shared scope */
-const FILES = [
+vm.createContext(sandbox);
+
+/* ── بارگذاری اسکریپت‌ها به ترتیب ── */
+const ROOT = path.join(__dirname, "..");
+const scripts = [
   "js/config.js",
   "js/jalali.js",
   "js/sms-parser.js",
+  "js/qrcode.min.js",
   "js/db.js",
   "js/charts.js",
   "js/app.js",
 ];
 
-const combined = FILES.map((f) =>
-  fs.readFileSync(path.join(ROOT, f), "utf8"),
-).join("\n;\n");
-
-const run = new Function(
-  "window",
-  "document",
-  "navigator",
-  "localStorage",
-  "location",
-  "fetch",
-  "confirm",
-  "globalThis",
-  combined + "\n;return { DB, SmsParser, Jalali, Charts, SUPABASE_CONFIG };",
-);
-
-try {
-  const api = run(
-    global.window,
-    global.document,
-    global.navigator,
-    global.localStorage,
-    global.location,
-    global.fetch,
-    global.confirm,
-    global,
-  );
-  console.log("ALL_SCRIPTS_LOADED_OK");
-  console.log("DB API:", Object.keys(api.DB).join(", "));
-  console.log("SmsParser API:", Object.keys(api.SmsParser).join(", "));
-
-  /* تست پارس پیامک */
-  const p = api.SmsParser.parse(
-    "بانک ملت;برداشت مبلغ 250,000 ریال;مانده حساب:12,500,000 ریال;1404/06/15-14:30",
-  );
-  console.log(
-    "SMS parse:",
-    JSON.stringify({
-      type: p.type,
-      bank: p.bank,
-      amount: p.amount,
-      balance: p.balance,
-      date: p.date ? p.date.jalali : null,
-      category: p.category,
-    }),
-  );
-} catch (e) {
-  console.error("LOAD_ERROR:", e.message);
-  console.error(e.stack);
-  process.exit(1);
+for (const s of scripts) {
+  const code = fs.readFileSync(path.join(ROOT, s), "utf8");
+  try {
+    vm.runInContext(code, sandbox, { filename: s });
+    console.log("LOADED:", s);
+  } catch (e) {
+    console.error("FAILED:", s, "→", e.message);
+    process.exit(1);
+  }
 }
+
+/* ── استخراج متغیرهای سراسری (const در vm اسکوپ‌بسته است) ── */
+const G = vm.runInContext("({ DB, SmsParser, Jalali, qrcode })", sandbox);
+
+/* ── بررسی API ها ── */
+const checks = [
+  ["DB.getSession", () => typeof G.DB.getSession === "function"],
+  ["DB.setSession", () => typeof G.DB.setSession === "function"],
+  ["DB.clearSession", () => typeof G.DB.clearSession === "function"],
+  ["DB.normalizePhone", () => typeof G.DB.normalizePhone === "function"],
+  ["DB.hashPassword", () => typeof G.DB.hashPassword === "function"],
+  ["DB.requestOtp", () => typeof G.DB.requestOtp === "function"],
+  ["DB.checkPassword", () => typeof G.DB.checkPassword === "function"],
+  ["DB.loginWithOtp", () => typeof G.DB.loginWithOtp === "function"],
+  ["DB.register", () => typeof G.DB.register === "function"],
+  ["DB.createInvite", () => typeof G.DB.createInvite === "function"],
+  ["DB.getInvite", () => typeof G.DB.getInvite === "function"],
+  ["DB.acceptInvite", () => typeof G.DB.acceptInvite === "function"],
+  ["DB.getFamilyById", () => typeof G.DB.getFamilyById === "function"],
+  ["DB.getMembers", () => typeof G.DB.getMembers === "function"],
+  [
+    "DB.getTransactions",
+    () => typeof G.DB.getTransactions === "function",
+  ],
+  ["DB.addTx", () => typeof G.DB.addTx === "function"],
+  ["DB.updateTx", () => typeof G.DB.updateTx === "function"],
+  ["DB.deleteTx", () => typeof G.DB.deleteTx === "function"],
+  ["DB.getSms", () => typeof G.DB.getSms === "function"],
+  ["DB.addSms", () => typeof G.DB.addSms === "function"],
+  ["DB.updateSms", () => typeof G.DB.updateSms === "function"],
+  [
+    "DB.getFamilySettings",
+    () => typeof G.DB.getFamilySettings === "function",
+  ],
+  [
+    "DB.saveFamilySettings",
+    () => typeof G.DB.saveFamilySettings === "function",
+  ],
+  ["qrcode fn", () => typeof G.qrcode === "function"],
+  ["SmsParser.parse", () => typeof G.SmsParser.parse === "function"],
+  ["Jalali.today", () => typeof G.Jalali.today === "function"],
+];
+
+let failed = 0;
+for (const [name, fn] of checks) {
+  try {
+    const ok = fn();
+    console.log(ok ? "  ✓" : "  ✗", name);
+    if (!ok) failed++;
+  } catch (e) {
+    console.log("  ✗", name, "→", e.message);
+    failed++;
+  }
+}
+
+/* ── تست نرمال‌سازی شماره ── */
+const phones = [
+  ["09123456789", "09123456789"],
+  ["۹۱۲۳۴۵۶۷۸۹", ""] /* بدون صفر — نامعتبر */,
+  ["+989123456789", "09123456789"],
+  ["00989123456789", "09123456789"],
+  ["989123456789", "09123456789"],
+  ["0912", ""],
+];
+for (const [inp, want] of phones) {
+  const got = G.DB.normalizePhone(inp);
+  const ok = got === want;
+  console.log(ok ? "  ✓" : "  ✗", `phone(${inp}) = ${got || "''"}`);
+  if (!ok) failed++;
+}
+
+/* ── تست پارس پیامک ── */
+const sms = G.SmsParser.parse(
+  "بانک ملت؛ برداشت مبلغ ۲۵۰,۰۰۰ ریال؛ مانده حساب ۱۲,۵۰۰,۰۰۰؛ ۱۴۰۴/۰۶/۱۵-۱۴:۳۰",
+);
+console.log("  SMS:", JSON.stringify(sms));
+if (sms.type !== "expense" || sms.amount !== 250000) {
+  console.error("SMS parse failed");
+  failed++;
+}
+
+/* ── تست QR ── */
+const qr = G.qrcode(0, "M");
+qr.addData("https://example.com/?invite=abc");
+qr.make();
+console.log("  QR modules:", qr.getModuleCount());
+if (qr.getModuleCount() < 21) failed++;
+
+console.log(failed === 0 ? "\nALL_CHECKS_PASSED" : `\n${failed} CHECKS FAILED`);
+process.exit(failed === 0 ? 0 : 1);

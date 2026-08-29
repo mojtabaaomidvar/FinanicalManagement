@@ -882,110 +882,293 @@
     navigate("auth");
   }
 
+  /* ─────────── ورود / ثبت‌نام (موبایل + رمز + OTP) ─────────── */
+
+  /* وضعیت جریان OTP:
+     { mode: 'login' | 'register' | 'invite',
+       phone, password, familyName, memberName, inviteToken } */
+  let otpFlow = null;
+
+  function showOtpStep(phone) {
+    $("#auth-step-1").classList.add("hidden");
+    $("#auth-step-2").classList.remove("hidden");
+    $("#otp-phone").textContent = Jalali.toFa(phone);
+    $("#otp-input").value = "";
+    $("#otp-dev-hint").classList.add("hidden");
+    setTimeout(() => $("#otp-input").focus(), 100);
+  }
+
+  function showAuthStep1() {
+    $("#auth-step-2").classList.add("hidden");
+    $("#auth-step-1").classList.remove("hidden");
+  }
+
+  async function sendOtp(flow) {
+    try {
+      const r = await DB.requestOtp(flow.phone);
+      otpFlow = flow;
+      showOtpStep(flow.phone);
+
+      /* حالت توسعه: کد واقعی برمی‌گردد */
+      if (r.devCode) {
+        const hint = $("#otp-dev-hint");
+        hint.textContent = "حالت توسعه — کد تأیید: " + Jalali.toFa(r.devCode);
+        hint.classList.remove("hidden");
+      } else {
+        toast("کد تأیید پیامک شد");
+      }
+    } catch (e) {
+      if (/TOO_SOON/.test(e.message)) {
+        toast("لطفاً یک دقیقه صبر کنید و دوباره تلاش کنید");
+      } else {
+        toast(e.message || "خطا در ارسال کد");
+      }
+    }
+  }
+
   async function handleLogin(e) {
     e.preventDefault();
-    const code = Jalali.toEn($("#login-code").value).replace(/\D/g, "");
-    if (code.length !== 6) {
-      toast("کد خانواده ۶ رقمی است");
+    const phone = DB.normalizePhone(Jalali.toEn($("#login-phone").value));
+    const password = $("#login-password").value;
+
+    if (!phone) {
+      toast("شماره موبایل معتبر نیست (مثل ۰۹۱۲۳۴۵۶۷۸۹)");
+      return;
+    }
+    if (!password) {
+      toast("رمز عبور را وارد کنید");
       return;
     }
 
     try {
-      const family = await DB.getFamilyByCode(code);
-      if (!family) {
-        toast("خانواده‌ای با این کد یافت نشد");
+      /* مرحله ۱: بررسی شماره + رمز */
+      const ok = await DB.checkPassword(phone, password);
+      if (!ok) {
+        toast("شماره موبایل یا رمز عبور اشتباه است");
         return;
       }
-      state.family = family;
-      DB.setSession({ familyId: family.id, familyCode: family.code });
-      await showMemberSelect();
+      /* مرحله ۲: ارسال OTP */
+      await sendOtp({ mode: "login", phone, password });
     } catch (err) {
       toast(err.message || "خطا در ارتباط با سرور");
     }
   }
 
-  async function handleCreate(e) {
+  async function handleRegister(e) {
     e.preventDefault();
-    const familyName = $("#create-family").value.trim();
-    const ownerName = $("#create-name").value.trim();
-    if (!familyName || !ownerName) {
+    const familyName = $("#reg-family").value.trim();
+    const memberName = $("#reg-name").value.trim();
+    const phone = DB.normalizePhone(Jalali.toEn($("#reg-phone").value));
+    const password = $("#reg-password").value;
+
+    if (!familyName || !memberName) {
       toast("نام خانواده و نام شما را وارد کنید");
       return;
     }
-
-    try {
-      const { family, member } = await DB.createFamily(familyName, ownerName);
-      state.family = family;
-      state.members = [member];
-      DB.setSession({ familyId: family.id, familyCode: family.code });
-      toast("خانواده ساخته شد — کد دعوت: " + family.code);
-      await showMemberSelect();
-    } catch (err) {
-      toast(err.message || "خطا در ساخت خانواده");
+    if (!phone) {
+      toast("شماره موبایل معتبر نیست (مثل ۰۹۱۲۳۴۵۶۷۸۹)");
+      return;
     }
-  }
-
-  /* ─────────── انتخاب عضو ─────────── */
-
-  async function showMemberSelect() {
-    try {
-      state.members = await DB.getMembers(state.family.id);
-    } catch {
-      /* از state فعلی استفاده کن */
+    if (password.length < 4) {
+      toast("رمز عبور حداقل ۴ کاراکتر باشد");
+      return;
     }
-    $("#member-family-name").textContent =
-      state.family.name + " · کد " + state.family.code;
-    renderMemberList();
-    navigate("member");
-  }
 
-  function renderMemberList() {
-    const el = $("#member-list");
-    el.innerHTML = state.members.length
-      ? state.members
-          .map(
-            (m) => `
-        <button class="member-card" data-member="${m.id}">
-          <span class="member-avatar">${esc(m.name.charAt(0))}</span>
-          <div>
-            <h4>${esc(m.name)}</h4>
-            <p>${m.role === "owner" ? "مدیر خانواده" : "عضو"}</p>
-          </div>
-          <span class="chev"><svg><use href="#i-arrow-l"/></svg></span>
-        </button>`,
-          )
-          .join("")
-      : `<div class="empty-members">هنوز عضوی ثبت نشده است</div>`;
-
-    $$("#member-list .member-card").forEach((b) => {
-      b.addEventListener("click", () => selectMember(b.dataset.member));
+    await sendOtp({
+      mode: "register",
+      phone,
+      password,
+      familyName,
+      memberName,
     });
   }
 
-  async function selectMember(memberId) {
-    state.memberId = memberId;
-    const session = DB.getSession() || {};
-    DB.setSession({ ...session, memberId });
+  async function handleOtp(e) {
+    e.preventDefault();
+    if (!otpFlow) return showAuthStep1();
+
+    const code = Jalali.toEn($("#otp-input").value).replace(/\D/g, "");
+    if (code.length !== 6) {
+      toast("کد ۶ رقمی را وارد کنید");
+      return;
+    }
+
+    try {
+      if (otpFlow.mode === "login") {
+        /* ورود: تأیید OTP → عضو + خانواده */
+        const r = await DB.loginWithOtp(otpFlow.phone, code);
+        await startSession(r.member, r.family);
+      } else if (otpFlow.mode === "register") {
+        /* ثبت‌نام: ساخت خانواده + عضو مدیر */
+        const r = await DB.register(
+          otpFlow.familyName,
+          otpFlow.memberName,
+          otpFlow.phone,
+          otpFlow.password,
+        );
+        toast("خانواده ساخته شد — خوش آمدید");
+        await startSession(r.member, r.family);
+      } else if (otpFlow.mode === "invite") {
+        /* پذیرش دعوت: عضویت در خانواده */
+        const r = await DB.acceptInvite(
+          otpFlow.inviteToken,
+          otpFlow.memberName,
+          otpFlow.phone,
+          otpFlow.password,
+        );
+        const family = await DB.getFamilyById(r.member.family_id);
+        toast("به خانواده خوش آمدید");
+        await startSession(r.member, family);
+      }
+      otpFlow = null;
+    } catch (err) {
+      toast(err.message || "خطا در تأیید کد");
+    }
+  }
+
+  async function startSession(member, family) {
+    state.family = family;
+    state.memberId = member.id;
+    DB.setSession({
+      memberId: member.id,
+      memberName: member.name,
+      familyId: family.id,
+      familyName: family.name,
+      phone: member.phone,
+      role: member.role,
+    });
     await enterApp();
   }
 
-  async function addMemberFrom(inputSel) {
-    const input = $(inputSel);
-    const name = input.value.trim();
-    if (!name) {
-      toast("نام عضو را وارد کنید");
+  /* ─────────── دعوت با لینک / QR ─────────── */
+
+  async function handleInvitePage(token) {
+    try {
+      const inv = await DB.getInvite(token);
+      $("#invite-family-name").textContent =
+        "شما به خانواده «" + inv.family_name + "» دعوت شده‌اید";
+      state.inviteToken = token;
+      navigate("invite");
+    } catch {
+      toast("لینک دعوت نامعتبر یا منقضی شده است");
+      navigate("auth");
+    }
+  }
+
+  async function handleInviteSubmit(e) {
+    e.preventDefault();
+    const memberName = $("#inv-name").value.trim();
+    const phone = DB.normalizePhone(Jalali.toEn($("#inv-phone").value));
+    const password = $("#inv-password").value;
+
+    if (!memberName) {
+      toast("نام خود را وارد کنید");
       return;
     }
+    if (!phone) {
+      toast("شماره موبایل معتبر نیست (مثل ۰۹۱۲۳۴۵۶۷۸۹)");
+      return;
+    }
+    if (password.length < 4) {
+      toast("رمز عبور حداقل ۴ کاراکتر باشد");
+      return;
+    }
+
+    await sendOtp({
+      mode: "invite",
+      phone,
+      password,
+      memberName,
+      inviteToken: state.inviteToken,
+    });
+  }
+
+  /* ساخت لینک دعوت + نمایش QR */
+  async function openInviteModal() {
     try {
-      const m = await DB.addMember(state.family.id, name);
-      state.members.push(m);
-      input.value = "";
-      renderMemberList();
-      renderSettings();
-      renderMemberChips();
-      toast("عضو اضافه شد");
+      const token = await DB.createInvite(state.family.id);
+      const link =
+        location.origin +
+        location.pathname +
+        "?invite=" +
+        encodeURIComponent(token);
+
+      $("#invite-link-input").value = link;
+      $("#invite-family-badge").textContent = state.family.name;
+      drawQr(link);
+      $("#modal-invite").classList.remove("hidden");
+      document.body.style.overflow = "hidden";
     } catch (e) {
-      toast(e.message || "خطا در افزودن عضو");
+      toast(e.message || "خطا در ساخت لینک دعوت");
+    }
+  }
+
+  function closeInviteModal() {
+    $("#modal-invite").classList.add("hidden");
+    document.body.style.overflow = "";
+  }
+
+  /* رسم QR روی canvas با کتابخانه qrcode-generator */
+  function drawQr(text) {
+    const canvas = $("#invite-qr-canvas");
+    const size = 220;
+    const dpr = window.devicePixelRatio || 1;
+
+    const qr = qrcode(0, "M");
+    qr.addData(text);
+    qr.make();
+
+    const count = qr.getModuleCount();
+    const cell = Math.floor((size * dpr) / (count + 4)); /* +quiet zone */
+    const offset = Math.floor((size * dpr - cell * count) / 2);
+
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+    canvas.style.width = size + "px";
+    canvas.style.height = size + "px";
+
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#0b0d12";
+    for (let r = 0; r < count; r++) {
+      for (let c = 0; c < count; c++) {
+        if (qr.isDark(r, c)) {
+          ctx.fillRect(offset + c * cell, offset + r * cell, cell, cell);
+        }
+      }
+    }
+  }
+
+  async function copyInviteLink() {
+    const link = $("#invite-link-input").value;
+    try {
+      await navigator.clipboard.writeText(link);
+      toast("لینک کپی شد");
+    } catch {
+      /* fallback */
+      const el = $("#invite-link-input");
+      el.select();
+      document.execCommand("copy");
+      toast("لینک کپی شد");
+    }
+  }
+
+  async function shareInviteLink() {
+    const link = $("#invite-link-input").value;
+    const family = state.family?.name || "خانواده";
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "دعوت به مالی من",
+          text: "به خانواده «" + family + "» در اپ مالی من بپیوندید:",
+          url: link,
+        });
+      } catch {
+        /* لغو توسط کاربر */
+      }
+    } else {
+      copyInviteLink();
     }
   }
 
@@ -1092,24 +1275,23 @@
           x.classList.toggle("active", x === b),
         );
         $("#form-login").classList.toggle("hidden", b.dataset.mode !== "login");
-        $("#form-create").classList.toggle(
+        $("#form-register").classList.toggle(
           "hidden",
-          b.dataset.mode !== "create",
+          b.dataset.mode !== "register",
         );
       });
     });
 
     $("#form-login").addEventListener("submit", handleLogin);
-    $("#form-create").addEventListener("submit", handleCreate);
-
-    /* ── انتخاب عضو ── */
-    $("#btn-logout").addEventListener("click", logout);
-    $("#btn-add-member").addEventListener("click", () =>
-      addMemberFrom("#new-member-name"),
-    );
-    $("#new-member-name").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") addMemberFrom("#new-member-name");
+    $("#form-register").addEventListener("submit", handleRegister);
+    $("#form-otp").addEventListener("submit", handleOtp);
+    $("#btn-otp-back").addEventListener("click", showAuthStep1);
+    $("#btn-otp-resend").addEventListener("click", () => {
+      if (otpFlow) sendOtp(otpFlow);
     });
+
+    /* ── صفحه دعوت ── */
+    $("#form-invite").addEventListener("submit", handleInviteSubmit);
 
     /* ── ناوبری ── */
     $$(".tab-btn, [data-nav]").forEach((b) => {
@@ -1118,7 +1300,6 @@
 
     /* ── هدر داشبورد ── */
     $("#btn-sms-import").addEventListener("click", openSmsModal);
-    $("#btn-switch-member").addEventListener("click", showMemberSelect);
 
     /* ── فیلتر تراکنش‌ها ── */
     $$("#tx-filter .seg-btn").forEach((b) => {
@@ -1237,12 +1418,15 @@
       saveSettingsSoon();
     });
 
-    $("#btn-add-member-2").addEventListener("click", () =>
-      addMemberFrom("#new-member-name-2"),
-    );
-    $("#new-member-name-2").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") addMemberFrom("#new-member-name-2");
+    /* ── دعوت عضو ── */
+    $("#btn-invite-link").addEventListener("click", openInviteModal);
+    $("#btn-invite-qr").addEventListener("click", openInviteModal);
+    $("#btn-close-invite").addEventListener("click", closeInviteModal);
+    $("#modal-invite").addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) closeInviteModal();
     });
+    $("#btn-copy-invite").addEventListener("click", copyInviteLink);
+    $("#btn-share-invite").addEventListener("click", shareInviteLink);
 
     /* ── خروجی / خروج ── */
     $("#btn-export").addEventListener("click", exportJson);
@@ -1255,6 +1439,7 @@
         closeModal();
         closeSmsModal();
         closePendingModal();
+        closeInviteModal();
       }
     });
   }
@@ -1279,6 +1464,13 @@
       navigator.serviceWorker.register("sw.js").catch(() => {});
     }
 
+    /* لینک دعوت؟ → صفحه پذیرش دعوت */
+    const inviteToken = new URLSearchParams(location.search).get("invite");
+    if (inviteToken) {
+      await handleInvitePage(inviteToken);
+      return;
+    }
+
     /* بررسی نشست */
     const session = DB.getSession();
     if (!session) {
@@ -1287,24 +1479,23 @@
     }
 
     try {
-      const family = await DB.getFamilyByCode(session.familyCode);
+      const family = await DB.getFamilyById(session.familyId);
       if (!family) {
         DB.clearSession();
         showAuth();
         return;
       }
       state.family = family;
+      state.memberId = session.memberId;
 
-      if (session.memberId) {
-        const members = await DB.getMembers(family.id);
-        state.members = members;
-        if (members.find((m) => m.id === session.memberId)) {
-          state.memberId = session.memberId;
-          await enterApp();
-          return;
-        }
+      const members = await DB.getMembers(family.id);
+      if (!members.find((m) => m.id === session.memberId)) {
+        DB.clearSession();
+        showAuth();
+        return;
       }
-      await showMemberSelect();
+      state.members = members;
+      await enterApp();
     } catch (e) {
       toast(e.message || "خطا در ارتباط با سرور");
       showAuth();

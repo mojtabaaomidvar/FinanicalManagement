@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(get-childitem *)",
+      "Bash(where-object *)",
+      "Bash(select-object *)"
+    ]
+  },
+  "$version": 4
+}
