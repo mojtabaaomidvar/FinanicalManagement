@@ -1,6 +1,6 @@
 -- ═══════════════════════════════════════════════════════════
--- مالی من — اسکیمای Supabase (PostgreSQL) — نسخه ۳.۲
--- ورود با شماره موبایل + رمز (کد پیامکی اختیاری)
+-- مالی من — اسکیمای Supabase (PostgreSQL) — نسخه ۳.۳
+-- ورود با شماره موبایل + رمز (کد پیامکی اختیاری) + کارت‌ها/حساب‌ها
 --
 -- اجرا در: Supabase Dashboard → SQL Editor → New query → Run
 -- (روی پروژه جدید یا قبلی قابل اجراست — idempotent)
@@ -819,6 +819,118 @@ begin
       currency = coalesce(nullif(btrim(coalesce(p_currency, '')), ''), 'تومان'),
       dark     = coalesce(p_dark, true)
   where id = public._family_id(p_token);
+
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+end $$;
+
+-- ═══════════════════════════════════════════════════════════
+-- کارت‌ها و حساب‌های بانکی
+-- ═══════════════════════════════════════════════════════════
+
+create table if not exists public.accounts (
+  id             uuid primary key default gen_random_uuid(),
+  family_id      uuid not null references public.families(id) on delete cascade,
+  member_id      uuid not null references public.members(id) on delete cascade,
+  title          text not null,                    -- نام دلخواه (مثل «کارت اصلی من»)
+  bank           text,                             -- نام بانک
+  card_number    text,                             -- ۱۶ رقم (اختیاری)
+  account_number text,                             -- شماره حساب (اختیاری)
+  sheba          text,                             -- شبا IR + ۲۴ رقم (اختیاری)
+  created_at     timestamptz not null default now()
+);
+
+create index if not exists idx_accounts_family on public.accounts(family_id);
+
+alter table public.accounts enable row level security;
+-- بدون پالیسی → دسترسی فقط از طریق RPC
+
+-- حذف نسخه‌های قدیمی در صورت تغییر امضا
+drop function if exists public.list_accounts(text);
+drop function if exists public.add_account(text, uuid, text, text, text, text, text);
+drop function if exists public.delete_account(text, uuid);
+
+-- همه کارت‌های خانواده
+create or replace function public.list_accounts(p_token text)
+returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+begin
+  v_family_id := public._family_id(p_token);
+  return coalesce((
+    select json_agg(row_to_json(a))
+    from (
+      select * from public.accounts
+      where family_id = v_family_id
+      order by created_at asc
+    ) a
+  ), '[]'::json);
+end $$;
+
+-- افزودن کارت/حساب (اعتبارسنجی کامل سمت سرور)
+create or replace function public.add_account(
+  p_token text, p_member_id uuid, p_title text, p_bank text,
+  p_card_number text, p_account_number text, p_sheba text
+) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+  v_row public.accounts;
+  v_card text;
+  v_sheba text;
+  v_account_no text;
+begin
+  v_family_id := public._family_id(p_token);
+
+  if p_title is null or btrim(p_title) = '' then
+    raise exception 'INVALID_TITLE';
+  end if;
+  if length(btrim(p_title)) > 40 then
+    raise exception 'INVALID_TITLE';
+  end if;
+  if not exists (select 1 from public.members
+                 where id = p_member_id and family_id = v_family_id) then
+    raise exception 'INVALID_MEMBER';
+  end if;
+
+  v_card      := nullif(regexp_replace(coalesce(p_card_number, ''), '[^0-9]', '', 'g'), '');
+  v_account_no := nullif(regexp_replace(coalesce(p_account_number, ''), '[^0-9]', '', 'g'), '');
+  v_sheba     := upper(regexp_replace(coalesce(p_sheba, ''), '[^0-9a-zA-Z]', '', 'g'));
+
+  if v_card is not null and v_card !~ '^\d{16}$' then
+    raise exception 'INVALID_CARD';
+  end if;
+  if v_sheba is not null and v_sheba !~ '^IR\d{24}$' then
+    raise exception 'INVALID_SHEBA';
+  end if;
+  if v_account_no is not null and v_account_no !~ '^\d{5,20}$' then
+    raise exception 'INVALID_ACCOUNT_NO';
+  end if;
+  if v_card is null and v_account_no is null and v_sheba is null then
+    raise exception 'EMPTY_ACCOUNT';
+  end if;
+
+  insert into public.accounts
+    (family_id, member_id, title, bank, card_number, account_number, sheba)
+  values
+    (v_family_id, p_member_id, btrim(p_title),
+     nullif(btrim(coalesce(p_bank, '')), ''),
+     v_card, v_account_no, v_sheba)
+  returning * into v_row;
+
+  return to_jsonb(v_row);
+end $$;
+
+-- حذف کارت/حساب (فقط کارت‌های خانواده خود کاربر)
+create or replace function public.delete_account(
+  p_token text, p_account_id uuid
+) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  delete from public.accounts
+  where id = p_account_id and family_id = public._family_id(p_token);
 
   if not found then
     raise exception 'NOT_FOUND';
