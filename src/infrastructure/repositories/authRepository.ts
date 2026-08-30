@@ -6,6 +6,7 @@ import type {
   InviteAcceptInput,
   InviteInfo,
   OtpRequestResult,
+  PublicAppConfig,
   RegisterInput,
   ValidatedSession,
 } from "@/domain/auth/auth.types";
@@ -37,6 +38,11 @@ export class SupabaseAuthRepository implements AuthRepository {
     };
   }
 
+  async getPublicConfig(): Promise<PublicAppConfig> {
+    const r = await rpc<{ otp_enabled?: boolean }>("get_public_config", {});
+    return { otpEnabled: !!r?.otp_enabled };
+  }
+
   async requestOtp(phone: string): Promise<OtpRequestResult> {
     /* ۱) تابع سرورless */
     const r = await sendOtpViaServerless(phone);
@@ -55,7 +61,7 @@ export class SupabaseAuthRepository implements AuthRepository {
     });
   }
 
-  async loginWithOtp(phone: string, code: string): Promise<AuthResult> {
+  async loginWithOtp(phone: string, code: string | null): Promise<AuthResult> {
     const r = await rpc<AuthResultRow>("auth_login", {
       p_phone: phone,
       p_code: code,
@@ -63,7 +69,7 @@ export class SupabaseAuthRepository implements AuthRepository {
     return this.mapAuth(r);
   }
 
-  async register(input: RegisterInput, otpCode: string): Promise<AuthResult> {
+  async register(input: RegisterInput, otpCode: string | null): Promise<AuthResult> {
     const hash = await hashPassword(input.phone, input.password);
     const r = await rpc<AuthResultRow>("auth_register", {
       p_family_name: input.familyName,
@@ -77,7 +83,7 @@ export class SupabaseAuthRepository implements AuthRepository {
 
   async acceptInvite(
     input: InviteAcceptInput,
-    otpCode: string,
+    otpCode: string | null,
   ): Promise<AuthResult> {
     const hash = await hashPassword(input.phone, input.password);
     const r = await rpc<AuthResultRow>("accept_invite", {

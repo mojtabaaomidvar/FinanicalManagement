@@ -45,3 +45,8 @@ export interface StoredSession {
   family: Family;
   token: string;
 }
+
+/** تنظیمات عمومی اپ — بدون نیاز به احراز هویت (مثل فعال بودن OTP) */
+export interface PublicAppConfig {
+  otpEnabled: boolean;
+}

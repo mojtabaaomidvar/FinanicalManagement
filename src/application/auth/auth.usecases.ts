@@ -6,10 +6,18 @@ import type {
   InviteAcceptInput,
   InviteInfo,
   OtpRequestResult,
+  PublicAppConfig,
   RegisterInput,
   ValidatedSession,
 } from "@/domain/auth/auth.types";
 import type { StoredSession } from "@/domain/auth/auth.types";
+
+export class GetPublicConfigUseCase {
+  constructor(private readonly auth: AuthRepository) {}
+  execute(): Promise<PublicAppConfig> {
+    return this.auth.getPublicConfig();
+  }
+}
 
 export class RequestOtpUseCase {
   constructor(private readonly auth: AuthRepository) {}
@@ -27,7 +35,7 @@ export class CheckPasswordUseCase {
 
 export class LoginWithOtpUseCase {
   constructor(private readonly auth: AuthRepository) {}
-  async execute(phone: string, code: string): Promise<AuthResult> {
+  async execute(phone: string, code: string | null): Promise<AuthResult> {
     const r = await this.auth.loginWithOtp(phone, code);
     return r;
   }
@@ -35,14 +43,14 @@ export class LoginWithOtpUseCase {
 
 export class RegisterUseCase {
   constructor(private readonly auth: AuthRepository) {}
-  execute(input: RegisterInput, otpCode: string): Promise<AuthResult> {
+  execute(input: RegisterInput, otpCode: string | null): Promise<AuthResult> {
     return this.auth.register(input, otpCode);
   }
 }
 
 export class AcceptInviteUseCase {
   constructor(private readonly auth: AuthRepository) {}
-  execute(input: InviteAcceptInput, otpCode: string): Promise<AuthResult> {
+  execute(input: InviteAcceptInput, otpCode: string | null): Promise<AuthResult> {
     return this.auth.acceptInvite(input, otpCode);
   }
 }

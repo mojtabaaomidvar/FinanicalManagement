@@ -5,6 +5,7 @@ import type {
   InviteAcceptInput,
   InviteInfo,
   OtpRequestResult,
+  PublicAppConfig,
   RegisterInput,
   StoredSession,
   ValidatedSession,
@@ -18,16 +19,18 @@ export interface SessionStore {
 }
 
 export interface AuthRepository {
+  /** تنظیمات عمومی (فعال بودن OTP و…) — بدون احراز هویت */
+  getPublicConfig(): Promise<PublicAppConfig>;
   /** درخواست کد OTP (سرورless، با fallback حالت توسعه) */
   requestOtp(phone: string): Promise<OtpRequestResult>;
   /** مرحله ۱ ورود: بررسی شماره + رمز */
   checkPassword(phone: string, password: string): Promise<boolean>;
-  /** مرحله ۲ ورود: تأیید OTP → نشست */
-  loginWithOtp(phone: string, code: string): Promise<AuthResult>;
-  /** ثبت‌نام — OTP سمت سرور اعتبارسنجی می‌شود */
-  register(input: RegisterInput, otpCode: string): Promise<AuthResult>;
-  /** پذیرش دعوت — OTP سمت سرور اعتبارسنجی می‌شود */
-  acceptInvite(input: InviteAcceptInput, otpCode: string): Promise<AuthResult>;
+  /** مرحله ۲ ورود: تأیید OTP → نشست (code=null وقتی OTP غیرفعال است) */
+  loginWithOtp(phone: string, code: string | null): Promise<AuthResult>;
+  /** ثبت‌نام — OTP سمت سرور اعتبارسنجی می‌شود (null = OTP غیرفعال) */
+  register(input: RegisterInput, otpCode: string | null): Promise<AuthResult>;
+  /** پذیرش دعوت — OTP سمت سرور اعتبارسنجی می‌شود (null = OTP غیرفعال) */
+  acceptInvite(input: InviteAcceptInput, otpCode: string | null): Promise<AuthResult>;
   /** اطلاعات دعوت‌نامه (نام خانواده) */
   getInvite(token: string): Promise<InviteInfo>;
   /** ساخت لینک دعوت جدید برای خانواده نشست فعلی */

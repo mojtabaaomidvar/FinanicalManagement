@@ -44,7 +44,7 @@ export function AuthFeature() {
                 className="auth-form"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  m.submitLogin();
+                  m.submitLogin(finish);
                 }}
               >
                 <Field label="شماره موبایل">
@@ -76,7 +76,7 @@ export function AuthFeature() {
                 className="auth-form"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  m.submitRegister();
+                  m.submitRegister(finish);
                 }}
               >
                 <Field label="نام خانواده">
@@ -172,7 +172,9 @@ export function AuthFeature() {
         )}
 
         <p className="auth-hint">
-          ورود دو مرحله‌ای: بعد از رمز عبور، کد تأیید پیامکی برای شما ارسال می‌شود.
+          {m.otpEnabled === false
+            ? "ورود با شماره موبایل و رمز عبور کافی است."
+            : "ورود دو مرحله‌ای: بعد از رمز عبور، کد تأیید پیامکی برای شما ارسال می‌شود."}
         </p>
       </div>
     </section>

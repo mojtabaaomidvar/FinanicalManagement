@@ -1,15 +1,17 @@
 -- ═══════════════════════════════════════════════════════════
--- مالی من — اسکیمای Supabase (PostgreSQL) — نسخه ۳.۱
--- ورود با شماره موبایل + رمز + تأیید دو مرحله‌ای پیامکی
+-- مالی من — اسکیمای Supabase (PostgreSQL) — نسخه ۳.۲
+-- ورود با شماره موبایل + رمز (کد پیامکی اختیاری)
 --
 -- اجرا در: Supabase Dashboard → SQL Editor → New query → Run
 -- (روی پروژه جدید یا قبلی قابل اجراست — idempotent)
 --
--- امنیت نسخه ۳.۱:
+-- امنیت نسخه ۳.۲:
 --   • هیچ جدولی مستقیماً از کلاینت قابل خواندن/نوشتن نیست (RLS بسته)
 --   • همه دسترسی‌ها از طریق توابع RPC با security definer
---   • نشست با توکن ۶۴ کاراکتری (انقضا ۶۰ روز)
---   • OTP برای ورود، ثبت‌نام و پذیرش دعوت اجباری است
+--   • نشست با توکن ۶۴ کاراکتری — ۷ روز پس از آخرین استفاده منقضی می‌شود
+--     (هر بار باز کردن اپ، اعتبار نشست تمدید می‌گردد)
+--   • کد OTP با کلید app_settings.otp_enabled قابل روشن/خاموش است
+--     (پیش‌فرض: خاموش) — در حالت روشن برای ورود/ثبت‌نام/دعوت اجباری است
 --   • قفل ۱۵ دقیقه‌ای پس از ۱۰ تلاش ناموفق (رمز یا کد)
 -- ═══════════════════════════════════════════════════════════
 
@@ -123,12 +125,18 @@ create table if not exists public.family_invites (
 create index if not exists idx_invites_family on public.family_invites(family_id);
 
 -- ─────────── تنظیمات سراسری اپ ───────────
--- dev_mode = true  → درخواست OTP مستقیم از کلاینت مجاز است (کد به کلاینت برمی‌گردد)
--- dev_mode = false → فقط تابع سرورless ارسال پیامک کار می‌کند (حالت تولید)
+-- dev_mode    = true  → درخواست OTP مستقیم از کلاینت مجاز است (کد به کلاینت برمی‌گردد)
+-- dev_mode    = false → فقط تابع سرورless ارسال پیامک کار می‌کند (حالت تولید)
+-- otp_enabled = false → ورود/ثبت‌نام/دعوت فقط با شماره + رمز (بدون کد پیامکی)
+-- otp_enabled = true  → کد پیامکی برای هر سه مسیر اجباری است
 create table if not exists public.app_settings (
-  id       integer primary key default 1 check (id = 1),
-  dev_mode boolean not null default true
+  id          integer primary key default 1 check (id = 1),
+  dev_mode    boolean not null default true,
+  otp_enabled boolean not null default false
 );
+
+-- مهاجرت از نسخه‌های قبلی (افزودن ستون otp_enabled)
+alter table public.app_settings add column if not exists otp_enabled boolean not null default false;
 
 insert into public.app_settings (id, dev_mode) values (1, true)
 on conflict (id) do nothing;
@@ -196,6 +204,7 @@ begin
 end $$;
 
 -- یافتن شناسه عضو از توکن نشست (یا خطا)
+-- نشست لغزان: هر استفاده، ۷ روز دیگر اعتبار می‌دهد — ۷ روز عدم فعالیت = خروج خودکار
 create or replace function public._session_member_id(p_token text)
 returns uuid
 language plpgsql security definer set search_path = public as $$
@@ -210,6 +219,11 @@ begin
   if v_member_id is null then
     raise exception 'SESSION_EXPIRED';
   end if;
+
+  update public.sessions
+  set expires_at = now() + interval '7 days'
+  where token = p_token;
+
   return v_member_id;
 end $$;
 
@@ -230,7 +244,7 @@ begin
   return v_family_id;
 end $$;
 
--- ساخت نشست جدید برای عضو → توکن
+-- ساخت نشست جدید برای عضو → توکن (اعتبار اولیه ۷ روز، با هر استفاده تمدید می‌شود)
 create or replace function public._create_session(p_member_id uuid)
 returns text
 language plpgsql security definer set search_path = public as $$
@@ -239,18 +253,25 @@ declare
 begin
   v_token := encode(gen_random_bytes(32), 'hex');
   insert into public.sessions (token, member_id, expires_at)
-  values (v_token, p_member_id, now() + interval '60 days');
+  values (v_token, p_member_id, now() + interval '7 days');
   return v_token;
 end $$;
 
 -- مصرف کد OTP (بررسی + used کردن) — با قفل ضد brute-force
+-- اگر OTP در app_settings خاموش باشد، بدون بررسی رد می‌شود
 create or replace function public._consume_otp(p_phone text, p_code text)
 returns void
 language plpgsql security definer set search_path = public as $$
 declare
   v_otp record;
   v_fails int;
+  v_otp_on boolean;
 begin
+  select otp_enabled into v_otp_on from public.app_settings where id = 1;
+  if v_otp_on is null or not v_otp_on then
+    return;  -- OTP غیرفعال است
+  end if;
+
   select count(*) into v_fails from public.auth_attempts
   where phone = p_phone and ok = false and created_at > now() - interval '15 minutes';
   if v_fails >= 10 then
@@ -270,6 +291,17 @@ begin
   update public.otp_codes set used = true where id = v_otp.id;
   delete from public.auth_attempts where phone = p_phone and ok = false;
 end $$;
+
+-- تنظیمات عمومی اپ (بدون نیاز به احراز هویت) — کلاینت از این می‌فهمد OTP فعال است یا نه
+create or replace function public.get_public_config()
+returns json
+language sql security definer set search_path = public as $$
+  select json_build_object(
+    'otp_enabled', coalesce(
+      (select otp_enabled from public.app_settings where id = 1), false
+    )
+  )
+$$;
 
 -- ═══════════════════════════════════════════════════════════
 -- توابع احراز هویت (RPC — security definer)

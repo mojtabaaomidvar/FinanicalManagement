@@ -6,6 +6,7 @@ import {
   CheckPasswordUseCase,
   CreateInviteUseCase,
   GetInviteUseCase,
+  GetPublicConfigUseCase,
   LoginWithOtpUseCase,
   LogoutUseCase,
   RegisterUseCase,
@@ -40,6 +41,7 @@ import {
 } from "./family/family.usecases";
 
 export interface UseCases {
+  getPublicConfig: GetPublicConfigUseCase;
   requestOtp: RequestOtpUseCase;
   checkPassword: CheckPasswordUseCase;
   loginWithOtp: LoginWithOtpUseCase;
@@ -75,6 +77,7 @@ export interface UseCases {
 
 export function createUseCases(c: Container): UseCases {
   return {
+    getPublicConfig: new GetPublicConfigUseCase(c.repos.auth),
     requestOtp: new RequestOtpUseCase(c.repos.auth),
     checkPassword: new CheckPasswordUseCase(c.repos.auth),
     loginWithOtp: new LoginWithOtpUseCase(c.repos.auth),

@@ -1,6 +1,8 @@
-/* مدل فیچر احراز هویت — state machine ورود/ثبت‌نام/OTP/دعوت */
+/* مدل فیچر احراز هویت — state machine ورود/ثبت‌نام/OTP/دعوت
+   OTP روی سرور قابل روشن/خاموش است (app_settings.otp_enabled)؛
+   در حالت خاموش همه مسیرها مستقیم و بدون کد پیامکی انجام می‌شوند */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { UseCases } from "@/application/useCases";
 import type { OtpFlowMode } from "@/domain/auth/auth.types";
 import { normalizePhone, isValidPassword, isValidOtpCode, cleanOtpCode } from "@/domain/auth/auth.rules";
@@ -43,6 +45,24 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
   const [invPhone, setInvPhone] = useState("");
   const [invPassword, setInvPassword] = useState("");
 
+  /* وضعیت OTP از تنظیمات سرور — null = هنوز نامشخص */
+  const [otpEnabled, setOtpEnabled] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    useCases.getPublicConfig
+      .execute()
+      .then((c) => {
+        if (alive) setOtpEnabled(c.otpEnabled);
+      })
+      .catch(() => {
+        if (alive) setOtpEnabled(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [useCases]);
+
   function resetOtp() {
     setStep("form");
     setOtpCode("");
@@ -73,7 +93,7 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
     }
   }
 
-  async function submitLogin() {
+  async function submitLogin(onDone: () => void | Promise<void>) {
     const phone = normalizePhone(toEn(loginPhone));
     if (!phone) return notify("شماره موبایل معتبر نیست (مثل ۰۹۱۲۳۴۵۶۷۸۹)");
     if (!loginPassword) return notify("رمز عبور را وارد کنید");
@@ -81,7 +101,24 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
     setBusy(true);
     try {
       const ok = await useCases.checkPassword.execute(phone, loginPassword);
-      if (!ok) return notify("شماره موبایل یا رمز عبور اشتباه است");
+      if (!ok) {
+        notify("شماره موبایل یا رمز عبور اشتباه است");
+        return;
+      }
+
+      /* OTP غیرفعال → ورود مستقیم */
+      if (otpEnabled === false) {
+        try {
+          const r = await useCases.loginWithOtp.execute(phone, null);
+          await useCases.saveSession.execute(r);
+          await onDone();
+          return;
+        } catch (e) {
+          if (!(e instanceof AppError && e.code === "INVALID_OTP")) throw e;
+          /* OTP روی سرور فعال است → ادامه با جریان کد */
+        }
+      }
+
       await sendOtp({ mode: "login", phone, password: loginPassword });
     } catch (e) {
       notify((e as Error).message || "خطا در ارتباط با سرور");
@@ -90,7 +127,7 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
     }
   }
 
-  async function submitRegister() {
+  async function submitRegister(onDone: () => void | Promise<void>) {
     const phone = normalizePhone(toEn(regPhone));
     if (!regFamily.trim() || !regName.trim())
       return notify("نام خانواده و نام شما را وارد کنید");
@@ -98,28 +135,82 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
     if (!isValidPassword(regPassword))
       return notify("رمز عبور حداقل ۴ کاراکتر باشد");
 
+    const input = {
+      familyName: regFamily.trim(),
+      memberName: regName.trim(),
+      phone,
+      password: regPassword,
+    };
+
+    /* OTP غیرفعال → ثبت‌نام مستقیم */
+    if (otpEnabled === false) {
+      setBusy(true);
+      try {
+        const r = await useCases.register.execute(input, null);
+        notify("خانواده ساخته شد — خوش آمدید");
+        await useCases.saveSession.execute(r);
+        await onDone();
+        return;
+      } catch (e) {
+        if (!(e instanceof AppError && e.code === "INVALID_OTP")) {
+          notify((e as Error).message || "خطا در ثبت‌نام");
+          return;
+        }
+        /* OTP روی سرور فعال است → ادامه با جریان کد */
+      } finally {
+        setBusy(false);
+      }
+    }
+
     await sendOtp({
       mode: "register",
       phone,
       password: regPassword,
-      familyName: regFamily.trim(),
-      memberName: regName.trim(),
+      familyName: input.familyName,
+      memberName: input.memberName,
     });
   }
 
-  async function submitInvite() {
+  async function submitInvite(onDone: () => void | Promise<void>) {
     const phone = normalizePhone(toEn(invPhone));
     if (!invName.trim()) return notify("نام خود را وارد کنید");
     if (!phone) return notify("شماره موبایل معتبر نیست (مثل ۰۹۱۲۳۴۵۶۷۸۹)");
     if (!isValidPassword(invPassword))
       return notify("رمز عبور حداقل ۴ کاراکتر باشد");
 
+    const input = {
+      inviteToken: inviteToken ?? "",
+      memberName: invName.trim(),
+      phone,
+      password: invPassword,
+    };
+
+    /* OTP غیرفعال → عضویت مستقیم */
+    if (otpEnabled === false) {
+      setBusy(true);
+      try {
+        const r = await useCases.acceptInvite.execute(input, null);
+        notify("به خانواده خوش آمدید");
+        await useCases.saveSession.execute(r);
+        await onDone();
+        return;
+      } catch (e) {
+        if (!(e instanceof AppError && e.code === "INVALID_OTP")) {
+          notify((e as Error).message || "خطا در عضویت");
+          return;
+        }
+        /* OTP روی سرور فعال است → ادامه با جریان کد */
+      } finally {
+        setBusy(false);
+      }
+    }
+
     await sendOtp({
       mode: "invite",
       phone,
       password: invPassword,
-      memberName: invName.trim(),
-      inviteToken: inviteToken ?? "",
+      memberName: input.memberName,
+      inviteToken: input.inviteToken,
     });
   }
 
@@ -182,6 +273,7 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
     mode,
     setMode,
     step,
+    otpEnabled,
     loginPhone,
     setLoginPhone,
     loginPassword,

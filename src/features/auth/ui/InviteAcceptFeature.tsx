@@ -43,7 +43,7 @@ export function InviteAcceptFeature({ token }: { token: string }) {
           className="auth-form"
           onSubmit={(e) => {
             e.preventDefault();
-            m.submitInvite();
+            m.submitInvite(finish);
           }}
         >
           <Field label="نام شما">
@@ -113,7 +113,9 @@ export function InviteAcceptFeature({ token }: { token: string }) {
           </form>
         ) : (
           <p className="auth-hint">
-            بعد از ثبت‌نام، کد تأیید پیامکی برای شما ارسال می‌شود.
+            {m.otpEnabled === false
+              ? "با ثبت اطلاعات، عضو خانواده می‌شوید."
+              : "بعد از ثبت‌نام، کد تأیید پیامکی برای شما ارسال می‌شود."}
           </p>
         )}
       </div>
