@@ -1,0 +1,1066 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="apple-mobile-web-app-title" content="مالی من" />
+    <meta name="theme-color" content="#0b0d12" />
+    <meta
+      name="description"
+      content="اپلیکیشن مدیریت مالی خانواده — نسخه وب موبایل"
+    />
+    <title>مالی من | مدیریت مالی خانواده</title>
+
+    <link rel="manifest" href="manifest.json" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
+    <link rel="icon" type="image/png" href="icons/icon-192.png" />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <!-- SVG icon sprite -->
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      style="display: none"
+      aria-hidden="true"
+    >
+      <symbol
+        id="i-home"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 10.5 12 3l9 7.5" />
+        <path d="M5 9.5V21h5v-6h4v6h5V9.5" />
+      </symbol>
+      <symbol
+        id="i-receipt"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M5 3h14v18l-2.5-1.5L14 21l-2-1.5L10 21l-2.5-1.5L5 21V3z" />
+        <path d="M9 8h6M9 12h6" />
+      </symbol>
+      <symbol
+        id="i-chart"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+      </symbol>
+      <symbol
+        id="i-gear"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <circle cx="12" cy="12" r="3" />
+        <path
+          d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+        />
+      </symbol>
+      <symbol
+        id="i-bell"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+        <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+      </symbol>
+      <symbol
+        id="i-share"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7" />
+        <path d="M16 6l-4-4-4 4" />
+        <path d="M12 2v13" />
+      </symbol>
+      <symbol
+        id="i-plus"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.2"
+        stroke-linecap="round"
+      >
+        <path d="M12 5v14M5 12h14" />
+      </symbol>
+      <symbol
+        id="i-users"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </symbol>
+      <symbol
+        id="i-sms"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path
+          d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+        />
+        <path d="M8 9h8M8 13h5" />
+      </symbol>
+      <symbol
+        id="i-food"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M6 3v8a3 3 0 0 0 6 0V3" />
+        <path d="M9 11v10" />
+        <path d="M17 3c-1.5 1-2 3-2 5s.5 3 2 3 2-1 2-3-.5-4-2-5z" />
+        <path d="M17 11v10" />
+      </symbol>
+      <symbol
+        id="i-cart"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <circle cx="9" cy="21" r="1" />
+        <circle cx="20" cy="21" r="1" />
+        <path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6" />
+      </symbol>
+      <symbol
+        id="i-car"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M5 17h-2v-5l2-5h12l4 5v5h-2" />
+        <circle cx="7.5" cy="17" r="2" />
+        <circle cx="16.5" cy="17" r="2" />
+        <path d="M9 17h6" />
+      </symbol>
+      <symbol
+        id="i-home-i"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 10.5 12 3l9 7.5" />
+        <path d="M5 9.5V21h14V9.5" />
+        <path d="M10 21v-6h4v6" />
+      </symbol>
+      <symbol
+        id="i-health"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path
+          d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z"
+        />
+      </symbol>
+      <symbol
+        id="i-fun"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+        <line x1="9" y1="9" x2="9.01" y2="9" />
+        <line x1="15" y1="9" x2="15.01" y2="9" />
+      </symbol>
+      <symbol
+        id="i-edu"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M22 10 12 5 2 10l10 5 10-5z" />
+        <path d="M6 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5" />
+      </symbol>
+      <symbol
+        id="i-cloth"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path
+          d="M20.4 6.6 16 4l-4 3-4-3-4.4 2.6a1 1 0 0 0-.4 1.4L5 11l-1 9h16l-1-9 2.8-3a1 1 0 0 0-.4-1.4z"
+        />
+      </symbol>
+      <symbol
+        id="i-bill"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect x="2" y="5" width="20" height="14" rx="2" />
+        <path d="M2 10h20" />
+        <path d="M6 15h4" />
+      </symbol>
+      <symbol
+        id="i-salary"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M12 1v22" />
+        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+      </symbol>
+      <symbol
+        id="i-gift"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect x="3" y="8" width="18" height="4" rx="1" />
+        <path d="M12 8v13" />
+        <path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7" />
+        <path
+          d="M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 0 1 0 5"
+        />
+      </symbol>
+      <symbol
+        id="i-briefcase"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect x="2" y="7" width="20" height="14" rx="2" />
+        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+      </symbol>
+      <symbol
+        id="i-more"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+        <circle cx="12" cy="5" r="1.6" fill="currentColor" stroke="none" />
+        <circle cx="12" cy="19" r="1.6" fill="currentColor" stroke="none" />
+      </symbol>
+      <symbol
+        id="i-trash"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 6h18" />
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+        <line x1="10" y1="11" x2="10" y2="17" />
+        <line x1="14" y1="11" x2="14" y2="17" />
+      </symbol>
+      <symbol
+        id="i-edit"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z" />
+      </symbol>
+      <symbol
+        id="i-wallet"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
+        <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
+        <path d="M18 12a2 2 0 0 0 0 4h4v-4z" />
+      </symbol>
+      <symbol
+        id="i-check"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M20 6 9 17l-5-5" />
+      </symbol>
+      <symbol
+        id="i-x"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.2"
+        stroke-linecap="round"
+      >
+        <path d="M18 6 6 18M6 6l12 12" />
+      </symbol>
+      <symbol
+        id="i-arrow-l"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M15 18l-6-6 6-6" />
+      </symbol>
+      <symbol
+        id="i-arrow-r"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M9 18l6-6-6-6" />
+      </symbol>
+      <symbol
+        id="i-logout"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        <path d="M16 17l5-5-5-5" />
+        <path d="M21 12H9" />
+      </symbol>
+      <symbol
+        id="i-qr"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+        <path d="M14 14h3v3h-3z" />
+        <path d="M21 14v.01M17 21h.01M21 17v4" />
+      </symbol>
+    </svg>
+
+    <!-- ═══════════ صفحه ورود/ثبت‌نام خانواده ═══════════ -->
+    <section id="page-auth" class="page auth-page active">
+      <div class="auth-wrap">
+        <div class="auth-logo">
+          <svg><use href="#i-wallet" /></svg>
+        </div>
+        <h1>مالی من</h1>
+        <p class="auth-sub">مدیریت مالی خانواده، ساده و مشترک</p>
+
+        <!-- ═══ مرحله ۱: ورود / ثبت‌نام ═══ -->
+        <div id="auth-step-1">
+          <div class="seg-control" id="auth-mode">
+            <button class="seg-btn active" data-mode="login">ورود</button>
+            <button class="seg-btn" data-mode="register">ثبت‌نام</button>
+          </div>
+
+          <!-- فرم ورود -->
+          <form id="form-login" class="auth-form">
+            <div class="form-row">
+              <label for="login-phone">شماره موبایل</label>
+              <input
+                type="tel"
+                id="login-phone"
+                class="num-input big"
+                inputmode="tel"
+                placeholder="۰۹۱۲۳۴۵۶۷۸۹"
+                autocomplete="tel"
+                dir="ltr"
+              />
+            </div>
+            <div class="form-row">
+              <label for="login-password">رمز عبور</label>
+              <input
+                type="password"
+                id="login-password"
+                class="text-input"
+                placeholder="••••••••"
+                autocomplete="current-password"
+                dir="ltr"
+              />
+            </div>
+            <button type="submit" class="btn-primary btn-block">ورود</button>
+          </form>
+
+          <!-- فرم ثبت‌نام -->
+          <form id="form-register" class="auth-form hidden">
+            <div class="form-row">
+              <label for="reg-family">نام خانواده</label>
+              <input
+                type="text"
+                id="reg-family"
+                class="text-input"
+                placeholder="مثلاً خانواده احمدی"
+              />
+            </div>
+            <div class="form-row">
+              <label for="reg-name">نام شما</label>
+              <input
+                type="text"
+                id="reg-name"
+                class="text-input"
+                placeholder="مثلاً علی"
+              />
+            </div>
+            <div class="form-row">
+              <label for="reg-phone">شماره موبایل</label>
+              <input
+                type="tel"
+                id="reg-phone"
+                class="num-input big"
+                inputmode="tel"
+                placeholder="۰۹۱۲۳۴۵۶۷۸۹"
+                autocomplete="tel"
+                dir="ltr"
+              />
+            </div>
+            <div class="form-row">
+              <label for="reg-password">رمز عبور</label>
+              <input
+                type="password"
+                id="reg-password"
+                class="text-input"
+                placeholder="حداقل ۴ کاراکتر"
+                autocomplete="new-password"
+                dir="ltr"
+              />
+            </div>
+            <button type="submit" class="btn-primary btn-block">
+              ثبت‌نام و ساخت خانواده
+            </button>
+          </form>
+        </div>
+
+        <!-- ═══ مرحله ۲: کد تأیید پیامکی ═══ -->
+        <div id="auth-step-2" class="hidden">
+          <p class="otp-desc" id="otp-desc">
+            کد ۶ رقمی ارسال‌شده به <b id="otp-phone">—</b> را وارد کنید
+          </p>
+          <form id="form-otp" class="auth-form">
+            <div class="form-row">
+              <input
+                type="text"
+                id="otp-input"
+                class="num-input big otp-input"
+                inputmode="numeric"
+                maxlength="6"
+                placeholder="------"
+                autocomplete="one-time-code"
+                dir="ltr"
+              />
+            </div>
+            <div class="otp-dev-hint hidden" id="otp-dev-hint"></div>
+            <button type="submit" class="btn-primary btn-block">تأیید</button>
+            <button type="button" class="btn-ghost btn-block" id="btn-otp-back">
+              بازگشت
+            </button>
+            <button
+              type="button"
+              class="btn-ghost btn-block"
+              id="btn-otp-resend"
+            >
+              ارسال مجدد کد
+            </button>
+          </form>
+        </div>
+
+        <p class="auth-hint">
+          ورود دو مرحله‌ای: بعد از رمز عبور، کد تأیید پیامکی برای شما ارسال
+          می‌شود.
+        </p>
+      </div>
+    </section>
+
+    <!-- ═══════════ صفحه پذیرش دعوت (لینک/QR) ═══════════ -->
+    <section id="page-invite" class="page auth-page">
+      <div class="auth-wrap">
+        <div class="auth-logo">
+          <svg><use href="#i-users" /></svg>
+        </div>
+        <h1 id="invite-family-title">دعوت به خانواده</h1>
+        <p class="auth-sub" id="invite-family-name">—</p>
+
+        <form id="form-invite" class="auth-form">
+          <div class="form-row">
+            <label for="inv-name">نام شما</label>
+            <input
+              type="text"
+              id="inv-name"
+              class="text-input"
+              placeholder="مثلاً سارا"
+            />
+          </div>
+          <div class="form-row">
+            <label for="inv-phone">شماره موبایل</label>
+            <input
+              type="tel"
+              id="inv-phone"
+              class="num-input big"
+              inputmode="tel"
+              placeholder="۰۹۱۲۳۴۵۶۷۸۹"
+              autocomplete="tel"
+              dir="ltr"
+            />
+          </div>
+          <div class="form-row">
+            <label for="inv-password">رمز عبور</label>
+            <input
+              type="password"
+              id="inv-password"
+              class="text-input"
+              placeholder="حداقل ۴ کاراکتر"
+              autocomplete="new-password"
+              dir="ltr"
+            />
+          </div>
+          <button type="submit" class="btn-primary btn-block">
+            عضویت در خانواده
+          </button>
+        </form>
+
+        <p class="auth-hint">
+          بعد از ثبت‌نام، کد تأیید پیامکی برای شما ارسال می‌شود.
+        </p>
+      </div>
+    </section>
+
+    <!-- ═══════════ صفحه داشبورد ═══════════ -->
+    <section id="page-dashboard" class="page">
+      <header class="app-header">
+        <div class="header-title">
+          <h1>مالی من</h1>
+          <p id="header-date">—</p>
+        </div>
+        <div class="header-actions">
+          <button class="icon-btn" id="btn-sms-import" aria-label="ورود پیامک">
+            <svg><use href="#i-sms" /></svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="content">
+        <!-- کارت موجودی -->
+        <div class="balance-card">
+          <p class="balance-label">موجودی کل خانواده</p>
+          <h2 id="total-balance">۰</h2>
+          <p class="balance-sub" id="balance-sub">تومان</p>
+          <div class="balance-mini">
+            <div class="mini-item income">
+              <span>درآمد ماه</span>
+              <b id="mini-income">۰</b>
+            </div>
+            <div class="mini-item expense">
+              <span>هزینه ماه</span>
+              <b id="mini-expense">۰</b>
+            </div>
+          </div>
+        </div>
+
+        <!-- فیلتر عضو -->
+        <div class="member-chips-wrap">
+          <div id="member-chips" class="member-chips"></div>
+        </div>
+
+        <!-- نمودار حلقه‌ای -->
+        <div class="card">
+          <div class="card-head">
+            <h3>هزینه‌های ماه جاری</h3>
+            <span class="badge" id="chart-month-badge">—</span>
+          </div>
+          <div class="donut-wrap">
+            <canvas id="donut-chart" width="260" height="260"></canvas>
+            <div class="donut-center">
+              <b id="donut-total">۰</b>
+              <span>جمع هزینه</span>
+            </div>
+          </div>
+          <div id="donut-legend" class="legend"></div>
+        </div>
+
+        <!-- تراکنش‌های اخیر -->
+        <div class="card">
+          <div class="card-head">
+            <h3>تراکنش‌های اخیر</h3>
+            <button class="link-btn" data-nav="transactions">مشاهده همه</button>
+          </div>
+          <div id="recent-list" class="tx-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════ صفحه تراکنش‌ها ═══════════ -->
+    <section id="page-transactions" class="page">
+      <header class="app-header">
+        <div class="header-title">
+          <h1>تراکنش‌ها</h1>
+          <p>مدیریت درآمد و هزینه‌ها</p>
+        </div>
+        <button class="icon-btn" id="btn-export" aria-label="خروجی گرفتن">
+          <svg><use href="#i-share" /></svg>
+        </button>
+      </header>
+
+      <div class="content">
+        <div class="seg-control" id="tx-filter">
+          <button class="seg-btn active" data-filter="all">همه</button>
+          <button class="seg-btn" data-filter="expense">هزینه</button>
+          <button class="seg-btn" data-filter="income">درآمد</button>
+        </div>
+
+        <div class="search-box">
+          <input
+            type="text"
+            id="tx-search"
+            placeholder="جستجو در تراکنش‌ها..."
+          />
+        </div>
+
+        <div id="tx-list" class="tx-list grouped"></div>
+        <div id="tx-empty" class="empty-state hidden">
+          <div class="empty-icon">
+            <svg><use href="#i-receipt" /></svg>
+          </div>
+          <p>تراکنشی یافت نشد</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════ صفحه گزارش‌ها ═══════════ -->
+    <section id="page-reports" class="page">
+      <header class="app-header">
+        <div class="header-title">
+          <h1>گزارش‌ها</h1>
+          <p>تحلیل مالی خانواده</p>
+        </div>
+      </header>
+
+      <div class="content">
+        <div class="month-nav">
+          <button class="icon-btn small" id="month-prev" aria-label="ماه قبل">
+            <svg><use href="#i-arrow-r" /></svg>
+          </button>
+          <span id="month-label">—</span>
+          <button class="icon-btn small" id="month-next" aria-label="ماه بعد">
+            <svg><use href="#i-arrow-l" /></svg>
+          </button>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>روند روزانه</h3>
+            <span class="badge">تومان</span>
+          </div>
+          <div class="chart-box">
+            <canvas id="bar-chart" width="340" height="220"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>مقایسه ۶ ماه اخیر</h3>
+          </div>
+          <div class="chart-box">
+            <canvas id="line-chart" width="340" height="220"></canvas>
+          </div>
+          <div class="legend horiz">
+            <div class="legend-item">
+              <span class="mini-dot income"></span>درآمد
+            </div>
+            <div class="legend-item">
+              <span class="mini-dot expense"></span>هزینه
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>هزینه به تفکیک دسته</h3>
+          </div>
+          <div id="cat-report" class="cat-report"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════ صفحه تنظیمات ═══════════ -->
+    <section id="page-settings" class="page">
+      <header class="app-header">
+        <div class="header-title">
+          <h1>تنظیمات</h1>
+          <p>شخصی‌سازی اپلیکیشن</p>
+        </div>
+      </header>
+
+      <div class="content">
+        <!-- اعضای خانواده -->
+        <div class="card">
+          <div class="card-head">
+            <h3>اعضای خانواده</h3>
+            <span class="badge" id="family-code-badge">کد: —</span>
+          </div>
+          <div id="settings-members" class="settings-members"></div>
+
+          <!-- دعوت عضو جدید -->
+          <div class="invite-box">
+            <p class="invite-title">دعوت عضو جدید</p>
+            <p class="invite-sub">
+              لینک یا QR را برای عضو خانواده بفرستید تا ثبت‌نام کند
+            </p>
+            <div class="invite-actions">
+              <button class="action-btn" id="btn-invite-link">
+                <svg style="width: 16px; height: 16px">
+                  <use href="#i-share" />
+                </svg>
+                ساخت لینک
+              </button>
+              <button class="action-btn" id="btn-invite-qr">
+                <svg style="width: 16px; height: 16px">
+                  <use href="#i-qr" />
+                </svg>
+                نمایش QR
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="setting-row">
+            <div>
+              <h4>بودجه ماهانه</h4>
+              <p>سقف هزینه‌های ماه (تومان)</p>
+            </div>
+            <input
+              type="text"
+              id="budget-input"
+              class="num-input"
+              inputmode="numeric"
+              placeholder="۱۰,۰۰۰,۰۰۰"
+            />
+          </div>
+          <div class="budget-progress">
+            <div class="bp-head">
+              <span>مصرف ماه جاری</span>
+              <b id="budget-percent">۰٪</b>
+            </div>
+            <div class="bp-bar">
+              <div id="budget-fill" class="bp-fill" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="setting-row">
+            <div>
+              <h4>حالت تیره</h4>
+              <p>تغییر ظاهر اپلیکیشن</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="dark-toggle" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <div>
+              <h4>نمایش مبالغ</h4>
+              <p>واحد نمایش مبالغ</p>
+            </div>
+            <select id="currency-select" class="select-input">
+              <option value="تومان">تومان</option>
+              <option value="ریال">ریال</option>
+              <option value="دلار">دلار</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="setting-row">
+            <div>
+              <h4>خروجی داده‌ها</h4>
+              <p>دانلود همه تراکنش‌ها (JSON)</p>
+            </div>
+            <button class="action-btn" id="btn-export-data">دانلود</button>
+          </div>
+          <div class="setting-row">
+            <div>
+              <h4>خروج از حساب</h4>
+              <p>بازگشت به صفحه ورود</p>
+            </div>
+            <button class="action-btn danger" id="btn-logout-2">خروج</button>
+          </div>
+        </div>
+
+        <p class="version-tag">نسخه ۳.۱.۰ — ورود با موبایل + دعوت QR</p>
+      </div>
+    </section>
+
+    <!-- ═══════════ دکمه افزودن تراکنش ═══════════ -->
+    <button id="fab-add" class="fab" aria-label="افزودن تراکنش">
+      <svg><use href="#i-plus" /></svg>
+    </button>
+
+    <!-- ═══════════ مودال افزودن/ویرایش تراکنش ═══════════ -->
+    <div id="modal-tx" class="modal-overlay hidden">
+      <div class="modal-sheet">
+        <div class="modal-grabber"></div>
+        <h3 id="modal-title">تراکنش جدید</h3>
+
+        <div class="seg-control" id="tx-type">
+          <button class="seg-btn active" data-type="expense">هزینه</button>
+          <button class="seg-btn" data-type="income">درآمد</button>
+        </div>
+
+        <div class="form-row" style="margin-top: 16px">
+          <label for="input-amount">مبلغ (تومان)</label>
+          <input
+            type="text"
+            id="input-amount"
+            class="num-input big"
+            inputmode="numeric"
+            placeholder="۰"
+          />
+        </div>
+
+        <div class="form-row">
+          <label>دسته‌بندی</label>
+          <div id="cat-grid" class="cat-grid"></div>
+        </div>
+
+        <div class="form-row">
+          <label for="input-date">تاریخ</label>
+          <input
+            type="text"
+            id="input-date"
+            class="text-input"
+            placeholder="۱۴۰۴/۰۶/۱۵"
+            inputmode="numeric"
+          />
+        </div>
+
+        <div class="form-row">
+          <label for="input-member">عضو</label>
+          <select id="input-member" class="select-input"></select>
+        </div>
+
+        <div class="form-row">
+          <label for="input-note">یادداشت (اختیاری)</label>
+          <input
+            type="text"
+            id="input-note"
+            class="text-input"
+            placeholder="مثلاً ناهار با دوستان"
+          />
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-secondary" id="btn-cancel-tx">انصراف</button>
+          <button class="btn-primary" id="btn-save-tx">ذخیره</button>
+        </div>
+        <button class="btn-danger-block hidden" id="btn-delete-tx">
+          حذف تراکنش
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══════════ مودال ورود پیامک ═══════════ -->
+    <div id="modal-sms" class="modal-overlay hidden">
+      <div class="modal-sheet">
+        <div class="modal-grabber"></div>
+        <h3>ورود پیامک بانکی</h3>
+        <p class="modal-sub">
+          متن پیامک واریز/برداشت را اینجا بچسبانید (Paste). می‌توانید چند پیامک
+          را با خط خالی از هم جدا کنید.
+        </p>
+
+        <div class="form-row">
+          <label for="sms-input">متن پیامک‌ها</label>
+          <textarea
+            id="sms-input"
+            class="text-input sms-textarea"
+            rows="5"
+            placeholder="مثلاً: بانک ملت: برداشت مبلغ 250,000 ریال..."
+          ></textarea>
+        </div>
+
+        <div id="sms-preview" class="sms-preview"></div>
+
+        <div class="modal-actions">
+          <button class="btn-secondary" id="btn-cancel-sms">انصراف</button>
+          <button class="btn-primary" id="btn-save-sms">افزودن پیامک‌ها</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ مودال پیامک‌های ثبت‌نشده ═══════════ -->
+    <div id="modal-pending" class="modal-overlay hidden">
+      <div class="modal-sheet">
+        <div class="modal-grabber"></div>
+        <div class="pending-head">
+          <h3>پیامک‌های ثبت‌نشده</h3>
+          <span class="badge" id="pending-count">۰</span>
+        </div>
+
+        <div id="pending-body"></div>
+
+        <div class="pending-actions">
+          <button class="btn-ghost-danger" id="btn-ignore-sms">نادیده</button>
+          <button class="btn-ghost" id="btn-skip-sms">بعداً</button>
+          <button class="btn-primary" id="btn-record-sms">ثبت</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ مودال دعوت عضو (لینک + QR) ═══════════ -->
+    <div id="modal-invite" class="modal-overlay hidden">
+      <div class="modal-sheet invite-sheet">
+        <div class="modal-grabber"></div>
+        <div class="pending-head">
+          <h3>دعوت عضو جدید</h3>
+          <span class="badge" id="invite-family-badge">—</span>
+        </div>
+
+        <div class="invite-qr-wrap">
+          <canvas id="invite-qr-canvas"></canvas>
+        </div>
+
+        <p class="invite-link-label">لینک دعوت:</p>
+        <div class="invite-link-row">
+          <input
+            type="text"
+            id="invite-link-input"
+            class="text-input"
+            readonly
+            dir="ltr"
+          />
+          <button class="action-btn" id="btn-copy-invite">کپی</button>
+        </div>
+        <button class="btn-ghost btn-block" id="btn-share-invite">
+          اشتراک‌گذاری لینک
+        </button>
+
+        <div class="modal-actions">
+          <button class="btn-secondary" id="btn-close-invite">بستن</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ Toast ═══════════ -->
+    <div id="toast" class="toast hidden" role="status"></div>
+
+    <!-- ═══════════ تب‌بار پایین ═══════════ -->
+    <nav class="tabbar" aria-label="ناوبری اصلی">
+      <button class="tab-btn active" data-nav="dashboard">
+        <svg><use href="#i-home" /></svg>
+        <span>داشبورد</span>
+      </button>
+      <button class="tab-btn" data-nav="transactions">
+        <svg><use href="#i-receipt" /></svg>
+        <span>تراکنش‌ها</span>
+      </button>
+      <button class="tab-btn" data-nav="reports">
+        <svg><use href="#i-chart" /></svg>
+        <span>گزارش‌ها</span>
+      </button>
+      <button class="tab-btn" data-nav="settings">
+        <svg><use href="#i-gear" /></svg>
+        <span>تنظیمات</span>
+      </button>
+    </nav>
+
+    <script src="js/config.js"></script>
+    <script src="js/jalali.js"></script>
+    <script src="js/sms-parser.js"></script>
+    <script src="js/qrcode.min.js"></script>
+    <script src="js/db.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>

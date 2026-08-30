@@ -1,5 +1,9 @@
 node_modules/
+dist/
 .vercel/
 .qwen/
+.env.local
+.env.*.local
+*.tsbuildinfo
 .DS_Store
 Thumbs.db
