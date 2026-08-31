@@ -25,6 +25,7 @@ const tx = (
   date,
   note: null,
   accountId: null,
+  subcategoryId: null,
   createdAt: "2025-01-01T00:00:00Z",
 });
 

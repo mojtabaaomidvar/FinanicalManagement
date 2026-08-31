@@ -10,8 +10,11 @@ import type { Transaction } from "@/domain/transaction/transaction.types";
 import type { TxFormModel } from "@/features/transaction-form";
 
 export function TransactionListFeature({ form }: { form: TxFormModel }) {
-  const { txs, members, family } = useApp();
+  const { txs, members, family, subcategories } = useApp();
   const m = useTxListModel(txs, members);
+
+  const subNameOf = (id: string | null) =>
+    id ? subcategories.find((s) => s.id === id)?.name ?? null : null;
 
   return (
     <div className="content">
@@ -58,6 +61,7 @@ export function TransactionListFeature({ form }: { form: TxFormModel }) {
                     tx={t}
                     currency={family?.currency ?? ""}
                     memberName={m.memberNameOf(t.memberId)}
+                    subcategoryName={subNameOf(t.subcategoryId)}
                     onClick={() => form.openEdit(t)}
                   />
                 ))}
@@ -83,14 +87,17 @@ export function TxRow({
   tx,
   currency,
   memberName,
+  subcategoryName,
   onClick,
 }: {
   tx: Transaction;
   currency: string;
   memberName: string;
+  subcategoryName?: string | null;
   onClick: () => void;
 }) {
   const cat = categoryById(tx.category);
+  const sub = subcategoryName ? ` (${subcategoryName})` : "";
   return (
     <div className="tx-item" onClick={onClick}>
       <div className={`tx-icon ${tx.type}`}>
@@ -99,9 +106,10 @@ export function TxRow({
         </svg>
       </div>
       <div className="tx-info">
-        <h4>{tx.note || cat.name}</h4>
+        <h4>{tx.note || cat.name + sub}</h4>
         <p>
-          {cat.name} · {memberName} · {formatISO(isoToJalali(tx.date))}
+          {cat.name}
+          {sub} · {memberName} · {formatISO(isoToJalali(tx.date))}
         </p>
       </div>
       <div className={`tx-amount ${tx.type}`}>

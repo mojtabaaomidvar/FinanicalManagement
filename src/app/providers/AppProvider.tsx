@@ -13,6 +13,7 @@ import { createUseCases, type UseCases } from "@/application/useCases";
 import type { Member, Family } from "@/domain/family/family.types";
 import type { Transaction } from "@/domain/transaction/transaction.types";
 import type { Account } from "@/domain/account/account.types";
+import type { Subcategory } from "@/domain/category/subcategory.types";
 
 type Phase = "boot" | "auth" | "ready";
 
@@ -23,6 +24,7 @@ interface AppState {
   members: Member[];
   txs: Transaction[];
   accounts: Account[];
+  subcategories: Subcategory[];
   useCases: UseCases | null;
   refreshData: () => Promise<void>;
   /* فراخوانی پس از ورود موفق */
@@ -43,6 +45,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [txs, setTxs] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [useCases, setUseCases] = useState<UseCases | null>(null);
 
   /* راه‌اندازی: container + بازیابی نشست */
@@ -73,16 +76,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const refreshData = useMemo(
     () => async () => {
       if (!useCases) return;
-      const [familyRow, memberRows, txRows, accountRows] = await Promise.all([
-        useCases.getFamily.execute(),
-        useCases.getMembers.execute(),
-        useCases.listTransactions.execute(),
-        useCases.listAccounts.execute(),
-      ]);
+      const [familyRow, memberRows, txRows, accountRows, subRows] =
+        await Promise.all([
+          useCases.getFamily.execute(),
+          useCases.getMembers.execute(),
+          useCases.listTransactions.execute(),
+          useCases.listAccounts.execute(),
+          useCases.listSubcategories.execute(),
+        ]);
       setFamily(familyRow);
       setMembers(memberRows);
       setTxs(txRows);
       setAccounts(accountRows);
+      setSubcategories(subRows);
     },
     [useCases],
   );
@@ -95,6 +101,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       members,
       txs,
       accounts,
+      subcategories,
       useCases,
       refreshData,
       onAuthenticated: (r) => {
@@ -109,10 +116,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setMembers([]);
         setTxs([]);
         setAccounts([]);
+        setSubcategories([]);
         setPhase("auth");
       },
     }),
-    [phase, member, family, members, txs, accounts, useCases, refreshData],
+    [phase, member, family, members, txs, accounts, subcategories, useCases, refreshData],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

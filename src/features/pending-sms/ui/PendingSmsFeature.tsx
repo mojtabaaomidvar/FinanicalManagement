@@ -9,9 +9,13 @@ import { categoriesFor } from "@/domain/category/category.catalog";
 import { toFa } from "@/shared/lib/digits";
 
 export function PendingSmsFeature({ refreshKey }: { refreshKey: number }) {
-  const { useCases, member, refreshData } = useApp();
+  const { useCases, member, accounts, subcategories, refreshData } = useApp();
   const { show } = useToast();
   const m = usePendingSmsModel(useCases!, member?.id ?? "", show);
+
+  const subsOfCategory = subcategories.filter(
+    (s) => s.category === m.categoryId,
+  );
 
   /* بارگذاری پیامک‌های pending هنگام ورود به اپ و پس از هر تغییر داده */
   useEffect(() => {
@@ -54,11 +58,34 @@ export function PendingSmsFeature({ refreshKey }: { refreshKey: number }) {
             <Field label="دسته‌بندی">
               <Select
                 value={m.categoryId}
-                onChange={m.setCategoryId}
+                onChange={(v) => m.setCategoryId(v)}
                 options={categoriesFor(m.type).map((c) => ({
                   value: c.id,
                   label: c.name,
                 }))}
+              />
+            </Field>
+            <Field label="زیردسته (اختیاری)">
+              <Select
+                value={m.subcategoryId}
+                onChange={m.setSubcategoryId}
+                options={[
+                  { value: "", label: "بدون زیردسته" },
+                  ...subsOfCategory.map((s) => ({ value: s.id, label: s.name })),
+                ]}
+              />
+            </Field>
+            <Field label="حساب (الزامی)">
+              <Select
+                value={m.accountId}
+                onChange={m.setAccountId}
+                options={[
+                  { value: "", label: accounts.length ? "انتخاب کنید…" : "کارتی ثبت نشده" },
+                  ...accounts.map((a) => ({
+                    value: a.id,
+                    label: a.title + (a.bank ? " · " + a.bank : ""),
+                  })),
+                ]}
               />
             </Field>
             <Field label="تاریخ">
@@ -75,7 +102,10 @@ export function PendingSmsFeature({ refreshKey }: { refreshKey: number }) {
         <button className="btn-ghost" onClick={m.close}>
           بعداً
         </button>
-        <button className="btn-primary" onClick={() => m.record(refreshData)}>
+        <button
+          className="btn-primary"
+          onClick={() => m.record(refreshData, accounts.length)}
+        >
           ثبت
         </button>
       </div>

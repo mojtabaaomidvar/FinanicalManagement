@@ -45,6 +45,11 @@ import {
   DeleteAccountUseCase,
   ListAccountsUseCase,
 } from "./account/account.usecases";
+import {
+  AddSubcategoryUseCase,
+  DeleteSubcategoryUseCase,
+  ListSubcategoriesUseCase,
+} from "./category/subcategory.usecases";
 
 export interface UseCases {
   getPublicConfig: GetPublicConfigUseCase;
@@ -86,6 +91,10 @@ export interface UseCases {
 
   getBridge: GetBridgeUseCase;
   createBridge: CreateBridgeUseCase;
+
+  listSubcategories: ListSubcategoriesUseCase;
+  addSubcategory: AddSubcategoryUseCase;
+  deleteSubcategory: DeleteSubcategoryUseCase;
 }
 
 export function createUseCases(c: Container): UseCases {
@@ -132,5 +141,9 @@ export function createUseCases(c: Container): UseCases {
 
     getBridge: new GetBridgeUseCase(c.repos.bridges),
     createBridge: new CreateBridgeUseCase(c.repos.bridges),
+
+    listSubcategories: new ListSubcategoriesUseCase(c.repos.subcategories),
+    addSubcategory: new AddSubcategoryUseCase(c.repos.subcategories),
+    deleteSubcategory: new DeleteSubcategoryUseCase(c.repos.subcategories),
   };
 }

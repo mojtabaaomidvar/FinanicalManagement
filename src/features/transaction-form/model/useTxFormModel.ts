@@ -22,8 +22,10 @@ export interface TxFormState {
   date: string;
   memberId: string;
   note: string;
-  /** حساب منشا/مقصد — رشته خالی = بدون حساب */
+  /** حساب منشا/مقصد — الزامی */
   accountId: string;
+  /** زیردسته — اختیاری */
+  subcategoryId: string;
 }
 
 export function useTxFormModel(
@@ -45,6 +47,7 @@ export function useTxFormModel(
       memberId: currentMemberId,
       note: "",
       accountId: "",
+      subcategoryId: "",
     };
   }
 
@@ -64,6 +67,7 @@ export function useTxFormModel(
       memberId: tx.memberId,
       note: tx.note ?? "",
       accountId: tx.accountId ?? "",
+      subcategoryId: tx.subcategoryId ?? "",
     });
     setOpen(true);
   }
@@ -73,12 +77,30 @@ export function useTxFormModel(
       ...f,
       type,
       categoryId: categoriesFor(type)[0].id,
+      subcategoryId: "", /* دسته عوض شد — زیردسته نامعتبر می‌شود */
     }));
   }
 
-  async function save(onDone: () => Promise<void>) {
+  async function save(
+    onDone: () => Promise<void>,
+    accountsCount: number,
+  ) {
     const amount = parseAmountInput(form.amount);
     if (!amount || amount <= 0) return notify("لطفاً مبلغ معتبر وارد کنید");
+
+    /* حساب الزامی — با پیام دقیق */
+    if (!form.accountId) {
+      if (!accountsCount) {
+        return notify(
+          "هنوز هیچ کارت/حسابی ثبت نشده — ابتدا از تب «کارت‌ها» یک حساب اضافه کنید",
+        );
+      }
+      return notify(
+        form.type === "expense"
+          ? "انتخاب حساب الزامی است — این هزینه از کدام حساب پرداخت شد؟"
+          : "انتخاب حساب الزامی است — این درآمد به کدام حساب واریز شد؟",
+      );
+    }
 
     const parsedDate = parse(form.date) ?? today();
 
@@ -89,7 +111,8 @@ export function useTxFormModel(
       category: form.categoryId,
       date: jalaliToIso(parsedDate),
       note: form.note.trim() || null,
-      accountId: form.accountId || null,
+      accountId: form.accountId,
+      subcategoryId: form.subcategoryId || null,
     };
 
     try {

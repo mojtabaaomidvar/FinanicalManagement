@@ -22,6 +22,8 @@ export function usePendingSmsModel(
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
   const [memberId, setMemberId] = useState(currentMemberId);
+  const [accountId, setAccountId] = useState("");
+  const [subcategoryId, setSubcategoryId] = useState("");
 
   async function load() {
     try {
@@ -43,18 +45,33 @@ export function usePendingSmsModel(
     setAmount(d.amount ? String(d.amount) : "");
     setDate(formatISO(d.jalaliDate));
     setMemberId(d.memberId);
+    setAccountId("");
+    setSubcategoryId("");
   }
 
   function close() {
     setOpen(false);
   }
 
-  async function record(onDone: () => Promise<void>) {
+  async function record(
+    onDone: () => Promise<void>,
+    accountsCount: number,
+  ) {
     const sms = list[idx];
     if (!sms) return;
 
     const amt = parseAmountInput(amount);
     if (!amt || amt <= 0) return notify("لطفاً مبلغ معتبر وارد کنید");
+
+    /* حساب الزامی */
+    if (!accountId) {
+      if (!accountsCount) {
+        return notify(
+          "هنوز هیچ کارت/حسابی ثبت نشده — ابتدا از تب «کارت‌ها» یک حساب اضافه کنید",
+        );
+      }
+      return notify("انتخاب حساب الزامی است — این تراکنش مربوط به کدام حساب است؟");
+    }
 
     const parsedDate = parse(date) ?? today();
     try {
@@ -67,6 +84,8 @@ export function usePendingSmsModel(
         note:
           (sms.bank ? sms.bank + " — " : "پیامک — ") +
           String(sms.rawText || "").slice(0, 50),
+        accountId,
+        subcategoryId: subcategoryId || null,
       });
       const next = idx + 1;
       if (next >= list.length) {
@@ -103,6 +122,7 @@ export function usePendingSmsModel(
   function changeType(t: "expense" | "income") {
     setType(t);
     setCategoryId(categoriesFor(t)[0].id);
+    setSubcategoryId("");
   }
 
   return {
@@ -114,9 +134,13 @@ export function usePendingSmsModel(
     amount,
     date,
     memberId,
+    accountId,
+    subcategoryId,
     setCategoryId,
     setMemberId,
     setAmount,
+    setAccountId,
+    setSubcategoryId,
     changeType,
     setDate: (v: string) => setDate(liveFormatJalaliDate(v)),
     load,

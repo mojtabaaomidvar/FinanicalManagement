@@ -194,6 +194,8 @@ drop function if exists public.auth_check_otp(text, text);
 drop function if exists public.add_account(text, uuid, text, text, text, text, text);
 drop function if exists public.add_transaction(text, uuid, text, numeric, text, date, text);
 drop function if exists public.update_transaction(text, uuid, uuid, text, numeric, text, date, text);
+drop function if exists public.add_transaction(text, uuid, text, numeric, text, date, text, uuid);
+drop function if exists public.update_transaction(text, uuid, uuid, text, numeric, text, date, text, uuid);
 
 -- ═══════════════════════════════════════════════════════════
 -- توابع کمکی داخلی
@@ -652,10 +654,11 @@ begin
   ), '[]'::json);
 end $$;
 
--- افزودن تراکنش (اعتبارسنجی کامل سمت سرور؛ p_account_id اختیاری)
+-- افزودن تراکنش (حساب الزامی؛ زیردسته اختیاری)
 create or replace function public.add_transaction(
   p_token text, p_member_id uuid, p_type text, p_amount numeric,
-  p_category text, p_date date, p_note text, p_account_id uuid default null
+  p_category text, p_date date, p_note text,
+  p_account_id uuid, p_subcategory_id uuid default null
 ) returns json
 language plpgsql security definer set search_path = public as $$
 declare
@@ -680,23 +683,39 @@ begin
                  where id = p_member_id and family_id = v_family_id) then
     raise exception 'INVALID_MEMBER';
   end if;
-  if p_account_id is not null and not exists (
-    select 1 from public.accounts
-    where id = p_account_id and family_id = v_family_id) then
+
+  -- حساب منشا/مقصد الزامی است
+  if p_account_id is null then
+    raise exception 'ACCOUNT_REQUIRED';
+  end if;
+  if not exists (select 1 from public.accounts
+                 where id = p_account_id and family_id = v_family_id) then
     raise exception 'INVALID_ACCOUNT_ID';
   end if;
 
-  insert into public.transactions (family_id, member_id, type, amount, category, date, note, account_id)
-  values (v_family_id, p_member_id, p_type, p_amount, p_category, p_date, nullif(btrim(coalesce(p_note, '')), ''), p_account_id)
+  -- زیردسته باید متعلق به همین خانواده و همین دسته باشد
+  if p_subcategory_id is not null and not exists (
+    select 1 from public.subcategories
+    where id = p_subcategory_id and family_id = v_family_id
+      and category = p_category) then
+    raise exception 'INVALID_SUBCATEGORY';
+  end if;
+
+  insert into public.transactions
+    (family_id, member_id, type, amount, category, date, note, account_id, subcategory_id)
+  values
+    (v_family_id, p_member_id, p_type, p_amount, p_category, p_date,
+     nullif(btrim(coalesce(p_note, '')), ''), p_account_id, p_subcategory_id)
   returning * into v_row;
 
   return to_jsonb(v_row);
 end $$;
 
--- ویرایش تراکنش (فقط تراکنش‌های خانواده خود کاربر؛ p_account_id اختیاری)
+-- ویرایش تراکنش (حساب الزامی؛ زیردسته اختیاری)
 create or replace function public.update_transaction(
   p_token text, p_tx_id uuid, p_member_id uuid, p_type text, p_amount numeric,
-  p_category text, p_date date, p_note text, p_account_id uuid default null
+  p_category text, p_date date, p_note text,
+  p_account_id uuid, p_subcategory_id uuid default null
 ) returns void
 language plpgsql security definer set search_path = public as $$
 declare
@@ -720,10 +739,20 @@ begin
                  where id = p_member_id and family_id = v_family_id) then
     raise exception 'INVALID_MEMBER';
   end if;
-  if p_account_id is not null and not exists (
-    select 1 from public.accounts
-    where id = p_account_id and family_id = v_family_id) then
+
+  if p_account_id is null then
+    raise exception 'ACCOUNT_REQUIRED';
+  end if;
+  if not exists (select 1 from public.accounts
+                 where id = p_account_id and family_id = v_family_id) then
     raise exception 'INVALID_ACCOUNT_ID';
+  end if;
+
+  if p_subcategory_id is not null and not exists (
+    select 1 from public.subcategories
+    where id = p_subcategory_id and family_id = v_family_id
+      and category = p_category) then
+    raise exception 'INVALID_SUBCATEGORY';
   end if;
 
   update public.transactions
@@ -733,7 +762,8 @@ begin
       category  = p_category,
       date      = p_date,
       note      = nullif(btrim(coalesce(p_note, '')), ''),
-      account_id = p_account_id
+      account_id = p_account_id,
+      subcategory_id = p_subcategory_id
   where id = p_tx_id and family_id = v_family_id;
 
   if not found then
@@ -997,6 +1027,89 @@ language plpgsql security definer set search_path = public as $$
 begin
   delete from public.accounts
   where id = p_account_id and family_id = public._family_id(p_token);
+
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+end $$;
+
+-- ═══════════════════════════════════════════════════════════
+-- زیردسته‌ها — دائمی برای هر خانواده (مثل: خورد و خوراک ← رستوران)
+-- ═══════════════════════════════════════════════════════════
+
+create table if not exists public.subcategories (
+  id         uuid primary key default gen_random_uuid(),
+  family_id  uuid not null references public.families(id) on delete cascade,
+  category   text not null,                       -- id دسته (مثل food)
+  name       text not null,
+  created_at timestamptz not null default now(),
+  unique (family_id, category, name)
+);
+
+alter table public.subcategories enable row level security;
+-- بدون پالیسی → دسترسی فقط از طریق RPC
+
+-- مهاجرت: ستون زیردسته در تراکنش‌ها (باید بعد از ساخت جدول باشد)
+alter table public.transactions add column if not exists subcategory_id uuid
+  references public.subcategories(id) on delete set null;
+
+-- همه زیردسته‌های خانواده
+create or replace function public.list_subcategories(p_token text)
+returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+begin
+  v_family_id := public._family_id(p_token);
+  return coalesce((
+    select json_agg(row_to_json(s))
+    from (
+      select * from public.subcategories
+      where family_id = v_family_id
+      order by category asc, created_at asc
+    ) s
+  ), '[]'::json);
+end $$;
+
+-- افزودن زیردسته برای یک دسته (تکراری رد می‌شود)
+create or replace function public.add_subcategory(
+  p_token text, p_category text, p_name text
+) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+  v_row public.subcategories;
+begin
+  v_family_id := public._family_id(p_token);
+
+  if p_category is null or btrim(p_category) = '' then
+    raise exception 'INVALID_CATEGORY';
+  end if;
+  if p_name is null or length(btrim(p_name)) < 1 or length(btrim(p_name)) > 30 then
+    raise exception 'INVALID_NAME';
+  end if;
+
+  insert into public.subcategories (family_id, category, name)
+  values (v_family_id, btrim(p_category), btrim(p_name))
+  on conflict (family_id, category, name) do nothing
+  returning * into v_row;
+
+  if v_row.id is null then
+    select * into v_row from public.subcategories
+    where family_id = v_family_id and category = btrim(p_category) and name = btrim(p_name);
+  end if;
+
+  return to_jsonb(v_row);
+end $$;
+
+-- حذف زیردسته (تراکنش‌های قبلی مقدار را از دست می‌دهند — set null)
+create or replace function public.delete_subcategory(
+  p_token text, p_subcategory_id uuid
+) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  delete from public.subcategories
+  where id = p_subcategory_id and family_id = public._family_id(p_token);
 
   if not found then
     raise exception 'NOT_FOUND';

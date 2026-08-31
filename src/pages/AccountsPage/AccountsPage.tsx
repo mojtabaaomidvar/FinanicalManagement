@@ -187,22 +187,20 @@ export function AccountsPage() {
                     shownText={formatCardFa(acc.cardNumber)}
                     revealed={isRevealed}
                     onToggle={() => toggleReveal(acc.id)}
-                    onCopy={() =>
-                      copy(acc.cardNumber!, "شماره کارت")
-                    }
+                    onCopy={() => copy(acc.cardNumber!, "شماره کارت")}
                   />
                 ) : null}
 
                 {acc.accountNumber ? (
                   <AccountRow
                     label="شماره حساب"
-                    hiddenText={"•".repeat(Math.min(acc.accountNumber.length, 8))}
+                    hiddenText={"•".repeat(
+                      Math.min(acc.accountNumber.length, 8),
+                    )}
                     shownText={acc.accountNumber}
                     revealed={isRevealed}
                     onToggle={() => toggleReveal(acc.id)}
-                    onCopy={() =>
-                      copy(acc.accountNumber!, "شماره حساب")
-                    }
+                    onCopy={() => copy(acc.accountNumber!, "شماره حساب")}
                   />
                 ) : null}
 
@@ -237,7 +235,7 @@ export function AccountsPage() {
       <Modal open={open} onClose={() => setOpen(false)} title="کارت/حساب جدید">
         <div className="form-grid" style={{ marginTop: 8 }}>
           <div className="form-row full">
-            <Field label="شماره کارت (اختیاری — ۱۶ رقم)">
+            <Field label="شماره کارت">
               <div className="convert-row">
                 <TextInput
                   value={cardNo}
@@ -267,7 +265,7 @@ export function AccountsPage() {
           </div>
 
           <div className="form-row">
-            <Field label="بانک (خودکار از روی کارت/شبا)">
+            <Field label="بانک">
               <Select
                 value={bank}
                 onChange={setBank}
@@ -280,17 +278,17 @@ export function AccountsPage() {
           </div>
 
           <div className="form-row">
-            <Field label="کارت (عنوان)">
+            <Field label="عنوان کارت">
               <TextInput
                 value={title}
                 onChange={setTitle}
-                placeholder="کارت اصلی"
+                placeholder="مثال: کارت اصلی"
               />
             </Field>
           </div>
 
           <div className="form-row">
-            <Field label="شماره حساب (اختیاری)">
+            <Field label="شماره حساب">
               <TextInput
                 value={accountNo}
                 onChange={setAccountNo}
@@ -302,7 +300,7 @@ export function AccountsPage() {
           </div>
 
           <div className="form-row">
-            <Field label="شماره شبا (اختیاری)">
+            <Field label="شماره شبا">
               <TextInput
                 value={sheba}
                 onChange={(v) => {
@@ -318,9 +316,8 @@ export function AccountsPage() {
           </div>
 
           <p className="modal-sub full" style={{ gridColumn: "1 / -1" }}>
-            هر یک از فیلدهای کارت، حساب یا شبا به‌تنهایی کافی است — لازم نیست همه
-            را پر کنید. دکمه «تبدیل» سعی می‌کند شبا/حساب را از روی کارت آنلاین
-            بگیرد؛ در صورت عدم دسترسی سرویس، دستی وارد کنید.
+            تنها یکی از فیلدهای کارت، حساب یا شبا کافی است — لازم نیست همه را پر
+            کنید.
           </p>
         </div>
 
@@ -370,11 +367,7 @@ function AccountRow({
             <use href={revealed ? "#i-eye-off" : "#i-eye"} />
           </svg>
         </button>
-        <button
-          className="icon-btn small"
-          aria-label="کپی"
-          onClick={onCopy}
-        >
+        <button className="icon-btn small" aria-label="کپی" onClick={onCopy}>
           <svg>
             <use href="#i-copy" />
           </svg>

@@ -35,6 +35,7 @@ export interface TransactionRow {
   date: string;
   note: string | null;
   account_id: string | null;
+  subcategory_id: string | null;
   created_at: string;
 }
 
@@ -87,6 +88,7 @@ export function mapTransaction(r: TransactionRow): Transaction {
     date: r.date,
     note: r.note,
     accountId: r.account_id,
+    subcategoryId: r.subcategory_id,
     createdAt: r.created_at,
   };
 }

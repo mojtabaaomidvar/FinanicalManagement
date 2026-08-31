@@ -23,7 +23,7 @@ export function DashboardSummaryWidget({
   form: TxFormModel;
   onNavTransactions: () => void;
 }) {
-  const { txs, members, family } = useApp();
+  const { txs, members, family, subcategories } = useApp();
   const [jy, jm] = today();
 
   const data = useMemo(() => {
@@ -117,6 +117,11 @@ export function DashboardSummaryWidget({
                 currency={family?.currency ?? ""}
                 memberName={
                   members.find((x) => x.id === t.memberId)?.name ?? "—"
+                }
+                subcategoryName={
+                  t.subcategoryId
+                    ? subcategories.find((s) => s.id === t.subcategoryId)?.name ?? null
+                    : null
                 }
                 onClick={() => form.openEdit(t)}
               />

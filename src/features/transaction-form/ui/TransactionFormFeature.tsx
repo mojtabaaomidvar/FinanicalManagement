@@ -1,6 +1,8 @@
-/* UI فرم تراکنش — مودال افزودن/ویرایش (حساب منشا/مقصد، شرح) */
+/* UI فرم تراکنش — مودال افزودن/ویرایش (حساب الزامی + زیردسته) */
 
+import { useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
+import { useToast } from "@/app/providers/ToastProvider";
 import type { TxFormModel } from "../model/useTxFormModel";
 import {
   AmountInput,
@@ -27,7 +29,38 @@ function accountLabel(
 
 export function TransactionFormFeature({ form }: { form: TxFormModel }) {
   const m = form;
-  const { accounts, refreshData } = useApp();
+  const { accounts, subcategories, useCases, refreshData } = useApp();
+  const { show } = useToast();
+
+  const [showAddSub, setShowAddSub] = useState(false);
+  const [newSubName, setNewSubName] = useState("");
+  const [addingSub, setAddingSub] = useState(false);
+
+  /* زیردسته‌های همین دسته انتخابی */
+  const subsOfCategory = subcategories.filter(
+    (s) => s.category === m.form.categoryId,
+  );
+
+  async function addSubcategory() {
+    const name = newSubName.trim();
+    if (!name) return show("نام زیردسته را وارد کنید");
+    setAddingSub(true);
+    try {
+      const created = await useCases!.addSubcategory.execute(
+        m.form.categoryId,
+        name,
+      );
+      await refreshData();
+      m.setForm({ ...m.form, subcategoryId: created.id });
+      setShowAddSub(false);
+      setNewSubName("");
+      show("زیردسته اضافه شد");
+    } catch (e) {
+      show((e as Error).message || "خطا در افزودن زیردسته");
+    } finally {
+      setAddingSub(false);
+    }
+  }
 
   return (
     <>
@@ -56,7 +89,9 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
                     key={c.id}
                     type="button"
                     className={`cat-cell ${m.form.categoryId === c.id ? "active" : ""}`}
-                    onClick={() => m.setForm({ ...m.form, categoryId: c.id })}
+                    onClick={() =>
+                      m.setForm({ ...m.form, categoryId: c.id, subcategoryId: "" })
+                    }
                   >
                     <svg>
                       <use href={`#${c.icon}`} />
@@ -69,12 +104,40 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
           </div>
 
           <div className="form-row">
-            <Field label={m.form.type === "expense" ? "از حساب" : "به حساب"}>
+            <Field label="زیردسته (اختیاری)">
+              <div className="convert-row">
+                <Select
+                  value={m.form.subcategoryId}
+                  onChange={(v) => m.setForm({ ...m.form, subcategoryId: v })}
+                  options={[
+                    { value: "", label: "بدون زیردسته" },
+                    ...subsOfCategory.map((s) => ({
+                      value: s.id,
+                      label: s.name,
+                    })),
+                  ]}
+                />
+                <button
+                  type="button"
+                  className="action-btn convert-btn"
+                  onClick={() => setShowAddSub((v) => !v)}
+                  title="افزودن زیردسته جدید برای این دسته"
+                >
+                  +
+                </button>
+              </div>
+            </Field>
+          </div>
+
+          <div className="form-row">
+            <Field
+              label={m.form.type === "expense" ? "از حساب (الزامی)" : "به حساب (الزامی)"}
+            >
               <Select
                 value={m.form.accountId}
                 onChange={(v) => m.setForm({ ...m.form, accountId: v })}
                 options={[
-                  { value: "", label: accounts.length ? "بدون حساب" : "کارتی ثبت نشده" },
+                  { value: "", label: accounts.length ? "انتخاب کنید…" : "کارتی ثبت نشده" },
                   ...accounts.map((a) => ({
                     value: a.id,
                     label: accountLabel(a.title, a.bank, a.cardNumber),
@@ -84,13 +147,36 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
             </Field>
           </div>
 
+          {showAddSub ? (
+            <div className="form-row full">
+              <Field label="نام زیردسته جدید">
+                <div className="convert-row">
+                  <TextInput
+                    value={newSubName}
+                    onChange={setNewSubName}
+                    placeholder="مثلاً رستوران"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    className="action-btn convert-btn"
+                    disabled={addingSub}
+                    onClick={addSubcategory}
+                  >
+                    {addingSub ? "…" : "ثبت"}
+                  </button>
+                </div>
+              </Field>
+            </div>
+          ) : null}
+
           <div className="form-row">
             <Field label="تاریخ">
               <JalaliDateInput value={m.form.date} onChange={m.setDate} />
             </Field>
           </div>
 
-          <div className="form-row full">
+          <div className="form-row">
             <Field label="شرح (اختیاری)">
               <TextInput
                 value={m.form.note}
@@ -105,7 +191,10 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
           <button className="btn-secondary" onClick={m.close}>
             انصراف
           </button>
-          <button className="btn-primary" onClick={() => m.save(refreshData)}>
+          <button
+            className="btn-primary"
+            onClick={() => m.save(refreshData, accounts.length)}
+          >
             ذخیره
           </button>
         </div>
