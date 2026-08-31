@@ -105,20 +105,10 @@ function MainShell({
           />
         ) : null}
         {route === "transactions" ? <TransactionsPage form={form} /> : null}
-        {route === "reports" ? <ReportsPage /> : null}
+        {route === "reports" ? <ReportsPage form={form} /> : null}
         {route === "accounts" ? <AccountsPage /> : null}
         {route === "settings" ? <SettingsPage /> : null}
       </div>
-
-      <button
-        className="fab"
-        aria-label="افزودن تراکنش"
-        onClick={form.openNew}
-      >
-        <svg>
-          <use href="#i-plus" />
-        </svg>
-      </button>
 
       <TransactionFormFeature form={form} />
       <PendingSmsFeature refreshKey={refreshKey} />

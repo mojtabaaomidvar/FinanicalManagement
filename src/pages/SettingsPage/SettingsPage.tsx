@@ -51,7 +51,7 @@ export function SettingsPage() {
   );
 
   return (
-    <section className="page">
+    <section className="page active">
       <header className="app-header">
         <div className="header-title">
           <h1>تنظیمات</h1>

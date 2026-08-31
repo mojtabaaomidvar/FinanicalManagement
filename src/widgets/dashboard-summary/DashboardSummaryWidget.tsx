@@ -125,7 +125,7 @@ export function DashboardSummaryWidget({
             <div className="empty-state" style={{ padding: "24px 8px" }}>
               <p>هنوز تراکنشی ثبت نشده</p>
               <p style={{ fontSize: 11.5, marginTop: 4 }}>
-                برای شروع، دکمه سبز پایین را بزنید
+                برای شروع، دکمه سبز + بالای صفحه را بزنید
               </p>
             </div>
           )}

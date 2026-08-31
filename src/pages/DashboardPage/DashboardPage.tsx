@@ -18,13 +18,22 @@ export function DashboardPage({
   const headerDate = useMemo(() => formatWeekday(today()), []);
 
   return (
-    <section className="page">
+    <section className="page active">
       <header className="app-header">
         <div className="header-title">
           <h1>مالی من</h1>
           <p>{headerDate}</p>
         </div>
         <div className="header-actions">
+          <button
+            className="icon-btn add-btn"
+            aria-label="افزودن تراکنش"
+            onClick={form.openNew}
+          >
+            <svg>
+              <use href="#i-plus" />
+            </svg>
+          </button>
           <SmsImportFeature onImported={onImported} />
         </div>
       </header>

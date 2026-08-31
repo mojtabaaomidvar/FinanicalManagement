@@ -11,19 +11,30 @@ export function TransactionsPage({ form }: { form: TxFormModel }) {
   const { show } = useToast();
 
   return (
-    <section className="page">
+    <section className="page active">
       <header className="app-header">
         <div className="header-title">
           <h1>تراکنش‌ها</h1>
           <p>مدیریت درآمد و هزینه‌ها</p>
         </div>
-        <BuildBackup
-          useCases={useCases!}
-          family={family}
-          members={members}
-          txs={txs}
-          notify={show}
-        />
+        <div className="header-actions">
+          <button
+            className="icon-btn add-btn"
+            aria-label="افزودن تراکنش"
+            onClick={form.openNew}
+          >
+            <svg>
+              <use href="#i-plus" />
+            </svg>
+          </button>
+          <BuildBackup
+            useCases={useCases!}
+            family={family}
+            members={members}
+            txs={txs}
+            notify={show}
+          />
+        </div>
       </header>
 
       <TransactionListFeature form={form} />

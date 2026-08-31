@@ -1188,6 +1188,21 @@ button:active {
   color: var(--danger);
 }
 
+/* دکمه افزودن تراکنش در هدر — برجسته و سبز */
+.icon-btn.add-btn {
+  background: linear-gradient(160deg, var(--accent), var(--accent-strong));
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+  transition:
+    transform var(--dur-fast) var(--ease-spring),
+    box-shadow var(--dur-fast) ease;
+}
+.icon-btn.add-btn:active {
+  transform: scale(0.88);
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
+}
+
 .account-row {
   display: flex;
   align-items: center;
