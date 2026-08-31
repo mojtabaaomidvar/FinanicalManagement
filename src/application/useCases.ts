@@ -39,6 +39,11 @@ import {
   RemoveMemberUseCase,
   UpdateFamilySettingsUseCase,
 } from "./family/family.usecases";
+import {
+  AddAccountUseCase,
+  DeleteAccountUseCase,
+  ListAccountsUseCase,
+} from "./account/account.usecases";
 
 export interface UseCases {
   getPublicConfig: GetPublicConfigUseCase;
@@ -73,6 +78,10 @@ export interface UseCases {
   removeMember: RemoveMemberUseCase;
   checkBudgetStatus: CheckBudgetStatusUseCase;
   buildBackupJson: BuildBackupJsonUseCase;
+
+  listAccounts: ListAccountsUseCase;
+  addAccount: AddAccountUseCase;
+  deleteAccount: DeleteAccountUseCase;
 }
 
 export function createUseCases(c: Container): UseCases {
@@ -112,5 +121,9 @@ export function createUseCases(c: Container): UseCases {
     removeMember: new RemoveMemberUseCase(c.repos.family),
     checkBudgetStatus: new CheckBudgetStatusUseCase(),
     buildBackupJson: new BuildBackupJsonUseCase(),
+
+    listAccounts: new ListAccountsUseCase(c.repos.accounts),
+    addAccount: new AddAccountUseCase(c.repos.accounts),
+    deleteAccount: new DeleteAccountUseCase(c.repos.accounts),
   };
 }

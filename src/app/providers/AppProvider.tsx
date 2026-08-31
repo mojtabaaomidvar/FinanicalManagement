@@ -12,6 +12,7 @@ import { getContainer } from "@/infrastructure/repositories/container";
 import { createUseCases, type UseCases } from "@/application/useCases";
 import type { Member, Family } from "@/domain/family/family.types";
 import type { Transaction } from "@/domain/transaction/transaction.types";
+import type { Account } from "@/domain/account/account.types";
 
 type Phase = "boot" | "auth" | "ready";
 
@@ -21,6 +22,7 @@ interface AppState {
   family: Family | null;
   members: Member[];
   txs: Transaction[];
+  accounts: Account[];
   useCases: UseCases | null;
   refreshData: () => Promise<void>;
   /* فراخوانی پس از ورود موفق */
@@ -40,6 +42,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [family, setFamily] = useState<Family | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [txs, setTxs] = useState<Transaction[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [useCases, setUseCases] = useState<UseCases | null>(null);
 
   /* راه‌اندازی: container + بازیابی نشست */
@@ -70,14 +73,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const refreshData = useMemo(
     () => async () => {
       if (!useCases) return;
-      const [familyRow, memberRows, txRows] = await Promise.all([
+      const [familyRow, memberRows, txRows, accountRows] = await Promise.all([
         useCases.getFamily.execute(),
         useCases.getMembers.execute(),
         useCases.listTransactions.execute(),
+        useCases.listAccounts.execute(),
       ]);
       setFamily(familyRow);
       setMembers(memberRows);
       setTxs(txRows);
+      setAccounts(accountRows);
     },
     [useCases],
   );
@@ -89,6 +94,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       family,
       members,
       txs,
+      accounts,
       useCases,
       refreshData,
       onAuthenticated: (r) => {
@@ -102,10 +108,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setFamily(null);
         setMembers([]);
         setTxs([]);
+        setAccounts([]);
         setPhase("auth");
       },
     }),
-    [phase, member, family, members, txs, useCases, refreshData],
+    [phase, member, family, members, txs, accounts, useCases, refreshData],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

@@ -119,3 +119,33 @@ export function toSmsItems(items: NewBankSms[]): Record<string, unknown>[] {
 export function familySettingsOf(f: Family): FamilySettings {
   return { budget: f.budget, currency: f.currency, dark: f.dark };
 }
+
+/* ── کارت‌ها/حساب‌ها ── */
+
+export interface AccountRow {
+  id: string;
+  family_id: string;
+  member_id: string;
+  title: string;
+  bank: string | null;
+  card_number: string | null;
+  account_number: string | null;
+  sheba: string | null;
+  created_at: string;
+}
+
+export function mapAccount(
+  r: AccountRow,
+): import("@/domain/account/account.types").Account {
+  return {
+    id: r.id,
+    familyId: r.family_id,
+    memberId: r.member_id,
+    title: r.title,
+    bank: r.bank,
+    cardNumber: r.card_number,
+    accountNumber: r.account_number,
+    sheba: r.sheba,
+    createdAt: r.created_at,
+  };
+}

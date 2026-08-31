@@ -1,7 +1,7 @@
 /* قوانین کارت/حساب — اعتبارسنجی و ماسک (خالص، قابل تست) */
 
 import type { AccountInput } from "./account.types";
-import { toEn } from "@/shared/lib/digits";
+import { toEn, toFa } from "@/shared/lib/digits";
 
 export type AccountValidationCode =
   | "INVALID_TITLE"
@@ -25,8 +25,10 @@ export function digitsOf(raw: string): string {
 
 /** نرمال‌سازی شبا: IR + ۲۴ رقم */
 export function normalizeSheba(raw: string): string {
-  const s = toEn(String(raw)).toUpperCase().replace(/[^0-9IR]/g, "");
-  const body = s.replace(/^IR/, "");
+  /* ارقام فارسی/عربی → انگلیسی؛ فقط حروف و ارقام بمانند */
+  const cleaned = toEn(String(raw)).toUpperCase().replace(/[^0-9A-Z]/g, "");
+  /* حذف حروف ابتدایی (مثل IR) و افزودن پیشوند استاندارد */
+  const body = cleaned.replace(/^[A-Z]+/, "");
   return "IR" + body.replace(/\D/g, "").slice(0, 24);
 }
 
@@ -66,14 +68,19 @@ export function validateAccountInput(
 export function maskCardNumber(card: string): string {
   const digits = digitsOf(card);
   if (digits.length !== 16) return "•".repeat(digits.length);
-  return `•••• •••• •••• ${digits.slice(12)}`;
+  const last4 = toFa(digits.slice(12));
+  return `•••• •••• •••• ${last4}`;
 }
 
 /** شماره کارت گروه‌بندی‌شده با ارقام فارسی: ۶۲۱۹ ۸۶۱۰ ... */
 export function formatCardFa(card: string): string {
-  const digits = digitsOf(card);
-  const fa = digits.replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[+d]);
-  return fa.replace(/(\d{4})(?=\d)/g, "$1 ");
+  const fa = toFa(digitsOf(card));
+  /* گروه‌بندی با slice — ارقام فارسی در regex \d نمی‌آیند */
+  const groups: string[] = [];
+  for (let i = 0; i < fa.length; i += 4) {
+    groups.push(fa.slice(i, i + 4));
+  }
+  return groups.join(" ");
 }
 
 /** شبا گروه‌بندی‌شده: IR12 3456 ... */

@@ -19,8 +19,13 @@ const RPC_ERROR_MAP: { re: RegExp; code: AppErrorCode; msg: string }[] = [
   { re: /CANNOT_REMOVE_OWNER/, code: "CANNOT_REMOVE_OWNER", msg: "مدیر خانواده قابل حذف نیست" },
   { re: /FORBIDDEN/, code: "FORBIDDEN", msg: "اجازه انجام این کار را ندارید" },
   { re: /INVALID_(TYPE|AMOUNT|CATEGORY|DATE)/, code: "INVALID_TX", msg: "اطلاعات تراکنش معتبر نیست" },
+  { re: /INVALID_TITLE/, code: "INVALID_ACCOUNT", msg: "نام کارت/حساب معتبر نیست (حداکثر ۴۰ کاراکتر)" },
+  { re: /INVALID_CARD/, code: "INVALID_ACCOUNT", msg: "شماره کارت باید ۱۶ رقم باشد" },
+  { re: /INVALID_SHEBA/, code: "INVALID_ACCOUNT", msg: "شماره شبا معتبر نیست (IR + ۲۴ رقم)" },
+  { re: /INVALID_ACCOUNT_NO/, code: "INVALID_ACCOUNT", msg: "شماره حساب معتبر نیست (۵ تا ۲۰ رقم)" },
+  { re: /EMPTY_ACCOUNT/, code: "INVALID_ACCOUNT", msg: "حداقل یکی از شماره کارت، حساب یا شبا را وارد کنید" },
   { re: /NOT_FOUND/, code: "NOT_FOUND", msg: "مورد یافت نشد" },
-  { re: /OTP_API_ONLY/, code: "OTP_API_ONLY", msg: "OTP_API_ONLY" },
+  { re: /OTP_API_ONLY/, code: "OTP_API_ONLY", msg: "ارسال پیامک تنظیم نشده است" },
 ];
 
 function mapRpcError(message: string, status: number): AppError {

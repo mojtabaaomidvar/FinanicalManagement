@@ -13,6 +13,7 @@ export type AppErrorCode =
   | "NO_MEMBER"
   | "INVALID_MEMBER"
   | "INVALID_TX"
+  | "INVALID_ACCOUNT"
   | "NOT_FOUND"
   | "FORBIDDEN"
   | "CANNOT_REMOVE_OWNER"

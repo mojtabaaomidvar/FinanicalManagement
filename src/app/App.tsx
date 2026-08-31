@@ -10,6 +10,7 @@ import { PendingSmsFeature } from "@/features/pending-sms";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { TransactionsPage } from "@/pages/TransactionsPage";
 import { ReportsPage } from "@/pages/ReportsPage";
+import { AccountsPage } from "@/pages/AccountsPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { useToast } from "./providers/ToastProvider";
 
@@ -95,16 +96,19 @@ function MainShell({
 
   return (
     <>
-      {route === "dashboard" ? (
-        <DashboardPage
-          form={form}
-          onImported={bumpRefresh}
-          onNavTransactions={() => nav("transactions")}
-        />
-      ) : null}
-      {route === "transactions" ? <TransactionsPage form={form} /> : null}
-      {route === "reports" ? <ReportsPage /> : null}
-      {route === "settings" ? <SettingsPage /> : null}
+      <div key={route} className="page-anim">
+        {route === "dashboard" ? (
+          <DashboardPage
+            form={form}
+            onImported={bumpRefresh}
+            onNavTransactions={() => nav("transactions")}
+          />
+        ) : null}
+        {route === "transactions" ? <TransactionsPage form={form} /> : null}
+        {route === "reports" ? <ReportsPage /> : null}
+        {route === "accounts" ? <AccountsPage /> : null}
+        {route === "settings" ? <SettingsPage /> : null}
+      </div>
 
       <button
         className="fab"
@@ -119,24 +123,57 @@ function MainShell({
       <TransactionFormFeature form={form} />
       <PendingSmsFeature refreshKey={refreshKey} />
 
-      <nav className="tabbar" aria-label="ناوبری اصلی">
-        {[
-          { r: "dashboard" as Route, icon: "i-home", label: "داشبورد" },
-          { r: "transactions" as Route, icon: "i-receipt", label: "تراکنش‌ها" },
-          { r: "reports" as Route, icon: "i-chart", label: "گزارش‌ها" },
-          { r: "settings" as Route, icon: "i-gear", label: "تنظیمات" },
-        ].map((t) => (
-          <button
-            key={t.r}
-            className={`tab-btn ${route === t.r ? "active" : ""}`}
-            onClick={() => nav(t.r)}
-          >
-            <svg>
-              <use href={`#${t.icon}`} />
-            </svg>
-            <span>{t.label}</span>
-          </button>
-        ))}
+      <nav className="tabbar tabbar-5" aria-label="ناوبری اصلی">
+        {/* راست (در RTL اول) */}
+        <button
+          className={`tab-btn ${route === "transactions" ? "active" : ""}`}
+          onClick={() => nav("transactions")}
+        >
+          <svg>
+            <use href="#i-receipt" />
+          </svg>
+          <span>تراکنش‌ها</span>
+        </button>
+        <button
+          className={`tab-btn ${route === "reports" ? "active" : ""}`}
+          onClick={() => nav("reports")}
+        >
+          <svg>
+            <use href="#i-chart" />
+          </svg>
+          <span>گزارش‌ها</span>
+        </button>
+
+        {/* دکمه خانه مرکزی */}
+        <button
+          className={`tab-home ${route === "dashboard" ? "active" : ""}`}
+          onClick={() => nav("dashboard")}
+          aria-label="داشبورد"
+        >
+          <svg>
+            <use href="#i-home" />
+          </svg>
+        </button>
+
+        {/* چپ */}
+        <button
+          className={`tab-btn ${route === "accounts" ? "active" : ""}`}
+          onClick={() => nav("accounts")}
+        >
+          <svg>
+            <use href="#i-card" />
+          </svg>
+          <span>کارت‌ها</span>
+        </button>
+        <button
+          className={`tab-btn ${route === "settings" ? "active" : ""}`}
+          onClick={() => nav("settings")}
+        >
+          <svg>
+            <use href="#i-gear" />
+          </svg>
+          <span>تنظیمات</span>
+        </button>
       </nav>
     </>
   );
