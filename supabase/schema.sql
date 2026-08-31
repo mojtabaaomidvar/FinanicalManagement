@@ -948,7 +948,7 @@ begin
 
   v_card      := nullif(regexp_replace(coalesce(p_card_number, ''), '[^0-9]', '', 'g'), '');
   v_account_no := nullif(regexp_replace(coalesce(p_account_number, ''), '[^0-9]', '', 'g'), '');
-  v_sheba     := upper(regexp_replace(coalesce(p_sheba, ''), '[^0-9a-zA-Z]', '', 'g'));
+  v_sheba     := nullif(upper(regexp_replace(coalesce(p_sheba, ''), '[^0-9a-zA-Z]', '', 'g')), '');
 
   if v_card is not null and v_card !~ '^\d{16}$' then
     raise exception 'INVALID_CARD';

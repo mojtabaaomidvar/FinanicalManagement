@@ -9,7 +9,7 @@ import { categoriesFor } from "@/domain/category/category.catalog";
 import { toFa } from "@/shared/lib/digits";
 
 export function PendingSmsFeature({ refreshKey }: { refreshKey: number }) {
-  const { useCases, members, member, refreshData } = useApp();
+  const { useCases, member, refreshData } = useApp();
   const { show } = useToast();
   const m = usePendingSmsModel(useCases!, member?.id ?? "", show);
 
@@ -37,7 +37,7 @@ export function PendingSmsFeature({ refreshKey }: { refreshKey: number }) {
         </div>
         <div className="pending-card">
           <div className="pending-raw">{m.raw}</div>
-          <div className="pending-fields">
+          <div className="pending-fields form-grid">
             <Field label="نوع تراکنش">
               <Select
                 value={m.type}
@@ -59,13 +59,6 @@ export function PendingSmsFeature({ refreshKey }: { refreshKey: number }) {
                   value: c.id,
                   label: c.name,
                 }))}
-              />
-            </Field>
-            <Field label="عضو">
-              <Select
-                value={m.memberId}
-                onChange={m.setMemberId}
-                options={members.map((x) => ({ value: x.id, label: x.name }))}
               />
             </Field>
             <Field label="تاریخ">

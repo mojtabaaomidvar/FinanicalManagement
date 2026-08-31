@@ -201,77 +201,86 @@ export function AccountsPage() {
       </div>
 
       <Modal open={open} onClose={() => setOpen(false)} title="کارت/حساب جدید">
-        <div style={{ marginTop: 8 }}>
-          <Field label="نام (مثل: کارت اصلی من)">
-            <TextInput
-              value={title}
-              onChange={setTitle}
-              placeholder="کارت اصلی من"
-              autoFocus
-            />
-          </Field>
+        <div className="form-grid" style={{ marginTop: 8 }}>
+          <div className="form-row">
+            <Field label="نام">
+              <TextInput
+                value={title}
+                onChange={setTitle}
+                placeholder="کارت اصلی من"
+                autoFocus
+              />
+            </Field>
+          </div>
 
-          <Field label="بانک (با شروع به تایپ کارت، خودکار تشخیص داده می‌شود)">
-            <Select
-              value={bank}
-              onChange={setBank}
-              options={[
-                { value: "", label: "انتخاب کنید (اختیاری)" },
-                ...BANK_NAMES.map((b) => ({ value: b, label: b })),
-              ]}
-            />
-          </Field>
+          <div className="form-row">
+            <Field label="بانک (خودکار از روی کارت)">
+              <Select
+                value={bank}
+                onChange={setBank}
+                options={[
+                  { value: "", label: "انتخاب کنید" },
+                  ...BANK_NAMES.map((b) => ({ value: b, label: b })),
+                ]}
+              />
+            </Field>
+          </div>
 
-          <Field label="شماره کارت (اختیاری — ۱۶ رقم)">
-            <TextInput
-              value={cardNo}
-              onChange={(v) => {
-                const digits = v.replace(/[^\d۰-۹]/g, "");
-                setCardNo(digits);
-                /* تشخیص خودکار بانک از ۶ رقم اول */
-                const detected = bankOfCard(digits);
-                if (detected) setBank(detected);
-              }}
-              placeholder="۶۲۱۹ ۸۶۱۰ ..."
-              dir="ltr"
-              inputMode="numeric"
-            />
-          </Field>
-          {binError ? (
-            <p className="field-error">{binError}</p>
-          ) : null}
+          <div className="form-row full">
+            <Field label="شماره کارت (اختیاری — ۱۶ رقم)">
+              <TextInput
+                value={cardNo}
+                onChange={(v) => {
+                  const digits = v.replace(/[^\d۰-۹]/g, "");
+                  setCardNo(digits);
+                  /* تشخیص خودکار بانک از ۶ رقم اول */
+                  const detected = bankOfCard(digits);
+                  if (detected) setBank(detected);
+                }}
+                placeholder="۶۲۱۹ ۸۶۱۰ ..."
+                dir="ltr"
+                inputMode="numeric"
+              />
+            </Field>
+            {binError ? <p className="field-error">{binError}</p> : null}
+          </div>
 
-          <Field label="شماره حساب (اختیاری — ۵ تا ۲۰ رقم)">
-            <TextInput
-              value={accountNo}
-              onChange={setAccountNo}
-              placeholder="مثلاً ۱۲۳۴۵۶۷۸۹"
-              dir="ltr"
-              inputMode="numeric"
-            />
-          </Field>
+          <div className="form-row">
+            <Field label="شماره حساب (اختیاری)">
+              <TextInput
+                value={accountNo}
+                onChange={setAccountNo}
+                placeholder="۱۲۳۴۵۶۷۸۹"
+                dir="ltr"
+                inputMode="numeric"
+              />
+            </Field>
+          </div>
 
-          <Field label="شماره شبا (اختیاری — IR + ۲۴ رقم)">
-            <TextInput
-              value={sheba}
-              onChange={setSheba}
-              placeholder="IR + ۲۴ رقم"
-              dir="ltr"
-            />
-          </Field>
+          <div className="form-row">
+            <Field label="شماره شبا (اختیاری)">
+              <TextInput
+                value={sheba}
+                onChange={setSheba}
+                placeholder="IR + ۲۴ رقم"
+                dir="ltr"
+              />
+            </Field>
+          </div>
 
-          <Field label="مالک">
-            <Select
-              value={memberId || member?.id || ""}
-              onChange={setMemberId}
-              options={members.map((m) => ({ value: m.id, label: m.name }))}
-            />
-          </Field>
+          <div className="form-row full">
+            <Field label="مالک">
+              <Select
+                value={memberId || member?.id || ""}
+                onChange={setMemberId}
+                options={members.map((m) => ({ value: m.id, label: m.name }))}
+              />
+            </Field>
+          </div>
 
-          <p className="modal-sub">
+          <p className="modal-sub full" style={{ gridColumn: "1 / -1" }}>
             هر یک از فیلدهای کارت، حساب یا شبا به‌تنهایی کافی است — لازم نیست همه
-            را پر کنید. اگر کارت را وارد کنید، هم‌خوانی آن با بانک انتخابی بررسی
-            می‌شود.
+            را پر کنید.
           </p>
         </div>
 

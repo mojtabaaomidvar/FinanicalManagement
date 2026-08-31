@@ -695,8 +695,10 @@ button:active {
   padding: 10px var(--sp-4);
   font-size: 14px;
   color: var(--text);
-  min-width: 130px;
-  text-align: center;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  text-align: right;
   transition: border-color var(--dur-fast) ease;
 }
 .num-input.big {
@@ -919,6 +921,19 @@ button:active {
 
 .form-row {
   margin-bottom: var(--sp-4);
+}
+
+/* دو فیلد در یک ردیف — برای فرم‌های موبایلی جمع‌وجور */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 var(--sp-3);
+}
+.form-grid .form-row {
+  min-width: 0;
+}
+.form-grid .form-row.full {
+  grid-column: 1 / -1;
 }
 .form-row > label {
   display: block;
