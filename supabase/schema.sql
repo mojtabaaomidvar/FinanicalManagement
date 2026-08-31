@@ -1,6 +1,6 @@
 -- ═══════════════════════════════════════════════════════════
--- مالی من — اسکیمای Supabase (PostgreSQL) — نسخه ۳.۳
--- ورود با شماره موبایل + رمز (کد پیامکی اختیاری) + کارت‌ها/حساب‌ها
+-- مالی من — اسکیمای Supabase (PostgreSQL) — نسخه ۳.۴
+-- ورود با شماره موبایل + رمز (کد پیامکی اختیاری) + کارت‌ها/حساب‌ها + پل پیامک
 -- بدون نیاز به هیچ افزونه‌ای (pgcrypto لازم نیست — توکن‌ها از gen_random_uuid ساخته می‌شوند)
 --
 -- اجرا در: Supabase Dashboard → SQL Editor → New query → Run
@@ -937,4 +937,62 @@ begin
   if not found then
     raise exception 'NOT_FOUND';
   end if;
+end $$;
+
+-- ═══════════════════════════════════════════════════════════
+-- پل پیامک — اتصال خودکار از گوشی اندروید (اپ فوروادر)
+-- ═══════════════════════════════════════════════════════════
+
+create table if not exists public.sms_bridges (
+  id         uuid primary key default gen_random_uuid(),
+  family_id  uuid not null references public.families(id) on delete cascade,
+  member_id  uuid not null references public.members(id) on delete cascade,
+  token      text not null unique,
+  active     boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_bridges_family on public.sms_bridges(family_id);
+
+alter table public.sms_bridges enable row level security;
+-- بدون پالیسی → دسترسی فقط از طریق RPC (کاربر) و service_role (وب‌هوک)
+
+-- پل فعال عضو فعلی (برای نمایش در تنظیمات) — null اگر نباشد
+create or replace function public.get_bridge(p_token text)
+returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_member uuid;
+begin
+  v_member := public._session_member_id(p_token);
+  return (
+    select json_build_object('token', b.token, 'member_id', b.member_id)
+    from public.sms_bridges b
+    where b.member_id = v_member and b.active
+    order by b.created_at desc
+    limit 1
+  );
+end $$;
+
+-- ساخت/چرخش پل برای عضو فعلی (کلید قبلی بی‌درنگ باطل می‌شود)
+create or replace function public.create_bridge(p_token text)
+returns text
+language plpgsql security definer set search_path = public as $$
+declare
+  v_member uuid;
+  v_family uuid;
+  v_token  text;
+begin
+  v_member := public._session_member_id(p_token);
+  select family_id into v_family from public.members where id = v_member;
+
+  update public.sms_bridges
+  set active = false
+  where member_id = v_member and active;
+
+  v_token := left(replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', ''), 40);
+  insert into public.sms_bridges (family_id, member_id, token)
+  values (v_family, v_member, v_token);
+
+  return v_token;
 end $$;

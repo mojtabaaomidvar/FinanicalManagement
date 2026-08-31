@@ -31,6 +31,7 @@ import {
   ParseSmsImportUseCase,
   RecordSmsUseCase,
 } from "./sms/sms.usecases";
+import { CreateBridgeUseCase, GetBridgeUseCase } from "./sms/bridge.usecases";
 import {
   BuildBackupJsonUseCase,
   CheckBudgetStatusUseCase,
@@ -82,6 +83,9 @@ export interface UseCases {
   listAccounts: ListAccountsUseCase;
   addAccount: AddAccountUseCase;
   deleteAccount: DeleteAccountUseCase;
+
+  getBridge: GetBridgeUseCase;
+  createBridge: CreateBridgeUseCase;
 }
 
 export function createUseCases(c: Container): UseCases {
@@ -125,5 +129,8 @@ export function createUseCases(c: Container): UseCases {
     listAccounts: new ListAccountsUseCase(c.repos.accounts),
     addAccount: new AddAccountUseCase(c.repos.accounts),
     deleteAccount: new DeleteAccountUseCase(c.repos.accounts),
+
+    getBridge: new GetBridgeUseCase(c.repos.bridges),
+    createBridge: new CreateBridgeUseCase(c.repos.bridges),
   };
 }

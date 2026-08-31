@@ -28,3 +28,9 @@ export interface NewBankSms {
   /** "YYYY-MM-DD" میلادی */
   date: string | null;
 }
+
+/** پل پیامک — کلید اتصال اپ فوروادر اندروید برای عضو */
+export interface SmsBridge {
+  token: string;
+  memberId: string;
+}

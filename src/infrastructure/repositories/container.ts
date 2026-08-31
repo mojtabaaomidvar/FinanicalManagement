@@ -8,6 +8,7 @@ import { SupabaseFamilyRepository } from "./familyRepository";
 import { SupabaseTransactionRepository } from "./transactionRepository";
 import { SupabaseSmsRepository } from "./smsRepository";
 import { SupabaseAccountRepository } from "./accountRepository";
+import { SupabaseBridgeRepository } from "./bridgeRepository";
 import type { SecureStorage } from "@/infrastructure/storage/secureStorage.adapter";
 
 export interface Repositories {
@@ -16,6 +17,7 @@ export interface Repositories {
   transactions: SupabaseTransactionRepository;
   sms: SupabaseSmsRepository;
   accounts: SupabaseAccountRepository;
+  bridges: SupabaseBridgeRepository;
 }
 
 export interface Container {
@@ -41,6 +43,7 @@ export function getContainer(): Promise<Container> {
           transactions: new SupabaseTransactionRepository(tokenProvider),
           sms: new SupabaseSmsRepository(tokenProvider),
           accounts: new SupabaseAccountRepository(tokenProvider),
+          bridges: new SupabaseBridgeRepository(tokenProvider),
         },
       };
     })();

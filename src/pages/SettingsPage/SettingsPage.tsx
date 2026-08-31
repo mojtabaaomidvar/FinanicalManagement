@@ -6,6 +6,7 @@ import { useToast } from "@/app/providers/ToastProvider";
 import { Card } from "@/shared/ui";
 import { InviteFeature } from "@/features/invite";
 import { CheckBudgetStatus } from "./CheckBudgetStatus";
+import { SmsBridgeCard } from "./SmsBridgeCard";
 import { formatAmount, liveFormatAmount } from "@/shared/lib/format";
 
 export function SettingsPage() {
@@ -80,6 +81,8 @@ export function SettingsPage() {
 
           <InviteFeature />
         </Card>
+
+        <SmsBridgeCard />
 
         <Card>
           <div className="setting-row">
@@ -187,7 +190,7 @@ export function SettingsPage() {
         </Card>
 
         <p className="version-tag">
-          نسخه ۴.۲.۰ — React + Clean Architecture
+          نسخه ۴.۳.۰ — React + Clean Architecture
         </p>
       </div>
     </section>
