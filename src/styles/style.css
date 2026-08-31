@@ -935,6 +935,24 @@ button:active {
 .form-grid .form-row.full {
   grid-column: 1 / -1;
 }
+
+/* ردیف ورودی + دکمه چسبیده (مثل کارت + تبدیل) */
+.convert-row {
+  display: flex;
+  gap: var(--sp-2);
+}
+.convert-row .text-input {
+  flex: 1;
+}
+.convert-btn {
+  flex-shrink: 0;
+  padding: 0 var(--sp-4);
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
 .form-row > label {
   display: block;
   font-size: 12.5px;

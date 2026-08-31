@@ -77,3 +77,27 @@ export function cardMatchesBank(cardNumber: string, bank: string): boolean {
   if (bin.length !== 6) return true; /* هنوز کامل تایپ نشده */
   return bins.includes(bin);
 }
+
+/** کد سه‌رقمی بانک در شبا (رقم‌های ۴ تا ۶ بعد از IR و دو رقم کنترل)
+    فقط بانک‌های اصلی و کدهای قطعی — کد ناشناخته = بدون تشخیص */
+export const SHEBA_BANK_CODES: Record<string, string> = {
+  "012": "بانک ملی",
+  "013": "بانک رفاه",
+  "014": "بانک مسکن",
+  "015": "بانک سپه",
+  "016": "بانک کشاورزی",
+  "017": "بانک ملت",
+  "018": "بانک تجارت",
+  "019": "بانک صادرات",
+  "054": "بانک پارسیان",
+  "056": "بانک سامان",
+  "063": "بانک انصاری",
+};
+
+/** تشخیص بانک از روی شبا — null اگر کد ناشناخته/ناقص باشد */
+export function bankOfSheba(sheba: string): string | null {
+  const s = sheba.toUpperCase().replace(/[^0-9A-Z]/g, "");
+  if (!s.startsWith("IR") || s.length < 6) return null;
+  const code = s.slice(4, 7);
+  return SHEBA_BANK_CODES[code] ?? null;
+}

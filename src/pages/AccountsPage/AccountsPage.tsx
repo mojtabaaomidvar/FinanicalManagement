@@ -4,7 +4,12 @@ import { useMemo, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
 import { Field, Modal, Select, TextInput } from "@/shared/ui";
-import { BANK_NAMES, bankOfCard, cardMatchesBank } from "@/shared/lib/banks";
+import {
+  BANK_NAMES,
+  bankOfCard,
+  bankOfSheba,
+  cardMatchesBank,
+} from "@/shared/lib/banks";
 import {
   maskCardNumber,
   formatCardFa,
@@ -19,12 +24,12 @@ export function AccountsPage() {
 
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [converting, setConverting] = useState(false);
   const [title, setTitle] = useState("");
   const [bank, setBank] = useState("");
   const [cardNo, setCardNo] = useState("");
   const [accountNo, setAccountNo] = useState("");
   const [sheba, setSheba] = useState("");
-  const [memberId, setMemberId] = useState(member?.id ?? "");
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
 
   /* خطای هم‌خوانی کارت با بانک — زنده هنگام تایپ */
@@ -43,8 +48,37 @@ export function AccountsPage() {
     setCardNo("");
     setAccountNo("");
     setSheba("");
-    setMemberId(member?.id ?? "");
     setOpen(true);
+  }
+
+  /** تبدیل آنلاین کارت → شبا/حساب (best-effort) */
+  async function convertCard() {
+    const digits = digitsOf(cardNo);
+    if (digits.length !== 16) {
+      show("اول شماره کارت ۱۶ رقمی را کامل وارد کنید");
+      return;
+    }
+    setConverting(true);
+    try {
+      const res = await fetch("api/card-convert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ card: digits }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.ok) {
+        if (data.sheba) setSheba(data.sheba);
+        if (data.account) setAccountNo(data.account);
+        if (data.bank) setBank(data.bank);
+        show("اطلاعات حساب دریافت شد");
+      } else {
+        show(data.message || "سرویس تبدیل در دسترس نیست — دستی وارد کنید");
+      }
+    } catch {
+      show("سرویس تبدیل در دسترس نیست — دستی وارد کنید");
+    } finally {
+      setConverting(false);
+    }
   }
 
   async function save() {
@@ -55,7 +89,7 @@ export function AccountsPage() {
     setBusy(true);
     try {
       await useCases!.addAccount.execute({
-        memberId: memberId || member?.id || "",
+        memberId: member?.id || "",
         title: title.trim(),
         bank: bank || null,
         cardNumber: cardNo.trim() || null,
@@ -202,19 +236,38 @@ export function AccountsPage() {
 
       <Modal open={open} onClose={() => setOpen(false)} title="کارت/حساب جدید">
         <div className="form-grid" style={{ marginTop: 8 }}>
-          <div className="form-row">
-            <Field label="نام">
-              <TextInput
-                value={title}
-                onChange={setTitle}
-                placeholder="کارت اصلی من"
-                autoFocus
-              />
+          <div className="form-row full">
+            <Field label="شماره کارت (اختیاری — ۱۶ رقم)">
+              <div className="convert-row">
+                <TextInput
+                  value={cardNo}
+                  onChange={(v) => {
+                    const digits = v.replace(/[^\d۰-۹]/g, "");
+                    setCardNo(digits);
+                    /* تشخیص خودکار بانک از ۶ رقم اول */
+                    const detected = bankOfCard(digits);
+                    if (detected) setBank(detected);
+                  }}
+                  placeholder="۶۲۱۹ ۸۶۱۰ ..."
+                  dir="ltr"
+                  inputMode="numeric"
+                />
+                <button
+                  type="button"
+                  className="action-btn convert-btn"
+                  disabled={converting}
+                  onClick={convertCard}
+                  title="دریافت شبا/حساب از روی شماره کارت"
+                >
+                  {converting ? "…" : "تبدیل"}
+                </button>
+              </div>
             </Field>
+            {binError ? <p className="field-error">{binError}</p> : null}
           </div>
 
           <div className="form-row">
-            <Field label="بانک (خودکار از روی کارت)">
+            <Field label="بانک (خودکار از روی کارت/شبا)">
               <Select
                 value={bank}
                 onChange={setBank}
@@ -226,23 +279,14 @@ export function AccountsPage() {
             </Field>
           </div>
 
-          <div className="form-row full">
-            <Field label="شماره کارت (اختیاری — ۱۶ رقم)">
+          <div className="form-row">
+            <Field label="کارت (عنوان)">
               <TextInput
-                value={cardNo}
-                onChange={(v) => {
-                  const digits = v.replace(/[^\d۰-۹]/g, "");
-                  setCardNo(digits);
-                  /* تشخیص خودکار بانک از ۶ رقم اول */
-                  const detected = bankOfCard(digits);
-                  if (detected) setBank(detected);
-                }}
-                placeholder="۶۲۱۹ ۸۶۱۰ ..."
-                dir="ltr"
-                inputMode="numeric"
+                value={title}
+                onChange={setTitle}
+                placeholder="کارت اصلی"
               />
             </Field>
-            {binError ? <p className="field-error">{binError}</p> : null}
           </div>
 
           <div className="form-row">
@@ -261,26 +305,22 @@ export function AccountsPage() {
             <Field label="شماره شبا (اختیاری)">
               <TextInput
                 value={sheba}
-                onChange={setSheba}
+                onChange={(v) => {
+                  setSheba(v);
+                  /* تشخیص خودکار بانک از کد بانک در شبا */
+                  const detected = bankOfSheba(v);
+                  if (detected) setBank(detected);
+                }}
                 placeholder="IR + ۲۴ رقم"
                 dir="ltr"
               />
             </Field>
           </div>
 
-          <div className="form-row full">
-            <Field label="مالک">
-              <Select
-                value={memberId || member?.id || ""}
-                onChange={setMemberId}
-                options={members.map((m) => ({ value: m.id, label: m.name }))}
-              />
-            </Field>
-          </div>
-
           <p className="modal-sub full" style={{ gridColumn: "1 / -1" }}>
             هر یک از فیلدهای کارت، حساب یا شبا به‌تنهایی کافی است — لازم نیست همه
-            را پر کنید.
+            را پر کنید. دکمه «تبدیل» سعی می‌کند شبا/حساب را از روی کارت آنلاین
+            بگیرد؛ در صورت عدم دسترسی سرویس، دستی وارد کنید.
           </p>
         </div>
 
