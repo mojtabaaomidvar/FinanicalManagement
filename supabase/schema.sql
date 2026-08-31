@@ -1,6 +1,7 @@
 -- ═══════════════════════════════════════════════════════════
 -- مالی من — اسکیمای Supabase (PostgreSQL) — نسخه ۳.۳
 -- ورود با شماره موبایل + رمز (کد پیامکی اختیاری) + کارت‌ها/حساب‌ها
+-- بدون نیاز به هیچ افزونه‌ای (pgcrypto لازم نیست — توکن‌ها از gen_random_uuid ساخته می‌شوند)
 --
 -- اجرا در: Supabase Dashboard → SQL Editor → New query → Run
 -- (روی پروژه جدید یا قبلی قابل اجراست — idempotent)
@@ -245,13 +246,14 @@ begin
 end $$;
 
 -- ساخت نشست جدید برای عضو → توکن (اعتبار اولیه ۷ روز، با هر استفاده تمدید می‌شود)
+-- توکن از دو UUID تصادفی ساخته می‌شود (۶۴ رقم هگز) — بدون نیاز به افزونه pgcrypto
 create or replace function public._create_session(p_member_id uuid)
 returns text
 language plpgsql security definer set search_path = public as $$
 declare
   v_token text;
 begin
-  v_token := encode(gen_random_bytes(32), 'hex');
+  v_token := replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '');
   insert into public.sessions (token, member_id, expires_at)
   values (v_token, p_member_id, now() + interval '7 days');
   return v_token;
@@ -453,7 +455,7 @@ begin
   set active = false
   where family_id = v_family_id and active = true;
 
-  v_token := encode(gen_random_bytes(20), 'hex');
+  v_token := left(replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', ''), 40);
   insert into public.family_invites (family_id, token, expires_at)
   values (v_family_id, v_token, now() + interval '30 days');
 
