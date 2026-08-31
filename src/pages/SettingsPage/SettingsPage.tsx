@@ -190,7 +190,7 @@ export function SettingsPage() {
         </Card>
 
         <p className="version-tag">
-          نسخه ۴.۳.۰ — React + Clean Architecture
+          نسخه ۴.۴.۰ — React + Clean Architecture
         </p>
       </div>
     </section>

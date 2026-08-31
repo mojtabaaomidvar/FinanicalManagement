@@ -1,4 +1,4 @@
-/* UI فرم تراکنش — مودال افزودن/ویرایش */
+/* UI فرم تراکنش — مودال افزودن/ویرایش (با حساب منشا/مقصد) */
 
 import { useApp } from "@/app/providers/AppProvider";
 import type { TxFormModel } from "../model/useTxFormModel";
@@ -12,10 +12,22 @@ import {
   TextInput,
 } from "@/shared/ui";
 import { categoriesFor } from "@/domain/category/category.catalog";
+import { maskCardNumber } from "@/domain/account/account.rules";
+
+function accountLabel(
+  title: string,
+  bank: string | null,
+  cardNumber: string | null,
+): string {
+  const parts = [title];
+  if (bank) parts.push(bank);
+  if (cardNumber) parts.push(maskCardNumber(cardNumber));
+  return parts.join(" · ");
+}
 
 export function TransactionFormFeature({ form }: { form: TxFormModel }) {
   const m = form;
-  const { members, refreshData } = useApp();
+  const { members, accounts, refreshData } = useApp();
 
   return (
     <>
@@ -54,6 +66,20 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
                 </button>
               ))}
             </div>
+          </Field>
+
+          <Field label={m.form.type === "expense" ? "از حساب (منشا هزینه)" : "به حساب (مقصد درآمد)"}>
+            <Select
+              value={m.form.accountId}
+              onChange={(v) => m.setForm({ ...m.form, accountId: v })}
+              options={[
+                { value: "", label: accounts.length ? "بدون حساب مشخص" : "هنوز کارتی ثبت نشده" },
+                ...accounts.map((a) => ({
+                  value: a.id,
+                  label: accountLabel(a.title, a.bank, a.cardNumber),
+                })),
+              ]}
+            />
           </Field>
 
           <Field label="تاریخ">

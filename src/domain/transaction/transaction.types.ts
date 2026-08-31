@@ -12,6 +12,8 @@ export interface Transaction {
   /** تاریخ میلادی ISO — "YYYY-MM-DD" */
   date: string;
   note: string | null;
+  /** حساب منشا/مقصد (اختیاری) */
+  accountId: string | null;
   createdAt: string;
 }
 
@@ -23,4 +25,6 @@ export interface TransactionInput {
   /** "YYYY-MM-DD" میلادی */
   date: string;
   note?: string | null;
+  /** حساب منشا/مقصد (اختیاری) */
+  accountId?: string | null;
 }

@@ -22,6 +22,8 @@ export interface TxFormState {
   date: string;
   memberId: string;
   note: string;
+  /** حساب منشا/مقصد — رشته خالی = بدون حساب */
+  accountId: string;
 }
 
 export function useTxFormModel(
@@ -42,6 +44,7 @@ export function useTxFormModel(
       date: formatISO(today()),
       memberId: currentMemberId,
       note: "",
+      accountId: "",
     };
   }
 
@@ -60,6 +63,7 @@ export function useTxFormModel(
       date: formatISO(isoToJalali(tx.date)),
       memberId: tx.memberId,
       note: tx.note ?? "",
+      accountId: tx.accountId ?? "",
     });
     setOpen(true);
   }
@@ -85,6 +89,7 @@ export function useTxFormModel(
       category: form.categoryId,
       date: jalaliToIso(parsedDate),
       note: form.note.trim() || null,
+      accountId: form.accountId || null,
     };
 
     try {

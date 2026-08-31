@@ -1,6 +1,9 @@
-/* Modal — شیت پایین صفحه با بستن با کلیک بیرون/Escape */
+/* Modal — شیت پایین صفحه با بستن با کلیک بیرون/Escape
+   با Portal روی body رندر می‌شود تا والد دارای backdrop-filter/transform
+   (مثل هدر اپ) آن را به‌جای viewport، به‌اندازه خودش برش نزند. */
 
 import { useEffect, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 export function Modal(props: {
   open: boolean;
@@ -24,7 +27,7 @@ export function Modal(props: {
 
   if (!props.open) return null;
 
-  return (
+  return createPortal(
     <div
       className="modal-overlay"
       onClick={(e) => {
@@ -36,6 +39,7 @@ export function Modal(props: {
         {props.title ? <h3>{props.title}</h3> : null}
         {props.children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

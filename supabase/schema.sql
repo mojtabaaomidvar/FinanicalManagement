@@ -1,6 +1,6 @@
 -- ═══════════════════════════════════════════════════════════
--- مالی من — اسکیمای Supabase (PostgreSQL) — نسخه ۳.۴
--- ورود با شماره موبایل + رمز (کد پیامکی اختیاری) + کارت‌ها/حساب‌ها + پل پیامک
+-- مالی من — اسکیمای Supabase (PostgreSQL) — نسخه ۳.۵
+-- ورود با شماره موبایل + رمز (کد پیامکی اختیاری) + کارت‌ها/حساب‌ها + پل پیامک + حساب منشا/مقصد تراکنش
 -- بدون نیاز به هیچ افزونه‌ای (pgcrypto لازم نیست — توکن‌ها از gen_random_uuid ساخته می‌شوند)
 --
 -- اجرا در: Supabase Dashboard → SQL Editor → New query → Run
@@ -59,6 +59,11 @@ create table if not exists public.transactions (
 create index if not exists idx_tx_family on public.transactions(family_id);
 create index if not exists idx_tx_member on public.transactions(member_id);
 create index if not exists idx_tx_date   on public.transactions(date);
+
+-- مهاجرت نسخه ۳.۵: حساب منشا/مقصد تراکنش (اختیاری)
+alter table public.transactions add column if not exists account_id uuid
+  references public.accounts(id) on delete set null;
+create index if not exists idx_tx_account on public.transactions(account_id);
 
 -- ─────────── جدول پیامک‌های بانکی ───────────
 create table if not exists public.sms_messages (
@@ -186,6 +191,9 @@ drop function if exists public.auth_register(text, text, text, text);
 drop function if exists public.accept_invite(text, text, text, text);
 drop function if exists public.create_invite(uuid);
 drop function if exists public.auth_check_otp(text, text);
+drop function if exists public.add_account(text, uuid, text, text, text, text, text);
+drop function if exists public.add_transaction(text, uuid, text, numeric, text, date, text);
+drop function if exists public.update_transaction(text, uuid, uuid, text, numeric, text, date, text);
 
 -- ═══════════════════════════════════════════════════════════
 -- توابع کمکی داخلی
@@ -644,10 +652,10 @@ begin
   ), '[]'::json);
 end $$;
 
--- افزودن تراکنش (اعتبارسنجی کامل سمت سرور)
+-- افزودن تراکنش (اعتبارسنجی کامل سمت سرور؛ p_account_id اختیاری)
 create or replace function public.add_transaction(
   p_token text, p_member_id uuid, p_type text, p_amount numeric,
-  p_category text, p_date date, p_note text
+  p_category text, p_date date, p_note text, p_account_id uuid default null
 ) returns json
 language plpgsql security definer set search_path = public as $$
 declare
@@ -672,18 +680,23 @@ begin
                  where id = p_member_id and family_id = v_family_id) then
     raise exception 'INVALID_MEMBER';
   end if;
+  if p_account_id is not null and not exists (
+    select 1 from public.accounts
+    where id = p_account_id and family_id = v_family_id) then
+    raise exception 'INVALID_ACCOUNT_ID';
+  end if;
 
-  insert into public.transactions (family_id, member_id, type, amount, category, date, note)
-  values (v_family_id, p_member_id, p_type, p_amount, p_category, p_date, nullif(btrim(coalesce(p_note, '')), ''))
+  insert into public.transactions (family_id, member_id, type, amount, category, date, note, account_id)
+  values (v_family_id, p_member_id, p_type, p_amount, p_category, p_date, nullif(btrim(coalesce(p_note, '')), ''), p_account_id)
   returning * into v_row;
 
   return to_jsonb(v_row);
 end $$;
 
--- ویرایش تراکنش (فقط تراکنش‌های خانواده خود کاربر)
+-- ویرایش تراکنش (فقط تراکنش‌های خانواده خود کاربر؛ p_account_id اختیاری)
 create or replace function public.update_transaction(
   p_token text, p_tx_id uuid, p_member_id uuid, p_type text, p_amount numeric,
-  p_category text, p_date date, p_note text
+  p_category text, p_date date, p_note text, p_account_id uuid default null
 ) returns void
 language plpgsql security definer set search_path = public as $$
 declare
@@ -707,6 +720,11 @@ begin
                  where id = p_member_id and family_id = v_family_id) then
     raise exception 'INVALID_MEMBER';
   end if;
+  if p_account_id is not null and not exists (
+    select 1 from public.accounts
+    where id = p_account_id and family_id = v_family_id) then
+    raise exception 'INVALID_ACCOUNT_ID';
+  end if;
 
   update public.transactions
   set member_id = p_member_id,
@@ -714,7 +732,8 @@ begin
       amount    = p_amount,
       category  = p_category,
       date      = p_date,
-      note      = nullif(btrim(coalesce(p_note, '')), '')
+      note      = nullif(btrim(coalesce(p_note, '')), ''),
+      account_id = p_account_id
   where id = p_tx_id and family_id = v_family_id;
 
   if not found then
@@ -848,6 +867,35 @@ create index if not exists idx_accounts_family on public.accounts(family_id);
 alter table public.accounts enable row level security;
 -- بدون پالیسی → دسترسی فقط از طریق RPC
 
+-- پیش‌شماره‌های کارت (BIN) برای هم‌خوانی کارت با بانک انتخاب‌شده
+create table if not exists public.card_bins (
+  bin  text primary key check (bin ~ '^\d{6}$'),
+  bank text not null
+);
+
+insert into public.card_bins (bin, bank) values
+  ('610433','بانک ملت'),('991975','بانک ملت'),('628023','بانک ملت'),
+  ('617353','بانک ملی'),('627483','بانک ملی'),('603799','بانک ملی'),('639607','بانک ملی'),
+  ('603769','بانک صادرات'),('639347','بانک صادرات'),
+  ('585983','بانک تجارت'),('627354','بانک تجارت'),('207177','بانک تجارت'),('636214','بانک تجارت'),
+  ('589210','بانک سپه'),
+  ('603770','بانک کشاورزی'),('627418','بانک کشاورزی'),('502908','بانک کشاورزی'),
+  ('622106','بانک پارسیان'),('627889','بانک پارسیان'),('639194','بانک پارسیان'),
+  ('502229','بانک پاسارگاد'),('502910','بانک پاسارگاد'),('628157','بانک پاسارگاد'),
+  ('621986','بانک سامان'),('639346','بانک سامان'),
+  ('589463','بانک رفاه'),
+  ('505801','بانک گردشگری'),('505809','بانک گردشگری'),
+  ('502806','بانک شهر'),('504706','بانک شهر'),
+  ('502938','بانک دی'),
+  ('627488','بانک کارآفرین'),('639607','بانک کارآفرین'),
+  ('627648','بانک توسعه صادرات'),
+  ('606373','بانک قرض‌الحسنه مهر ایران'),
+  ('585949','بانک خاورمیانه'),
+  ('627381','بانک انصاری'),
+  ('627412','بانک سرمایه'),
+  ('636949','بانک حکمت'),
+on conflict (bin) do nothing;
+
 -- حذف نسخه‌های قدیمی در صورت تغییر امضا
 drop function if exists public.list_accounts(text);
 drop function if exists public.add_account(text, uuid, text, text, text, text, text);
@@ -871,7 +919,8 @@ begin
   ), '[]'::json);
 end $$;
 
--- افزودن کارت/حساب (اعتبارسنجی کامل سمت سرور)
+-- افزودن کارت/حساب (اعتبارسنجی کامل سمت سرور + هم‌خوانی BIN کارت با بانک)
+-- هر یک از فیلدهای کارت/حساب/شبا به‌تنهایی کافی است؛ همه اختیاری‌اند
 create or replace function public.add_account(
   p_token text, p_member_id uuid, p_title text, p_bank text,
   p_card_number text, p_account_number text, p_sheba text
@@ -912,6 +961,21 @@ begin
   end if;
   if v_card is null and v_account_no is null and v_sheba is null then
     raise exception 'EMPTY_ACCOUNT';
+  end if;
+
+  -- هم‌خوانی ۶ رقم اول کارت با بانک انتخاب‌شده (اگر بانک شناخته‌شده باشد)
+  if v_card is not null and nullif(btrim(coalesce(p_bank, '')), '') is not null then
+    if exists (
+      select 1 from public.card_bins
+      where bin = left(v_card, 6) and bank <> btrim(p_bank)
+    ) then
+      raise exception 'BANK_MISMATCH';
+    end if;
+    -- اگر بانک انتخابی اصلاً BIN ندارد و BIN این کارت متعلق به بانک دیگری است
+    if not exists (select 1 from public.card_bins where bank = btrim(p_bank))
+      and exists (select 1 from public.card_bins where bin = left(v_card, 6)) then
+      raise exception 'BANK_MISMATCH';
+    end if;
   end if;
 
   insert into public.accounts

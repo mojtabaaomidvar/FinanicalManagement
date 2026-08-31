@@ -46,6 +46,7 @@ const tx = (id: string, date: string, createdAt: string): Transaction => ({
   category: "food",
   date,
   note: null,
+  accountId: null,
   createdAt,
 });
 

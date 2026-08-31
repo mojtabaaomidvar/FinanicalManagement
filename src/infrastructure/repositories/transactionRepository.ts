@@ -34,6 +34,7 @@ export class SupabaseTransactionRepository implements TransactionRepository {
       p_category: input.category,
       p_date: input.date,
       p_note: input.note ?? null,
+      p_account_id: input.accountId ?? null,
     });
     return mapTransaction(row);
   }
@@ -48,6 +49,7 @@ export class SupabaseTransactionRepository implements TransactionRepository {
       p_category: input.category,
       p_date: input.date,
       p_note: input.note ?? null,
+      p_account_id: input.accountId ?? null,
     });
   }
 

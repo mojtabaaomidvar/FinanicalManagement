@@ -1,14 +1,15 @@
 /* صفحه کارت‌ها و حساب‌های بانکی — لیست + مودال افزودن */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
 import { Field, Modal, Select, TextInput } from "@/shared/ui";
-import { BANK_NAMES } from "@/shared/lib/banks";
+import { BANK_NAMES, bankOfCard, cardMatchesBank } from "@/shared/lib/banks";
 import {
   maskCardNumber,
   formatCardFa,
   formatSheba,
+  digitsOf,
 } from "@/domain/account/account.rules";
 import type { Account } from "@/domain/account/account.types";
 
@@ -26,6 +27,16 @@ export function AccountsPage() {
   const [memberId, setMemberId] = useState(member?.id ?? "");
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
 
+  /* خطای هم‌خوانی کارت با بانک — زنده هنگام تایپ */
+  const binError = useMemo(() => {
+    const digits = digitsOf(cardNo);
+    if (digits.length < 6 || !bank || bank === "سایر") return "";
+    if (!cardMatchesBank(digits, bank)) {
+      return `این شماره کارت متعلق به «${bankOfCard(digits) ?? "بانک دیگری"}» است، نه «${bank}»`;
+    }
+    return "";
+  }, [cardNo, bank]);
+
   function openNew() {
     setTitle("");
     setBank("");
@@ -37,6 +48,10 @@ export function AccountsPage() {
   }
 
   async function save() {
+    if (binError) {
+      show(binError);
+      return;
+    }
     setBusy(true);
     try {
       await useCases!.addAccount.execute({
@@ -196,29 +211,37 @@ export function AccountsPage() {
             />
           </Field>
 
-          <Field label="بانک">
+          <Field label="بانک (با شروع به تایپ کارت، خودکار تشخیص داده می‌شود)">
             <Select
               value={bank}
               onChange={setBank}
               options={[
-                { value: "", label: "انتخاب کنید" },
+                { value: "", label: "انتخاب کنید (اختیاری)" },
                 ...BANK_NAMES.map((b) => ({ value: b, label: b })),
               ]}
             />
           </Field>
 
-          <Field label="شماره کارت (۱۶ رقم)">
+          <Field label="شماره کارت (اختیاری — ۱۶ رقم)">
             <TextInput
               value={cardNo}
-              onChange={(v) => setCardNo(v)}
+              onChange={(v) => {
+                const digits = v.replace(/[^\d۰-۹]/g, "");
+                setCardNo(digits);
+                /* تشخیص خودکار بانک از ۶ رقم اول */
+                const detected = bankOfCard(digits);
+                if (detected) setBank(detected);
+              }}
               placeholder="۶۲۱۹ ۸۶۱۰ ..."
               dir="ltr"
               inputMode="numeric"
-              maxLength={23}
             />
           </Field>
+          {binError ? (
+            <p className="field-error">{binError}</p>
+          ) : null}
 
-          <Field label="شماره حساب (اختیاری)">
+          <Field label="شماره حساب (اختیاری — ۵ تا ۲۰ رقم)">
             <TextInput
               value={accountNo}
               onChange={setAccountNo}
@@ -228,7 +251,7 @@ export function AccountsPage() {
             />
           </Field>
 
-          <Field label="شماره شبا (اختیاری)">
+          <Field label="شماره شبا (اختیاری — IR + ۲۴ رقم)">
             <TextInput
               value={sheba}
               onChange={setSheba}
@@ -246,7 +269,9 @@ export function AccountsPage() {
           </Field>
 
           <p className="modal-sub">
-            حداقل یکی از شماره کارت، حساب یا شبا الزامی است.
+            هر یک از فیلدهای کارت، حساب یا شبا به‌تنهایی کافی است — لازم نیست همه
+            را پر کنید. اگر کارت را وارد کنید، هم‌خوانی آن با بانک انتخابی بررسی
+            می‌شود.
           </p>
         </div>
 

@@ -1204,6 +1204,12 @@ button:active {
 }
 
 /* ─────────── کارت پل پیامک ─────────── */
+.field-error {
+  font-size: 11.5px;
+  color: var(--danger);
+  margin: -8px 0 12px;
+  line-height: 1.7;
+}
 .bridge-row {
   margin-bottom: var(--sp-3);
 }
