@@ -29,7 +29,8 @@
       "Bash(appended *)",
       "Bash(powershell *)",
       "Bash(timeout *)",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "Bash(git *)"
     ]
   },
   "$version": 4
