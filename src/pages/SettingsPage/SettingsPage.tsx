@@ -1,6 +1,6 @@
-/* صفحه تنظیمات — پروفایل، اعضا، رویدادها، پل پیامک، بودجه، تم، خروج */
+/* صفحه تنظیمات — فهرست دسته‌بندی‌ها + زیرصفحه‌ها با دکمه بازگشت */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
 import { Card } from "@/shared/ui";
@@ -9,11 +9,17 @@ import { SmsBridgeCard } from "./SmsBridgeCard";
 import { ProfileCard } from "./ProfileCard";
 import { EventsCard } from "./EventsCard";
 import { MembersCard } from "./MembersCard";
+import { SettingsSubPage } from "./SettingsSubPage";
 import { formatAmount, liveFormatAmount } from "@/shared/lib/format";
+import { useEffect, useMemo, useRef } from "react";
+
+type SettingsSection = "family" | "profile" | "events" | "bridge" | "budget";
 
 export function SettingsPage() {
-  const { useCases, family, txs, onLoggedOut } = useApp();
+  const { useCases, family, members, txs, onLoggedOut } = useApp();
   const { show } = useToast();
+
+  const [section, setSection] = useState<SettingsSection | null>(null);
 
   const [budget, setBudget] = useState("");
   const saveTimer = useRef<number | undefined>(undefined);
@@ -53,24 +59,44 @@ export function SettingsPage() {
     [useCases, family, txs],
   );
 
-  return (
-    <section className="page active">
-      <header className="app-header">
-        <div className="header-title">
-          <h1>تنظیمات</h1>
-          <p>شخصی‌سازی اپلیکیشن</p>
-        </div>
-      </header>
+  const back = () => setSection(null);
 
-      <div className="content">
+  /* ── زیرصفحه‌ها ── */
+  if (section === "profile") {
+    return (
+      <SettingsSubPage title="پروفایل من" onBack={back}>
         <ProfileCard />
+      </SettingsSubPage>
+    );
+  }
 
+  if (section === "family") {
+    return (
+      <SettingsSubPage title="خانواده" onBack={back}>
         <MembersCard />
+      </SettingsSubPage>
+    );
+  }
 
+  if (section === "events") {
+    return (
+      <SettingsSubPage title="رویدادهای مهم" onBack={back}>
         <EventsCard />
+      </SettingsSubPage>
+    );
+  }
 
+  if (section === "bridge") {
+    return (
+      <SettingsSubPage title="پیامک خودکار" onBack={back}>
         <SmsBridgeCard />
+      </SettingsSubPage>
+    );
+  }
 
+  if (section === "budget") {
+    return (
+      <SettingsSubPage title="بودجه و نمایش" onBack={back}>
         <Card>
           <div className="setting-row">
             <div>
@@ -107,7 +133,6 @@ export function SettingsPage() {
                 type="checkbox"
                 checked={family?.dark ?? false}
                 onChange={(e) => {
-                  /* اعمال فوری تم + ذخیره */
                   const dark = e.target.checked;
                   document.documentElement.dataset.theme = dark ? "dark" : "light";
                   saveSettings({ dark });
@@ -145,7 +170,7 @@ export function SettingsPage() {
                 if (!family) return;
                 const data = useCases!.buildBackupJson.execute({
                   family,
-                  members: [],
+                  members,
                   transactions: txs,
                 });
                 const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -175,9 +200,100 @@ export function SettingsPage() {
             </button>
           </div>
         </Card>
+      </SettingsSubPage>
+    );
+  }
+
+  /* ── فهرست اصلی ── */
+  return (
+    <section className="page active">
+      <header className="app-header">
+        <div className="header-title">
+          <h1>تنظیمات</h1>
+          <p>شخصی‌سازی اپلیکیشن</p>
+        </div>
+      </header>
+
+      <div className="content">
+        <Card>
+          <button className="settings-nav-row" onClick={() => setSection("profile")}>
+            <span className="settings-nav-icon">
+              <svg>
+                <use href="#i-users" />
+              </svg>
+            </span>
+            <div>
+              <h4>پروفایل من</h4>
+              <p>آواتار، نام، تاریخ تولد و کد ملی</p>
+            </div>
+            <svg className="settings-nav-arrow">
+              <use href="#i-arrow-l" />
+            </svg>
+          </button>
+
+          <button className="settings-nav-row" onClick={() => setSection("family")}>
+            <span className="settings-nav-icon">
+              <svg>
+                <use href="#i-users" />
+              </svg>
+            </span>
+            <div>
+              <h4>خانواده</h4>
+              <p>اعضا، دعوت با لینک/QR و حذف عضو</p>
+            </div>
+            <svg className="settings-nav-arrow">
+              <use href="#i-arrow-l" />
+            </svg>
+          </button>
+
+          <button className="settings-nav-row" onClick={() => setSection("events")}>
+            <span className="settings-nav-icon">
+              <svg>
+                <use href="#i-bell" />
+              </svg>
+            </span>
+            <div>
+              <h4>رویدادهای مهم</h4>
+              <p>تولدها، سالگردها و مناسبت‌ها</p>
+            </div>
+            <svg className="settings-nav-arrow">
+              <use href="#i-arrow-l" />
+            </svg>
+          </button>
+
+          <button className="settings-nav-row" onClick={() => setSection("bridge")}>
+            <span className="settings-nav-icon">
+              <svg>
+                <use href="#i-sms" />
+              </svg>
+            </span>
+            <div>
+              <h4>پیامک خودکار</h4>
+              <p>اتصال گوشی اندروید برای ثبت خودکار</p>
+            </div>
+            <svg className="settings-nav-arrow">
+              <use href="#i-arrow-l" />
+            </svg>
+          </button>
+
+          <button className="settings-nav-row" onClick={() => setSection("budget")}>
+            <span className="settings-nav-icon">
+              <svg>
+                <use href="#i-gear" />
+              </svg>
+            </span>
+            <div>
+              <h4>بودجه و نمایش</h4>
+              <p>بودجه ماهانه، تم، واحد و خروجی</p>
+            </div>
+            <svg className="settings-nav-arrow">
+              <use href="#i-arrow-l" />
+            </svg>
+          </button>
+        </Card>
 
         <p className="version-tag">
-          خانه یار · نسخه ۵.۱.۰
+          خانه یار · نسخه ۵.۲.۰
         </p>
       </div>
     </section>

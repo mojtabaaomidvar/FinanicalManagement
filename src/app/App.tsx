@@ -127,11 +127,11 @@ function MainShell({
       <PendingSmsFeature refreshKey={refreshKey} />
 
       <nav className="tabbar tabbar-5" aria-label="ناوبری اصلی">
-        {/* نشانگر متحرک — موقعیت بر اساس تب فعال (RTL) */}
+        {/* نشانگر متحرک — خط کوچک زیر تب فعال (وسط ستون) */}
         <div
           className="tab-ind"
           style={{
-            insetInlineStart: `calc(${TAB_ORDER.indexOf(route) * 20}% + 4px)`,
+            insetInlineStart: `calc(${TAB_ORDER.indexOf(route) * 20}% + 10% - 16px)`,
           }}
         />
 
