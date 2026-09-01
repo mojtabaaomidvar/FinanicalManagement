@@ -684,6 +684,19 @@ begin
     raise exception 'INVALID_MEMBER';
   end if;
 
+  -- دسته: از لیست ثابت یا دسته سفارشی همین خانواده با همین نوع
+  if not exists (
+    select 1 from public.custom_categories
+    where family_id = v_family_id and type = p_type
+      and id::text = btrim(p_category)
+  ) and btrim(p_category) not in (
+    'food','home','bills','transport','health','clothing','edu','fun','shopping',
+    'comm','finance','insurance','gifte','family','beauty','sport','pet','other-e',
+    'salary','business','invest','sale','gift','other-i'
+  ) then
+    raise exception 'INVALID_CATEGORY';
+  end if;
+
   -- حساب منشا/مقصد الزامی است
   if p_account_id is null then
     raise exception 'ACCOUNT_REQUIRED';
@@ -697,14 +710,14 @@ begin
   if p_subcategory_id is not null and not exists (
     select 1 from public.subcategories
     where id = p_subcategory_id and family_id = v_family_id
-      and category = p_category) then
+      and category = btrim(p_category)) then
     raise exception 'INVALID_SUBCATEGORY';
   end if;
 
   insert into public.transactions
     (family_id, member_id, type, amount, category, date, note, account_id, subcategory_id)
   values
-    (v_family_id, p_member_id, p_type, p_amount, p_category, p_date,
+    (v_family_id, p_member_id, p_type, p_amount, btrim(p_category), p_date,
      nullif(btrim(coalesce(p_note, '')), ''), p_account_id, p_subcategory_id)
   returning * into v_row;
 
@@ -740,6 +753,18 @@ begin
     raise exception 'INVALID_MEMBER';
   end if;
 
+  if not exists (
+    select 1 from public.custom_categories
+    where family_id = v_family_id and type = p_type
+      and id::text = btrim(p_category)
+  ) and btrim(p_category) not in (
+    'food','home','bills','transport','health','clothing','edu','fun','shopping',
+    'comm','finance','insurance','gifte','family','beauty','sport','pet','other-e',
+    'salary','business','invest','sale','gift','other-i'
+  ) then
+    raise exception 'INVALID_CATEGORY';
+  end if;
+
   if p_account_id is null then
     raise exception 'ACCOUNT_REQUIRED';
   end if;
@@ -751,7 +776,7 @@ begin
   if p_subcategory_id is not null and not exists (
     select 1 from public.subcategories
     where id = p_subcategory_id and family_id = v_family_id
-      and category = p_category) then
+      and category = btrim(p_category)) then
     raise exception 'INVALID_SUBCATEGORY';
   end if;
 
@@ -759,7 +784,7 @@ begin
   set member_id = p_member_id,
       type      = p_type,
       amount    = p_amount,
-      category  = p_category,
+      category  = btrim(p_category),
       date      = p_date,
       note      = nullif(btrim(coalesce(p_note, '')), ''),
       account_id = p_account_id,
@@ -1114,6 +1139,185 @@ begin
   if not found then
     raise exception 'NOT_FOUND';
   end if;
+end $$;
+
+-- ═══════════════════════════════════════════════════════════
+-- دسته‌های سفارشی — ساخته‌شده توسط خانواده (دائمی)
+-- id دسته سفارشی (uuid) در transactions.category ذخیره می‌شود
+-- ═══════════════════════════════════════════════════════════
+
+create table if not exists public.custom_categories (
+  id         uuid primary key default gen_random_uuid(),
+  family_id  uuid not null references public.families(id) on delete cascade,
+  type       text not null check (type in ('expense','income')),
+  name       text not null,
+  created_at timestamptz not null default now(),
+  unique (family_id, type, name)
+);
+
+alter table public.custom_categories enable row level security;
+-- بدون پالیسی → دسترسی فقط از طریق RPC
+
+-- همه دسته‌های سفارشی خانواده
+create or replace function public.list_custom_categories(p_token text)
+returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+begin
+  v_family_id := public._family_id(p_token);
+  return coalesce((
+    select json_agg(row_to_json(c))
+    from (
+      select * from public.custom_categories
+      where family_id = v_family_id
+      order by created_at asc
+    ) c
+  ), '[]'::json);
+end $$;
+
+-- افزودن دسته سفارشی (تکراری → همان موجود)
+create or replace function public.add_custom_category(
+  p_token text, p_type text, p_name text
+) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+  v_row public.custom_categories;
+begin
+  v_family_id := public._family_id(p_token);
+
+  if p_type not in ('expense','income') then
+    raise exception 'INVALID_TYPE';
+  end if;
+  if p_name is null or length(btrim(p_name)) < 1 or length(btrim(p_name)) > 30 then
+    raise exception 'INVALID_NAME';
+  end if;
+
+  insert into public.custom_categories (family_id, type, name)
+  values (v_family_id, p_type, btrim(p_name))
+  on conflict (family_id, type, name) do nothing
+  returning * into v_row;
+
+  if v_row.id is null then
+    select * into v_row from public.custom_categories
+    where family_id = v_family_id and type = p_type and name = btrim(p_name);
+  end if;
+
+  return to_jsonb(v_row);
+end $$;
+
+-- درج زیردسته‌های پیش‌فرض برای خانواده (idempotent — فقط موارد ناموجود)
+create or replace function public.ensure_default_subcategories(p_token text)
+returns integer
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+  v_count integer;
+begin
+  v_family_id := public._family_id(p_token);
+
+  with ins as (
+    insert into public.subcategories (family_id, category, name)
+    select v_family_id, d.cat, d.name
+    from (values
+      ('food','خرید خواربار'),
+      ('food','رستوران و فست‌فود'),
+      ('food','کافه'),
+      ('food','نانوایی'),
+      ('food','میوه و سبزیجات'),
+      ('food','گوشت و پروتئین'),
+      ('food','تنقلات'),
+      ('food','نوشیدنی'),
+      ('home','اجاره خانه'),
+      ('home','شارژ ساختمان'),
+      ('home','تعمیرات خانه'),
+      ('home','لوازم خانه'),
+      ('home','دکوراسیون'),
+      ('home','نظافت'),
+      ('bills','برق'),
+      ('bills','آب و فاضلاب'),
+      ('bills','گاز'),
+      ('bills','تلفن و اینترنت'),
+      ('bills','سایر قبض‌ها'),
+      ('transport','سوخت و بنزین'),
+      ('transport','تاکسی و اسنپ'),
+      ('transport','عوارض و جرائم'),
+      ('transport','سرویس دوره‌ای'),
+      ('transport','تعمیر خودرو'),
+      ('transport','بلیط اتوبوس و مترو'),
+      ('transport','پارکینگ'),
+      ('health','دارو'),
+      ('health','ویزیت پزشک'),
+      ('health','دندانپزشکی'),
+      ('health','آزمایش و تصویربرداری'),
+      ('health','عینک'),
+      ('clothing','لباس'),
+      ('clothing','کفش'),
+      ('clothing','کیف و اکسسوری'),
+      ('clothing','خیاطی و تعمیر'),
+      ('edu','شهریه'),
+      ('edu','کتاب و لوازم تحریر'),
+      ('edu','دوره آنلاین'),
+      ('edu','کلاس خاص'),
+      ('fun','سینما و تئاتر'),
+      ('fun','گردش و سفر'),
+      ('fun','بازی'),
+      ('fun','اسباب‌بازی'),
+      ('shopping','خرید آنلاین'),
+      ('shopping','لوازم جانبی'),
+      ('shopping','لوازم برقی'),
+      ('comm','شارژ موبایل'),
+      ('comm','بسته اینترنت'),
+      ('comm','سیم‌کارت و خدمات'),
+      ('finance','کارمزد بانکی'),
+      ('finance','اقساط وام'),
+      ('finance','جریمه و دیرکرد'),
+      ('finance','مالیات و عوارض'),
+      ('insurance','بیمه شخص ثالث'),
+      ('insurance','بیمه بدنه'),
+      ('insurance','بیمه عمر'),
+      ('insurance','بیمه درمان تکمیلی'),
+      ('gifte','هدیه تولد'),
+      ('gifte','عیدی'),
+      ('gifte','صدقه و خیریه'),
+      ('gifte','مراسم و مهمانی'),
+      ('family','لوازم کودک'),
+      ('family','شیرخشک و پوشک'),
+      ('family','مهدکودک'),
+      ('family','سالمندان'),
+      ('beauty','آرایشی'),
+      ('beauty','مراقبت پوست و مو'),
+      ('beauty','سلم و اسپا'),
+      ('beauty','اصلاح و آرایشگاه'),
+      ('sport','باشگاه'),
+      ('sport','تجهیزات ورزشی'),
+      ('sport','استخر'),
+      ('pet','غذای حیوانات'),
+      ('pet','دامپزشکی'),
+      ('pet','لوازم حیوانات'),
+      ('salary','حقوق پایه'),
+      ('salary','اضافه‌کاری'),
+      ('salary','پاداش'),
+      ('salary','عیدی و سنوات'),
+      ('business','فروش محصول'),
+      ('business','ارائه خدمات'),
+      ('business','سود مشارکت'),
+      ('invest','سود سپرده بانکی'),
+      ('invest','سود صندوق'),
+      ('invest','سود بورس'),
+      ('invest','اجاره املاک'),
+      ('sale','فروش وسایل'),
+      ('sale','فروش طلا و ارز'),
+      ('gift','عیدی دریافتی'),
+      ('gift','هدیه دریافتی')
+    ) as d(cat, name)
+    on conflict (family_id, category, name) do nothing
+    returning 1
+  )
+  select count(*) into v_count from ins;
+
+  return v_count;
 end $$;
 
 -- ═══════════════════════════════════════════════════════════

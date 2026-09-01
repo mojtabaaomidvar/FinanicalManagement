@@ -1,8 +1,21 @@
-/* قوانین دامنه تراکنش — اعتبارسنجی و مرتب‌سازی (خالص، قابل تست) */
+/* قوانین دامنه تراکنش — اعتبارسنجی و مرتب‌سازی (خالص، قابل تست)
+   اعتبارسنجی دسته: ثابت یا uuid دسته سفارشی — مالکیت نهایی در سرور چک می‌شود */
 
 import { isValidCategory } from "../category/category.catalog";
 import type { Transaction, TransactionInput } from "./transaction.types";
 import { isoToJalali } from "@/shared/lib/jalali";
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** دسته معتبر: از کاتالوگ ثابت یا uuid دسته سفارشی خانواده */
+export function isValidCategoryId(id: string): boolean {
+  return (
+    isValidCategory(id, "expense") ||
+    isValidCategory(id, "income") ||
+    UUID_RE.test(id)
+  );
+}
 
 export type TxValidationCode =
   | "INVALID_TYPE"
@@ -39,7 +52,7 @@ export function validateTransaction(input: TransactionInput): TxValidationResult
   ) {
     return { ok: false, error: "INVALID_AMOUNT" };
   }
-  if (!isValidCategory(input.category, input.type)) {
+  if (!input.category || !isValidCategoryId(input.category)) {
     return { ok: false, error: "INVALID_CATEGORY" };
   }
   if (!isValidGregorianIso(input.date)) {

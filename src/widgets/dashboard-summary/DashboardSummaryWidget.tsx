@@ -11,6 +11,7 @@ import {
   recentTransactions,
   totalBalance,
 } from "@/domain/report/report.rules";
+import { buildCategoryResolver } from "@/domain/category/resolve";
 import { today, formatMonth } from "@/shared/lib/jalali";
 import { formatAmount } from "@/shared/lib/format";
 import { toFa } from "@/shared/lib/digits";
@@ -23,18 +24,23 @@ export function DashboardSummaryWidget({
   form: TxFormModel;
   onNavTransactions: () => void;
 }) {
-  const { txs, members, family, subcategories } = useApp();
+  const { txs, members, family, subcategories, customCategories } = useApp();
   const [jy, jm] = today();
+
+  const resolve = useMemo(
+    () => buildCategoryResolver(customCategories),
+    [customCategories],
+  );
 
   const data = useMemo(() => {
     const mtx = txsInJalaliMonth(txs, jy, jm);
     return {
       balance: totalBalance(txs),
       totals: monthTotals(mtx),
-      cats: categoryBreakdown(mtx),
+      cats: categoryBreakdown(mtx, resolve),
       recent: recentTransactions(txs, 5),
     };
-  }, [txs, jy, jm]);
+  }, [txs, jy, jm, resolve]);
 
   const palette = themeColors().palette;
   const slices = data.cats.slice(0, 8).map((c, i) => ({
@@ -123,6 +129,7 @@ export function DashboardSummaryWidget({
                     ? subcategories.find((s) => s.id === t.subcategoryId)?.name ?? null
                     : null
                 }
+                resolve={resolve}
                 onClick={() => form.openEdit(t)}
               />
             ))

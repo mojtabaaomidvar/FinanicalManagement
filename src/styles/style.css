@@ -953,6 +953,48 @@ button:active {
   color: var(--accent);
   border-color: var(--accent);
 }
+
+/* چیپ‌های زیردسته — دکمه‌های ریز زیر دسته اصلی */
+.subchips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.subchips .chip {
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  background: var(--card-2);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  transition:
+    background var(--dur-fast) ease,
+    color var(--dur-fast) ease,
+    border-color var(--dur-fast) ease;
+}
+.subchips .chip.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.subchips .chip:active {
+  transform: scale(0.94);
+}
+.subchips .chip-add {
+  border-style: dashed;
+  color: var(--text-3);
+}
+
+/* سلول افزودن دسته در گرید */
+.cat-cell.cat-add {
+  border-style: dashed;
+  color: var(--text-3);
+  background: transparent;
+}
+.cat-cell.cat-add.active {
+  border-style: solid;
+}
 .form-row > label {
   display: block;
   font-size: 12.5px;

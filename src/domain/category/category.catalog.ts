@@ -1,4 +1,6 @@
-/* دسته‌بندی‌های هزینه/درآمد — کاتالوگ و قوانین */
+/* دسته‌بندی‌های هزینه/درآمد — کاتالوگ و قوانین
+   idهای ثابت‌اند و داده‌های قبلی به آنها ارجاع می‌دهند — تغییر ندهید.
+   دسته‌های سفارشی خانواده از جدول custom_categories می‌آیند. */
 
 import type { TxType } from "../transaction/transaction.types";
 
@@ -10,21 +12,32 @@ export interface Category {
 }
 
 export const CATEGORIES: Category[] = [
-  /* هزینه */
+  /* ── هزینه (۱۸) ── */
   { id: "food", name: "خورد و خوراک", icon: "i-food", type: "expense" },
-  { id: "shopping", name: "خرید", icon: "i-cart", type: "expense" },
+  { id: "home", name: "مسکن و خانه", icon: "i-home-i", type: "expense" },
+  { id: "bills", name: "قبض‌ها", icon: "i-bill", type: "expense" },
   { id: "transport", name: "حمل و نقل", icon: "i-car", type: "expense" },
-  { id: "home", name: "خانه", icon: "i-home-i", type: "expense" },
-  { id: "health", name: "سلامت", icon: "i-health", type: "expense" },
-  { id: "fun", name: "تفریح", icon: "i-fun", type: "expense" },
-  { id: "edu", name: "آموزش", icon: "i-edu", type: "expense" },
+  { id: "health", name: "سلامت و درمان", icon: "i-health", type: "expense" },
   { id: "clothing", name: "پوشاک", icon: "i-cloth", type: "expense" },
-  { id: "bills", name: "قبض", icon: "i-bill", type: "expense" },
+  { id: "edu", name: "آموزش", icon: "i-edu", type: "expense" },
+  { id: "fun", name: "تفریح و سرگرمی", icon: "i-fun", type: "expense" },
+  { id: "shopping", name: "خرید و کالاهای شخصی", icon: "i-cart", type: "expense" },
+  { id: "comm", name: "ارتباطات", icon: "i-phone", type: "expense" },
+  { id: "finance", name: "مالی و بانکی", icon: "i-wallet", type: "expense" },
+  { id: "insurance", name: "بیمه", icon: "i-shield", type: "expense" },
+  { id: "gifte", name: "هدیه و مناسبت‌ها", icon: "i-gift", type: "expense" },
+  { id: "family", name: "خانواده و فرزندان", icon: "i-users", type: "expense" },
+  { id: "beauty", name: "بهداشت و زیبایی", icon: "i-heart", type: "expense" },
+  { id: "sport", name: "ورزش", icon: "i-dumbbell", type: "expense" },
+  { id: "pet", name: "حیوانات خانگی", icon: "i-paw", type: "expense" },
   { id: "other-e", name: "متفرقه", icon: "i-more", type: "expense" },
-  /* درآمد */
+
+  /* ── درآمد (۶) ── */
   { id: "salary", name: "حقوق", icon: "i-salary", type: "income" },
   { id: "business", name: "کسب‌وکار", icon: "i-briefcase", type: "income" },
-  { id: "gift", name: "هدیه", icon: "i-gift", type: "income" },
+  { id: "invest", name: "سرمایه‌گذاری", icon: "i-piggy", type: "income" },
+  { id: "sale", name: "فروش دارایی", icon: "i-tag", type: "income" },
+  { id: "gift", name: "هدیه دریافتی", icon: "i-gift", type: "income" },
   { id: "other-i", name: "متفرقه", icon: "i-more", type: "income" },
 ];
 
@@ -34,6 +47,8 @@ export const FALLBACK_CATEGORY: Category = {
   icon: "i-more",
   type: "expense",
 };
+
+export const CUSTOM_CATEGORY_ICON = "i-tag";
 
 export function categoriesFor(type: TxType): Category[] {
   return CATEGORIES.filter((c) => c.type === type);

@@ -1,6 +1,7 @@
 /* قوانین گزارش — همه محاسبات مالی خالص (بدون UI، بدون I/O) */
 
 import { categoryById } from "../category/category.catalog";
+import type { CategoryResolver } from "../category/resolve";
 import { sortTxDesc } from "../transaction/transaction.rules";
 import type { Transaction } from "../transaction/transaction.types";
 import { isoToJalali, prevMonth, MONTHS, formatISO } from "@/shared/lib/jalali";
@@ -30,15 +31,19 @@ export function monthTotals(list: Transaction[]): MonthTotals {
   return { income: sumByType(list, "income"), expense: sumByType(list, "expense") };
 }
 
-/* تجزیه هزینه به تفکیک دسته — نزولی بر اساس مبلغ */
-export function categoryBreakdown(list: Transaction[]): CategorySlice[] {
+/* تجزیه هزینه به تفکیک دسته — نزولی بر اساس مبلغ
+   resolve اختیاری برای پشتیبانی دسته‌های سفارشی خانواده */
+export function categoryBreakdown(
+  list: Transaction[],
+  resolve: CategoryResolver = categoryById,
+): CategorySlice[] {
   const map = new Map<string, number>();
   for (const t of list) {
     if (t.type !== "expense") continue;
     map.set(t.category, (map.get(t.category) ?? 0) + t.amount);
   }
   return [...map.entries()]
-    .map(([id, value]) => ({ ...categoryById(id), value }))
+    .map(([id, value]) => ({ ...resolve(id), value }))
     .sort((a, b) => b.value - a.value);
 }
 
@@ -85,11 +90,12 @@ export function searchTransactions(
   list: Transaction[],
   query: string,
   memberNameOf: (memberId: string) => string,
+  resolve: CategoryResolver = categoryById,
 ): Transaction[] {
   const q = query.trim();
   if (!q) return list;
   return list.filter((t) => {
-    const cat = categoryById(t.category).name;
+    const cat = resolve(t.category).name;
     const hay =
       (t.note ?? "") +
       " " +

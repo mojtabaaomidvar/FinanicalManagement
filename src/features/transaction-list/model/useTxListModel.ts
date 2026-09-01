@@ -5,6 +5,7 @@ import type { Transaction } from "@/domain/transaction/transaction.types";
 import type { Member } from "@/domain/family/family.types";
 import { sortTxDesc } from "@/domain/transaction/transaction.rules";
 import { searchTransactions } from "@/domain/report/report.rules";
+import type { CategoryResolver } from "@/domain/category/resolve";
 import { isoToJalali, formatISO, formatWeekday } from "@/shared/lib/jalali";
 import { formatAmount, formatSigned } from "@/shared/lib/format";
 
@@ -19,7 +20,11 @@ export interface DayGroup {
   items: Transaction[];
 }
 
-export function useTxListModel(txs: Transaction[], members: Member[]) {
+export function useTxListModel(
+  txs: Transaction[],
+  members: Member[],
+  resolve: CategoryResolver,
+) {
   const [filter, setFilter] = useState<TxFilter>("all");
   const [search, setSearch] = useState("");
 
@@ -33,9 +38,9 @@ export function useTxListModel(txs: Transaction[], members: Member[]) {
   const list = useMemo(() => {
     let l = sortTxDesc(txs);
     if (filter !== "all") l = l.filter((t) => t.type === filter);
-    if (search.trim()) l = searchTransactions(l, search, memberNameOf);
+    if (search.trim()) l = searchTransactions(l, search, memberNameOf, resolve);
     return l;
-  }, [txs, filter, search, memberNameOf]);
+  }, [txs, filter, search, memberNameOf, resolve]);
 
   /* گروه‌بندی بر اساس تاریخ */
   const groups = useMemo<DayGroup[]>(() => {

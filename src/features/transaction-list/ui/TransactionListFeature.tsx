@@ -1,17 +1,22 @@
 /* UI لیست تراکنش‌ها — گروه‌بندی روزانه، فیلتر، جستجو */
 
+import { useMemo } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useTxListModel } from "../model/useTxListModel";
 import { Segmented } from "@/shared/ui";
-import { categoryById } from "@/domain/category/category.catalog";
 import { isoToJalali, formatISO } from "@/shared/lib/jalali";
 import { formatSigned, formatAmount } from "@/shared/lib/format";
 import type { Transaction } from "@/domain/transaction/transaction.types";
 import type { TxFormModel } from "@/features/transaction-form";
+import { buildCategoryResolver } from "@/domain/category/resolve";
 
 export function TransactionListFeature({ form }: { form: TxFormModel }) {
-  const { txs, members, family, subcategories } = useApp();
-  const m = useTxListModel(txs, members);
+  const { txs, members, family, subcategories, customCategories } = useApp();
+  const resolve = useMemo(
+    () => buildCategoryResolver(customCategories),
+    [customCategories],
+  );
+  const m = useTxListModel(txs, members, resolve);
 
   const subNameOf = (id: string | null) =>
     id ? subcategories.find((s) => s.id === id)?.name ?? null : null;
@@ -62,6 +67,7 @@ export function TransactionListFeature({ form }: { form: TxFormModel }) {
                     currency={family?.currency ?? ""}
                     memberName={m.memberNameOf(t.memberId)}
                     subcategoryName={subNameOf(t.subcategoryId)}
+                    resolve={resolve}
                     onClick={() => form.openEdit(t)}
                   />
                 ))}
@@ -88,15 +94,17 @@ export function TxRow({
   currency,
   memberName,
   subcategoryName,
+  resolve,
   onClick,
 }: {
   tx: Transaction;
   currency: string;
   memberName: string;
   subcategoryName?: string | null;
+  resolve?: ReturnType<typeof buildCategoryResolver>;
   onClick: () => void;
 }) {
-  const cat = categoryById(tx.category);
+  const cat = resolve ? resolve(tx.category) : { name: tx.category, icon: "i-more" };
   const sub = subcategoryName ? ` (${subcategoryName})` : "";
   return (
     <div className="tx-item" onClick={onClick}>

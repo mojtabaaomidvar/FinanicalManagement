@@ -50,6 +50,11 @@ import {
   DeleteSubcategoryUseCase,
   ListSubcategoriesUseCase,
 } from "./category/subcategory.usecases";
+import {
+  AddCustomCategoryUseCase,
+  EnsureDefaultSubcategoriesUseCase,
+  ListCustomCategoriesUseCase,
+} from "./category/custom-category.usecases";
 
 export interface UseCases {
   getPublicConfig: GetPublicConfigUseCase;
@@ -95,6 +100,10 @@ export interface UseCases {
   listSubcategories: ListSubcategoriesUseCase;
   addSubcategory: AddSubcategoryUseCase;
   deleteSubcategory: DeleteSubcategoryUseCase;
+
+  listCustomCategories: ListCustomCategoriesUseCase;
+  addCustomCategory: AddCustomCategoryUseCase;
+  ensureDefaultSubcategories: EnsureDefaultSubcategoriesUseCase;
 }
 
 export function createUseCases(c: Container): UseCases {
@@ -145,5 +154,13 @@ export function createUseCases(c: Container): UseCases {
     listSubcategories: new ListSubcategoriesUseCase(c.repos.subcategories),
     addSubcategory: new AddSubcategoryUseCase(c.repos.subcategories),
     deleteSubcategory: new DeleteSubcategoryUseCase(c.repos.subcategories),
+
+    listCustomCategories: new ListCustomCategoriesUseCase(
+      c.repos.customCategories,
+    ),
+    addCustomCategory: new AddCustomCategoryUseCase(c.repos.customCategories),
+    ensureDefaultSubcategories: new EnsureDefaultSubcategoriesUseCase(
+      c.repos.customCategories,
+    ),
   };
 }

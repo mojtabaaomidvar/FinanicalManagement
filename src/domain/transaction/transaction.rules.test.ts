@@ -21,10 +21,16 @@ describe("validateTransaction", () => {
     expect(ok({ amount: NaN }).error).toBe("INVALID_AMOUNT");
   });
 
-  it("دسته نامعتبر برای نوع → INVALID_CATEGORY", () => {
-    /* salary دسته درآمد است؛ در هزینه مجاز نیست */
-    expect(ok({ category: "salary" }).error).toBe("INVALID_CATEGORY");
-    expect(ok({ type: "income", category: "salary" }).ok).toBe(true);
+  it("دسته: ثابت، سفارشی (uuid) یا نامعتبر", () => {
+    /* دسته ثابت معتبر */
+    expect(ok({ category: "food" }).ok).toBe(true);
+    /* دسته سفارشی (uuid) معتبر — مالکیت نهایی در سرور چک می‌شود */
+    expect(
+      ok({ category: "123e4567-e89b-12d3-a456-426614174000" }).ok,
+    ).toBe(true);
+    /* ناشناخته و نه uuid */
+    expect(ok({ category: " Salary! " }).error).toBe("INVALID_CATEGORY");
+    expect(ok({ category: "" }).error).toBe("INVALID_CATEGORY");
   });
 
   it("تاریخ نامعتبر", () => {

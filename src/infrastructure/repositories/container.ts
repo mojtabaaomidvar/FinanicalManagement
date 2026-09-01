@@ -10,6 +10,7 @@ import { SupabaseSmsRepository } from "./smsRepository";
 import { SupabaseAccountRepository } from "./accountRepository";
 import { SupabaseBridgeRepository } from "./bridgeRepository";
 import { SupabaseSubcategoryRepository } from "./subcategoryRepository";
+import { SupabaseCustomCategoryRepository } from "./customCategoryRepository";
 import type { SecureStorage } from "@/infrastructure/storage/secureStorage.adapter";
 
 export interface Repositories {
@@ -20,6 +21,7 @@ export interface Repositories {
   accounts: SupabaseAccountRepository;
   bridges: SupabaseBridgeRepository;
   subcategories: SupabaseSubcategoryRepository;
+  customCategories: SupabaseCustomCategoryRepository;
 }
 
 export interface Container {
@@ -47,6 +49,7 @@ export function getContainer(): Promise<Container> {
           accounts: new SupabaseAccountRepository(tokenProvider),
           bridges: new SupabaseBridgeRepository(tokenProvider),
           subcategories: new SupabaseSubcategoryRepository(tokenProvider),
+          customCategories: new SupabaseCustomCategoryRepository(tokenProvider),
         },
       };
     })();

@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -14,6 +15,7 @@ import type { Member, Family } from "@/domain/family/family.types";
 import type { Transaction } from "@/domain/transaction/transaction.types";
 import type { Account } from "@/domain/account/account.types";
 import type { Subcategory } from "@/domain/category/subcategory.types";
+import type { CustomCategory } from "@/domain/category/custom-category.types";
 
 type Phase = "boot" | "auth" | "ready";
 
@@ -25,6 +27,7 @@ interface AppState {
   txs: Transaction[];
   accounts: Account[];
   subcategories: Subcategory[];
+  customCategories: CustomCategory[];
   useCases: UseCases | null;
   refreshData: () => Promise<void>;
   /* فراخوانی پس از ورود موفق */
@@ -46,7 +49,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [txs, setTxs] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+  const [customCategories, setCustomCategories] = useState<CustomCategory[]>(
+    [],
+  );
   const [useCases, setUseCases] = useState<UseCases | null>(null);
+  const seeded = useRef(false);
 
   /* راه‌اندازی: container + بازیابی نشست */
   useEffect(() => {
@@ -76,19 +83,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const refreshData = useMemo(
     () => async () => {
       if (!useCases) return;
-      const [familyRow, memberRows, txRows, accountRows, subRows] =
-        await Promise.all([
-          useCases.getFamily.execute(),
-          useCases.getMembers.execute(),
-          useCases.listTransactions.execute(),
-          useCases.listAccounts.execute(),
-          useCases.listSubcategories.execute(),
-        ]);
+
+      /* seed زیردسته‌های پیش‌فرض فقط یک‌بار در هر نشست */
+      if (!seeded.current) {
+        try {
+          await useCases.ensureDefaultSubcategories.execute();
+        } catch {
+          /* بی‌صدا */
+        }
+        seeded.current = true;
+      }
+
+      const [
+        familyRow,
+        memberRows,
+        txRows,
+        accountRows,
+        subRows,
+        customCatRows,
+      ] = await Promise.all([
+        useCases.getFamily.execute(),
+        useCases.getMembers.execute(),
+        useCases.listTransactions.execute(),
+        useCases.listAccounts.execute(),
+        useCases.listSubcategories.execute(),
+        useCases.listCustomCategories.execute(),
+      ]);
       setFamily(familyRow);
       setMembers(memberRows);
       setTxs(txRows);
       setAccounts(accountRows);
       setSubcategories(subRows);
+      setCustomCategories(customCatRows);
     },
     [useCases],
   );
@@ -102,6 +128,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       txs,
       accounts,
       subcategories,
+      customCategories,
       useCases,
       refreshData,
       onAuthenticated: (r) => {
@@ -117,10 +144,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setTxs([]);
         setAccounts([]);
         setSubcategories([]);
+        setCustomCategories([]);
+        seeded.current = false;
         setPhase("auth");
       },
     }),
-    [phase, member, family, members, txs, accounts, subcategories, useCases, refreshData],
+    [
+      phase,
+      member,
+      family,
+      members,
+      txs,
+      accounts,
+      subcategories,
+      customCategories,
+      useCases,
+      refreshData,
+    ],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
