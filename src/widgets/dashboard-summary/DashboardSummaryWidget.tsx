@@ -14,6 +14,7 @@ import {
 import { buildCategoryResolver } from "@/domain/category/resolve";
 import { today, formatMonth } from "@/shared/lib/jalali";
 import { formatAmount } from "@/shared/lib/format";
+import { toDisplay } from "@/shared/lib/currency";
 import { toFa } from "@/shared/lib/digits";
 import type { TxFormModel } from "@/features/transaction-form";
 
@@ -43,9 +44,10 @@ export function DashboardSummaryWidget({
   }, [txs, jy, jm, resolve]);
 
   const palette = themeColors().palette;
+  const cur = family?.currency ?? "تومان";
   const slices = data.cats.slice(0, 8).map((c, i) => ({
     label: c.name,
-    value: c.value,
+    value: toDisplay(c.value, cur),
     color: palette[i % palette.length],
   }));
 
@@ -55,17 +57,17 @@ export function DashboardSummaryWidget({
         <p className="balance-label">موجودی کل خانواده</p>
         <h2>
           {data.balance < 0 ? "−" : ""}
-          {formatAmount(data.balance)}
+          {formatAmount(toDisplay(data.balance, cur))}
         </h2>
-        <p className="balance-sub">{family?.currency ?? "تومان"}</p>
+        <p className="balance-sub">{cur}</p>
         <div className="balance-mini">
           <div className="mini-item income">
             <span>درآمد ماه</span>
-            <b>{formatAmount(data.totals.income)}</b>
+            <b>{formatAmount(toDisplay(data.totals.income, cur))}</b>
           </div>
           <div className="mini-item expense">
             <span>هزینه ماه</span>
-            <b>{formatAmount(data.totals.expense)}</b>
+            <b>{formatAmount(toDisplay(data.totals.expense, cur))}</b>
           </div>
         </div>
       </div>
@@ -77,7 +79,7 @@ export function DashboardSummaryWidget({
         <div className="donut-wrap">
           <DonutChart data={slices} />
           <div className="donut-center">
-            <b>{formatAmount(data.totals.expense)}</b>
+            <b>{formatAmount(toDisplay(data.totals.expense, cur))}</b>
             <span>جمع هزینه</span>
           </div>
         </div>

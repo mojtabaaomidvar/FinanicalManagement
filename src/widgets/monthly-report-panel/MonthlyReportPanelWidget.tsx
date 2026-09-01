@@ -12,10 +12,12 @@ import {
 } from "@/domain/report/report.rules";
 import { today, formatMonth, nextMonth, prevMonth } from "@/shared/lib/jalali";
 import { toFa } from "@/shared/lib/digits";
+import { toDisplay } from "@/shared/lib/currency";
 import { formatAmount, formatPercent } from "@/shared/lib/format";
 
 export function MonthlyReportPanelWidget() {
   const { txs, family } = useApp();
+  const cur = family?.currency ?? "تومان";
   const [jy, setJy] = useState(() => today()[0]);
   const [jm, setJm] = useState(() => today()[1]);
 
@@ -77,7 +79,7 @@ export function MonthlyReportPanelWidget() {
               report.daily.length
                 ? report.daily.map((d) => ({
                     label: toFa(d.day),
-                    value: d.value,
+                    value: toDisplay(d.value, cur),
                   }))
                 : [{ label: "—", value: 0 }]
             }
@@ -90,8 +92,16 @@ export function MonthlyReportPanelWidget() {
           <LineChart
             labels={report.series.labels}
             series={[
-              { values: report.series.income, color: C.income, kind: "income" },
-              { values: report.series.expense, color: C.expense, kind: "expense" },
+              {
+                values: report.series.income.map((v) => toDisplay(v, cur)),
+                color: C.income,
+                kind: "income",
+              },
+              {
+                values: report.series.expense.map((v) => toDisplay(v, cur)),
+                color: C.expense,
+                kind: "expense",
+              },
             ]}
           />
         </div>
@@ -120,7 +130,7 @@ export function MonthlyReportPanelWidget() {
                   <div className="cat-row-top">
                     <span className="mini-dot" style={{ background: color }} />
                     <span>{c.name}</span>
-                    <b>{formatAmount(c.value)}</b>
+                    <b>{formatAmount(toDisplay(c.value, cur))}</b>
                     <span className="pct">{formatPercent(pct)}</span>
                   </div>
                   <div className="cat-bar">

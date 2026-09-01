@@ -29,30 +29,37 @@ export function SettingsPage() {
   const [section, setSection] = useState<SettingsSection | null>(null);
 
   const [budget, setBudget] = useState("");
-  const saveTimer = useRef<number | undefined>(undefined);
+  const [currency, setCurrency] = useState("تومان");
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     setBudget(family?.budget ? formatAmount(family.budget) : "");
-  }, [family?.budget]);
+    setCurrency(family?.currency ?? "تومان");
+    setDirty(false);
+  }, [family?.budget, family?.currency]);
 
-  async function saveSettings(patch: {
-    budget?: number;
-    currency?: string;
-    dark?: boolean;
-  }) {
+  /** اعمال تغییرات مالی — ذخیره در سرور + ری‌فرش فوری کل داده */
+  async function applyFinanceSettings() {
     if (!family) return;
-    window.clearTimeout(saveTimer.current);
-    saveTimer.current = window.setTimeout(async () => {
-      try {
-        await useCases!.updateFamilySettings.execute({
-          budget: patch.budget ?? family.budget,
-          currency: patch.currency ?? family.currency,
-          dark: patch.dark ?? family.dark,
-        });
-      } catch {
-        /* بی‌صدا */
-      }
-    }, 700);
+    setSaving(true);
+    try {
+      const budgetNum = budget
+        .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
+        .replace(/,/g, "");
+      await useCases!.updateFamilySettings.execute({
+        budget: +budgetNum || 0,
+        currency,
+        dark: family.dark,
+      });
+      await refreshData();
+      setDirty(false);
+      show("تغییرات اعمال شد");
+    } catch (e) {
+      show((e as Error).message || "خطا در ذخیره");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function logout() {

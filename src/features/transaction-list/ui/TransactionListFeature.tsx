@@ -6,6 +6,7 @@ import { useTxListModel } from "../model/useTxListModel";
 import { Segmented } from "@/shared/ui";
 import { isoToJalali, formatISO } from "@/shared/lib/jalali";
 import { formatSigned, formatAmount } from "@/shared/lib/format";
+import { toDisplay } from "@/shared/lib/currency";
 import type { Transaction } from "@/domain/transaction/transaction.types";
 import type { TxFormModel } from "@/features/transaction-form";
 import { buildCategoryResolver } from "@/domain/category/resolve";
@@ -16,6 +17,7 @@ export function TransactionListFeature({ form }: { form: TxFormModel }) {
     () => buildCategoryResolver(customCategories),
     [customCategories],
   );
+  const cur = family?.currency ?? "تومان";
   const m = useTxListModel(txs, members, resolve);
 
   const subNameOf = (id: string | null) =>
@@ -51,11 +53,11 @@ export function TransactionListFeature({ form }: { form: TxFormModel }) {
                 <span className="day-sum">
                   ·{" "}
                   {g.income ? (
-                    <span style={{ color: "var(--income)" }}>+{formatAmount(g.income)}</span>
+                    <span style={{ color: "var(--income)" }}>+{formatAmount(toDisplay(g.income, cur))}</span>
                   ) : null}
                   {g.income && g.expense ? " · " : ""}
                   {g.expense ? (
-                    <span style={{ color: "var(--expense)" }}>−{formatAmount(g.expense)}</span>
+                    <span style={{ color: "var(--expense)" }}>−{formatAmount(toDisplay(g.expense, cur))}</span>
                   ) : null}
                 </span>
               </div>
@@ -121,8 +123,8 @@ export function TxRow({
         </p>
       </div>
       <div className={`tx-amount ${tx.type}`}>
-        <b>{formatSigned(tx.amount, tx.type)}</b>
-        <span>{currency}</span>
+        <b>{formatSigned(toDisplay(tx.amount, currency), tx.type)}</b>
+        <span>{currency || "تومان"}</span>
       </div>
     </div>
   );
