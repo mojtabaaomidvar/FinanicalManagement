@@ -981,9 +981,39 @@ button:active {
 .subchips .chip:active {
   transform: scale(0.94);
 }
-.subchips .chip-add {
-  border-style: dashed;
+
+/* دکمه نمایش انتخاب فعلی زیردسته در فرم تراکنش */
+.subcat-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 10px var(--sp-4);
+  font-size: 13px;
+  color: var(--text-2);
+  text-align: right;
+  transition: border-color var(--dur-fast) ease;
+}
+.subcat-trigger b {
+  color: var(--accent);
+  font-weight: 700;
+}
+.subcat-trigger svg {
+  width: 16px;
+  height: 16px;
+  margin-right: auto;
   color: var(--text-3);
+  flex-shrink: 0;
+}
+.subcat-trigger .subcat-empty {
+  color: var(--text-3);
+  font-size: 12.5px;
+}
+.subcat-trigger:active {
+  border-color: var(--accent);
 }
 
 /* سلول افزودن دسته در گرید */

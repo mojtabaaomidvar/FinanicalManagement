@@ -1,5 +1,5 @@
 /* UI فرم تراکنش — مودال افزودن/ویرایش
-   (حساب الزامی + چیپ‌های زیردسته + افزودن دسته/زیردسته جدید) */
+   (حساب الزامی + انتخاب دسته با مودال زیردسته‌ها + افزودن دسته) */
 
 import { useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
@@ -17,6 +17,7 @@ import {
 import {
   categoriesFor,
   CUSTOM_CATEGORY_ICON,
+  categoryById,
 } from "@/domain/category/category.catalog";
 import { maskCardNumber } from "@/domain/account/account.rules";
 
@@ -37,10 +38,10 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
     useApp();
   const { show } = useToast();
 
+  const [subModalOpen, setSubModalOpen] = useState(false);
   const [showAddCat, setShowAddCat] = useState(false);
   const [newCatName, setNewCatName] = useState("");
   const [addingCat, setAddingCat] = useState(false);
-  const [showAddSub, setShowAddSub] = useState(false);
   const [newSubName, setNewSubName] = useState("");
   const [addingSub, setAddingSub] = useState(false);
 
@@ -57,10 +58,20 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
       })),
   ];
 
-  /* زیردسته‌های دسته انتخاب‌شده */
+  const activeCat = categoryById(m.form.categoryId);
+  const selectedSub = subcategories.find((s) => s.id === m.form.subcategoryId);
   const subsOfCategory = subcategories.filter(
     (s) => s.category === m.form.categoryId,
   );
+
+  function pickCategory(catId: string) {
+    if (catId !== m.form.categoryId) {
+      /* انتخاب دسته جدید → ریست زیردسته */
+      m.setForm({ ...m.form, categoryId: catId, subcategoryId: "" });
+    }
+    /* همیشه مودال زیردسته‌ها باز شود */
+    setSubModalOpen(true);
+  }
 
   async function addCategory() {
     const name = newCatName.trim();
@@ -72,11 +83,7 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
         name,
       );
       await refreshData();
-      m.setForm({
-        ...m.form,
-        categoryId: created.id,
-        subcategoryId: "",
-      });
+      m.setForm({ ...m.form, categoryId: created.id, subcategoryId: "" });
       setShowAddCat(false);
       setNewCatName("");
       show("دسته اضافه شد");
@@ -98,7 +105,6 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
       );
       await refreshData();
       m.setForm({ ...m.form, subcategoryId: created.id });
-      setShowAddSub(false);
       setNewSubName("");
       show("زیردسته اضافه شد");
     } catch (e) {
@@ -135,9 +141,7 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
                     key={c.id}
                     type="button"
                     className={`cat-cell ${m.form.categoryId === c.id ? "active" : ""}`}
-                    onClick={() =>
-                      m.setForm({ ...m.form, categoryId: c.id, subcategoryId: "" })
-                    }
+                    onClick={() => pickCategory(c.id)}
                   >
                     <svg>
                       <use href={`#${c.icon}`} />
@@ -184,59 +188,28 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
           ) : null}
 
           <div className="form-row full">
-            <Field label="زیردسته (اختیاری)">
-              <div className="subchips">
-                <button
-                  type="button"
-                  className={`chip ${m.form.subcategoryId === "" ? "active" : ""}`}
-                  onClick={() => m.setForm({ ...m.form, subcategoryId: "" })}
-                >
-                  بدون زیردسته
-                </button>
-                {subsOfCategory.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    className={`chip ${m.form.subcategoryId === s.id ? "active" : ""}`}
-                    onClick={() => m.setForm({ ...m.form, subcategoryId: s.id })}
-                  >
-                    {s.name}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  className="chip chip-add"
-                  onClick={() => setShowAddSub((v) => !v)}
-                  title="افزودن زیردسته جدید برای این دسته"
-                >
-                  + افزودن
-                </button>
-              </div>
+            <Field label="زیردسته (الزامی)">
+              <button
+                type="button"
+                className="subcat-trigger"
+                onClick={() => setSubModalOpen(true)}
+              >
+                {selectedSub ? (
+                  <>
+                    <span>{activeCat.name}</span>
+                    <b>{selectedSub.name}</b>
+                  </>
+                ) : (
+                  <span className="subcat-empty">
+                    انتخاب زیردسته برای «{activeCat.name}»…
+                  </span>
+                )}
+                <svg>
+                  <use href="#i-arrow-l" />
+                </svg>
+              </button>
             </Field>
           </div>
-
-          {showAddSub ? (
-            <div className="form-row full">
-              <Field label="نام زیردسته جدید">
-                <div className="convert-row">
-                  <TextInput
-                    value={newSubName}
-                    onChange={setNewSubName}
-                    placeholder="مثلاً رستوران"
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    className="action-btn convert-btn"
-                    disabled={addingSub}
-                    onClick={addSubcategory}
-                  >
-                    {addingSub ? "…" : "ثبت"}
-                  </button>
-                </div>
-              </Field>
-            </div>
-          ) : null}
 
           <div className="form-row">
             <Field
@@ -288,6 +261,55 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
           <button className="btn-danger-block" onClick={() => m.remove(refreshData)}>
             حذف تراکنش
           </button>
+        ) : null}
+      </Modal>
+
+      {/* مودال انتخاب زیردسته برای دسته فعلی */}
+      <Modal
+        open={subModalOpen}
+        onClose={() => setSubModalOpen(false)}
+        title={`زیردسته‌های «${activeCat.name}»`}
+      >
+        <div className="subchips">
+          {subsOfCategory.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              className={`chip ${m.form.subcategoryId === s.id ? "active" : ""}`}
+              onClick={() => {
+                m.setForm({ ...m.form, subcategoryId: s.id });
+                setSubModalOpen(false);
+              }}
+            >
+              {s.name}
+            </button>
+          ))}
+        </div>
+
+        <div className="form-row" style={{ marginTop: 16 }}>
+          <Field label="زیردسته جدید برای همین دسته">
+            <div className="convert-row">
+              <TextInput
+                value={newSubName}
+                onChange={setNewSubName}
+                placeholder="مثلاً رستوران"
+              />
+              <button
+                type="button"
+                className="action-btn convert-btn"
+                disabled={addingSub}
+                onClick={addSubcategory}
+              >
+                {addingSub ? "…" : "افزودن"}
+              </button>
+            </div>
+          </Field>
+        </div>
+
+        {!subsOfCategory.length ? (
+          <p className="modal-sub">
+            هنوز زیردسته‌ای برای این دسته ثبت نشده — اولین را بسازید.
+          </p>
         ) : null}
       </Modal>
     </>

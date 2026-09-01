@@ -63,6 +63,13 @@ export function usePendingSmsModel(
     const amt = parseAmountInput(amount);
     if (!amt || amt <= 0) return notify("لطفاً مبلغ معتبر وارد کنید");
 
+    /* زیردسته الزامی */
+    if (!subcategoryId) {
+      return notify(
+        "انتخاب زیردسته الزامی است — یکی را انتخاب کنید (یا «متفرقه»)",
+      );
+    }
+
     /* حساب الزامی */
     if (!accountId) {
       if (!accountsCount) {

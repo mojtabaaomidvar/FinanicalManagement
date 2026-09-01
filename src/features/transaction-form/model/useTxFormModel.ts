@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import type { Transaction } from "@/domain/transaction/transaction.types";
 import type { UseCases } from "@/application/useCases";
 import type { Member } from "@/domain/family/family.types";
-import { categoriesFor } from "@/domain/category/category.catalog";
+import {
+  categoriesFor,
+  defaultCategoryOf,
+} from "@/domain/category/category.catalog";
 import { parse } from "@/shared/lib/jalali";
 import { jalaliToIso } from "@/shared/lib/jalali";
 import {
@@ -24,7 +27,7 @@ export interface TxFormState {
   note: string;
   /** حساب منشا/مقصد — الزامی */
   accountId: string;
-  /** زیردسته — اختیاری */
+  /** زیردسته — الزامی (متفرقه هم یک زیردسته است) */
   subcategoryId: string;
 }
 
@@ -42,7 +45,7 @@ export function useTxFormModel(
     return {
       type: "expense",
       amount: "",
-      categoryId: "food",
+      categoryId: defaultCategoryOf("expense").id,
       date: formatISO(today()),
       memberId: currentMemberId,
       note: "",
@@ -87,6 +90,13 @@ export function useTxFormModel(
   ) {
     const amount = parseAmountInput(form.amount);
     if (!amount || amount <= 0) return notify("لطفاً مبلغ معتبر وارد کنید");
+
+    /* زیردسته الزامی — متفرقه هم یک زیردسته است */
+    if (!form.subcategoryId) {
+      return notify(
+        "انتخاب زیردسته الزامی است — روی دسته‌بندی بزنید و یکی را انتخاب کنید (یا «متفرقه»)",
+      );
+    }
 
     /* حساب الزامی — با پیام دقیق */
     if (!form.accountId) {

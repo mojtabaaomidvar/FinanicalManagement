@@ -12,7 +12,7 @@ export interface Category {
 }
 
 export const CATEGORIES: Category[] = [
-  /* ── هزینه (۱۸) ── */
+  /* ── هزینه (۱۷) ── */
   { id: "food", name: "خورد و خوراک", icon: "i-food", type: "expense" },
   { id: "home", name: "مسکن و خانه", icon: "i-home-i", type: "expense" },
   { id: "bills", name: "قبض‌ها", icon: "i-bill", type: "expense" },
@@ -30,23 +30,25 @@ export const CATEGORIES: Category[] = [
   { id: "beauty", name: "بهداشت و زیبایی", icon: "i-heart", type: "expense" },
   { id: "sport", name: "ورزش", icon: "i-dumbbell", type: "expense" },
   { id: "pet", name: "حیوانات خانگی", icon: "i-paw", type: "expense" },
-  { id: "other-e", name: "متفرقه", icon: "i-more", type: "expense" },
 
-  /* ── درآمد (۶) ── */
+  /* ── درآمد (۵) ── */
   { id: "salary", name: "حقوق", icon: "i-salary", type: "income" },
   { id: "business", name: "کسب‌وکار", icon: "i-briefcase", type: "income" },
   { id: "invest", name: "سرمایه‌گذاری", icon: "i-piggy", type: "income" },
   { id: "sale", name: "فروش دارایی", icon: "i-tag", type: "income" },
   { id: "gift", name: "هدیه دریافتی", icon: "i-gift", type: "income" },
+];
+
+/* دسته‌های قدیمی که از UI حذف شده‌اند ولی داده‌های قبلی به آنها ارجاع می‌دهند */
+export const LEGACY_CATEGORIES: Category[] = [
+  { id: "other-e", name: "متفرقه", icon: "i-more", type: "expense" },
   { id: "other-i", name: "متفرقه", icon: "i-more", type: "income" },
 ];
 
-export const FALLBACK_CATEGORY: Category = {
-  id: "other-e",
-  name: "متفرقه",
-  icon: "i-more",
-  type: "expense",
-};
+/** دسته پیش‌فرض برای فرم جدید — اولین دسته از نوع (متفرقه حذف شده است) */
+export function defaultCategoryOf(type: "expense" | "income"): Category {
+  return CATEGORIES.find((c) => c.type === type) ?? LEGACY_CATEGORIES[0];
+}
 
 export const CUSTOM_CATEGORY_ICON = "i-tag";
 
@@ -55,7 +57,15 @@ export function categoriesFor(type: TxType): Category[] {
 }
 
 export function categoryById(id: string): Category {
-  return CATEGORIES.find((c) => c.id === id) ?? FALLBACK_CATEGORY;
+  return (
+    CATEGORIES.find((c) => c.id === id) ??
+    LEGACY_CATEGORIES.find((c) => c.id === id) ?? {
+      id,
+      name: id,
+      icon: CUSTOM_CATEGORY_ICON,
+      type: "expense",
+    }
+  );
 }
 
 export function isValidCategory(id: string, type: TxType): boolean {

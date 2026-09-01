@@ -65,15 +65,19 @@ export function PendingSmsFeature({ refreshKey }: { refreshKey: number }) {
                 }))}
               />
             </Field>
-            <Field label="زیردسته (اختیاری)">
-              <Select
-                value={m.subcategoryId}
-                onChange={m.setSubcategoryId}
-                options={[
-                  { value: "", label: "بدون زیردسته" },
-                  ...subsOfCategory.map((s) => ({ value: s.id, label: s.name })),
-                ]}
-              />
+            <Field label="زیردسته (الزامی)">
+              <div className="subchips">
+                {subsOfCategory.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className={`chip ${m.subcategoryId === s.id ? "active" : ""}`}
+                    onClick={() => m.setSubcategoryId(s.id)}
+                  >
+                    {s.name}
+                  </button>
+                ))}
+              </div>
             </Field>
             <Field label="حساب (الزامی)">
               <Select
