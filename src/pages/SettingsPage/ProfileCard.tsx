@@ -186,7 +186,6 @@ export function ProfileCard() {
             <JalaliDateInput
               value={birthDate}
               onChange={setBirthDate}
-              pickerTitle="تاریخ تولد"
               minYear={1300}
               maxYear={new Date().getFullYear() - 621}
             />

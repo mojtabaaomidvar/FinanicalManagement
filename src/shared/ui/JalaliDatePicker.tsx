@@ -1,5 +1,5 @@
 /* DatePicker جلالی — تقویم ماهانه بدون وابستگی (هم‌سبک برند)
-   نمایش با Portal؛ ناوبری ماه/سال؛ امروز هایلایت؛ انتخاب یک‌لمسی */
+   ناوبری: دکمه ماه قبل/بعد + انتخابگر سال چیپی؛ امروز هایلایت */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -21,7 +21,6 @@ export function JalaliDatePicker({
   onClose,
   minYear,
   maxYear,
-  title,
 }: {
   /** مقدار فعلی — رشته نمایشی مثل "۱۴۰۴/۰۶/۱۵" */
   value: string;
@@ -29,7 +28,6 @@ export function JalaliDatePicker({
   onClose: () => void;
   minYear?: number;
   maxYear?: number;
-  title?: string;
 }) {
   const [jy, setJy] = useState(() => {
     const p = parse(value);
@@ -42,7 +40,7 @@ export function JalaliDatePicker({
   const [yearPicker, setYearPicker] = useState(false);
 
   const selected = useMemo(() => parse(value), [value]);
-  const [ty, tm] = today();
+  const [ty, tm, td] = today();
   const min = minYear ?? 1300;
   const max = maxYear ?? ty + 1;
 
@@ -67,6 +65,22 @@ export function JalaliDatePicker({
     onClose();
   }
 
+  function goPrevMonth() {
+    if (jy <= min && jm === 1) return;
+    const [y, m] = prevMonth(jy, jm);
+    setJy(y);
+    setJm(m);
+    setYearPicker(false);
+  }
+
+  function goNextMonth() {
+    if (jy >= max && jm === 12) return;
+    const [y, m] = nextMonth(jy, jm);
+    setJy(y);
+    setJm(m);
+    setYearPicker(false);
+  }
+
   const days = daysInMonth(jy, jm);
   /* شروع ماه چه روز هفته‌ای است؟ (getDay: 0=یکشنبه) — ستون اول تقویم فارسی = شنبه */
   const [gy, gm, gd] = toGregorian(jy, jm, 1);
@@ -82,38 +96,53 @@ export function JalaliDatePicker({
             type="button"
             className="icon-btn small"
             aria-label="ماه قبل"
-            onClick={() => {
-              if (jy <= min && jm === 1) return;
-              const [y, m] = prevMonth(jy, jm);
-              setJy(y);
-              setJm(m);
-            }}
+            onClick={goPrevMonth}
           >
             <svg>
               <use href="#i-arrow-r" />
             </svg>
           </button>
-          <button
-            type="button"
-            className="dp-title"
-            onClick={() => setYearPicker((v) => !v)}
-          >
-            {title ? <span className="dp-app-title">{title}</span> : null}
-            {MONTHS[jm - 1]} {toFa(jy)}
-            <svg className="dp-title-caret">
-              <use href="#i-arrow-l" />
-            </svg>
-          </button>
+
+          {/* عنوان: ماه قابل تغییر با کلیک چپ/راست روی نام؛ سال → انتخابگر */}
+          <div className="dp-title-group">
+            <button
+              type="button"
+              className="dp-month-nav"
+              aria-label="ماه قبلی"
+              onClick={goPrevMonth}
+            >
+              <svg>
+                <use href="#i-arrow-r" />
+              </svg>
+            </button>
+            <span className="dp-month-name">{MONTHS[jm - 1]}</span>
+            <button
+              type="button"
+              className="dp-month-nav"
+              aria-label="ماه بعدی"
+              onClick={goNextMonth}
+            >
+              <svg>
+                <use href="#i-arrow-l" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className={`dp-year-btn ${yearPicker ? "active" : ""}`}
+              onClick={() => setYearPicker((v) => !v)}
+            >
+              {toFa(jy)}
+              <svg className="dp-title-caret">
+                <use href="#i-arrow-l" />
+              </svg>
+            </button>
+          </div>
+
           <button
             type="button"
             className="icon-btn small"
             aria-label="ماه بعد"
-            onClick={() => {
-              if (jy >= max && jm === 12) return;
-              const [y, m] = nextMonth(jy, jm);
-              setJy(y);
-              setJm(m);
-            }}
+            onClick={goNextMonth}
           >
             <svg>
               <use href="#i-arrow-l" />
@@ -150,7 +179,7 @@ export function JalaliDatePicker({
               <span key={`p${i}`} />
             ))}
             {Array.from({ length: days }, (_, i) => i + 1).map((d) => {
-              const isToday = jy === ty && jm === tm && d === today()[2];
+              const isToday = jy === ty && jm === tm && d === td;
               const isSelected =
                 !!selected &&
                 selected[0] === jy &&

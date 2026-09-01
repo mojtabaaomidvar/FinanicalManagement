@@ -1,7 +1,7 @@
 /* کامپوننت‌های پایه فرم — سازگار با کلاس‌های CSS موجود */
 
 import { useState, type ChangeEvent, type ReactNode } from "react";
-import { liveFormatAmount, liveFormatJalaliDate } from "@/shared/lib/format";
+import { liveFormatAmount } from "@/shared/lib/format";
 import { JalaliDatePicker } from "./JalaliDatePicker";
 
 export function Field({
@@ -66,14 +66,12 @@ export function AmountInput(props: {
   );
 }
 
-/** ورودی تاریخ جلالی — تایپ دستی + دکمه تقویم (DatePicker) */
+/** ورودی تاریخ جلالی — کلیک روی فیلد → تقویم (بدون تایپ دستی) */
 export function JalaliDateInput(props: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
-  /** عنوان داخل تقویم */
-  pickerTitle?: string;
-  /** محدوده سال‌ها (پیش‌فرض: بدون محدودیت معقول) */
+  /** محدوده سال‌ها */
   minYear?: number;
   maxYear?: number;
 }) {
@@ -81,26 +79,18 @@ export function JalaliDateInput(props: {
 
   return (
     <>
-      <div className="date-input-row">
-        <input
-          type="text"
-          className="text-input"
-          inputMode="numeric"
-          placeholder={props.placeholder ?? "۱۴۰۴/۰۶/۱۵"}
-          value={props.value}
-          onChange={(e) => props.onChange(liveFormatJalaliDate(e.target.value))}
-        />
-        <button
-          type="button"
-          className="icon-btn date-picker-btn"
-          aria-label="انتخاب از تقویم"
-          onClick={() => setOpen(true)}
-        >
-          <svg>
-            <use href="#i-bill" />
-          </svg>
-        </button>
-      </div>
+      <button
+        type="button"
+        className="text-input date-field"
+        onClick={() => setOpen(true)}
+      >
+        <span className={props.value ? "" : "date-empty"}>
+          {props.value || props.placeholder || "انتخاب تاریخ"}
+        </span>
+        <svg className="date-field-icon">
+          <use href="#i-bill" />
+        </svg>
+      </button>
       {open ? (
         <JalaliDatePicker
           value={props.value}
@@ -108,7 +98,6 @@ export function JalaliDateInput(props: {
           onClose={() => setOpen(false)}
           minYear={props.minYear}
           maxYear={props.maxYear}
-          title={props.pickerTitle}
         />
       ) : null}
     </>

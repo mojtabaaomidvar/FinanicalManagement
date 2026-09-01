@@ -5,7 +5,6 @@ import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
 import { Card } from "@/shared/ui";
 import { CheckBudgetStatus } from "./CheckBudgetStatus";
-import { SmsBridgeCard } from "./SmsBridgeCard";
 import { ProfileCard } from "./ProfileCard";
 import { EventsCard } from "./EventsCard";
 import { MembersCard } from "./MembersCard";
@@ -13,7 +12,7 @@ import { SettingsSubPage } from "./SettingsSubPage";
 import { formatAmount, liveFormatAmount } from "@/shared/lib/format";
 import { useEffect, useMemo, useRef } from "react";
 
-type SettingsSection = "family" | "profile" | "events" | "bridge" | "budget";
+type SettingsSection = "family" | "profile" | "events" | "budget";
 
 export function SettingsPage() {
   const { useCases, family, members, txs, onLoggedOut } = useApp();
@@ -82,14 +81,6 @@ export function SettingsPage() {
     return (
       <SettingsSubPage title="رویدادهای مهم" onBack={back}>
         <EventsCard />
-      </SettingsSubPage>
-    );
-  }
-
-  if (section === "bridge") {
-    return (
-      <SettingsSubPage title="پیامک خودکار" onBack={back}>
-        <SmsBridgeCard />
       </SettingsSubPage>
     );
   }
@@ -255,21 +246,6 @@ export function SettingsPage() {
             <div>
               <h4>رویدادهای مهم</h4>
               <p>تولدها، سالگردها و مناسبت‌ها</p>
-            </div>
-            <svg className="settings-nav-arrow">
-              <use href="#i-arrow-l" />
-            </svg>
-          </button>
-
-          <button className="settings-nav-row" onClick={() => setSection("bridge")}>
-            <span className="settings-nav-icon">
-              <svg>
-                <use href="#i-sms" />
-              </svg>
-            </span>
-            <div>
-              <h4>پیامک خودکار</h4>
-              <p>اتصال گوشی اندروید برای ثبت خودکار</p>
             </div>
             <svg className="settings-nav-arrow">
               <use href="#i-arrow-l" />

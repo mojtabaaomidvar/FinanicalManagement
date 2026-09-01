@@ -16,9 +16,9 @@ import { useToast } from "./providers/ToastProvider";
 
 /* ترتیب تب‌ها در DOM (RTL) — مبنای موقعیت نشانگر متحرک تب‌بار */
 const TAB_ORDER: Route[] = [
+  "dashboard",
   "transactions",
   "reports",
-  "dashboard",
   "accounts",
   "settings",
 ];
@@ -127,64 +127,35 @@ function MainShell({
       <PendingSmsFeature refreshKey={refreshKey} />
 
       <nav className="tabbar tabbar-5" aria-label="ناوبری اصلی">
-        {/* نشانگر متحرک — خط کوچک زیر تب فعال (وسط ستون) */}
+        {/* نشانگر متحرک — قرص زیر تب فعال */}
         <div
           className="tab-ind"
           style={{
-            insetInlineStart: `calc(${TAB_ORDER.indexOf(route) * 20}% + 10% - 16px)`,
+            insetInlineStart: `calc(${TAB_ORDER.indexOf(route) * 20}% + 5px)`,
           }}
         />
 
-        {/* راست (در RTL اول) */}
-        <button
-          className={`tab-btn ${route === "transactions" ? "active" : ""}`}
-          onClick={() => nav("transactions")}
-        >
-          <svg>
-            <use href="#i-receipt" />
-          </svg>
-          <span>تراکنش‌ها</span>
-        </button>
-        <button
-          className={`tab-btn ${route === "reports" ? "active" : ""}`}
-          onClick={() => nav("reports")}
-        >
-          <svg>
-            <use href="#i-chart" />
-          </svg>
-          <span>گزارش‌ها</span>
-        </button>
-
-        {/* دکمه خانه مرکزی */}
-        <button
-          className={`tab-home ${route === "dashboard" ? "active" : ""}`}
-          onClick={() => nav("dashboard")}
-          aria-label="داشبورد"
-        >
-          <svg>
-            <use href="#i-home" />
-          </svg>
-        </button>
-
-        {/* چپ */}
-        <button
-          className={`tab-btn ${route === "accounts" ? "active" : ""}`}
-          onClick={() => nav("accounts")}
-        >
-          <svg>
-            <use href="#i-card" />
-          </svg>
-          <span>کارت‌ها</span>
-        </button>
-        <button
-          className={`tab-btn ${route === "settings" ? "active" : ""}`}
-          onClick={() => nav("settings")}
-        >
-          <svg>
-            <use href="#i-gear" />
-          </svg>
-          <span>تنظیمات</span>
-        </button>
+        {/* ترتیب RTL: داشبورد، تراکنش‌ها، گزارش‌ها، کارت‌ها، تنظیمات */}
+        {(
+          [
+            { r: "dashboard", icon: "i-home", label: "خانه" },
+            { r: "transactions", icon: "i-receipt", label: "تراکنش‌ها" },
+            { r: "reports", icon: "i-chart", label: "گزارش‌ها" },
+            { r: "accounts", icon: "i-card", label: "کارت‌ها" },
+            { r: "settings", icon: "i-gear", label: "تنظیمات" },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.r}
+            className={`tab-btn ${route === t.r ? "active" : ""}`}
+            onClick={() => nav(t.r)}
+          >
+            <svg>
+              <use href={`#${t.icon}`} />
+            </svg>
+            <span>{t.label}</span>
+          </button>
+        ))}
       </nav>
     </>
   );

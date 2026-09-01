@@ -1150,89 +1150,54 @@ button:active {
   transform: scale(0.92);
 }
 
-/* ─────────── تب‌بار ۵تایی با دکمه خانه مرکزی ─────────── */
+/* ─────────── تب‌بار پیل شناور (برند flat) ───────────
+   کپسول سفید شناور با حاشیه، ۵ آیتم مساوی؛ نشانگر قرص سبز
+   زیر آیتم فعال می‌لغزد؛ آیتم فعال سرمه‌ای/سبز تیره می‌شود */
 .tabbar-5 {
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  left: 14px;
+  right: 14px;
+  max-width: 480px;
+  margin: 0 auto;
   grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
-  align-items: center;
-  padding-top: 6px;
+  align-items: stretch;
+  padding: 6px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 4px 20px rgba(13, 27, 42, 0.14);
 }
 
-/* نشانگر متحرک — خط سبز کوچک زیر تب فعال */
+/* نشانگر متحرک — قرص کوچک زیر آیتم فعال */
 .tabbar-5 .tab-ind {
   position: absolute;
-  bottom: calc(6px + env(safe-area-inset-bottom));
-  height: 3px;
-  width: 32px;
+  top: 6px;
+  height: calc(100% - 12px);
+  width: calc(20% - 10px);
   border-radius: var(--r-pill);
-  background: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
   transition: inset-inline-start 0.38s var(--ease-spring);
   z-index: 0;
   pointer-events: none;
 }
-.tabbar-5 .tab-btn,
-.tabbar-5 .tab-home {
+.tabbar-5 .tab-btn {
   position: relative;
   z-index: 1;
+  gap: 2px;
+  padding: 8px 0;
+  border-radius: var(--r-pill);
+  transition:
+    color var(--dur-med) ease,
+    background var(--dur-med) ease;
 }
-
+.tabbar-5 .tab-btn.active {
+  color: var(--accent-strong);
+}
 .tab-btn svg {
   transition: transform var(--dur-med) var(--ease-spring);
 }
 .tab-btn.active svg {
-  transform: translateY(-2px) scale(1.12);
-  animation: tabPop 420ms var(--ease-spring);
-}
-
-@keyframes tabPop {
-  0% {
-    transform: scale(0.7);
-  }
-  55% {
-    transform: scale(1.22);
-  }
-  100% {
-    transform: translateY(-2px) scale(1.12);
-  }
-}
-
-/* دکمه خانه مرکزی — flat برند */
-.tab-home {
-  position: relative;
-  width: 56px;
-  height: 56px;
-  margin-top: -30px;
-  border-radius: var(--r-pill);
-  background: var(--accent);
-  color: #fff;
-  display: grid;
-  place-items: center;
-  border: 4px solid var(--bg);
-  transition: transform var(--dur-fast) var(--ease-spring);
-  animation: homePop 480ms var(--ease-spring) both;
-}
-.tab-home svg {
-  width: 26px;
-  height: 26px;
-}
-.tab-home.active {
-  transform: translateY(-4px);
-}
-.tab-home:active {
-  transform: scale(0.88);
-}
-
-@keyframes homePop {
-  0% {
-    transform: scale(0.4);
-    opacity: 0;
-  }
-  70% {
-    transform: scale(1.12);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-  }
+  transform: translateY(-1px);
 }
 
 /* انیمیشن ترنزیشن صفحه */
@@ -2332,18 +2297,26 @@ button:active {
   text-align: center;
 }
 
-/* ─────────── ردیف ورودی تاریخ + دکمه تقویم ─────────── */
-.date-input-row {
+/* ─────────── فیلد تاریخ (کلیک → تقویم) ─────────── */
+.date-field {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--sp-2);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: right;
+  color: var(--text);
 }
-.date-input-row .text-input {
-  flex: 1;
+.date-field .date-empty {
+  color: var(--text-3);
+  font-size: 13px;
 }
-.date-picker-btn {
-  flex-shrink: 0;
+.date-field-icon {
+  width: 18px;
+  height: 18px;
   color: var(--accent);
-  border-color: var(--border-strong);
+  flex-shrink: 0;
 }
 
 /* ─────────── DatePicker جلالی ─────────── */
@@ -2372,33 +2345,62 @@ button:active {
   align-items: center;
   justify-content: space-between;
   margin-bottom: var(--sp-3);
+  gap: var(--sp-1);
 }
-.dp-title {
+.dp-title-group {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
+  flex: 1;
+  justify-content: center;
+}
+.dp-month-nav {
   background: none;
   border: none;
-  font-family: inherit;
-  font-size: 14.5px;
-  font-weight: 700;
-  color: var(--text);
+  color: var(--text-3);
+  padding: 6px;
   cursor: pointer;
-  padding: 6px 10px;
-  border-radius: var(--r-sm);
+  display: grid;
+  place-items: center;
 }
-.dp-title:hover {
-  background: var(--card-2);
-}
-.dp-title-caret {
+.dp-month-nav svg {
   width: 14px;
   height: 14px;
-  color: var(--text-3);
 }
-.dp-app-title {
-  font-size: 11px;
+.dp-month-nav:hover {
+  color: var(--accent);
+}
+.dp-month-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+  padding: 4px 10px;
+  min-width: 76px;
+  text-align: center;
+}
+.dp-year-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  margin-right: var(--sp-2);
+}
+.dp-year-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.dp-title-caret {
+  width: 12px;
+  height: 12px;
   color: var(--text-3);
-  font-weight: 500;
 }
 .dp-grid {
   display: grid;
