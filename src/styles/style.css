@@ -2051,3 +2051,268 @@ button:active {
   font-size: 13px;
   line-height: 1.8;
 }
+
+/* ─────────── Login4-style Auth Card (RTL) ─────────── */
+.login4-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--sp-4);
+  overflow: hidden;
+}
+.login4-page .login4-card {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  max-width: 660px;
+  height: min(500px, 92dvh);
+  border-radius: var(--r-xl);
+  background: var(--bg-elev);
+  border: 8px solid var(--bg-elev);
+  box-shadow: 0 12px 80px rgba(0, 0, 0, 0.45);
+  animation: pageIn var(--dur-med) var(--ease-out);
+}
+.login4-card .card-bg {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 50%;
+  background: url("/hero.jpg") center/cover no-repeat;
+  border-radius: calc(var(--r-xl) - 8px);
+  translate: 0 0;
+  transition: 0.65s ease-in-out;
+}
+.login4-card .card-bg.login {
+  translate: -100% 0;
+}
+.login4-card .hero,
+.login4-card .form {
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  opacity: 0;
+  visibility: hidden;
+  transition: 0.65s ease-in-out;
+}
+.login4-card .hero.active,
+.login4-card .form.active {
+  opacity: 1;
+  visibility: visible;
+}
+.login4-card .form.login {
+  right: 50%;
+  translate: 100% 0;
+}
+.login4-card .form.login.active {
+  translate: 0;
+}
+.login4-card .form.register {
+  left: 0;
+  translate: -100% 0;
+}
+.login4-card .form.register.active {
+  translate: 0;
+}
+.login4-card .hero {
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: #f9f9f9;
+  text-align: center;
+  padding: var(--sp-4);
+  background: linear-gradient(
+    to bottom,
+    rgba(11, 13, 18, 0.15),
+    rgba(11, 13, 18, 0.65)
+  );
+  border-radius: calc(var(--r-xl) - 8px);
+}
+.login4-card .hero.login {
+  left: 0;
+  translate: -100% 0;
+}
+.login4-card .hero.login.active {
+  translate: 0;
+}
+.login4-card .hero.register {
+  right: 0;
+  translate: 100% 0;
+}
+.login4-card .hero.register.active {
+  translate: 0;
+}
+.login4-card .hero h2 {
+  margin: 0;
+  font-weight: 700;
+  font-size: 20px;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+}
+.login4-card .hero p {
+  margin: 0 0 4px;
+  opacity: 0.9;
+  line-height: 1.7;
+  font-size: 12.5px;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
+}
+.login4-card .hero button {
+  padding: 12px 32px;
+  border-radius: var(--r-pill);
+  color: #f9f9f9;
+  border: 1px solid #f9f9f9;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  transition: 0.3s;
+  cursor: pointer;
+}
+.login4-card .hero button:hover {
+  color: #0b0d12;
+  background: #f9f9f9;
+}
+.login4-card .form {
+  background: var(--bg-elev);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  padding: var(--sp-5) var(--sp-4);
+  overflow-y: auto;
+}
+.login4-card .form h2 {
+  font-size: 20px;
+  font-weight: 800;
+  text-align: center;
+  margin: 0 0 4px;
+  color: var(--text);
+}
+.login4-card .form form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+.login4-card .form input {
+  font-family: inherit;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--card-2);
+  padding: 12px 14px;
+  color: var(--text);
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 13.5px;
+  transition: border-color var(--dur-fast) ease;
+}
+.login4-card .form input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.login4-card .form input::placeholder {
+  color: var(--text-3);
+}
+.login4-card .form button[type="submit"] {
+  border: 0;
+  padding: 13px 0;
+  border-radius: var(--r-pill);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  width: 100%;
+  margin-top: 4px;
+  background: linear-gradient(160deg, var(--accent), var(--accent-strong));
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35);
+  transition: transform var(--dur-fast) var(--ease-spring);
+}
+.login4-card .form button[type="submit"]:active {
+  transform: scale(0.97);
+}
+.login4-card .form button[type="submit"]:disabled {
+  opacity: 0.6;
+}
+.login4-card .form .form-note {
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: center;
+  line-height: 1.8;
+}
+.login4-card .otp-hint {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 8px 12px;
+  border-radius: var(--r-md);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+.login4-card .otp-input {
+  text-align: center;
+  font-size: 18px;
+  letter-spacing: 8px;
+  font-weight: 700;
+}
+.login4-card .back-btn {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 4px;
+}
+.login4-card .back-btn:hover {
+  color: var(--text);
+}
+
+/* موبایل: کارت تمام‌عرض عمودی — hero بالای فرم */
+@media (max-width: 640px) {
+  .login4-page .login4-card {
+    height: auto;
+    min-height: min(640px, 94dvh);
+    border-width: 6px;
+  }
+  .login4-card .card-bg {
+    display: none;
+  }
+  .login4-card .hero,
+  .login4-card .form {
+    position: static;
+    width: 100%;
+    height: auto;
+    opacity: 1;
+    visibility: visible;
+    translate: 0 !important;
+    overflow: visible;
+  }
+  .login4-card .hero {
+    min-height: 180px;
+    border-radius: calc(var(--r-xl) - 6px);
+    order: -1;
+    margin-bottom: 8px;
+    background:
+      linear-gradient(
+        to bottom,
+        rgba(11, 13, 18, 0.25),
+        rgba(11, 13, 18, 0.7)
+      ),
+      url("/hero.jpg") center/cover no-repeat;
+  }
+  .login4-card .form.login,
+  .login4-card .form.register,
+  .login4-card .hero.login,
+  .login4-card .hero.register {
+    translate: 0 !important;
+  }
+}
