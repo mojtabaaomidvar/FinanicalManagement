@@ -2052,7 +2052,9 @@ button:active {
   line-height: 1.8;
 }
 
-/* ─────────── Login4-style Auth Card (RTL) ─────────── */
+/* ─────────── Login4-style Auth Card (RTL) ───────────
+   ساختار: hero همیشه یک سمت، form سمت دیگر؛ با toggle سوییچ می‌شوند.
+   در RTL: form ورود سمت راست (نزدیک شروع خواندن)، hero سمت چپ. */
 .login4-page {
   min-height: 100dvh;
   display: grid;
@@ -2064,59 +2066,49 @@ button:active {
   position: relative;
   overflow: hidden;
   width: 100%;
-  max-width: 660px;
-  height: min(500px, 92dvh);
+  max-width: 680px;
+  height: min(520px, 92dvh);
   border-radius: var(--r-xl);
   background: var(--bg-elev);
   border: 8px solid var(--bg-elev);
   box-shadow: 0 12px 80px rgba(0, 0, 0, 0.45);
   animation: pageIn var(--dur-med) var(--ease-out);
+  display: flex;
 }
-.login4-card .card-bg {
-  position: absolute;
-  z-index: 2;
-  top: 0;
-  bottom: 0;
-  right: 0;
-  width: 50%;
-  background: url("/hero.jpg") center/cover no-repeat;
-  border-radius: calc(var(--r-xl) - 8px);
-  translate: 0 0;
-  transition: 0.65s ease-in-out;
-}
-.login4-card .card-bg.login {
-  translate: -100% 0;
-}
-.login4-card .hero,
-.login4-card .form {
-  position: absolute;
-  top: 0;
+
+/* نیمه‌ها — هر دو نیمه همیشه تمام ارتفاع */
+.login4-card .half {
+  position: relative;
   width: 50%;
   height: 100%;
+  transition: 0.65s ease-in-out;
+}
+
+/* فرم‌ها: هر دو نیمه سمت راست (initial: فرم ورود نمایان) */
+.login4-card .form {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  padding: var(--sp-5) var(--sp-4);
+  overflow-y: auto;
+  background: var(--bg-elev);
   opacity: 0;
   visibility: hidden;
   transition: 0.65s ease-in-out;
 }
-.login4-card .hero.active,
 .login4-card .form.active {
   opacity: 1;
   visibility: visible;
 }
-.login4-card .form.login {
-  right: 50%;
-  translate: 100% 0;
-}
-.login4-card .form.login.active {
-  translate: 0;
-}
-.login4-card .form.register {
-  left: 0;
-  translate: -100% 0;
-}
-.login4-card .form.register.active {
-  translate: 0;
-}
+
+/* پنل hero: روی نیمه چپ */
 .login4-card .hero {
+  position: absolute;
+  inset: 0;
   z-index: 3;
   display: flex;
   flex-direction: column;
@@ -2126,46 +2118,77 @@ button:active {
   color: #f9f9f9;
   text-align: center;
   padding: var(--sp-4);
-  background: linear-gradient(
-    to bottom,
-    rgba(11, 13, 18, 0.15),
-    rgba(11, 13, 18, 0.65)
-  );
   border-radius: calc(var(--r-xl) - 8px);
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  transition: 0.65s ease-in-out;
 }
-.login4-card .hero.login {
+.login4-card .hero.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* پس‌زمینه تصویر مشترک hero — پشت پنل‌های hero در نیمه چپ */
+.login4-card .card-bg {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  bottom: 0;
   left: 0;
-  translate: -100% 0;
+  width: 50%;
+  background: var(--bg-elev);
+  border-radius: calc(var(--r-xl) - 8px);
+  overflow: hidden;
 }
-.login4-card .hero.login.active {
-  translate: 0;
+.login4-card .card-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom, rgba(11, 13, 18, 0.35), rgba(11, 13, 18, 0.78)),
+    url("/hero.svg") center/cover no-repeat;
 }
-.login4-card .hero.register {
-  right: 0;
-  translate: 100% 0;
+/* حالت login: تصویر سمت چپ می‌ماند (فرم ورود راست) */
+.login4-card .half-form {
+  width: 50%;
+  height: 100%;
+  position: relative;
 }
-.login4-card .hero.register.active {
-  translate: 0;
+.login4-card .half-hero {
+  width: 50%;
+  height: 100%;
+  position: relative;
 }
+
+/* متن‌های hero */
 .login4-card .hero h2 {
   margin: 0;
-  font-weight: 700;
-  font-size: 20px;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  font-weight: 800;
+  font-size: 21px;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+  position: relative;
+  z-index: 1;
 }
 .login4-card .hero p {
   margin: 0 0 4px;
-  opacity: 0.9;
-  line-height: 1.7;
+  opacity: 0.92;
+  line-height: 1.8;
   font-size: 12.5px;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
+  max-width: 260px;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
+  position: relative;
+  z-index: 1;
 }
 .login4-card .hero button {
-  padding: 12px 32px;
+  position: relative;
+  z-index: 1;
+  padding: 12px 36px;
   border-radius: var(--r-pill);
   color: #f9f9f9;
-  border: 1px solid #f9f9f9;
-  background: transparent;
+  border: 1px solid rgba(249, 249, 249, 0.85);
+  background: rgba(11, 13, 18, 0.25);
+  backdrop-filter: blur(4px);
   font-family: inherit;
   font-size: 13px;
   font-weight: 700;
@@ -2176,22 +2199,13 @@ button:active {
   color: #0b0d12;
   background: #f9f9f9;
 }
-.login4-card .form {
-  background: var(--bg-elev);
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-  padding: var(--sp-5) var(--sp-4);
-  overflow-y: auto;
-}
+
+/* فرم‌ها */
 .login4-card .form h2 {
-  font-size: 20px;
+  font-size: 21px;
   font-weight: 800;
   text-align: center;
-  margin: 0 0 4px;
+  margin: 0 0 6px;
   color: var(--text);
 }
 .login4-card .form form {
@@ -2199,6 +2213,7 @@ button:active {
   flex-direction: column;
   gap: 10px;
   width: 100%;
+  max-width: 280px;
 }
 .login4-card .form input {
   font-family: inherit;
@@ -2244,6 +2259,7 @@ button:active {
   color: var(--text-3);
   text-align: center;
   line-height: 1.8;
+  max-width: 280px;
 }
 .login4-card .otp-hint {
   background: var(--accent-soft);
@@ -2255,6 +2271,7 @@ button:active {
   font-weight: 600;
   text-align: center;
   width: 100%;
+  max-width: 280px;
   box-sizing: border-box;
 }
 .login4-card .otp-input {
@@ -2270,21 +2287,61 @@ button:active {
   font-size: 12px;
   font-family: inherit;
   cursor: pointer;
-  padding: 4px;
+  padding: 4px 8px;
 }
 .login4-card .back-btn:hover {
   color: var(--text);
 }
 
-/* موبایل: کارت تمام‌عرض عمودی — hero بالای فرم */
+/* حالت OTP: کل کارت فرم می‌شود */
+.login4-card.otp-mode {
+  display: block;
+}
+.login4-card.otp-mode .half-form,
+.login4-card.otp-mode .half-hero,
+.login4-card.otp-mode .card-bg {
+  width: 100%;
+}
+.login4-card.otp-mode .form.otp-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  opacity: 1;
+  visibility: visible;
+}
+
+/* موبایل: عمودی — hero بالای کارت، فقط یکی از فرم/هرو نمایش */
 @media (max-width: 640px) {
+  .login4-page {
+    padding: var(--sp-3);
+    align-items: stretch;
+  }
   .login4-page .login4-card {
+    flex-direction: column;
     height: auto;
-    min-height: min(640px, 94dvh);
+    min-height: min(660px, 94dvh);
     border-width: 6px;
   }
+  .login4-card .half {
+    width: 100% !important;
+  }
+  .login4-card .half-hero {
+    order: -1;
+    min-height: 220px;
+    flex-shrink: 0;
+  }
   .login4-card .card-bg {
-    display: none;
+    width: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: auto;
+    height: 220px;
+    border-radius: calc(var(--r-xl) - 6px) calc(var(--r-xl) - 6px) 0 0;
+  }
+  .login4-card .card-bg::after {
+    border-radius: calc(var(--r-xl) - 6px) calc(var(--r-xl) - 6px) 0 0;
   }
   .login4-card .hero,
   .login4-card .form {
@@ -2293,26 +2350,18 @@ button:active {
     height: auto;
     opacity: 1;
     visibility: visible;
-    translate: 0 !important;
     overflow: visible;
+    padding: var(--sp-4);
   }
   .login4-card .hero {
-    min-height: 180px;
-    border-radius: calc(var(--r-xl) - 6px);
-    order: -1;
-    margin-bottom: 8px;
-    background:
-      linear-gradient(
-        to bottom,
-        rgba(11, 13, 18, 0.25),
-        rgba(11, 13, 18, 0.7)
-      ),
-      url("/hero.jpg") center/cover no-repeat;
+    min-height: 220px;
+    margin: 0;
+    border-radius: calc(var(--r-xl) - 6px) calc(var(--r-xl) - 6px) 0 0;
   }
-  .login4-card .form.login,
-  .login4-card .form.register,
-  .login4-card .hero.login,
-  .login4-card .hero.register {
-    translate: 0 !important;
+  .login4-card .form {
+    padding: var(--sp-5) var(--sp-4);
+  }
+  .login4-card .otp-mode .form.otp-panel {
+    position: static;
   }
 }

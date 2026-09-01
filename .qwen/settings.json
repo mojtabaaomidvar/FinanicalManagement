@@ -30,7 +30,8 @@
       "Bash(powershell *)",
       "Bash(timeout *)",
       "Bash(curl *)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(del *)"
     ]
   },
   "$version": 4

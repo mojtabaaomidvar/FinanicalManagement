@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="1000" viewBox="0 0 660 1000">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b0d12"/>
+      <stop offset="1" stop-color="#10141d"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#34d399"/>
+      <stop offset="1" stop-color="#10b981"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a2230"/>
+      <stop offset="1" stop-color="#141a26"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.35" r="0.7">
+      <stop offset="0" stop-color="#10b981" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#10b981" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="660" height="1000" fill="url(#bg)"/>
+  <rect width="660" height="1000" fill="url(#glow)"/>
+
+  <!-- دایره‌های تزئینی -->
+  <circle cx="80" cy="140" r="120" fill="#10b981" opacity="0.05"/>
+  <circle cx="600" cy="860" r="160" fill="#10b981" opacity="0.05"/>
+  <circle cx="590" cy="120" r="50" fill="none" stroke="#10b981" stroke-opacity="0.15" stroke-width="2"/>
+  <circle cx="70" cy="900" r="36" fill="none" stroke="#10b981" stroke-opacity="0.12" stroke-width="2"/>
+
+  <!-- نمودار میله‌ای بلوغ مالی -->
+  <g transform="translate(70,120)">
+    <rect x="0"   y="150" width="46" height="110" rx="10" fill="url(#card)" stroke="#ffffff" stroke-opacity="0.06"/>
+    <rect x="0"   y="200" width="46" height="60"  rx="10" fill="url(#accent)" opacity="0.35"/>
+    <rect x="70"  y="110" width="46" height="150" rx="10" fill="url(#card)" stroke="#ffffff" stroke-opacity="0.06"/>
+    <rect x="70"  y="160" width="46" height="100" rx="10" fill="url(#accent)" opacity="0.55"/>
+    <rect x="140" y="70"  width="46" height="190" rx="10" fill="url(#card)" stroke="#ffffff" stroke-opacity="0.06"/>
+    <rect x="140" y="110" width="46" height="150" rx="10" fill="url(#accent)" opacity="0.75"/>
+    <rect x="210" y="30"  width="46" height="230" rx="10" fill="url(#card)" stroke="#ffffff" stroke-opacity="0.06"/>
+    <rect x="210" y="60"  width="46" height="200" rx="10" fill="url(#accent)"/>
+    <!-- فلش روند -->
+    <path d="M 8 150 C 60 120, 120 80, 180 50" fill="none" stroke="#34d399" stroke-width="3" stroke-linecap="round" stroke-dasharray="1 9"/>
+    <circle cx="180" cy="50" r="6" fill="#34d399"/>
+  </g>
+
+  <!-- خانواده -->
+  <g transform="translate(250,420)" fill="none" stroke="#34d399" stroke-width="6" stroke-linecap="round">
+    <!-- والد ۱ -->
+    <circle cx="0" cy="30" r="26" fill="#0b0d12"/>
+    <path d="M -34 118 C -34 82, -20 62, 0 62 C 20 62, 34 82, 34 118" fill="#0b0d12"/>
+    <!-- والد ۲ -->
+    <circle cx="96" cy="38" r="22" fill="#0b0d12"/>
+    <path d="M 68 118 C 68 88, 80 70, 96 70 C 112 70, 124 88, 124 118" fill="#0b0d12"/>
+    <!-- کودک وسط -->
+    <circle cx="48" cy="58" r="16" fill="#0b0d12"/>
+    <path d="M 28 118 C 28 96, 36 84, 48 84 C 60 84, 68 96, 68 118" fill="#0b0d12"/>
+  </g>
+
+  <!-- کارت بانکی بزرگ -->
+  <g transform="translate(140,600) rotate(-6)">
+    <rect width="380" height="230" rx="24" fill="url(#card)" stroke="#ffffff" stroke-opacity="0.08" stroke-width="2"/>
+    <rect x="0" y="0" width="380" height="70" rx="24" fill="#10b981" opacity="0.08"/>
+    <rect x="28" y="26" width="56" height="40" rx="10" fill="url(#accent)" opacity="0.9"/>
+    <rect x="28" y="100" width="150" height="16" rx="8" fill="#ffffff" opacity="0.25"/>
+    <rect x="28" y="130" width="200" height="16" rx="8" fill="#ffffff" opacity="0.18"/>
+    <rect x="28" y="170" width="110" height="14" rx="7" fill="#ffffff" opacity="0.12"/>
+    <!-- چیپ -->
+    <rect x="290" y="100" width="60" height="46" rx="8" fill="none" stroke="#34d399" stroke-opacity="0.6" stroke-width="2"/>
+    <path d="M 290 123 h 60 M 320 100 v 46" stroke="#34d399" stroke-opacity="0.4" stroke-width="2"/>
+  </g>
+
+  <!-- سکه‌ها -->
+  <g transform="translate(500,700)">
+    <circle cx="0" cy="60" r="52" fill="#10b981" opacity="0.15"/>
+    <circle cx="0" cy="60" r="52" fill="none" stroke="#34d399" stroke-opacity="0.5" stroke-width="3"/>
+    <path d="M 0 32 C 14 32, 24 42, 24 58 C 24 74, 14 84, 0 84 C -14 84, -24 74, -24 58 C -24 42, -14 32, 0 32 Z" fill="none" stroke="#34d399" stroke-width="4" stroke-linecap="round"/>
+    <path d="M 0 44 v 28 M -8 52 h 16" stroke="#34d399" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="70" cy="20" r="30" fill="#10b981" opacity="0.12"/>
+    <circle cx="70" cy="20" r="30" fill="none" stroke="#34d399" stroke-opacity="0.35" stroke-width="2.5"/>
+    <path d="M 70 4 v 32 M 60 12 h 20" stroke="#34d399" stroke-opacity="0.7" stroke-width="3.5" stroke-linecap="round"/>
+  </g>
+
+  <!-- آیکون کیف پول بالا -->
+  <g transform="translate(300,180)" fill="none" stroke="#34d399" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9">
+    <path d="M 0 22 V 14 a 14 14 0 0 1 14 -14 h 56"/>
+    <path d="M 0 14 v 66 a 12 12 0 0 0 12 12 h 76 a 12 12 0 0 0 12 -12 v -44 a 12 12 0 0 0 -12 -12 z"/>
+    <circle cx="70" cy="44" r="8" fill="#34d399" stroke="none"/>
+  </g>
+
+  <!-- خطوط تزئینی پایین -->
+  <g stroke="#34d399" stroke-opacity="0.2" stroke-width="2" stroke-linecap="round">
+    <path d="M 120 940 h 180" stroke-dasharray="2 10"/>
+    <path d="M 360 940 h 180" stroke-dasharray="2 10"/>
+  </g>
+</svg>
