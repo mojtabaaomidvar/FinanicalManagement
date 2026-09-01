@@ -1,4 +1,4 @@
-/* کارت اعضای خانواده — لیست + افزودن عضو توسط مدیر + حذف */
+/* کارت اعضای خانواده — لیست (با وضعیت ثبت‌نام) + افزودن عضو توسط مدیر */
 
 import { useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
@@ -38,17 +38,6 @@ export function MembersCard() {
     }
   }
 
-  async function removeMember(mId: string, mName: string) {
-    if (!confirm(`«${mName}» از خانواده حذف شود؟`)) return;
-    try {
-      await useCases!.removeMember.execute(mId);
-      show("حذف شد");
-      await refreshData();
-    } catch (e) {
-      show((e as Error).message || "خطا در حذف");
-    }
-  }
-
   return (
     <Card
       title="اعضای خانواده"
@@ -63,26 +52,20 @@ export function MembersCard() {
           <div className="settings-member" key={m.id}>
             <span className="member-avatar">{m.name.charAt(0)}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <h5>
-                {m.name}
-                {m.status === "pending" ? (
-                  <span className="member-status-badge">در انتظار ثبت‌نام</span>
-                ) : null}
-              </h5>
+              <h5>{m.name}</h5>
               <p>
-                {m.role === "owner" ? "مدیر خانواده" : "عضو"}
+                {m.status === "pending" ? (
+                  <span className="member-status-badge">
+                    ثبت‌نام تکمیل نشده
+                  </span>
+                ) : m.role === "owner" ? (
+                  "مدیر خانواده"
+                ) : (
+                  "عضو"
+                )}
                 {m.phone ? ` · ${m.phone}` : ""}
               </p>
             </div>
-            {isOwner && m.role !== "owner" ? (
-              <button
-                type="button"
-                className="member-remove-btn"
-                onClick={() => removeMember(m.id, m.name)}
-              >
-                حذف
-              </button>
-            ) : null}
           </div>
         ))}
       </div>

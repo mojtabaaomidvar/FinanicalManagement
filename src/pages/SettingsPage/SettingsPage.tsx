@@ -1,6 +1,6 @@
-/* صفحه تنظیمات — فهرست دسته‌بندی‌ها + زیرصفحه‌ها با دکمه بازگشت */
+/* صفحه تنظیمات — دو شاخه اصلی: مالی | برنامه + پروفایل/خانواده/رویدادها */
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
 import { Card } from "@/shared/ui";
@@ -10,9 +10,15 @@ import { EventsCard } from "./EventsCard";
 import { MembersCard } from "./MembersCard";
 import { SettingsSubPage } from "./SettingsSubPage";
 import { formatAmount, liveFormatAmount } from "@/shared/lib/format";
-import { useEffect, useMemo, useRef } from "react";
 
-type SettingsSection = "family" | "profile" | "events" | "budget";
+type SettingsSection =
+  | "family"
+  | "profile"
+  | "events"
+  | "finance"
+  | "app";
+
+const APP_VERSION = "۵.۴.۰";
 
 export function SettingsPage() {
   const { useCases, family, members, txs, onLoggedOut } = useApp();
@@ -85,14 +91,15 @@ export function SettingsPage() {
     );
   }
 
-  if (section === "budget") {
+  /* ── تنظیمات مالی ── */
+  if (section === "finance") {
     return (
-      <SettingsSubPage title="بودجه و نمایش" onBack={back}>
-        <Card>
+      <SettingsSubPage title="تنظیمات مالی" onBack={back}>
+        <Card title="بودجه ماهانه">
           <div className="setting-row">
             <div>
-              <h4>بودجه ماهانه</h4>
-              <p>سقف هزینه‌های ماه (تومان)</p>
+              <h4>سقف هزینه‌های ماه</h4>
+              <p>۰ = بدون بودجه</p>
             </div>
             <input
               type="text"
@@ -113,29 +120,11 @@ export function SettingsPage() {
           <CheckBudgetStatus status={budgetStatus} />
         </Card>
 
-        <Card>
+        <Card title="واحد پول">
           <div className="setting-row">
             <div>
-              <h4>حالت تیره</h4>
-              <p>تغییر ظاهر اپلیکیشن</p>
-            </div>
-            <label className="switch">
-              <input
-                type="checkbox"
-                checked={family?.dark ?? false}
-                onChange={(e) => {
-                  const dark = e.target.checked;
-                  document.documentElement.dataset.theme = dark ? "dark" : "light";
-                  saveSettings({ dark });
-                }}
-              />
-              <span className="slider" />
-            </label>
-          </div>
-          <div className="setting-row">
-            <div>
-              <h4>نمایش مبالغ</h4>
-              <p>واحد نمایش مبالغ</p>
+              <h4>واحد نمایش مبالغ</h4>
+              <p>در همه صفحات اعمال می‌شود</p>
             </div>
             <select
               className="select-input"
@@ -149,10 +138,10 @@ export function SettingsPage() {
           </div>
         </Card>
 
-        <Card>
+        <Card title="خروجی داده‌ها">
           <div className="setting-row">
             <div>
-              <h4>خروجی داده‌ها</h4>
+              <h4>فایل پشتیبان</h4>
               <p>دانلود همه تراکنش‌ها (JSON)</p>
             </div>
             <button
@@ -181,6 +170,75 @@ export function SettingsPage() {
               دانلود
             </button>
           </div>
+        </Card>
+      </SettingsSubPage>
+    );
+  }
+
+  /* ── تنظیمات برنامه ── */
+  if (section === "app") {
+    return (
+      <SettingsSubPage title="تنظیمات برنامه" onBack={back}>
+        <Card title="ظاهر">
+          <div className="setting-row">
+            <div>
+              <h4>حالت تیره</h4>
+              <p>سرمه‌ای تیره به‌جای روشن</p>
+            </div>
+            <label className="switch">
+              <input
+                type="checkbox"
+                checked={family?.dark ?? false}
+                onChange={(e) => {
+                  const dark = e.target.checked;
+                  document.documentElement.dataset.theme = dark ? "dark" : "light";
+                  saveSettings({ dark });
+                }}
+              />
+              <span className="slider" />
+            </label>
+          </div>
+        </Card>
+
+        <Card title="به‌روزرسانی">
+          <div className="setting-row">
+            <div>
+              <h4>بررسی نسخه جدید</h4>
+              <p>بارگذاری مجدد اپلیکیشن از سرور</p>
+            </div>
+            <button
+              className="action-btn"
+              onClick={async () => {
+                show("در حال بررسی…");
+                try {
+                  const keys = await caches.keys();
+                  await Promise.all(keys.map((k) => caches.delete(k)));
+                } catch {
+                  /* بی‌صدا */
+                }
+                location.reload();
+              }}
+            >
+              به‌روزرسانی
+            </button>
+          </div>
+        </Card>
+
+        <Card title="درباره">
+          <div style={{ textAlign: "center", padding: "12px 0" }}>
+            <div className="auth-art" style={{ margin: "0 auto 12px" }}>
+              <img src="/khaneyar-mark.svg" alt="خانه یار" />
+            </div>
+            <h4 style={{ fontSize: 16, fontWeight: 800, color: "var(--text)" }}>
+              خانه یار
+            </h4>
+            <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 4 }}>
+              دستیار مالی خانواده
+            </p>
+            <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: 10 }}>
+              نسخه {APP_VERSION} · همراه مطمئن خانواده در مسیر آرامش مالی
+            </p>
+          </div>
           <div className="setting-row">
             <div>
               <h4>خروج از حساب</h4>
@@ -207,6 +265,36 @@ export function SettingsPage() {
 
       <div className="content">
         <Card>
+          <button className="settings-nav-row" onClick={() => setSection("finance")}>
+            <span className="settings-nav-icon">
+              <svg>
+                <use href="#i-wallet" />
+              </svg>
+            </span>
+            <div>
+              <h4>تنظیمات مالی</h4>
+              <p>بودجه ماهانه، واحد پول و خروجی داده</p>
+            </div>
+            <svg className="settings-nav-arrow">
+              <use href="#i-arrow-l" />
+            </svg>
+          </button>
+
+          <button className="settings-nav-row" onClick={() => setSection("app")}>
+            <span className="settings-nav-icon">
+              <svg>
+                <use href="#i-gear" />
+              </svg>
+            </span>
+            <div>
+              <h4>تنظیمات برنامه</h4>
+              <p>تم، به‌روزرسانی و درباره اپلیکیشن</p>
+            </div>
+            <svg className="settings-nav-arrow">
+              <use href="#i-arrow-l" />
+            </svg>
+          </button>
+
           <button className="settings-nav-row" onClick={() => setSection("profile")}>
             <span className="settings-nav-icon">
               <svg>
@@ -225,12 +313,12 @@ export function SettingsPage() {
           <button className="settings-nav-row" onClick={() => setSection("family")}>
             <span className="settings-nav-icon">
               <svg>
-                <use href="#i-users" />
+                <use href="#i-home" />
               </svg>
             </span>
             <div>
               <h4>خانواده</h4>
-              <p>اعضا، دعوت با لینک/QR و حذف عضو</p>
+              <p>اعضا و دعوت با لینک/QR</p>
             </div>
             <svg className="settings-nav-arrow">
               <use href="#i-arrow-l" />
@@ -251,26 +339,9 @@ export function SettingsPage() {
               <use href="#i-arrow-l" />
             </svg>
           </button>
-
-          <button className="settings-nav-row" onClick={() => setSection("budget")}>
-            <span className="settings-nav-icon">
-              <svg>
-                <use href="#i-gear" />
-              </svg>
-            </span>
-            <div>
-              <h4>بودجه و نمایش</h4>
-              <p>بودجه ماهانه، تم، واحد و خروجی</p>
-            </div>
-            <svg className="settings-nav-arrow">
-              <use href="#i-arrow-l" />
-            </svg>
-          </button>
         </Card>
 
-        <p className="version-tag">
-          خانه یار · نسخه ۵.۲.۰
-        </p>
+        <p className="version-tag">خانه یار · نسخه {APP_VERSION}</p>
       </div>
     </section>
   );

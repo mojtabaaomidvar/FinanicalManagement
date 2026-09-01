@@ -78,14 +78,10 @@ export function ProfileCard() {
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 1024 * 1024) {
-      show("عکس بزرگ است — حداکثر ۱ مگابایت");
-      e.target.value = "";
-      return;
-    }
     setUploading(true);
     try {
-      const dataUrl = await readFileAsDataUrl(file);
+      /* فشرده‌سازی سمت کلاینت: بزرگ‌ترین ضلع ۵۱۲px → JPEG ~90% */
+      const dataUrl = await compressImage(file, 512);
       const url = await useCases!.uploadAvatar.execute(dataUrl);
       await save({ avatarUrl: url });
     } catch (err) {
@@ -96,12 +92,32 @@ export function ProfileCard() {
     }
   }
 
-  function readFileAsDataUrl(file: File): Promise<string> {
+  /** resize + فشرده‌سازی عکس با canvas — خروجی JPEG dataURL */
+  function compressImage(file: File, maxSide: number): Promise<string> {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = () => reject(new Error("خواندن فایل ناموفق بود"));
-      reader.readAsDataURL(file);
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("پردازش تصویر ممکن نیست"));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", 0.9));
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("خواندن عکس ناموفق بود"));
+      };
+      img.src = url;
     });
   }
 

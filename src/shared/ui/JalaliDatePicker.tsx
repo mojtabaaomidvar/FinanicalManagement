@@ -60,11 +60,6 @@ export function JalaliDatePicker({
     };
   }, [onClose]);
 
-  function pick(day: number) {
-    onChange(formatISO([jy, jm, day]));
-    onClose();
-  }
-
   function goPrevMonth() {
     if (jy <= min && jm === 1) return;
     const [y, m] = prevMonth(jy, jm);
@@ -85,6 +80,34 @@ export function JalaliDatePicker({
   /* شروع ماه چه روز هفته‌ای است؟ (getDay: 0=یکشنبه) — ستون اول تقویم فارسی = شنبه */
   const [gy, gm, gd] = toGregorian(jy, jm, 1);
   const pad = (new Date(gy, gm - 1, gd).getDay() + 1) % 7;
+
+  /* ۵ ردیف = ۳۵ خانه ثابت:
+     ردیف اول با روزهای آخر ماه قبل پر می‌شود؛
+     خانه‌های باقی‌مانده ردیف ۵ با روزهای اول ماه بعد (انتخاب بین‌ماهی فعال) */
+  const totalCells = 35;
+  const [pjy, pjm] = prevMonth(jy, jm);
+  const [njy, njm] = nextMonth(jy, jm);
+  const prevDays = daysInMonth(pjy, pjm);
+
+  const cells: {
+    day: number;
+    month: "prev" | "cur" | "next";
+    y: number;
+    m: number;
+  }[] = [];
+
+  for (let i = pad - 1; i >= 0 && pad > 0; i--) {
+    cells.push({ day: prevDays - i, month: "prev", y: pjy, m: pjm });
+  }
+  for (let d = 1; d <= days; d++) {
+    cells.push({ day: d, month: "cur", y: jy, m: jm });
+  }
+  let nextDay = 1;
+  while (cells.length < totalCells) {
+    cells.push({ day: nextDay, month: "next", y: njy, m: njm });
+    nextDay++;
+  }
+  if (cells.length > totalCells) cells.length = totalCells;
 
   const weekDays = ["ش", "ی", "د", "س", "چ", "پ", "ج"];
 
@@ -175,24 +198,25 @@ export function JalaliDatePicker({
                 {w}
               </span>
             ))}
-            {Array.from({ length: pad }, (_, i) => (
-              <span key={`p${i}`} />
-            ))}
-            {Array.from({ length: days }, (_, i) => i + 1).map((d) => {
-              const isToday = jy === ty && jm === tm && d === td;
+            {cells.map((c, idx) => {
+              const isToday =
+                c.y === ty && c.m === tm && c.day === td;
               const isSelected =
                 !!selected &&
-                selected[0] === jy &&
-                selected[1] === jm &&
-                selected[2] === d;
+                selected[0] === c.y &&
+                selected[1] === c.m &&
+                selected[2] === c.day;
               return (
                 <button
-                  key={d}
+                  key={`${c.m}-${c.day}-${idx}`}
                   type="button"
-                  className={`dp-day ${isToday ? "today" : ""} ${isSelected ? "selected" : ""}`}
-                  onClick={() => pick(d)}
+                  className={`dp-day ${c.month !== "cur" ? "dim" : ""} ${isToday ? "today" : ""} ${isSelected ? "selected" : ""}`}
+                  onClick={() => {
+                    onChange(formatISO([c.y, c.m, c.day]));
+                    onClose();
+                  }}
                 >
-                  {toFa(d)}
+                  {toFa(c.day)}
                 </button>
               );
             })}

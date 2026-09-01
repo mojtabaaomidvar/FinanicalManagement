@@ -2443,6 +2443,11 @@ button:active {
 .dp-day:active {
   transform: scale(0.9);
 }
+.dp-day.dim {
+  color: var(--text-3);
+  opacity: 0.55;
+  font-weight: 500;
+}
 .dp-day.today {
   color: var(--accent);
   font-weight: 800;
