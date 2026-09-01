@@ -16,9 +16,9 @@ import { useToast } from "./providers/ToastProvider";
 
 /* ترتیب تب‌ها در DOM (RTL) — مبنای موقعیت نشانگر متحرک تب‌بار */
 const TAB_ORDER: Route[] = [
-  "dashboard",
   "transactions",
   "reports",
+  "dashboard",
   "accounts",
   "settings",
 ];
@@ -127,27 +127,29 @@ function MainShell({
       <PendingSmsFeature refreshKey={refreshKey} />
 
       <nav className="tabbar tabbar-5" aria-label="ناوبری اصلی">
-        {/* نشانگر متحرک — قرص زیر تب فعال */}
-        <div
-          className="tab-ind"
-          style={{
-            insetInlineStart: `calc(${TAB_ORDER.indexOf(route) * 20}% + 5px)`,
-          }}
-        />
+        {/* نشانگر متحرک — روی خانه مخفی (خودش سبز پر است) */}
+        {route !== "dashboard" ? (
+          <div
+            className="tab-ind"
+            style={{
+              insetInlineStart: `calc(${TAB_ORDER.indexOf(route) * 20}% + 5px)`,
+            }}
+          />
+        ) : null}
 
-        {/* ترتیب RTL: داشبورد، تراکنش‌ها، گزارش‌ها، کارت‌ها، تنظیمات */}
+        {/* ترتیب RTL: تراکنش‌ها، گزارش‌ها — خانه (وسط) — کارت‌ها، تنظیمات */}
         {(
           [
-            { r: "dashboard", icon: "i-home", label: "خانه" },
             { r: "transactions", icon: "i-receipt", label: "تراکنش‌ها" },
             { r: "reports", icon: "i-chart", label: "گزارش‌ها" },
+            { r: "dashboard", icon: "i-home", label: "خانه" },
             { r: "accounts", icon: "i-card", label: "کارت‌ها" },
             { r: "settings", icon: "i-gear", label: "تنظیمات" },
           ] as const
         ).map((t) => (
           <button
             key={t.r}
-            className={`tab-btn ${route === t.r ? "active" : ""}`}
+            className={`tab-btn ${t.r === "dashboard" ? "home" : ""} ${route === t.r ? "active" : ""}`}
             onClick={() => nav(t.r)}
           >
             <svg>

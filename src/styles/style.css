@@ -1193,6 +1193,16 @@ button:active {
 .tabbar-5 .tab-btn.active {
   color: var(--accent-strong);
 }
+
+/* آیتم خانه — وسط، همیشه سبز پر (active یا نه) */
+.tabbar-5 .tab-btn.home {
+  background: var(--accent);
+  color: #fff;
+}
+.tabbar-5 .tab-btn.home:active {
+  transform: scale(0.92);
+}
+
 .tab-btn svg {
   transition: transform var(--dur-med) var(--ease-spring);
 }
