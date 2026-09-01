@@ -5,12 +5,14 @@ import type {
   Family,
   FamilySettings,
   Member,
+  ProfileInput,
 } from "@/domain/family/family.types";
 import type { Transaction } from "@/domain/transaction/transaction.types";
 import { budgetStatus, type BudgetStatus } from "@/domain/budget/budget.rules";
 import { txsInJalaliMonth } from "@/domain/transaction/transaction.rules";
 import { sumByType } from "@/domain/report/report.rules";
 import { today } from "@/shared/lib/jalali";
+import { AppError } from "@/shared/lib/appError";
 
 export class GetFamilyUseCase {
   constructor(private readonly repo: FamilyRepository) {}
@@ -23,6 +25,34 @@ export class GetMembersUseCase {
   constructor(private readonly repo: FamilyRepository) {}
   execute(): Promise<Member[]> {
     return this.repo.getMembers();
+  }
+}
+
+export class UpdateOwnProfileUseCase {
+  constructor(private readonly repo: FamilyRepository) {}
+  async execute(input: ProfileInput): Promise<Member> {
+    const name = input.name.trim();
+    if (!name || name.length > 40) {
+      throw new AppError("INVALID_TX", "نام باید ۱ تا ۴۰ کاراکتر باشد");
+    }
+    if (input.nationalId && !/^\d{10}$/.test(input.nationalId)) {
+      throw new AppError("INVALID_TX", "کد ملی باید ۱۰ رقم باشد");
+    }
+    return this.repo.updateOwnProfile({ ...input, name });
+  }
+}
+
+export class AddMemberByManagerUseCase {
+  constructor(private readonly repo: FamilyRepository) {}
+  async execute(name: string, phone: string): Promise<Member> {
+    const trimmed = name.trim();
+    if (!trimmed || trimmed.length > 40) {
+      throw new AppError("INVALID_TX", "نام عضو را وارد کنید (حداکثر ۴۰ کاراکتر)");
+    }
+    if (!/^09\d{9}$/.test(phone)) {
+      throw new AppError("INVALID_TX", "شماره موبایل معتبر نیست (۰۹xxxxxxxxx)");
+    }
+    return this.repo.addMemberByManager(trimmed, phone);
   }
 }
 

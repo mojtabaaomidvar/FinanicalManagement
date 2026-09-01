@@ -43,6 +43,49 @@ export class SupabaseAuthRepository implements AuthRepository {
     return { otpEnabled: !!r?.otp_enabled };
   }
 
+  async checkPreRegistered(phone: string): Promise<{
+    preRegistered: boolean;
+    familyName: string | null;
+    memberName: string | null;
+  }> {
+    const r = await rpc<{
+      pre_registered?: boolean;
+      family_name?: string | null;
+      member_name?: string | null;
+    }>("check_pre_registered", { p_phone: phone });
+    return {
+      preRegistered: !!r?.pre_registered,
+      familyName: r?.family_name ?? null,
+      memberName: r?.member_name ?? null,
+    };
+  }
+
+  async uploadAvatar(dataUrl: string): Promise<string> {
+    const token = await this.tokenProvider.getToken();
+    if (!token) throw new Error("NO_SESSION");
+
+    const res = await fetch("api/upload-avatar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, image: dataUrl }),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      url?: string;
+      error?: string;
+    };
+    if (!res.ok || !data.ok || !data.url) {
+      if (data.error === "IMAGE_TOO_LARGE") {
+        throw new Error("عکس بزرگ است — حداکثر ۱ مگابایت");
+      }
+      if (data.error === "INVALID_IMAGE") {
+        throw new Error("فقط عکس PNG/JPG/WebP پذیرفته می‌شود");
+      }
+      throw new Error("آپلود ناموفق بود — دوباره تلاش کنید");
+    }
+    return data.url;
+  }
+
   async requestOtp(phone: string): Promise<OtpRequestResult> {
     /* ۱) تابع سرورless */
     const r = await sendOtpViaServerless(phone);

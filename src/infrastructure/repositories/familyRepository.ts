@@ -3,7 +3,12 @@
 import type {
   FamilyRepository,
 } from "@/domain/family/family.repository";
-import type { Family, FamilySettings, Member } from "@/domain/family/family.types";
+import type {
+  Family,
+  FamilySettings,
+  Member,
+  ProfileInput,
+} from "@/domain/family/family.types";
 import { rpc } from "@/infrastructure/api/httpClient";
 import {
   mapFamily,
@@ -50,5 +55,26 @@ export class SupabaseFamilyRepository implements FamilyRepository {
       p_token: await this.tok(),
       p_member_id: memberId,
     });
+  }
+
+  async updateOwnProfile(input: ProfileInput): Promise<Member> {
+    const row = await rpc<MemberRow>("update_member_profile", {
+      p_token: await this.tok(),
+      p_name: input.name,
+      p_gender: input.gender,
+      p_birth_date: input.birthDate,
+      p_national_id: input.nationalId,
+      p_avatar_url: input.avatarUrl,
+    });
+    return mapMember(row);
+  }
+
+  async addMemberByManager(name: string, phone: string): Promise<Member> {
+    const row = await rpc<MemberRow>("add_member_by_manager", {
+      p_token: await this.tok(),
+      p_name: name,
+      p_phone: phone,
+    });
+    return mapMember(row);
   }
 }

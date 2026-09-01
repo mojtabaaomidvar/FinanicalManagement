@@ -16,6 +16,7 @@ import type { Transaction } from "@/domain/transaction/transaction.types";
 import type { Account } from "@/domain/account/account.types";
 import type { Subcategory } from "@/domain/category/subcategory.types";
 import type { CustomCategory } from "@/domain/category/custom-category.types";
+import type { FamilyEvent } from "@/domain/event/event.types";
 
 type Phase = "boot" | "auth" | "ready";
 
@@ -28,8 +29,11 @@ interface AppState {
   accounts: Account[];
   subcategories: Subcategory[];
   customCategories: CustomCategory[];
+  events: FamilyEvent[];
   useCases: UseCases | null;
   refreshData: () => Promise<void>;
+  /** به‌روزرسانی عضو فعلی پس از ذخیره پروفایل */
+  updateMember: (m: Member) => void;
   /* فراخوانی پس از ورود موفق */
   onAuthenticated: (r: {
     member: Member;
@@ -52,6 +56,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>(
     [],
   );
+  const [events, setEvents] = useState<FamilyEvent[]>([]);
   const [useCases, setUseCases] = useState<UseCases | null>(null);
   const seeded = useRef(false);
 
@@ -101,6 +106,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         accountRows,
         subRows,
         customCatRows,
+        eventRows,
       ] = await Promise.all([
         useCases.getFamily.execute(),
         useCases.getMembers.execute(),
@@ -108,6 +114,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         useCases.listAccounts.execute(),
         useCases.listSubcategories.execute(),
         useCases.listCustomCategories.execute(),
+        useCases.listEvents.execute(),
       ]);
       setFamily(familyRow);
       setMembers(memberRows);
@@ -115,6 +122,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setAccounts(accountRows);
       setSubcategories(subRows);
       setCustomCategories(customCatRows);
+      setEvents(eventRows);
     },
     [useCases],
   );
@@ -129,8 +137,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       accounts,
       subcategories,
       customCategories,
+      events,
       useCases,
       refreshData,
+      updateMember: (m: Member) => {
+        setMember(m);
+        setMembers((prev) => prev.map((x) => (x.id === m.id ? m : x)));
+      },
       onAuthenticated: (r) => {
         setMember(r.member);
         setFamily(r.family);
@@ -145,6 +158,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setAccounts([]);
         setSubcategories([]);
         setCustomCategories([]);
+        setEvents([]);
         seeded.current = false;
         setPhase("auth");
       },
@@ -158,6 +172,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       accounts,
       subcategories,
       customCategories,
+      events,
       useCases,
       refreshData,
     ],

@@ -14,6 +14,15 @@ import { AccountsPage } from "@/pages/AccountsPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { useToast } from "./providers/ToastProvider";
 
+/* ترتیب تب‌ها در DOM (RTL) — مبنای موقعیت نشانگر متحرک تب‌بار */
+const TAB_ORDER: Route[] = [
+  "transactions",
+  "reports",
+  "dashboard",
+  "accounts",
+  "settings",
+];
+
 export function App() {
   const { phase, useCases, member, family, refreshData } = useApp();
   const [route, setRoute] = useState<Route>("dashboard");
@@ -94,6 +103,10 @@ function MainShell({
     [setRoute],
   );
 
+  /* ترتیب تب‌ها در DOM (RTL) برای موقعیت نشانگر متحرک */
+  const tabIndex = TAB_ORDER.indexOf(route);
+  void tabIndex;
+
   return (
     <>
       <div key={route} className="page-anim">
@@ -114,6 +127,14 @@ function MainShell({
       <PendingSmsFeature refreshKey={refreshKey} />
 
       <nav className="tabbar tabbar-5" aria-label="ناوبری اصلی">
+        {/* نشانگر متحرک — موقعیت بر اساس تب فعال (RTL) */}
+        <div
+          className="tab-ind"
+          style={{
+            insetInlineStart: `calc(${TAB_ORDER.indexOf(route) * 20}% + 4px)`,
+          }}
+        />
+
         {/* راست (در RTL اول) */}
         <button
           className={`tab-btn ${route === "transactions" ? "active" : ""}`}

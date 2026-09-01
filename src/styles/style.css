@@ -1152,9 +1152,28 @@ button:active {
 
 /* ─────────── تب‌بار ۵تایی با دکمه خانه مرکزی ─────────── */
 .tabbar-5 {
-  grid-template-columns: 1fr 1fr auto 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
   align-items: center;
   padding-top: 6px;
+}
+
+/* نشانگر متحرک — قرص سبز کم‌رنگ که بین تب‌ها می‌لغزد */
+.tabbar-5 .tab-ind {
+  position: absolute;
+  top: 6px;
+  bottom: calc(6px + env(safe-area-inset-bottom) - 8px);
+  height: 46px;
+  width: calc(20% - 8px);
+  border-radius: var(--r-lg);
+  background: var(--accent-soft);
+  transition: inset-inline-start 0.38s var(--ease-spring);
+  z-index: 0;
+  pointer-events: none;
+}
+.tabbar-5 .tab-btn,
+.tabbar-5 .tab-home {
+  position: relative;
+  z-index: 1;
 }
 
 .tab-btn svg {
@@ -2308,5 +2327,168 @@ button:active {
     height: 148px;
     border-radius: 40px;
   }
+}
+
+/* بنر عضو پیش‌ثبت‌شده در فرم ثبت‌نام */
+.prereg-banner {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  color: var(--accent-strong);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.8;
+  text-align: center;
+}
+
+/* ─────────── کارت پروفایل ─────────── */
+.profile-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+.profile-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  background: var(--card-2);
+  border: 2px solid var(--accent);
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+}
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.profile-avatar svg {
+  width: 34px;
+  height: 34px;
+  color: var(--text-3);
+}
+.profile-head h4 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+.profile-head p {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.avatar-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: var(--sp-2) 0 var(--sp-4);
+}
+.avatar-picks button {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  border: 2px solid var(--border);
+  background: var(--card-2);
+  padding: 0;
+  transition:
+    border-color var(--dur-fast) ease,
+    transform var(--dur-fast) var(--ease-spring);
+}
+.avatar-picks button img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.avatar-picks button.active {
+  border-color: var(--accent);
+}
+.avatar-picks button:active {
+  transform: scale(0.92);
+}
+
+.upload-btn {
+  border: 1.5px dashed var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--r-md);
+  padding: 10px;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  width: 100%;
+  cursor: pointer;
+}
+
+/* ─────────── رویدادهای خانواده ─────────── */
+.event-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-3) 0;
+}
+.event-item + .event-item {
+  border-top: 1px dashed var(--border);
+}
+.event-date-badge {
+  min-width: 52px;
+  text-align: center;
+  background: var(--card-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 6px 4px;
+  flex-shrink: 0;
+}
+.event-date-badge b {
+  display: block;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--accent);
+}
+.event-date-badge span {
+  font-size: 10px;
+  color: var(--text-3);
+}
+.event-info {
+  flex: 1;
+  min-width: 0;
+}
+.event-info h5 {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+.event-info p {
+  font-size: 11.5px;
+  color: var(--text-3);
+  margin-top: 2px;
+  line-height: 1.7;
+}
+
+/* ─────────── اعضا: نشان pending و دکمه افزودن ─────────── */
+.member-status-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--r-pill);
+  background: #fbbf24;
+  color: #78350f;
+  margin-right: 6px;
+}
+.member-remove-btn {
+  background: none;
+  border: none;
+  color: var(--danger);
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 4px 8px;
+  margin-right: auto;
 }
 

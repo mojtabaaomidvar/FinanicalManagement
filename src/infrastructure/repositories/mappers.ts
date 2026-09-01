@@ -12,6 +12,11 @@ export interface MemberRow {
   name: string;
   role: string;
   phone: string | null;
+  gender: "male" | "female" | null;
+  birth_date: string | null;
+  national_id: string | null;
+  avatar_url: string | null;
+  status: "pending" | "active";
   created_at: string;
 }
 
@@ -62,6 +67,11 @@ export function mapMember(r: MemberRow): Member {
     name: r.name,
     role: r.role === "owner" ? "owner" : "member",
     phone: r.phone,
+    gender: r.gender ?? null,
+    birthDate: r.birth_date ?? null,
+    nationalId: r.national_id ?? null,
+    avatarUrl: r.avatar_url ?? null,
+    status: r.status === "pending" ? "pending" : "active",
     createdAt: r.created_at,
   };
 }
@@ -150,6 +160,32 @@ export function mapAccount(
     cardNumber: r.card_number,
     accountNumber: r.account_number,
     sheba: r.sheba,
+    createdAt: r.created_at,
+  };
+}
+
+/* ── رویدادهای خانواده ── */
+
+export interface EventRow {
+  id: string;
+  family_id: string;
+  member_id: string | null;
+  title: string;
+  date: string;
+  note: string | null;
+  created_at: string;
+}
+
+export function mapEvent(
+  r: EventRow,
+): import("@/domain/event/event.types").FamilyEvent {
+  return {
+    id: r.id,
+    familyId: r.family_id,
+    memberId: r.member_id,
+    title: r.title,
+    date: r.date,
+    note: r.note,
     createdAt: r.created_at,
   };
 }

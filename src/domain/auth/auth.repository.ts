@@ -21,6 +21,14 @@ export interface SessionStore {
 export interface AuthRepository {
   /** تنظیمات عمومی (فعال بودن OTP و…) — بدون احراز هویت */
   getPublicConfig(): Promise<PublicAppConfig>;
+  /** آیا این شماره توسط مدیری به‌عنوان عضو (pending) معرفی شده؟ */
+  checkPreRegistered(phone: string): Promise<{
+    preRegistered: boolean;
+    familyName: string | null;
+    memberName: string | null;
+  }>;
+  /** آپلود عکس پروفایل (سرورless) → URL عمومی */
+  uploadAvatar(dataUrl: string): Promise<string>;
   /** درخواست کد OTP (سرورless، با fallback حالت توسعه) */
   requestOtp(phone: string): Promise<OtpRequestResult>;
   /** مرحله ۱ ورود: بررسی شماره + رمز */

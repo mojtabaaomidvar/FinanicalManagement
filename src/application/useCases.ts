@@ -4,6 +4,7 @@ import type { Container } from "@/infrastructure/repositories/container";
 import {
   AcceptInviteUseCase,
   CheckPasswordUseCase,
+  CheckPreRegisteredUseCase,
   CreateInviteUseCase,
   GetInviteUseCase,
   GetPublicConfigUseCase,
@@ -13,7 +14,13 @@ import {
   RequestOtpUseCase,
   RestoreSessionUseCase,
   SaveSessionUseCase,
+  UploadAvatarUseCase,
 } from "./auth/auth.usecases";
+import {
+  AddEventUseCase,
+  DeleteEventUseCase,
+  ListEventsUseCase,
+} from "./event/event.usecases";
 import {
   AddTransactionUseCase,
   DeleteTransactionUseCase,
@@ -39,6 +46,8 @@ import {
   GetMembersUseCase,
   RemoveMemberUseCase,
   UpdateFamilySettingsUseCase,
+  AddMemberByManagerUseCase,
+  UpdateOwnProfileUseCase,
 } from "./family/family.usecases";
 import {
   AddAccountUseCase,
@@ -58,6 +67,8 @@ import {
 
 export interface UseCases {
   getPublicConfig: GetPublicConfigUseCase;
+  checkPreRegistered: CheckPreRegisteredUseCase;
+  uploadAvatar: UploadAvatarUseCase;
   requestOtp: RequestOtpUseCase;
   checkPassword: CheckPasswordUseCase;
   loginWithOtp: LoginWithOtpUseCase;
@@ -87,8 +98,14 @@ export interface UseCases {
   getMembers: GetMembersUseCase;
   updateFamilySettings: UpdateFamilySettingsUseCase;
   removeMember: RemoveMemberUseCase;
+  updateOwnProfile: UpdateOwnProfileUseCase;
+  addMemberByManager: AddMemberByManagerUseCase;
   checkBudgetStatus: CheckBudgetStatusUseCase;
   buildBackupJson: BuildBackupJsonUseCase;
+
+  listEvents: ListEventsUseCase;
+  addEvent: AddEventUseCase;
+  deleteEvent: DeleteEventUseCase;
 
   listAccounts: ListAccountsUseCase;
   addAccount: AddAccountUseCase;
@@ -109,6 +126,8 @@ export interface UseCases {
 export function createUseCases(c: Container): UseCases {
   return {
     getPublicConfig: new GetPublicConfigUseCase(c.repos.auth),
+    checkPreRegistered: new CheckPreRegisteredUseCase(c.repos.auth),
+    uploadAvatar: new UploadAvatarUseCase(c.repos.auth),
     requestOtp: new RequestOtpUseCase(c.repos.auth),
     checkPassword: new CheckPasswordUseCase(c.repos.auth),
     loginWithOtp: new LoginWithOtpUseCase(c.repos.auth),
@@ -141,8 +160,14 @@ export function createUseCases(c: Container): UseCases {
     getMembers: new GetMembersUseCase(c.repos.family),
     updateFamilySettings: new UpdateFamilySettingsUseCase(c.repos.family),
     removeMember: new RemoveMemberUseCase(c.repos.family),
+    updateOwnProfile: new UpdateOwnProfileUseCase(c.repos.family),
+    addMemberByManager: new AddMemberByManagerUseCase(c.repos.family),
     checkBudgetStatus: new CheckBudgetStatusUseCase(),
     buildBackupJson: new BuildBackupJsonUseCase(),
+
+    listEvents: new ListEventsUseCase(c.repos.events),
+    addEvent: new AddEventUseCase(c.repos.events),
+    deleteEvent: new DeleteEventUseCase(c.repos.events),
 
     listAccounts: new ListAccountsUseCase(c.repos.accounts),
     addAccount: new AddAccountUseCase(c.repos.accounts),

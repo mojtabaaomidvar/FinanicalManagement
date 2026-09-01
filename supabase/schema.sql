@@ -43,6 +43,15 @@ alter table public.members add column if not exists phone text;
 alter table public.members add column if not exists password_hash text;
 create unique index if not exists idx_members_phone on public.members(phone) where phone is not null;
 
+-- پروفایل و وضعیت عضو (v5.1)
+alter table public.members add column if not exists gender text
+  check (gender is null or gender in ('male','female'));
+alter table public.members add column if not exists birth_date date;
+alter table public.members add column if not exists national_id text;
+alter table public.members add column if not exists avatar_url text;
+alter table public.members add column if not exists status text not null default 'active'
+  check (status in ('pending','active'));
+
 -- ─────────── جدول تراکنش‌ها ───────────
 create table if not exists public.transactions (
   id          uuid primary key default gen_random_uuid(),
@@ -418,6 +427,8 @@ begin
 end $$;
 
 -- ثبت‌نام: تأیید OTP + ساخت خانواده + عضو مدیر + نشست
+-- اگر شماره قبلاً توسط مدیر به‌عنوان عضو (pending) ثبت شده باشد،
+-- ثبت‌نام همان عضو را کامل می‌کند (خانواده موجود، نقش member)
 create or replace function public.auth_register(
   p_family_name text, p_member_name text,
   p_phone text, p_password_hash text, p_otp_code text
@@ -430,8 +441,27 @@ declare
 begin
   perform public._consume_otp(p_phone, p_otp_code);
 
-  if exists (select 1 from public.members where phone = p_phone) then
-    raise exception 'PHONE_EXISTS';
+  select * into v_member from public.members where phone = p_phone;
+  if found then
+    if v_member.status = 'pending' then
+      -- تکمیل ثبت‌نام عضو معرفی‌شده توسط مدیر
+      update public.members
+      set name         = coalesce(nullif(btrim(p_member_name), ''), name),
+          password_hash = p_password_hash,
+          status       = 'active'
+      where id = v_member.id
+      returning * into v_member;
+
+      select * into v_family from public.families where id = v_member.family_id;
+      v_token := public._create_session(v_member.id);
+      return json_build_object(
+        'member', to_jsonb(v_member),
+        'family', to_jsonb(v_family),
+        'session_token', v_token
+      );
+    else
+      raise exception 'PHONE_EXISTS';
+    end if;
   end if;
 
   insert into public.families (name, code)
@@ -449,6 +479,65 @@ begin
     'family', to_jsonb(v_family),
     'session_token', v_token
   );
+end $$;
+
+-- ─────────── عضو پیش‌ثبت‌شده توسط مدیر ───────────
+
+-- بررسی عمومی: آیا این شماره توسط مدیری به‌عنوان عضو معرفی شده؟
+-- (بدون نیاز به احراز هویت — فقط نام خانواده و نام عضو برمی‌گرداند)
+create or replace function public.check_pre_registered(p_phone text)
+returns json
+language sql security definer set search_path = public as $$
+  select coalesce(
+    (
+      select json_build_object(
+        'pre_registered', true,
+        'family_name', f.name,
+        'member_name', m.name
+      )
+      from public.members m
+      join public.families f on f.id = m.family_id
+      where m.phone = p_phone and m.status = 'pending'
+      limit 1
+    ),
+    json_build_object('pre_registered', false)
+  )::json
+$$;
+
+-- افزودن عضو توسط مدیر (فقط اسم و شماره — عضو pending تا خودش ثبت‌نام کند)
+create or replace function public.add_member_by_manager(
+  p_token text, p_name text, p_phone text
+) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+  v_actor_role text;
+  v_row public.members;
+begin
+  v_family_id := public._family_id(p_token);
+
+  select role into v_actor_role from public.members
+  where id = public._session_member_id(p_token);
+
+  if v_actor_role <> 'owner' then
+    raise exception 'FORBIDDEN';
+  end if;
+
+  if p_name is null or length(btrim(p_name)) < 1 or length(btrim(p_name)) > 40 then
+    raise exception 'INVALID_NAME';
+  end if;
+  if p_phone is null or p_phone !~ '^09\d{9}$' then
+    raise exception 'INVALID_PHONE';
+  end if;
+  if exists (select 1 from public.members where phone = p_phone) then
+    raise exception 'PHONE_EXISTS';
+  end if;
+
+  insert into public.members (family_id, name, role, phone, status)
+  values (v_family_id, btrim(p_name), 'member', p_phone, 'pending')
+  returning * into v_row;
+
+  return to_jsonb(v_row);
 end $$;
 
 -- ─────────── دعوت اعضا ───────────
@@ -1411,4 +1500,144 @@ begin
   values (v_family, v_member, v_token);
 
   return v_token;
+end $$;
+
+-- ═══════════════════════════════════════════════════════════
+-- پروفایل کاربر (v5.1)
+-- ═══════════════════════════════════════════════════════════
+
+create or replace function public.update_member_profile(
+  p_token text, p_name text, p_gender text, p_birth_date date,
+  p_national_id text, p_avatar_url text
+) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_member_id uuid;
+  v_national_id text;
+  v_row public.members;
+begin
+  v_member_id := public._session_member_id(p_token);
+
+  if p_name is null or length(btrim(p_name)) < 1 or length(btrim(p_name)) > 40 then
+    raise exception 'INVALID_NAME';
+  end if;
+  if p_gender is not null and p_gender not in ('male','female') then
+    raise exception 'INVALID_GENDER';
+  end if;
+  if p_birth_date is not null and (p_birth_date < '1900-01-01' or p_birth_date > current_date) then
+    raise exception 'INVALID_DATE';
+  end if;
+
+  v_national_id := nullif(regexp_replace(coalesce(p_national_id, ''), '[^0-9]', '', 'g'), '');
+  if v_national_id is not null and v_national_id !~ '^\d{10}$' then
+    raise exception 'INVALID_NATIONAL_ID';
+  end if;
+
+  if p_avatar_url is not null and length(p_avatar_url) > 500 then
+    raise exception 'INVALID_AVATAR';
+  end if;
+
+  update public.members
+  set name        = btrim(p_name),
+      gender      = p_gender,
+      birth_date  = p_birth_date,
+      national_id = v_national_id,
+      avatar_url  = p_avatar_url
+  where id = v_member_id
+  returning * into v_row;
+
+  return to_jsonb(v_row);
+end $$;
+
+-- ═══════════════════════════════════════════════════════════
+-- رویدادهای مهم خانواده (v5.1)
+-- ═══════════════════════════════════════════════════════════
+
+create table if not exists public.family_events (
+  id         uuid primary key default gen_random_uuid(),
+  family_id  uuid not null references public.families(id) on delete cascade,
+  member_id  uuid references public.members(id) on delete set null,
+  title      text not null,
+  date       date not null,
+  note       text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_events_family on public.family_events(family_id);
+
+alter table public.family_events enable row level security;
+-- بدون پالیسی → دسترسی فقط از طریق RPC
+
+create or replace function public.list_events(p_token text)
+returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+begin
+  v_family_id := public._family_id(p_token);
+  return coalesce((
+    select json_agg(row_to_json(e))
+    from (
+      select * from public.family_events
+      where family_id = v_family_id
+      order by date desc, created_at desc
+    ) e
+  ), '[]'::json);
+end $$;
+
+create or replace function public.add_event(
+  p_token text, p_title text, p_date date, p_note text
+) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+  v_member_id uuid;
+  v_row public.family_events;
+begin
+  v_family_id := public._family_id(p_token);
+  v_member_id := public._session_member_id(p_token);
+
+  if p_title is null or length(btrim(p_title)) < 1 or length(btrim(p_title)) > 60 then
+    raise exception 'INVALID_TITLE';
+  end if;
+  if p_date is null then
+    raise exception 'INVALID_DATE';
+  end if;
+
+  insert into public.family_events (family_id, member_id, title, date, note)
+  values (v_family_id, v_member_id, btrim(p_title), p_date,
+          nullif(btrim(coalesce(p_note, '')), ''))
+  returning * into v_row;
+
+  return to_jsonb(v_row);
+end $$;
+
+create or replace function public.delete_event(
+  p_token text, p_event_id uuid
+) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  delete from public.family_events
+  where id = p_event_id and family_id = public._family_id(p_token);
+
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+end $$;
+
+-- ═══════════════════════════════════════════════════════════
+-- باکت آواتار (Supabase Storage) — خواندن عمومی، نوشتن فقط سرور
+-- ═══════════════════════════════════════════════════════════
+
+do $$
+begin
+  if exists (select 1 from information_schema.schemata where schema_name = 'storage') then
+    insert into storage.buckets (id, name, public)
+    values ('avatars', 'avatars', true)
+    on conflict (id) do nothing;
+
+    execute 'drop policy if exists "avatars_public_read" on storage.objects';
+    execute 'create policy "avatars_public_read" on storage.objects
+             for select using (bucket_id = ''avatars'')';
+  end if;
 end $$;

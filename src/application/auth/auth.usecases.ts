@@ -19,6 +19,26 @@ export class GetPublicConfigUseCase {
   }
 }
 
+export class CheckPreRegisteredUseCase {
+  constructor(private readonly auth: AuthRepository) {}
+  execute(
+    phone: string,
+  ): Promise<{
+    preRegistered: boolean;
+    familyName: string | null;
+    memberName: string | null;
+  }> {
+    return this.auth.checkPreRegistered(phone);
+  }
+}
+
+export class UploadAvatarUseCase {
+  constructor(private readonly auth: AuthRepository) {}
+  execute(dataUrl: string): Promise<string> {
+    return this.auth.uploadAvatar(dataUrl);
+  }
+}
+
 export class RequestOtpUseCase {
   constructor(private readonly auth: AuthRepository) {}
   execute(phone: string): Promise<OtpRequestResult> {

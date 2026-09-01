@@ -155,13 +155,33 @@ export function AuthFeature() {
               m.submitRegister(finish);
             }}
           >
-            <input
-              className="auth-input"
-              type="text"
-              placeholder="نام خانواده (مثلاً احمدی)"
-              value={m.regFamily}
-              onChange={(e) => m.setRegFamily(e.target.value)}
-            />
+            {/* بنر عضو پیش‌ثبت‌شده — اطلاعات خانواده قفل */}
+            {m.preReg ? (
+              <div className="prereg-banner">
+                این شماره قبلاً به‌عنوان عضو خانواده «{m.preReg.familyName}»
+                معرفی شده — ثبت‌نام شما همین خانواده را کامل می‌کند.
+              </div>
+            ) : null}
+
+            {m.preReg ? (
+              <input
+                className="auth-input"
+                type="text"
+                value={m.preReg.familyName}
+                readOnly
+                aria-readonly="true"
+                style={{ opacity: 0.7 }}
+                title="خانواده شما (غیرقابل تغییر)"
+              />
+            ) : (
+              <input
+                className="auth-input"
+                type="text"
+                placeholder="نام خانواده (مثلاً احمدی)"
+                value={m.regFamily}
+                onChange={(e) => m.setRegFamily(e.target.value)}
+              />
+            )}
             <input
               className="auth-input"
               type="text"
@@ -177,7 +197,11 @@ export function AuthFeature() {
               autoComplete="tel"
               placeholder="شماره موبایل"
               value={m.regPhone}
-              onChange={(e) => m.setRegPhone(e.target.value)}
+              onChange={(e) => {
+                m.setRegPhone(e.target.value);
+                /* با کامل‌شدن شماره، بررسی عضو پیش‌ثبت‌شده */
+                m.checkPreRegistered(e.target.value);
+              }}
             />
             <input
               className="auth-input"
@@ -189,10 +213,12 @@ export function AuthFeature() {
               onChange={(e) => m.setRegPassword(e.target.value)}
             />
             <button className="auth-submit" type="submit" disabled={m.busy}>
-              {m.busy ? "…" : "ساخت خانواده"}
+              {m.busy ? "…" : m.preReg ? "تکمیل ثبت‌نام" : "ساخت خانواده"}
             </button>
             <p className="auth-note">
-              مدیر خانواده می‌شوید و می‌توانید بقیه اعضا را دعوت کنید
+              {m.preReg
+                ? "خانواده شما از قبل ساخته شده — با ثبت‌نام، عضو کامل خانواده می‌شوید"
+                : "مدیر خانواده می‌شوید و می‌توانید بقیه اعضا را دعوت کنید"}
             </p>
           </form>
         </div>

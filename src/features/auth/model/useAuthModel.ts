@@ -2,7 +2,7 @@
    OTP روی سرور قابل روشن/خاموش است (app_settings.otp_enabled)؛
    در حالت خاموش همه مسیرها مستقیم و بدون کد پیامکی انجام می‌شوند */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { UseCases } from "@/application/useCases";
 import type { OtpFlowMode } from "@/domain/auth/auth.types";
 import { normalizePhone, isValidPassword, isValidOtpCode, cleanOtpCode } from "@/domain/auth/auth.rules";
@@ -47,6 +47,31 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
 
   /* وضعیت OTP از تنظیمات سرور — null = هنوز نامشخص */
   const [otpEnabled, setOtpEnabled] = useState<boolean | null>(null);
+
+  /* عضو پیش‌ثبت‌شده توسط مدیر — خانواده در فرم قفل می‌شود */
+  const [preReg, setPreReg] = useState<{
+    familyName: string;
+    memberName: string;
+  } | null>(null);
+
+  /** بررسی شماره در فرم ثبت‌نام — اگر عضو pending بود اطلاعات خانواده قفل می‌شود */
+  async function checkPreRegistered(rawPhone: string) {
+    const phone = normalizePhone(toEn(rawPhone));
+    if (!phone || phone === preRegCheckRef.current) return;
+    preRegCheckRef.current = phone;
+    try {
+      const r = await useCases.checkPreRegistered.execute(phone);
+      if (r.preRegistered && r.familyName) {
+        setPreReg({ familyName: r.familyName, memberName: r.memberName ?? "" });
+        if (r.memberName && !regName.trim()) setRegName(r.memberName);
+      } else {
+        setPreReg(null);
+      }
+    } catch {
+      /* بی‌صدا */
+    }
+  }
+  const preRegCheckRef = useRef<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -129,14 +154,17 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
 
   async function submitRegister(onDone: () => void | Promise<void>) {
     const phone = normalizePhone(toEn(regPhone));
-    if (!regFamily.trim() || !regName.trim())
-      return notify("نام خانواده و نام شما را وارد کنید");
+    /* عضو پیش‌ثبت‌شده: نام خانواده لازم نیست (سرور خانواده موجود را می‌دهد) */
+    if (!preReg && !regFamily.trim()) {
+      return notify("نام خانواده را وارد کنید");
+    }
+    if (!regName.trim()) return notify("نام شما را وارد کنید");
     if (!phone) return notify("شماره موبایل معتبر نیست (مثل ۰۹۱۲۳۴۵۶۷۸۹)");
     if (!isValidPassword(regPassword))
       return notify("رمز عبور حداقل ۴ کاراکتر باشد");
 
     const input = {
-      familyName: regFamily.trim(),
+      familyName: preReg ? preReg.familyName : regFamily.trim(),
       memberName: regName.trim(),
       phone,
       password: regPassword,
@@ -147,7 +175,7 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
       setBusy(true);
       try {
         const r = await useCases.register.execute(input, null);
-        notify("خانواده ساخته شد — خوش آمدید");
+        notify(preReg ? "ثبت‌نام کامل شد — خوش آمدید" : "خانواده ساخته شد — خوش آمدید");
         await useCases.saveSession.execute(r);
         await onDone();
         return;
@@ -274,6 +302,8 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
     setMode,
     step,
     otpEnabled,
+    preReg,
+    checkPreRegistered,
     loginPhone,
     setLoginPhone,
     loginPassword,

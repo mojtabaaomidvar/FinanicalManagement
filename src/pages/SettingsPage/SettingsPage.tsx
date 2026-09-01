@@ -1,16 +1,18 @@
-/* صفحه تنظیمات — اعضا، دعوت، بودجه، تم، خروجی، خروج */
+/* صفحه تنظیمات — پروفایل، اعضا، رویدادها، پل پیامک، بودجه، تم، خروج */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
 import { Card } from "@/shared/ui";
-import { InviteFeature } from "@/features/invite";
 import { CheckBudgetStatus } from "./CheckBudgetStatus";
 import { SmsBridgeCard } from "./SmsBridgeCard";
+import { ProfileCard } from "./ProfileCard";
+import { EventsCard } from "./EventsCard";
+import { MembersCard } from "./MembersCard";
 import { formatAmount, liveFormatAmount } from "@/shared/lib/format";
 
 export function SettingsPage() {
-  const { useCases, family, members, txs, onLoggedOut } = useApp();
+  const { useCases, family, txs, onLoggedOut } = useApp();
   const { show } = useToast();
 
   const [budget, setBudget] = useState("");
@@ -61,26 +63,11 @@ export function SettingsPage() {
       </header>
 
       <div className="content">
-        <Card
-          title="اعضای خانواده"
-          action={
-            <span className="badge">کد: {family?.code ?? "—"}</span>
-          }
-        >
-          <div className="settings-members">
-            {members.map((m) => (
-              <div className="settings-member" key={m.id}>
-                <span className="member-avatar">{m.name.charAt(0)}</span>
-                <div>
-                  <h5>{m.name}</h5>
-                  <p>{m.role === "owner" ? "مدیر خانواده" : "عضو"}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+        <ProfileCard />
 
-          <InviteFeature />
-        </Card>
+        <MembersCard />
+
+        <EventsCard />
 
         <SmsBridgeCard />
 
@@ -118,7 +105,7 @@ export function SettingsPage() {
             <label className="switch">
               <input
                 type="checkbox"
-                checked={family?.dark ?? true}
+                checked={family?.dark ?? false}
                 onChange={(e) => {
                   /* اعمال فوری تم + ذخیره */
                   const dark = e.target.checked;
@@ -158,7 +145,7 @@ export function SettingsPage() {
                 if (!family) return;
                 const data = useCases!.buildBackupJson.execute({
                   family,
-                  members,
+                  members: [],
                   transactions: txs,
                 });
                 const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -167,7 +154,7 @@ export function SettingsPage() {
                 const a = document.createElement("a");
                 a.href = URL.createObjectURL(blob);
                 a.download =
-                  "mali-man-backup-" +
+                  "khaneyar-backup-" +
                   new Date().toISOString().slice(0, 10) +
                   ".json";
                 a.click();
@@ -190,7 +177,7 @@ export function SettingsPage() {
         </Card>
 
         <p className="version-tag">
-          خانه یار · نسخه ۵.۰.۰
+          خانه یار · نسخه ۵.۱.۰
         </p>
       </div>
     </section>
