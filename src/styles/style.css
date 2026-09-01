@@ -2052,316 +2052,258 @@ button:active {
   line-height: 1.8;
 }
 
-/* ─────────── Login4-style Auth Card (RTL) ───────────
-   ساختار: hero همیشه یک سمت، form سمت دیگر؛ با toggle سوییچ می‌شوند.
-   در RTL: form ورود سمت راست (نزدیک شروع خواندن)، hero سمت چپ. */
-.login4-page {
+/* ─────────── Auth Screen — موبایل‌فرست با سوییچر انیمیشنی ─────────── */
+.auth-screen {
   min-height: 100dvh;
-  display: grid;
-  place-items: center;
-  padding: var(--sp-4);
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-5);
+  padding: var(--sp-5) var(--sp-4)
+    calc(var(--sp-6) + env(safe-area-inset-bottom));
 }
-.login4-page .login4-card {
-  position: relative;
+
+@keyframes authIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes authFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+/* هدر */
+.auth-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  animation: authIn 0.55s var(--ease-spring) both;
+}
+.auth-hero .auth-art {
+  width: 124px;
+  height: 124px;
+  border-radius: 32px;
   overflow: hidden;
+  box-shadow:
+    0 18px 44px rgba(16, 185, 129, 0.2),
+    0 0 0 1px var(--border);
+  animation: authFloat 4.5s ease-in-out 0.6s infinite;
+}
+.auth-hero .auth-art img {
   width: 100%;
-  max-width: 680px;
-  height: min(520px, 92dvh);
-  border-radius: var(--r-xl);
-  background: var(--bg-elev);
-  border: 8px solid var(--bg-elev);
-  box-shadow: 0 12px 80px rgba(0, 0, 0, 0.45);
-  animation: pageIn var(--dur-med) var(--ease-out);
-  display: flex;
-}
-
-/* نیمه‌ها — هر دو نیمه همیشه تمام ارتفاع */
-.login4-card .half {
-  position: relative;
-  width: 50%;
   height: 100%;
-  transition: 0.65s ease-in-out;
+  display: block;
 }
-
-/* فرم‌ها: هر دو نیمه سمت راست (initial: فرم ورود نمایان) */
-.login4-card .form {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-  padding: var(--sp-5) var(--sp-4);
-  overflow-y: auto;
-  background: var(--bg-elev);
-  opacity: 0;
-  visibility: hidden;
-  transition: 0.65s ease-in-out;
+.auth-hero h1 {
+  margin: 6px 0 0;
+  font-size: 21px;
+  font-weight: 800;
+  color: var(--text);
 }
-.login4-card .form.active {
-  opacity: 1;
-  visibility: visible;
-}
-
-/* پنل hero: روی نیمه چپ */
-.login4-card .hero {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  color: #f9f9f9;
-  text-align: center;
-  padding: var(--sp-4);
-  border-radius: calc(var(--r-xl) - 8px);
-  overflow: hidden;
-  opacity: 0;
-  visibility: hidden;
-  transition: 0.65s ease-in-out;
-}
-.login4-card .hero.active {
-  opacity: 1;
-  visibility: visible;
-}
-
-/* پس‌زمینه تصویر مشترک hero — پشت پنل‌های hero در نیمه چپ */
-.login4-card .card-bg {
-  position: absolute;
-  z-index: 2;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 50%;
-  background: var(--bg-elev);
-  border-radius: calc(var(--r-xl) - 8px);
-  overflow: hidden;
-}
-.login4-card .card-bg::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(to bottom, rgba(11, 13, 18, 0.35), rgba(11, 13, 18, 0.78)),
-    url("/hero.svg") center/cover no-repeat;
-}
-/* حالت login: تصویر سمت چپ می‌ماند (فرم ورود راست) */
-.login4-card .half-form {
-  width: 50%;
-  height: 100%;
-  position: relative;
-}
-.login4-card .half-hero {
-  width: 50%;
-  height: 100%;
-  position: relative;
-}
-
-/* متن‌های hero */
-.login4-card .hero h2 {
+.auth-hero p {
   margin: 0;
-  font-weight: 800;
-  font-size: 21px;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
-  position: relative;
-  z-index: 1;
-}
-.login4-card .hero p {
-  margin: 0 0 4px;
-  opacity: 0.92;
-  line-height: 1.8;
   font-size: 12.5px;
-  max-width: 260px;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
-  position: relative;
-  z-index: 1;
-}
-.login4-card .hero button {
-  position: relative;
-  z-index: 1;
-  padding: 12px 36px;
-  border-radius: var(--r-pill);
-  color: #f9f9f9;
-  border: 1px solid rgba(249, 249, 249, 0.85);
-  background: rgba(11, 13, 18, 0.25);
-  backdrop-filter: blur(4px);
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  transition: 0.3s;
-  cursor: pointer;
-}
-.login4-card .hero button:hover {
-  color: #0b0d12;
-  background: #f9f9f9;
+  color: var(--text-3);
 }
 
-/* فرم‌ها */
-.login4-card .form h2 {
-  font-size: 21px;
-  font-weight: 800;
-  text-align: center;
-  margin: 0 0 6px;
-  color: var(--text);
-}
-.login4-card .form form {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+/* سوییچر قرصی با نشانگر متحرک */
+.auth-switch {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   width: 100%;
-  max-width: 280px;
-}
-.login4-card .form input {
-  font-family: inherit;
-  border-radius: var(--r-md);
-  border: 1px solid var(--border);
+  max-width: 340px;
   background: var(--card-2);
-  padding: 12px 14px;
-  color: var(--text);
-  width: 100%;
-  box-sizing: border-box;
-  font-size: 13.5px;
-  transition: border-color var(--dur-fast) ease;
-}
-.login4-card .form input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-.login4-card .form input::placeholder {
-  color: var(--text-3);
-}
-.login4-card .form button[type="submit"] {
-  border: 0;
-  padding: 13px 0;
+  border: 1px solid var(--border);
   border-radius: var(--r-pill);
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  color: #fff;
-  width: 100%;
-  margin-top: 4px;
-  background: linear-gradient(160deg, var(--accent), var(--accent-strong));
-  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35);
-  transition: transform var(--dur-fast) var(--ease-spring);
-}
-.login4-card .form button[type="submit"]:active {
-  transform: scale(0.97);
-}
-.login4-card .form button[type="submit"]:disabled {
-  opacity: 0.6;
-}
-.login4-card .form .form-note {
-  font-size: 11px;
-  color: var(--text-3);
-  text-align: center;
-  line-height: 1.8;
-  max-width: 280px;
-}
-.login4-card .otp-hint {
-  background: var(--accent-soft);
-  border: 1px solid var(--accent);
-  color: var(--accent);
-  padding: 8px 12px;
-  border-radius: var(--r-md);
-  font-size: 12px;
-  font-weight: 600;
-  text-align: center;
-  width: 100%;
-  max-width: 280px;
+  padding: 5px;
   box-sizing: border-box;
+  animation: authIn 0.55s 0.08s var(--ease-spring) both;
 }
-.login4-card .otp-input {
-  text-align: center;
-  font-size: 18px;
-  letter-spacing: 8px;
-  font-weight: 700;
+.auth-switch .switch-ind {
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  inset-inline-start: 5px;
+  width: calc(50% - 5px);
+  background: linear-gradient(160deg, var(--accent), var(--accent-strong));
+  border-radius: var(--r-pill);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+  transition: transform 0.38s var(--ease-spring);
 }
-.login4-card .back-btn {
+.auth-switch.reg .switch-ind {
+  transform: translateX(-100%);
+}
+.auth-switch button {
+  position: relative;
+  z-index: 1;
+  padding: 11px 0;
   background: none;
   border: none;
   color: var(--text-3);
-  font-size: 12px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  transition: color 0.25s ease;
+}
+.auth-switch button.active {
+  color: #fff;
+}
+
+/* تراک اسلایدی فرم‌ها */
+.auth-wrap {
+  width: 100%;
+  max-width: 340px;
+  overflow: hidden;
+  animation: authIn 0.55s 0.16s var(--ease-spring) both;
+}
+.auth-track {
+  display: flex;
+  width: 200%;
+  transition: transform 0.42s var(--ease-out);
+}
+.auth-track.reg {
+  transform: translateX(50%);
+}
+.auth-track form {
+  width: 50%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* فیلدها */
+.auth-input {
+  font-family: inherit;
+  border-radius: var(--r-md);
+  border: 1.5px solid var(--border);
+  background: var(--card-2);
+  padding: 13px 16px;
+  color: var(--text);
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 14px;
+  transition:
+    border-color var(--dur-fast) ease,
+    box-shadow var(--dur-fast) ease;
+}
+.auth-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.16);
+}
+.auth-input::placeholder {
+  color: var(--text-3);
+}
+
+.auth-submit {
+  border: 0;
+  padding: 14px 0;
+  border-radius: var(--r-pill);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(160deg, var(--accent), var(--accent-strong));
+  box-shadow: 0 8px 22px rgba(16, 185, 129, 0.35);
+  transition:
+    transform var(--dur-fast) var(--ease-spring),
+    opacity var(--dur-fast) ease;
+  margin-top: 2px;
+}
+.auth-submit:active {
+  transform: scale(0.97);
+}
+.auth-submit:disabled {
+  opacity: 0.6;
+}
+
+.auth-note {
+  font-size: 11.5px;
+  color: var(--text-3);
+  text-align: center;
+  line-height: 1.9;
+  margin: 2px 0 0;
+}
+
+/* مرحله OTP */
+.auth-otp {
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: authIn 0.5s var(--ease-spring) both;
+}
+.auth-otp h2 {
+  text-align: center;
+  margin: 0;
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--text);
+}
+.auth-otp form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.auth-otp .otp-hint {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 9px 12px;
+  border-radius: var(--r-md);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-align: center;
+}
+.auth-otp .otp-input {
+  text-align: center;
+  font-size: 20px;
+  letter-spacing: 10px;
+  font-weight: 700;
+  padding: 14px 16px 14px 26px;
+}
+.auth-otp .otp-row {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+.auth-otp .back-btn {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  font-size: 12.5px;
   font-family: inherit;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 6px 10px;
 }
-.login4-card .back-btn:hover {
+.auth-otp .back-btn:hover {
   color: var(--text);
 }
 
-/* حالت OTP: کل کارت فرم می‌شود */
-.login4-card.otp-mode {
-  display: block;
-}
-.login4-card.otp-mode .half-form,
-.login4-card.otp-mode .half-hero,
-.login4-card.otp-mode .card-bg {
-  width: 100%;
-}
-.login4-card.otp-mode .form.otp-panel {
-  position: absolute;
-  inset: 0;
-  z-index: 6;
-  opacity: 1;
-  visibility: visible;
+@media (min-width: 641px) {
+  .auth-screen {
+    padding: var(--sp-6);
+    gap: var(--sp-6);
+  }
+  .auth-hero .auth-art {
+    width: 148px;
+    height: 148px;
+    border-radius: 40px;
+  }
 }
 
-/* موبایل: عمودی — hero بالای کارت، فقط یکی از فرم/هرو نمایش */
-@media (max-width: 640px) {
-  .login4-page {
-    padding: var(--sp-3);
-    align-items: stretch;
-  }
-  .login4-page .login4-card {
-    flex-direction: column;
-    height: auto;
-    min-height: min(660px, 94dvh);
-    border-width: 6px;
-  }
-  .login4-card .half {
-    width: 100% !important;
-  }
-  .login4-card .half-hero {
-    order: -1;
-    min-height: 220px;
-    flex-shrink: 0;
-  }
-  .login4-card .card-bg {
-    width: 100%;
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: auto;
-    height: 220px;
-    border-radius: calc(var(--r-xl) - 6px) calc(var(--r-xl) - 6px) 0 0;
-  }
-  .login4-card .card-bg::after {
-    border-radius: calc(var(--r-xl) - 6px) calc(var(--r-xl) - 6px) 0 0;
-  }
-  .login4-card .hero,
-  .login4-card .form {
-    position: static;
-    width: 100%;
-    height: auto;
-    opacity: 1;
-    visibility: visible;
-    overflow: visible;
-    padding: var(--sp-4);
-  }
-  .login4-card .hero {
-    min-height: 220px;
-    margin: 0;
-    border-radius: calc(var(--r-xl) - 6px) calc(var(--r-xl) - 6px) 0 0;
-  }
-  .login4-card .form {
-    padding: var(--sp-5) var(--sp-4);
-  }
-  .login4-card .otp-mode .form.otp-panel {
-    position: static;
-  }
-}
