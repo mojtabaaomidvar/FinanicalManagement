@@ -36,8 +36,8 @@ export function useInviteModel(useCases: UseCases, notify: (m: string) => void) 
     if (navigator.share) {
       try {
         await navigator.share({
-          title: "دعوت به مالی من",
-          text: `به خانواده «${familyName}» در اپ مالی من بپیوندید:`,
+          title: "دعوت به خانه یار",
+          text: `به خانواده «${familyName}» در اپ خانه یار بپیوندید:`,
           url: link,
         });
       } catch {

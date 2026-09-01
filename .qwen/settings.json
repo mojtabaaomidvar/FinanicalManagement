@@ -31,7 +31,8 @@
       "Bash(timeout *)",
       "Bash(curl *)",
       "Bash(git *)",
-      "Bash(del *)"
+      "Bash(del *)",
+      "Bash(move *)"
     ]
   },
   "$version": 4

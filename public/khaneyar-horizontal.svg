@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 96" direction="rtl" role="img" aria-label="خانه یار — دستیار مالی خانواده">
+  <!-- لوگوی افقی: نشان + نام + تگ‌لاین -->
+  <g transform="translate(204 0)">
+    <path d="M48 6 82 34H14Z" fill="#0D1B2A"/>
+    <rect x="20" y="34" width="56" height="22" fill="#0D1B2A"/>
+    <circle cx="32" cy="64" r="5" fill="#10B981"/>
+    <rect x="26" y="70" width="12" height="16" rx="6" fill="#10B981"/>
+    <circle cx="48" cy="66" r="4.5" fill="#22C55E"/>
+    <rect x="43" y="72" width="11" height="14" rx="5.5" fill="#22C55E"/>
+    <circle cx="60" cy="68" r="3.5" fill="#0D1B2A"/>
+    <rect x="56" y="74" width="9" height="12" rx="4.5" fill="#0D1B2A"/>
+    <path d="M12 86 Q48 98 84 86" fill="none" stroke="#10B981" stroke-width="5.5" stroke-linecap="round"/>
+  </g>
+  <text x="188" y="52" text-anchor="end" font-family="Vazirmatn, sans-serif" font-size="30" font-weight="700" fill="#0D1B2A">خانه یار</text>
+  <text x="188" y="76" text-anchor="end" font-family="Vazirmatn, sans-serif" font-size="13" fill="#6B7280">دستیار مالی خانواده</text>
+</svg>

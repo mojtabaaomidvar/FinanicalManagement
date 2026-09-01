@@ -190,7 +190,7 @@ export function SettingsPage() {
         </Card>
 
         <p className="version-tag">
-          نسخه ۴.۴.۰ — React + Clean Architecture
+          خانه یار · نسخه ۵.۰.۰
         </p>
       </div>
     </section>

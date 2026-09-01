@@ -26,7 +26,7 @@ export function AuthFeature() {
       <section className="page active auth-screen">
         <div className="auth-hero">
           <div className="auth-art">
-            <img src="/auth-art.svg" alt="" />
+            <img src="/khaneyar-mark.svg" alt="" />
           </div>
         </div>
 
@@ -85,10 +85,10 @@ export function AuthFeature() {
     <section className="page active auth-screen">
       <header className="auth-hero">
         <div className="auth-art">
-          <img src="/auth-art.svg" alt="مالی من" />
+          <img src="/khaneyar-mark.svg" alt="خانه یار" />
         </div>
-        <h1>مالی من</h1>
-        <p>مدیریت مالی خانواده، ساده و مشترک</p>
+        <h1>خانه یار</h1>
+        <p>دستیار مالی خانواده</p>
       </header>
 
       {/* سوییچر قرصی با نشانگر متحرک */}

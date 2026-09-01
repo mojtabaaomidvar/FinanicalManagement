@@ -23,7 +23,7 @@ create table if not exists public.families (
   code        text not null unique,              -- کد نمایشی خانواده
   budget      numeric(15,2) not null default 0,  -- بودجه ماهانه (۰ = غیرفعال)
   currency    text not null default 'تومان',     -- واحد نمایش
-  dark        boolean not null default true,     -- تم تیره
+  dark        boolean not null default false,    -- تم تیره (پیش‌فرض برند: روشن)
   created_at  timestamptz not null default now()
 );
 
@@ -146,6 +146,9 @@ alter table public.app_settings add column if not exists otp_enabled boolean not
 
 insert into public.app_settings (id, dev_mode) values (1, true)
 on conflict (id) do nothing;
+
+-- مهاجرت برند خانه یار: تم روشن پیش‌فرض برای خانواده‌های موجود
+update public.families set dark = false where dark = true;
 
 -- ═══════════════════════════════════════════════════════════
 -- Row Level Security — همه جداول بسته؛ فقط RPC دسترسی دارد

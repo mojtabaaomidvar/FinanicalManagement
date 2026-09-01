@@ -21,7 +21,7 @@ export function DashboardPage({
     <section className="page active">
       <header className="app-header">
         <div className="header-title">
-          <h1>مالی من</h1>
+          <h1>خانه یار</h1>
           <p>{headerDate}</p>
         </div>
         <div className="header-actions">
