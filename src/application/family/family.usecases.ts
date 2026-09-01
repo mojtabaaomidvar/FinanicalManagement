@@ -42,6 +42,14 @@ export class UpdateOwnProfileUseCase {
   }
 }
 
+/** تغییر تم شخصی */
+export class SetThemeUseCase {
+  constructor(private readonly repo: FamilyRepository) {}
+  execute(theme: "light" | "dark" | "auto"): Promise<void> {
+    return this.repo.setTheme(theme);
+  }
+}
+
 export class AddMemberByManagerUseCase {
   constructor(private readonly repo: FamilyRepository) {}
   async execute(name: string, phone: string): Promise<Member> {

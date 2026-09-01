@@ -24,12 +24,12 @@ const TAB_ORDER: Route[] = [
 ];
 
 export function App() {
-  const { phase, useCases, member, family, refreshData } = useApp();
+  const { phase, useCases, member, refreshData } = useApp();
   const [route, setRoute] = useState<Route>("dashboard");
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  useTheme(phase === "ready" ? family : null);
+  useTheme(member, useCases);
 
   /* تشخیص لینک دعوت */
   useEffect(() => {

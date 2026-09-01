@@ -2,6 +2,7 @@
 
 export type MemberRole = "owner" | "member";
 export type MemberStatus = "pending" | "active";
+export type ThemeMode = "light" | "dark" | "auto";
 
 export interface Family {
   id: string;
@@ -27,6 +28,8 @@ export interface Member {
   avatarUrl: string | null;
   /** pending = معرفی‌شده توسط مدیر، منتظر ثبت‌نام خودش */
   status: MemberStatus;
+  /** تنظیم شخصی تم — auto = بر اساس ساعت */
+  theme: ThemeMode;
 }
 
 export interface ProfileInput {
@@ -36,6 +39,8 @@ export interface ProfileInput {
   birthDate: string | null;
   nationalId: string | null;
   avatarUrl: string | null;
+  /** تغییر اختیاری — null = بدون تغییر */
+  theme?: ThemeMode | null;
 }
 
 export interface FamilySettings {

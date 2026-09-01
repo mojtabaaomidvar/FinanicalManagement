@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
-import { Card } from "@/shared/ui";
+import { Card, Segmented } from "@/shared/ui";
 import { CheckBudgetStatus } from "./CheckBudgetStatus";
 import { ProfileCard } from "./ProfileCard";
 import { EventsCard } from "./EventsCard";
 import { MembersCard } from "./MembersCard";
 import { SettingsSubPage } from "./SettingsSubPage";
+import { useTheme } from "@/app/providers/useTheme";
 import { formatAmount, liveFormatAmount } from "@/shared/lib/format";
 
 type SettingsSection =
@@ -18,11 +19,12 @@ type SettingsSection =
   | "finance"
   | "app";
 
-const APP_VERSION = "۵.۴.۰";
+const APP_VERSION = "۵.۵.۰";
 
 export function SettingsPage() {
-  const { useCases, family, members, txs, onLoggedOut } = useApp();
+  const { useCases, family, members, txs, member, onLoggedOut } = useApp();
   const { show } = useToast();
+  const { themeMode, changeTheme } = useTheme(member, useCases);
 
   const [section, setSection] = useState<SettingsSection | null>(null);
 
@@ -95,81 +97,67 @@ export function SettingsPage() {
   if (section === "finance") {
     return (
       <SettingsSubPage title="تنظیمات مالی" onBack={back}>
-        <Card title="بودجه ماهانه">
-          <div className="setting-row">
-            <div>
-              <h4>سقف هزینه‌های ماه</h4>
-              <p>۰ = بدون بودجه</p>
+        <Card>
+          <div className="form-grid">
+            <div className="form-row">
+              <label className="form-label">بودجه ماهانه</label>
+              <input
+                type="text"
+                className="num-input"
+                inputMode="numeric"
+                placeholder="۰"
+                value={budget}
+                onChange={(e) => {
+                  const fa = liveFormatAmount(e.target.value);
+                  setBudget(fa);
+                  const en = fa.replace(/[۰-۹]/g, (d) =>
+                    String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)),
+                  ).replace(/,/g, "");
+                  saveSettings({ budget: +en || 0 });
+                }}
+              />
             </div>
-            <input
-              type="text"
-              className="num-input"
-              inputMode="numeric"
-              placeholder="۱۰,۰۰۰,۰۰۰"
-              value={budget}
-              onChange={(e) => {
-                const fa = liveFormatAmount(e.target.value);
-                setBudget(fa);
-                const en = fa.replace(/[۰-۹]/g, (d) =>
-                  String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)),
-                ).replace(/,/g, "");
-                saveSettings({ budget: +en || 0 });
-              }}
-            />
+            <div className="form-row">
+              <label className="form-label">واحد پول</label>
+              <select
+                className="select-input"
+                value={family?.currency ?? "تومان"}
+                onChange={(e) => saveSettings({ currency: e.target.value })}
+              >
+                <option value="تومان">تومان</option>
+                <option value="ریال">ریال</option>
+              </select>
+            </div>
           </div>
           <CheckBudgetStatus status={budgetStatus} />
         </Card>
 
-        <Card title="واحد پول">
-          <div className="setting-row">
-            <div>
-              <h4>واحد نمایش مبالغ</h4>
-              <p>در همه صفحات اعمال می‌شود</p>
-            </div>
-            <select
-              className="select-input"
-              value={family?.currency ?? "تومان"}
-              onChange={(e) => saveSettings({ currency: e.target.value })}
-            >
-              <option value="تومان">تومان</option>
-              <option value="ریال">ریال</option>
-              <option value="دلار">دلار</option>
-            </select>
-          </div>
-        </Card>
-
         <Card title="خروجی داده‌ها">
-          <div className="setting-row">
-            <div>
-              <h4>فایل پشتیبان</h4>
-              <p>دانلود همه تراکنش‌ها (JSON)</p>
-            </div>
-            <button
-              className="action-btn"
-              onClick={() => {
-                if (!family) return;
-                const data = useCases!.buildBackupJson.execute({
-                  family,
-                  members,
-                  transactions: txs,
-                });
-                const blob = new Blob([JSON.stringify(data, null, 2)], {
-                  type: "application/json",
-                });
-                const a = document.createElement("a");
-                a.href = URL.createObjectURL(blob);
-                a.download =
-                  "khaneyar-backup-" +
-                  new Date().toISOString().slice(0, 10) +
-                  ".json";
-                a.click();
-                URL.revokeObjectURL(a.href);
-                show("فایل پشتیبان دانلود شد");
-              }}
-            >
-              دانلود
-            </button>
-          </div>
+          <button
+            className="btn-secondary btn-block"
+            onClick={() => {
+              if (!family) return;
+              const data = useCases!.buildBackupJson.execute({
+                family,
+                members,
+                transactions: txs,
+              });
+              const blob = new Blob([JSON.stringify(data, null, 2)], {
+                type: "application/json",
+              });
+              const a = document.createElement("a");
+              a.href = URL.createObjectURL(blob);
+              a.download =
+                "khaneyar-backup-" +
+                new Date().toISOString().slice(0, 10) +
+                ".json";
+              a.click();
+              URL.revokeObjectURL(a.href);
+              show("فایل پشتیبان دانلود شد");
+            }}
+          >
+            دانلود فایل پشتیبان
+          </button>
         </Card>
       </SettingsSubPage>
     );
@@ -179,49 +167,34 @@ export function SettingsPage() {
   if (section === "app") {
     return (
       <SettingsSubPage title="تنظیمات برنامه" onBack={back}>
-        <Card title="ظاهر">
-          <div className="setting-row">
-            <div>
-              <h4>حالت تیره</h4>
-              <p>سرمه‌ای تیره به‌جای روشن</p>
-            </div>
-            <label className="switch">
-              <input
-                type="checkbox"
-                checked={family?.dark ?? false}
-                onChange={(e) => {
-                  const dark = e.target.checked;
-                  document.documentElement.dataset.theme = dark ? "dark" : "light";
-                  saveSettings({ dark });
-                }}
-              />
-              <span className="slider" />
-            </label>
-          </div>
+        <Card title="تم">
+          <Segmented
+            value={themeMode}
+            onChange={(v) => void changeTheme(v)}
+            options={[
+              { value: "light", label: "روشن" },
+              { value: "dark", label: "تیره" },
+              { value: "auto", label: "خودکار" },
+            ]}
+          />
         </Card>
 
         <Card title="به‌روزرسانی">
-          <div className="setting-row">
-            <div>
-              <h4>بررسی نسخه جدید</h4>
-              <p>بارگذاری مجدد اپلیکیشن از سرور</p>
-            </div>
-            <button
-              className="action-btn"
-              onClick={async () => {
-                show("در حال بررسی…");
-                try {
-                  const keys = await caches.keys();
-                  await Promise.all(keys.map((k) => caches.delete(k)));
-                } catch {
-                  /* بی‌صدا */
-                }
-                location.reload();
-              }}
-            >
-              به‌روزرسانی
-            </button>
-          </div>
+          <button
+            className="btn-secondary btn-block"
+            onClick={async () => {
+              show("در حال بررسی…");
+              try {
+                const keys = await caches.keys();
+                await Promise.all(keys.map((k) => caches.delete(k)));
+              } catch {
+                /* بی‌صدا */
+              }
+              location.reload();
+            }}
+          >
+            دریافت آخرین نسخه
+          </button>
         </Card>
 
         <Card title="درباره">
@@ -236,18 +209,12 @@ export function SettingsPage() {
               دستیار مالی خانواده
             </p>
             <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: 10 }}>
-              نسخه {APP_VERSION} · همراه مطمئن خانواده در مسیر آرامش مالی
+              نسخه {APP_VERSION}
             </p>
           </div>
-          <div className="setting-row">
-            <div>
-              <h4>خروج از حساب</h4>
-              <p>بازگشت به صفحه ورود</p>
-            </div>
-            <button className="action-btn danger" onClick={logout}>
-              خروج
-            </button>
-          </div>
+          <button className="btn-danger-block" onClick={logout}>
+            خروج از حساب
+          </button>
         </Card>
       </SettingsSubPage>
     );

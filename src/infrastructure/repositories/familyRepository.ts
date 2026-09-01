@@ -65,6 +65,7 @@ export class SupabaseFamilyRepository implements FamilyRepository {
       p_birth_date: input.birthDate,
       p_national_id: input.nationalId,
       p_avatar_url: input.avatarUrl,
+      p_theme: input.theme ?? null,
     });
     return mapMember(row);
   }
@@ -76,5 +77,12 @@ export class SupabaseFamilyRepository implements FamilyRepository {
       p_phone: phone,
     });
     return mapMember(row);
+  }
+
+  async setTheme(theme: "light" | "dark" | "auto"): Promise<void> {
+    await rpc("set_member_theme", {
+      p_token: await this.tok(),
+      p_theme: theme,
+    });
   }
 }

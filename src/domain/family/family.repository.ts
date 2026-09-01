@@ -16,4 +16,6 @@ export interface FamilyRepository {
   updateOwnProfile(input: ProfileInput): Promise<Member>;
   /** افزودن عضو توسط مدیر (فقط اسم و شماره — عضو pending) */
   addMemberByManager(name: string, phone: string): Promise<Member>;
+  /** تغییر سریع تم شخصی */
+  setTheme(theme: "light" | "dark" | "auto"): Promise<void>;
 }

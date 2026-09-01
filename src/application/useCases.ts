@@ -48,6 +48,7 @@ import {
   UpdateFamilySettingsUseCase,
   AddMemberByManagerUseCase,
   UpdateOwnProfileUseCase,
+  SetThemeUseCase,
 } from "./family/family.usecases";
 import {
   AddAccountUseCase,
@@ -100,6 +101,7 @@ export interface UseCases {
   removeMember: RemoveMemberUseCase;
   updateOwnProfile: UpdateOwnProfileUseCase;
   addMemberByManager: AddMemberByManagerUseCase;
+  setTheme: SetThemeUseCase;
   checkBudgetStatus: CheckBudgetStatusUseCase;
   buildBackupJson: BuildBackupJsonUseCase;
 
@@ -162,6 +164,7 @@ export function createUseCases(c: Container): UseCases {
     removeMember: new RemoveMemberUseCase(c.repos.family),
     updateOwnProfile: new UpdateOwnProfileUseCase(c.repos.family),
     addMemberByManager: new AddMemberByManagerUseCase(c.repos.family),
+    setTheme: new SetThemeUseCase(c.repos.family),
     checkBudgetStatus: new CheckBudgetStatusUseCase(),
     buildBackupJson: new BuildBackupJsonUseCase(),
 

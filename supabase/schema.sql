@@ -51,6 +51,9 @@ alter table public.members add column if not exists national_id text;
 alter table public.members add column if not exists avatar_url text;
 alter table public.members add column if not exists status text not null default 'active'
   check (status in ('pending','active'));
+-- تنظیمات شخصی عضو (v5.5): تم = light | dark | auto
+alter table public.members add column if not exists theme text not null default 'auto'
+  check (theme in ('light','dark','auto'));
 
 -- ─────────── جدول تراکنش‌ها ───────────
 create table if not exists public.transactions (
@@ -1508,7 +1511,7 @@ end $$;
 
 create or replace function public.update_member_profile(
   p_token text, p_name text, p_gender text, p_birth_date date,
-  p_national_id text, p_avatar_url text
+  p_national_id text, p_avatar_url text, p_theme text default null
 ) returns json
 language plpgsql security definer set search_path = public as $$
 declare
@@ -1527,6 +1530,9 @@ begin
   if p_birth_date is not null and (p_birth_date < '1900-01-01' or p_birth_date > current_date) then
     raise exception 'INVALID_DATE';
   end if;
+  if p_theme is not null and p_theme not in ('light','dark','auto') then
+    raise exception 'INVALID_THEME';
+  end if;
 
   v_national_id := nullif(regexp_replace(coalesce(p_national_id, ''), '[^0-9]', '', 'g'), '');
   if v_national_id is not null and v_national_id !~ '^\d{10}$' then
@@ -1542,11 +1548,27 @@ begin
       gender      = p_gender,
       birth_date  = p_birth_date,
       national_id = v_national_id,
-      avatar_url  = p_avatar_url
+      avatar_url  = p_avatar_url,
+      theme       = coalesce(p_theme, theme)
   where id = v_member_id
   returning * into v_row;
 
   return to_jsonb(v_row);
+end $$;
+
+-- تغییر سریع تم شخصی (بدون لمس بقیه پروفایل)
+create or replace function public.set_member_theme(
+  p_token text, p_theme text
+) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if p_theme not in ('light','dark','auto') then
+    raise exception 'INVALID_THEME';
+  end if;
+
+  update public.members
+  set theme = p_theme
+  where id = public._session_member_id(p_token);
 end $$;
 
 -- ═══════════════════════════════════════════════════════════
