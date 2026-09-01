@@ -112,7 +112,7 @@ export function EventsCard() {
           </div>
           <div className="form-row full">
             <Field label="تاریخ">
-              <JalaliDateInput value={date} onChange={setDate} />
+              <JalaliDateInput value={date} onChange={setDate} pickerTitle="تاریخ رویداد" />
             </Field>
           </div>
           <div className="form-row full">

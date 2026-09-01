@@ -231,7 +231,11 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
 
           <div className="form-row">
             <Field label="تاریخ">
-              <JalaliDateInput value={m.form.date} onChange={m.setDate} />
+              <JalaliDateInput
+                value={m.form.date}
+                onChange={m.setDate}
+                pickerTitle="تاریخ تراکنش"
+              />
             </Field>
           </div>
 

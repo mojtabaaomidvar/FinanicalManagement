@@ -183,7 +183,13 @@ export function ProfileCard() {
         </div>
         <div className="form-row">
           <Field label="تاریخ تولد (اختیاری)">
-            <JalaliDateInput value={birthDate} onChange={setBirthDate} />
+            <JalaliDateInput
+              value={birthDate}
+              onChange={setBirthDate}
+              pickerTitle="تاریخ تولد"
+              minYear={1300}
+              maxYear={new Date().getFullYear() - 621}
+            />
           </Field>
         </div>
         <div className="form-row full">

@@ -2332,6 +2332,140 @@ button:active {
   text-align: center;
 }
 
+/* ─────────── ردیف ورودی تاریخ + دکمه تقویم ─────────── */
+.date-input-row {
+  display: flex;
+  gap: var(--sp-2);
+}
+.date-input-row .text-input {
+  flex: 1;
+}
+.date-picker-btn {
+  flex-shrink: 0;
+  color: var(--accent);
+  border-color: var(--border-strong);
+}
+
+/* ─────────── DatePicker جلالی ─────────── */
+.dp-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  z-index: 120;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: fadeIn var(--dur-fast) ease;
+}
+.dp-box {
+  width: 100%;
+  max-width: 380px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  padding: var(--sp-4);
+  padding-bottom: calc(var(--sp-4) + env(safe-area-inset-bottom));
+  animation: sheetUp var(--dur-med) var(--ease-out);
+}
+.dp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--sp-3);
+}
+.dp-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: var(--r-sm);
+}
+.dp-title:hover {
+  background: var(--card-2);
+}
+.dp-title-caret {
+  width: 14px;
+  height: 14px;
+  color: var(--text-3);
+}
+.dp-app-title {
+  font-size: 11px;
+  color: var(--text-3);
+  font-weight: 500;
+}
+.dp-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.dp-wd {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-3);
+  padding: 6px 0;
+}
+.dp-day {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: none;
+  border-radius: var(--r-sm);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) ease,
+    color var(--dur-fast) ease;
+}
+.dp-day:active {
+  transform: scale(0.9);
+}
+.dp-day.today {
+  color: var(--accent);
+  font-weight: 800;
+}
+.dp-day.selected {
+  background: var(--accent);
+  color: #fff;
+}
+.dp-years {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: var(--sp-2) 0;
+}
+.dp-years .chip {
+  padding: 8px 14px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  background: var(--card-2);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+}
+.dp-years .chip.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.dp-foot {
+  margin-top: var(--sp-3);
+}
+
 /* ─────────── ردیف‌های ناوبری تنظیمات ─────────── */
 .settings-nav-row {
   display: flex;

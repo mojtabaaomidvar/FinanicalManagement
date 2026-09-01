@@ -1,7 +1,8 @@
 /* کامپوننت‌های پایه فرم — سازگار با کلاس‌های CSS موجود */
 
-import type { ChangeEvent, ReactNode } from "react";
+import { useState, type ChangeEvent, type ReactNode } from "react";
 import { liveFormatAmount, liveFormatJalaliDate } from "@/shared/lib/format";
+import { JalaliDatePicker } from "./JalaliDatePicker";
 
 export function Field({
   label,
@@ -65,21 +66,52 @@ export function AmountInput(props: {
   );
 }
 
-/** ورودی تاریخ جلالی با فرمت زنده */
+/** ورودی تاریخ جلالی — تایپ دستی + دکمه تقویم (DatePicker) */
 export function JalaliDateInput(props: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
+  /** عنوان داخل تقویم */
+  pickerTitle?: string;
+  /** محدوده سال‌ها (پیش‌فرض: بدون محدودیت معقول) */
+  minYear?: number;
+  maxYear?: number;
 }) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <input
-      type="text"
-      className="text-input"
-      inputMode="numeric"
-      placeholder={props.placeholder ?? "۱۴۰۴/۰۶/۱۵"}
-      value={props.value}
-      onChange={(e) => props.onChange(liveFormatJalaliDate(e.target.value))}
-    />
+    <>
+      <div className="date-input-row">
+        <input
+          type="text"
+          className="text-input"
+          inputMode="numeric"
+          placeholder={props.placeholder ?? "۱۴۰۴/۰۶/۱۵"}
+          value={props.value}
+          onChange={(e) => props.onChange(liveFormatJalaliDate(e.target.value))}
+        />
+        <button
+          type="button"
+          className="icon-btn date-picker-btn"
+          aria-label="انتخاب از تقویم"
+          onClick={() => setOpen(true)}
+        >
+          <svg>
+            <use href="#i-bill" />
+          </svg>
+        </button>
+      </div>
+      {open ? (
+        <JalaliDatePicker
+          value={props.value}
+          onChange={props.onChange}
+          onClose={() => setOpen(false)}
+          minYear={props.minYear}
+          maxYear={props.maxYear}
+          title={props.pickerTitle}
+        />
+      ) : null}
+    </>
   );
 }
 
