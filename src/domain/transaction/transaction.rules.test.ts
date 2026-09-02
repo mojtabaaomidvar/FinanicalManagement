@@ -43,7 +43,12 @@ describe("validateTransaction", () => {
   });
 });
 
-const tx = (id: string, date: string, createdAt: string): Transaction => ({
+const tx = (
+  id: string,
+  date: string,
+  createdAt: string,
+  time: string | null = null,
+): Transaction => ({
   id,
   familyId: "f",
   memberId: "m1",
@@ -51,9 +56,11 @@ const tx = (id: string, date: string, createdAt: string): Transaction => ({
   amount: 100,
   category: "food",
   date,
+  time,
   note: null,
   accountId: null,
   subcategoryId: null,
+  photos: [],
   createdAt,
 });
 
@@ -65,6 +72,16 @@ describe("sortTxDesc", () => {
       tx("c", "2025-09-06", "2025-09-06T09:00:00Z"),
     ]);
     expect(sorted.map((t) => t.id)).toEqual(["c", "b", "a"]);
+  });
+
+  it("در یک روز: نزولی بر اساس ساعت ثبت", () => {
+    const sorted = sortTxDesc([
+      tx("a", "2025-09-06", "2025-09-06T20:00:00Z", "09:15"),
+      tx("b", "2025-09-06", "2025-09-06T08:00:00Z", "18:40"),
+      tx("c", "2025-09-06", "2025-09-06T09:00:00Z", "12:00"),
+      tx("d", "2025-09-06", "2025-09-06T07:00:00Z", null),
+    ]);
+    expect(sorted.map((t) => t.id)).toEqual(["b", "c", "a", "d"]);
   });
 });
 

@@ -19,6 +19,7 @@ const RPC_ERROR_MAP: { re: RegExp; code: AppErrorCode; msg: string }[] = [
   { re: /CANNOT_REMOVE_OWNER/, code: "CANNOT_REMOVE_OWNER", msg: "مدیر خانواده قابل حذف نیست" },
   { re: /FORBIDDEN/, code: "FORBIDDEN", msg: "اجازه انجام این کار را ندارید" },
   { re: /INVALID_(TYPE|AMOUNT|CATEGORY|DATE)/, code: "INVALID_TX", msg: "اطلاعات تراکنش معتبر نیست" },
+  { re: /INVALID_TIME/, code: "INVALID_TX", msg: "ساعت انتخاب‌شده معتبر نیست" },
   { re: /INVALID_TITLE/, code: "INVALID_ACCOUNT", msg: "نام کارت/حساب معتبر نیست (حداکثر ۴۰ کاراکتر)" },
   { re: /INVALID_CARD/, code: "INVALID_ACCOUNT", msg: "شماره کارت باید ۱۶ رقم باشد" },
   { re: /INVALID_SHEBA/, code: "INVALID_ACCOUNT", msg: "شماره شبا معتبر نیست (IR + ۲۴ رقم)" },

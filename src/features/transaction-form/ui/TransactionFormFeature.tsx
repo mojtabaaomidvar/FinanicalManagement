@@ -1,7 +1,7 @@
 /* UI فرم تراکنش — مودال افزودن/ویرایش
-   (حساب الزامی + انتخاب دسته با مودال زیردسته‌ها + افزودن دسته) */
+   (حساب الزامی + انتخاب دسته با مودال زیردسته‌ها + افزودن دسته + تصاویر پیوست) */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
 import type { TxFormModel } from "../model/useTxFormModel";
@@ -51,6 +51,7 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
   const [addingCat, setAddingCat] = useState(false);
   const [newSubName, setNewSubName] = useState("");
   const [addingSub, setAddingSub] = useState(false);
+  const photoFileRef = useRef<HTMLInputElement>(null);
 
   /* دسته‌های قابل نمایش: ثابت + سفارشی همین نوع */
   const cats = [
@@ -236,9 +237,14 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
             </Field>
           </div>
 
-          <div className="form-row">
-            <Field label="تاریخ">
-              <JalaliDateInput value={m.form.date} onChange={m.setDate} />
+          <div className="form-row full">
+            <Field label="تاریخ و ساعت">
+              <JalaliDateInput
+                value={m.form.date}
+                onChange={m.setDate}
+                time={m.form.time}
+                onTimeChange={m.setTime}
+              />
             </Field>
           </div>
 
@@ -251,6 +257,69 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
               />
             </Field>
           </div>
+
+          <div className="form-row full">
+            <Field label="تصاویر (رسید خرید، عکس محصول…)">
+              <input
+                ref={photoFileRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                multiple
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  void m.addPhotoFiles(Array.from(e.target.files ?? []));
+                  e.target.value = "";
+                }}
+              />
+              <div className="tx-photos">
+                {m.photos.map((p) => (
+                  <div className="tx-photo" key={p.key}>
+                    <div className="tx-photo-img">
+                      <a
+                        href={p.existing?.url ?? p.dataUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label="مشاهده تصویر"
+                      >
+                        <img
+                          src={p.existing?.url ?? p.dataUrl}
+                          alt={p.caption || "تصویر تراکنش"}
+                        />
+                      </a>
+                      <button
+                        type="button"
+                        className="tx-photo-del"
+                        aria-label="حذف تصویر"
+                        onClick={() => void m.removePhoto(p.key)}
+                      >
+                        <svg>
+                          <use href="#i-x" />
+                        </svg>
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      className="tx-photo-cap"
+                      placeholder="توضیح تصویر…"
+                      value={p.caption}
+                      maxLength={100}
+                      onChange={(e) => m.setPhotoCaption(p.key, e.target.value)}
+                    />
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="tx-photo-add"
+                  onClick={() => photoFileRef.current?.click()}
+                >
+                  <svg>
+                    <use href="#i-image" />
+                  </svg>
+                  <span>افزودن تصویر</span>
+                </button>
+              </div>
+            </Field>
+          </div>
         </div>
 
         <div className="modal-actions">
@@ -259,9 +328,10 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
           </button>
           <button
             className="btn-primary"
+            disabled={m.busy}
             onClick={() => m.save(refreshData, accounts.length)}
           >
-            ذخیره
+            {m.busy ? "…" : "ذخیره"}
           </button>
         </div>
         {m.editing &&

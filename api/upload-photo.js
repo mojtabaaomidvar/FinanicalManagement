@@ -1,10 +1,10 @@
 /* ═══════════════════════════════════════════════
-   تابع سرورلس Vercel — آپلود عکس پروفایل (آواتار)
-   فایل: api/upload-avatar.js
+   تابع سرورلس Vercel — آپلود تصویر پیوست تراکنش
+   فایل: api/upload-photo.js
    متد: POST { token, image } — image = dataURL
 
    توکن نشست با کلید service اعتبارسنجی می‌شود؛
-   باکت avatars در صورت نبود ساخته و public می‌شود؛
+   باکت tx-photos در صورت نبود ساخته و public می‌شود؛
    تصویر (~۱MB) با PUT آپلود و URL عمومی برگردانده می‌شود.
    متغیرها: SUPABASE_URL و SUPABASE_SERVICE_KEY
    ═══════════════════════════════════════════════ */
@@ -16,6 +16,7 @@ const CORS = {
 };
 
 const MAX_BASE64 = 1_400_000; /* ~1MB تصویر */
+const BUCKET = "tx-photos";
 const ALLOWED = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
 
 module.exports = async (req, res) => {
@@ -70,15 +71,15 @@ module.exports = async (req, res) => {
       return json(res, 400, { ok: false, error: "INVALID_IMAGE" });
     }
 
-    /* اطمینان از وجود باکت عمومی avatars */
+    /* اطمینان از وجود باکت عمومی tx-photos */
     await ensureBucket(SB_URL, SB_KEY);
 
     const ext = ALLOWED[mime];
-    const path = `${memberId}-${Date.now()}.${ext}`;
+    const path = `${memberId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
     /* آپلود با PUT (upsert) */
     const up = await fetch(
-      `${SB_URL}/storage/v1/object/avatars/${path}`,
+      `${SB_URL}/storage/v1/object/${BUCKET}/${path}`,
       {
         method: "PUT",
         headers: {
@@ -101,27 +102,25 @@ module.exports = async (req, res) => {
 
     return json(res, 200, {
       ok: true,
-      url: `${SB_URL}/storage/v1/object/public/avatars/${path}`,
+      url: `${SB_URL}/storage/v1/object/public/${BUCKET}/${path}`,
     });
   } catch (e) {
-    console.error("upload-avatar error:", e.message);
+    console.error("upload-photo error:", e.message);
     return json(res, 500, { ok: false, error: "UPLOAD_FAILED", detail: e.message });
   }
 };
 
-/* ساخت/عمومی‌کردن باکت avatars در صورت نبود */
+/* ساخت/عمومی‌کردن باکت در صورت نبود */
 async function ensureBucket(url, key) {
-  /* لیست بکت‌ها */
   const list = await fetch(`${url}/storage/v1/bucket`, {
     headers: { apikey: key, Authorization: "Bearer " + key },
   });
   if (list.ok) {
     const buckets = await list.json();
-    if (Array.isArray(buckets) && buckets.some((b) => b.id === "avatars" || b.name === "avatars")) {
+    if (Array.isArray(buckets) && buckets.some((b) => b.id === BUCKET || b.name === BUCKET)) {
       return; /* هست */
     }
   }
-  /* ساخت بکت public */
   await fetch(`${url}/storage/v1/bucket`, {
     method: "POST",
     headers: {
@@ -129,7 +128,7 @@ async function ensureBucket(url, key) {
       Authorization: "Bearer " + key,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ id: "avatars", name: "avatars", public: true }),
+    body: JSON.stringify({ id: BUCKET, name: BUCKET, public: true }),
   });
 }
 

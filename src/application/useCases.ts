@@ -25,8 +25,12 @@ import {
 import {
   AddTransactionUseCase,
   DeleteTransactionUseCase,
+  DeleteTxPhotoUseCase,
+  AddTxPhotoUseCase,
   ListTransactionsUseCase,
   UpdateTransactionUseCase,
+  UpdateTxPhotoCaptionUseCase,
+  UploadTxPhotoUseCase,
 } from "./transaction/transaction.usecases";
 import {
   GetDashboardUseCase,
@@ -86,6 +90,11 @@ export interface UseCases {
   addTransaction: AddTransactionUseCase;
   updateTransaction: UpdateTransactionUseCase;
   deleteTransaction: DeleteTransactionUseCase;
+
+  uploadTxPhoto: UploadTxPhotoUseCase;
+  addTxPhoto: AddTxPhotoUseCase;
+  updateTxPhotoCaption: UpdateTxPhotoCaptionUseCase;
+  deleteTxPhoto: DeleteTxPhotoUseCase;
 
   getDashboard: GetDashboardUseCase;
   getMonthlyReport: GetMonthlyReportUseCase;
@@ -147,6 +156,11 @@ export function createUseCases(c: Container): UseCases {
     addTransaction: new AddTransactionUseCase(c.repos.transactions),
     updateTransaction: new UpdateTransactionUseCase(c.repos.transactions),
     deleteTransaction: new DeleteTransactionUseCase(c.repos.transactions),
+
+    uploadTxPhoto: new UploadTxPhotoUseCase(c.repos.transactions),
+    addTxPhoto: new AddTxPhotoUseCase(c.repos.transactions),
+    updateTxPhotoCaption: new UpdateTxPhotoCaptionUseCase(c.repos.transactions),
+    deleteTxPhoto: new DeleteTxPhotoUseCase(c.repos.transactions),
 
     getDashboard: new GetDashboardUseCase(c.repos.transactions),
     getMonthlyReport: new GetMonthlyReportUseCase(c.repos.transactions),

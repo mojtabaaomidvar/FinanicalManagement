@@ -7,6 +7,7 @@ import { Segmented } from "@/shared/ui";
 import { isoToJalali, formatISO } from "@/shared/lib/jalali";
 import { formatAmount } from "@/shared/lib/format";
 import { toDisplay } from "@/shared/lib/currency";
+import { toFa } from "@/shared/lib/digits";
 import type { Transaction } from "@/domain/transaction/transaction.types";
 import type { TxFormModel } from "@/features/transaction-form";
 import { buildCategoryResolver } from "@/domain/category/resolve";
@@ -116,10 +117,21 @@ export function TxRow({
         </svg>
       </div>
       <div className="tx-info">
-        <h4>{tx.note || cat.name + sub}</h4>
+        <h4>
+          {tx.note || cat.name + sub}
+          {tx.photos?.length ? (
+            <span className="tx-photo-badge" aria-label="تصاویر پیوست">
+              <svg>
+                <use href="#i-image" />
+              </svg>
+              {toFa(tx.photos.length)}
+            </span>
+          ) : null}
+        </h4>
         <p>
           {cat.name}
           {sub} · {memberName} · {formatISO(isoToJalali(tx.date))}
+          {tx.time ? ` · ${toFa(tx.time)}` : ""}
         </p>
       </div>
       <div className={`tx-amount ${tx.type}`}>

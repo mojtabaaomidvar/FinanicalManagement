@@ -39,3 +39,39 @@ export class DeleteTransactionUseCase {
     return this.repo.remove(id);
   }
 }
+
+export class UploadTxPhotoUseCase {
+  constructor(private readonly repo: TransactionRepository) {}
+  execute(dataUrl: string): Promise<string> {
+    return this.repo.uploadPhoto(dataUrl);
+  }
+}
+
+export class AddTxPhotoUseCase {
+  constructor(private readonly repo: TransactionRepository) {}
+  execute(txId: string, url: string, caption: string | null): Promise<void> {
+    const c = caption?.trim() ?? "";
+    if (c.length > 100) {
+      throw new AppError("INVALID_TX", "توضیح تصویر حداکثر ۱۰۰ کاراکتر است");
+    }
+    return this.repo.addPhoto(txId, url, c || null);
+  }
+}
+
+export class UpdateTxPhotoCaptionUseCase {
+  constructor(private readonly repo: TransactionRepository) {}
+  execute(photoId: string, caption: string | null): Promise<void> {
+    const c = caption?.trim() ?? "";
+    if (c.length > 100) {
+      throw new AppError("INVALID_TX", "توضیح تصویر حداکثر ۱۰۰ کاراکتر است");
+    }
+    return this.repo.updatePhotoCaption(photoId, c || null);
+  }
+}
+
+export class DeleteTxPhotoUseCase {
+  constructor(private readonly repo: TransactionRepository) {}
+  execute(photoId: string): Promise<void> {
+    return this.repo.removePhoto(photoId);
+  }
+}

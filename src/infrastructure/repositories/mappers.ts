@@ -40,9 +40,11 @@ export interface TransactionRow {
   amount: string | number;
   category: string;
   date: string;
+  time: string | null;
   note: string | null;
   account_id: string | null;
   subcategory_id: string | null;
+  photos?: { id: string; url: string; caption: string | null }[] | null;
   created_at: string;
 }
 
@@ -100,9 +102,15 @@ export function mapTransaction(r: TransactionRow): Transaction {
     amount: +r.amount,
     category: r.category,
     date: r.date,
+    time: r.time ?? null,
     note: r.note,
     accountId: r.account_id,
     subcategoryId: r.subcategory_id,
+    photos: (r.photos ?? []).map((p) => ({
+      id: p.id,
+      url: p.url,
+      caption: p.caption ?? null,
+    })),
     createdAt: r.created_at,
   };
 }

@@ -10,7 +10,12 @@ import { EventsCard } from "./EventsCard";
 import { MembersCard } from "./MembersCard";
 import { SettingsSubPage } from "./SettingsSubPage";
 import { useTheme } from "@/app/providers/useTheme";
-import { formatAmount, liveFormatAmount } from "@/shared/lib/format";
+import {
+  formatAmount,
+  liveFormatAmount,
+  parseAmountInput,
+} from "@/shared/lib/format";
+import { fromDisplay, toDisplay } from "@/shared/lib/currency";
 
 type SettingsSection =
   | "family"
@@ -35,7 +40,11 @@ export function SettingsPage() {
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
-    setBudget(family?.budget ? formatAmount(family.budget) : "");
+    setBudget(
+      family?.budget
+        ? formatAmount(toDisplay(family.budget, family?.currency ?? "تومان"))
+        : "",
+    );
     setCurrency(family?.currency ?? "تومان");
     setDirty(false);
   }, [family?.budget, family?.currency]);
@@ -45,11 +54,8 @@ export function SettingsPage() {
     if (!family) return;
     setSaving(true);
     try {
-      const budgetNum = budget
-        .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
-        .replace(/,/g, "");
       await useCases!.updateFamilySettings.execute({
-        budget: +budgetNum || 0,
+        budget: fromDisplay(parseAmountInput(budget), currency),
         currency,
         dark: family.dark,
       });
@@ -103,6 +109,7 @@ export function SettingsPage() {
 
   /* ── تنظیمات مالی ── */
   if (section === "finance") {
+    const isOwner = member?.role === "owner";
     return (
       <SettingsSubPage title="تنظیمات مالی" onBack={back}>
         <Card>
@@ -115,6 +122,7 @@ export function SettingsPage() {
                 inputMode="numeric"
                 placeholder="۰"
                 value={budget}
+                disabled={!isOwner}
                 onChange={(e) => {
                   setBudget(liveFormatAmount(e.target.value));
                   setDirty(true);
@@ -127,7 +135,15 @@ export function SettingsPage() {
                 className="select-input"
                 value={currency}
                 onChange={(e) => {
-                  setCurrency(e.target.value);
+                  const next = e.target.value;
+                  /* بودجه نمایشی به واحد جدید تبدیل می‌شود (پایه: تومان) */
+                  const cur = parseAmountInput(budget);
+                  if (cur) {
+                    setBudget(
+                      formatAmount(toDisplay(fromDisplay(cur, currency), next)),
+                    );
+                  }
+                  setCurrency(next);
                   setDirty(true);
                 }}
               >
@@ -136,6 +152,17 @@ export function SettingsPage() {
               </select>
             </div>
           </div>
+          {!isOwner ? (
+            <p
+              style={{
+                fontSize: 11.5,
+                color: "var(--text-3)",
+                marginTop: 4,
+              }}
+            >
+              تغییر بودجه ماهانه فقط توسط مدیر خانواده امکان‌پذیر است
+            </p>
+          ) : null}
           <CheckBudgetStatus status={budgetStatus} currency={currency} />
           <button
             className="btn-primary btn-block"

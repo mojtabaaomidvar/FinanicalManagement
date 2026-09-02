@@ -64,16 +64,23 @@ export class SupabaseAuthRepository implements AuthRepository {
     const token = await this.tokenProvider.getToken();
     if (!token) throw new Error("NO_SESSION");
 
-    const res = await fetch("api/upload-avatar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, image: dataUrl }),
-    });
-    const data = (await res.json().catch(() => ({}))) as {
-      ok?: boolean;
-      url?: string;
-      error?: string;
-    };
+    let res: Response;
+    try {
+      res = await fetch("/api/upload-avatar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, image: dataUrl }),
+      });
+    } catch {
+      throw new Error("خطای شبکه — اتصال اینترنت را بررسی کنید");
+    }
+    const text = await res.text();
+    let data: { ok?: boolean; url?: string; error?: string; detail?: string } = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      /* بدنه غیر JSON */
+    }
     if (!res.ok || !data.ok || !data.url) {
       if (data.error === "IMAGE_TOO_LARGE") {
         throw new Error("عکس بزرگ است — حداکثر ۱ مگابایت");
@@ -81,6 +88,19 @@ export class SupabaseAuthRepository implements AuthRepository {
       if (data.error === "INVALID_IMAGE") {
         throw new Error("فقط عکس PNG/JPG/WebP پذیرفته می‌شود");
       }
+      if (data.error === "SERVER_NOT_CONFIGURED") {
+        throw new Error("تنظیمات سرور آپلود ناقص است (SUPABASE_URL/SERVICE_KEY)");
+      }
+      if (data.error === "INVALID_TOKEN" || data.error === "SESSION_EXPIRED") {
+        throw new Error("نشست منقضی شده — دوباره وارد شوید");
+      }
+      if (!text.startsWith("{")) {
+        /* پاسخ HTML → تابع سرور اجرا نشده (مثلاً اجرای محلی بدون vercel dev) */
+        throw new Error(
+          "سرور آپلود در دسترس نیست — آپلود فقط روی نسخه دپلوی‌شده (یا vercel dev) کار می‌کند",
+        );
+      }
+      if (data.detail) console.error("upload-avatar:", data.detail);
       throw new Error("آپلود ناموفق بود — دوباره تلاش کنید");
     }
     return data.url;

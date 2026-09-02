@@ -2,6 +2,7 @@
 
 import { useState, type ChangeEvent, type ReactNode } from "react";
 import { liveFormatAmount } from "@/shared/lib/format";
+import { toFa } from "@/shared/lib/digits";
 import { JalaliDatePicker } from "./JalaliDatePicker";
 
 export function Field({
@@ -66,7 +67,8 @@ export function AmountInput(props: {
   );
 }
 
-/** ورودی تاریخ جلالی — کلیک روی فیلد → تقویم (بدون تایپ دستی) */
+/** ورودی تاریخ جلالی — کلیک روی فیلد → تقویم (بدون تایپ دستی)
+    با onTimeChange: انتخاب ساعت هم در همان شیت انجام می‌شود */
 export function JalaliDateInput(props: {
   value: string;
   onChange: (v: string) => void;
@@ -74,8 +76,16 @@ export function JalaliDateInput(props: {
   /** محدوده سال‌ها */
   minYear?: number;
   maxYear?: number;
+  /** "HH:MM" یا "" — همراه با onTimeChange فعال می‌شود */
+  time?: string;
+  onTimeChange?: (t: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const label = props.value
+    ? props.time
+      ? `${props.value} · ${toFa(props.time)}`
+      : props.value
+    : "";
 
   return (
     <>
@@ -84,8 +94,8 @@ export function JalaliDateInput(props: {
         className="text-input date-field"
         onClick={() => setOpen(true)}
       >
-        <span className={props.value ? "" : "date-empty"}>
-          {props.value || props.placeholder || "انتخاب تاریخ"}
+        <span className={label ? "" : "date-empty"}>
+          {label || props.placeholder || "انتخاب تاریخ"}
         </span>
         <svg className="date-field-icon">
           <use href="#i-bill" />
@@ -98,6 +108,8 @@ export function JalaliDateInput(props: {
           onClose={() => setOpen(false)}
           minYear={props.minYear}
           maxYear={props.maxYear}
+          time={props.time}
+          onTimeChange={props.onTimeChange}
         />
       ) : null}
     </>

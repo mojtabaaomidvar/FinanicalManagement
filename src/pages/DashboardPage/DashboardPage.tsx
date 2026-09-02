@@ -1,6 +1,7 @@
 /* صفحه داشبورد */
 
 import { useMemo } from "react";
+import { useApp } from "@/app/providers/AppProvider";
 import { DashboardSummaryWidget } from "@/widgets/dashboard-summary";
 import { SmsImportFeature } from "@/features/sms-import";
 import { formatWeekday, today } from "@/shared/lib/jalali";
@@ -15,13 +16,14 @@ export function DashboardPage({
   onImported: () => void | Promise<void>;
   onNavTransactions: () => void;
 }) {
+  const { member } = useApp();
   const headerDate = useMemo(() => formatWeekday(today()), []);
 
   return (
     <section className="page active">
       <header className="app-header">
         <div className="header-title">
-          <h1>خانه یار</h1>
+          <h1>{member ? `سلام، ${member.name}` : "خانه یار"}</h1>
           <p>{headerDate}</p>
         </div>
         <div className="header-actions">

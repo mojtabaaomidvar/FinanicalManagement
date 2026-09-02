@@ -23,9 +23,11 @@ const tx = (
   amount,
   category,
   date,
+  time: null,
   note: null,
   accountId: null,
   subcategoryId: null,
+  photos: [],
   createdAt: "2025-01-01T00:00:00Z",
 });
 

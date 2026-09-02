@@ -14,8 +14,10 @@ import {
   formatAmount,
   liveFormatAmount,
   liveFormatJalaliDate,
+  nowTime,
   parseAmountInput,
 } from "@/shared/lib/format";
+import { compressImage } from "@/shared/lib/image";
 import { fromDisplay, toDisplay } from "@/shared/lib/currency";
 import { isoToJalali, today, formatISO } from "@/shared/lib/jalali";
 
@@ -24,6 +26,8 @@ export interface TxFormState {
   amount: string;
   categoryId: string;
   date: string;
+  /** ساعت ثبت — "HH:MM" یا "" */
+  time: string;
   memberId: string;
   note: string;
   /** حساب منشا/مقصد — الزامی */
@@ -31,6 +35,16 @@ export interface TxFormState {
   /** زیردسته — الزامی (متفرقه هم یک زیردسته است) */
   subcategoryId: string;
 }
+
+/** تصویر پیوست در فرم — موجود (سمت سرور) یا در صف آپلود */
+export interface TxPhotoItem {
+  key: string;
+  existing?: { id: string; url: string; caption: string | null };
+  dataUrl?: string;
+  caption: string;
+}
+
+const MAX_PHOTOS = 8;
 
 export function useTxFormModel(
   useCases: UseCases,
@@ -42,6 +56,8 @@ export function useTxFormModel(
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<TxFormState>(defaults());
+  const [photos, setPhotos] = useState<TxPhotoItem[]>([]);
+  const [busy, setBusy] = useState(false);
 
   function defaults(): TxFormState {
     return {
@@ -49,6 +65,7 @@ export function useTxFormModel(
       amount: "",
       categoryId: defaultCategoryOf("expense").id,
       date: formatISO(today()),
+      time: nowTime(),
       memberId: currentMemberId,
       note: "",
       accountId: "",
@@ -59,6 +76,7 @@ export function useTxFormModel(
   function openNew() {
     setEditing(null);
     setForm(defaults());
+    setPhotos([]);
     setOpen(true);
   }
 
@@ -69,11 +87,19 @@ export function useTxFormModel(
       amount: formatAmount(toDisplay(tx.amount, currency)),
       categoryId: tx.category,
       date: formatISO(isoToJalali(tx.date)),
+      time: tx.time ?? "",
       memberId: tx.memberId,
       note: tx.note ?? "",
       accountId: tx.accountId ?? "",
       subcategoryId: tx.subcategoryId ?? "",
     });
+    setPhotos(
+      tx.photos.map((p) => ({
+        key: p.id,
+        existing: { id: p.id, url: p.url, caption: p.caption },
+        caption: p.caption ?? "",
+      })),
+    );
     setOpen(true);
   }
 
@@ -90,6 +116,7 @@ export function useTxFormModel(
     onDone: () => Promise<void>,
     accountsCount: number,
   ) {
+    if (busy) return;
     const amount = parseAmountInput(form.amount);
     if (!amount || amount <= 0) return notify("لطفاً مبلغ معتبر وارد کنید");
 
@@ -122,23 +149,52 @@ export function useTxFormModel(
       amount: fromDisplay(amount, currency),
       category: form.categoryId,
       date: jalaliToIso(parsedDate),
+      time: form.time || null,
       note: form.note.trim() || null,
       accountId: form.accountId,
       subcategoryId: form.subcategoryId || null,
     };
 
+    setBusy(true);
     try {
+      let txId = editing?.id ?? "";
       if (editing) {
         await useCases.updateTransaction.execute(editing.id, input);
         notify("تراکنش ویرایش شد");
       } else {
-        await useCases.addTransaction.execute(input);
+        const created = await useCases.addTransaction.execute(input);
+        txId = created.id;
         notify("تراکنش ثبت شد");
       }
+
+      /* تصاویر: کپن‌های ویرایش‌شده + صف آپلود */
+      if (txId) {
+        for (const p of photos) {
+          if (p.existing && p.caption.trim() !== (p.existing.caption ?? "")) {
+            await useCases.updateTxPhotoCaption.execute(
+              p.existing.id,
+              p.caption.trim() || null,
+            );
+          }
+        }
+        for (const p of photos) {
+          if (!p.existing && p.dataUrl) {
+            const url = await useCases.uploadTxPhoto.execute(p.dataUrl);
+            await useCases.addTxPhoto.execute(
+              txId,
+              url,
+              p.caption.trim() || null,
+            );
+          }
+        }
+      }
+
       setOpen(false);
       await onDone();
     } catch (e) {
       notify((e as Error).message || "خطا در ذخیره");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -167,6 +223,8 @@ export function useTxFormModel(
     editing,
     form,
     setForm,
+    photos,
+    busy,
     openNew,
     openEdit,
     setType,
@@ -175,6 +233,47 @@ export function useTxFormModel(
     close: () => setOpen(false),
     setAmount: (v: string) => setForm((f) => ({ ...f, amount: liveFormatAmount(v) })),
     setDate: (v: string) => setForm((f) => ({ ...f, date: liveFormatJalaliDate(v) })),
+    setTime: (v: string) => setForm((f) => ({ ...f, time: v })),
+    /* انتخاب فایل‌های تصویر → فشرده‌سازی و افزودن به صف آپلود */
+    addPhotoFiles: async (files: File[]) => {
+      const room = MAX_PHOTOS - photos.length;
+      if (room <= 0) {
+        return notify(`حداکثر ${MAX_PHOTOS} تصویر برای هر تراکنش`);
+      }
+      const items: TxPhotoItem[] = [];
+      for (const file of files.slice(0, room)) {
+        try {
+          /* رسید/عکس محصول — ۱۰۲۴px برای خوانایی متن رسید */
+          const dataUrl = await compressImage(file, 1024, 0.85);
+          items.push({
+            key: Math.random().toString(36).slice(2),
+            dataUrl,
+            caption: "",
+          });
+        } catch {
+          /* فایل خراب — رد می‌شود */
+        }
+      }
+      if (items.length) setPhotos((ps) => [...ps, ...items]);
+    },
+    setPhotoCaption: (key: string, v: string) =>
+      setPhotos((ps) =>
+        ps.map((p) => (p.key === key ? { ...p, caption: v.slice(0, 100) } : p)),
+      ),
+    /* حذف: عکس موجود فوراً از سرور؛ عکس صف فقط از لیست */
+    removePhoto: async (key: string) => {
+      const item = photos.find((p) => p.key === key);
+      if (!item) return;
+      if (item.existing) {
+        if (!confirm("این تصویر حذف شود؟")) return;
+        try {
+          await useCases.deleteTxPhoto.execute(item.existing.id);
+        } catch (e) {
+          return notify((e as Error).message || "خطا در حذف تصویر");
+        }
+      }
+      setPhotos((ps) => ps.filter((p) => p.key !== key));
+    },
   };
 }
 

@@ -67,10 +67,13 @@ export function validateTransaction(input: TransactionInput): TxValidationResult
   return { ok: true };
 }
 
-/* مرتب‌سازی: تاریخ نزولی، سپس زمان ایجاد نزولی */
+/* مرتب‌سازی: تاریخ نزولی، سپس ساعت ثبت نزولی، سپس زمان ایجاد نزولی */
 export function sortTxDesc(list: Transaction[]): Transaction[] {
   return [...list].sort((a, b) => {
     if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+    const at = a.time ?? "";
+    const bt = b.time ?? "";
+    if (at !== bt) return at < bt ? 1 : -1;
     return (b.createdAt || "").localeCompare(a.createdAt || "");
   });
 }

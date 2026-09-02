@@ -79,6 +79,9 @@ alter table public.transactions add column if not exists account_id uuid
   references public.accounts(id) on delete set null;
 create index if not exists idx_tx_account on public.transactions(account_id);
 
+-- مهاجرت: ساعت ثبت تراکنش (اختیاری — "HH:MM")
+alter table public.transactions add column if not exists time text;
+
 -- ─────────── جدول پیامک‌های بانکی ───────────
 create table if not exists public.sms_messages (
   id          uuid primary key default gen_random_uuid(),
@@ -222,6 +225,8 @@ drop function if exists public.add_transaction(text, uuid, text, numeric, text, 
 drop function if exists public.update_transaction(text, uuid, uuid, text, numeric, text, date, text);
 drop function if exists public.add_transaction(text, uuid, text, numeric, text, date, text, uuid);
 drop function if exists public.update_transaction(text, uuid, uuid, text, numeric, text, date, text, uuid);
+drop function if exists public.add_transaction(text, uuid, text, numeric, text, date, text, uuid, uuid);
+drop function if exists public.update_transaction(text, uuid, uuid, text, numeric, text, date, text, uuid, uuid);
 
 -- ═══════════════════════════════════════════════════════════
 -- توابع کمکی داخلی
@@ -752,7 +757,7 @@ begin
   delete from public.members where id = v_target.id;
 end $$;
 
--- همه تراکنش‌های خانواده
+-- همه تراکنش‌های خانواده (با تصاویر پیوست)
 create or replace function public.list_transactions(p_token text)
 returns json
 language plpgsql security definer set search_path = public as $$
@@ -763,18 +768,28 @@ begin
   return coalesce((
     select json_agg(row_to_json(t))
     from (
-      select * from public.transactions
-      where family_id = v_family_id
-      order by created_at desc
+      select tx.*,
+             coalesce(ph.photos, '[]'::json) as photos
+      from public.transactions tx
+      left join lateral (
+        select json_agg(json_build_object(
+                 'id', p.id, 'url', p.url, 'caption', p.caption
+               ) order by p.created_at) as photos
+        from public.transaction_photos p
+        where p.transaction_id = tx.id
+      ) ph on true
+      where tx.family_id = v_family_id
+      order by tx.created_at desc
     ) t
   ), '[]'::json);
 end $$;
 
--- افزودن تراکنش (حساب الزامی؛ زیردسته اختیاری)
+-- افزودن تراکنش (حساب الزامی؛ زیردسته و ساعت اختیاری)
 create or replace function public.add_transaction(
   p_token text, p_member_id uuid, p_type text, p_amount numeric,
   p_category text, p_date date, p_note text,
-  p_account_id uuid, p_subcategory_id uuid default null
+  p_account_id uuid, p_subcategory_id uuid default null,
+  p_time text default null
 ) returns json
 language plpgsql security definer set search_path = public as $$
 declare
@@ -794,6 +809,9 @@ begin
   end if;
   if p_date is null then
     raise exception 'INVALID_DATE';
+  end if;
+  if p_time is not null and p_time !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$' then
+    raise exception 'INVALID_TIME';
   end if;
   if not exists (select 1 from public.members
                  where id = p_member_id and family_id = v_family_id) then
@@ -831,20 +849,21 @@ begin
   end if;
 
   insert into public.transactions
-    (family_id, member_id, type, amount, category, date, note, account_id, subcategory_id)
+    (family_id, member_id, type, amount, category, date, time, note, account_id, subcategory_id)
   values
-    (v_family_id, p_member_id, p_type, p_amount, btrim(p_category), p_date,
+    (v_family_id, p_member_id, p_type, p_amount, btrim(p_category), p_date, p_time,
      nullif(btrim(coalesce(p_note, '')), ''), p_account_id, p_subcategory_id)
   returning * into v_row;
 
   return to_jsonb(v_row);
 end $$;
 
--- ویرایش تراکنش (حساب الزامی؛ زیردسته اختیاری)
+-- ویرایش تراکنش (حساب الزامی؛ زیردسته و ساعت اختیاری)
 create or replace function public.update_transaction(
   p_token text, p_tx_id uuid, p_member_id uuid, p_type text, p_amount numeric,
   p_category text, p_date date, p_note text,
-  p_account_id uuid, p_subcategory_id uuid default null
+  p_account_id uuid, p_subcategory_id uuid default null,
+  p_time text default null
 ) returns void
 language plpgsql security definer set search_path = public as $$
 declare
@@ -863,6 +882,9 @@ begin
   end if;
   if p_date is null then
     raise exception 'INVALID_DATE';
+  end if;
+  if p_time is not null and p_time !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$' then
+    raise exception 'INVALID_TIME';
   end if;
   if not exists (select 1 from public.members
                  where id = p_member_id and family_id = v_family_id) then
@@ -902,6 +924,7 @@ begin
       amount    = p_amount,
       category  = btrim(p_category),
       date      = p_date,
+      time      = p_time,
       note      = nullif(btrim(coalesce(p_note, '')), ''),
       account_id = p_account_id,
       subcategory_id = p_subcategory_id
@@ -933,6 +956,118 @@ begin
       and family_id = public._family_id(p_token)
       and member_id = v_member;
   end if;
+
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+end $$;
+
+-- ═══════════════════════════════════════════════════════════
+-- تصاویر پیوست تراکنش (رسید خرید، عکس محصول و…)
+-- ═══════════════════════════════════════════════════════════
+
+create table if not exists public.transaction_photos (
+  id             uuid primary key default gen_random_uuid(),
+  family_id      uuid not null references public.families(id) on delete cascade,
+  transaction_id uuid not null references public.transactions(id) on delete cascade,
+  member_id      uuid not null references public.members(id) on delete cascade,
+  url            text not null,
+  caption        text,
+  created_at     timestamptz not null default now()
+);
+
+create index if not exists idx_tx_photos_tx on public.transaction_photos(transaction_id);
+
+alter table public.transaction_photos enable row level security;
+-- بدون پالیسی → دسترسی فقط از طریق RPC
+
+-- افزودن تصویر به تراکنش (هر عضو خانواده؛ آپلودر ثبت می‌شود)
+create or replace function public.add_tx_photo(
+  p_token text, p_tx_id uuid, p_url text, p_caption text default null
+) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+  v_actor uuid;
+  v_row public.transaction_photos;
+begin
+  v_family_id := public._family_id(p_token);
+  v_actor := public._session_member_id(p_token);
+
+  if not exists (select 1 from public.transactions
+                 where id = p_tx_id and family_id = v_family_id) then
+    raise exception 'NOT_FOUND';
+  end if;
+  if p_url is null or length(btrim(p_url)) < 10 or length(p_url) > 500 then
+    raise exception 'INVALID_URL';
+  end if;
+  if p_caption is not null and length(btrim(p_caption)) > 100 then
+    raise exception 'INVALID_CAPTION';
+  end if;
+
+  insert into public.transaction_photos
+    (family_id, transaction_id, member_id, url, caption)
+  values
+    (v_family_id, p_tx_id, v_actor, btrim(p_url),
+     nullif(btrim(coalesce(p_caption, '')), ''))
+  returning * into v_row;
+
+  return to_jsonb(v_row);
+end $$;
+
+-- ویرایش توضیح تصویر: مدیر، آپلودر یا سازنده تراکنش
+create or replace function public.update_tx_photo_caption(
+  p_token text, p_photo_id uuid, p_caption text
+) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_member uuid;
+  v_role text;
+begin
+  v_member := public._session_member_id(p_token);
+  select role into v_role from public.members where id = v_member;
+
+  if p_caption is not null and length(btrim(p_caption)) > 100 then
+    raise exception 'INVALID_CAPTION';
+  end if;
+
+  update public.transaction_photos p
+  set caption = nullif(btrim(coalesce(p_caption, '')), '')
+  where p.id = p_photo_id
+    and p.family_id = public._family_id(p_token)
+    and (
+      v_role = 'owner'
+      or p.member_id = v_member
+      or exists (select 1 from public.transactions t
+                 where t.id = p.transaction_id and t.member_id = v_member)
+    );
+
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+end $$;
+
+-- حذف تصویر: مدیر، آپلودر یا سازنده تراکنش
+create or replace function public.delete_tx_photo(
+  p_token text, p_photo_id uuid
+) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_member uuid;
+  v_role text;
+begin
+  v_member := public._session_member_id(p_token);
+  select role into v_role from public.members where id = v_member;
+
+  delete from public.transaction_photos p
+  where p.id = p_photo_id
+    and p.family_id = public._family_id(p_token)
+    and (
+      v_role = 'owner'
+      or p.member_id = v_member
+      or exists (select 1 from public.transactions t
+                 where t.id = p.transaction_id and t.member_id = v_member)
+    );
 
   if not found then
     raise exception 'NOT_FOUND';
@@ -1013,17 +1148,30 @@ begin
   end if;
 end $$;
 
--- ذخیره تنظیمات خانواده (بودجه، واحد، تم)
+-- ذخیره تنظیمات خانواده (بودجه فقط مدیر؛ واحد/تم برای همه اعضا)
 create or replace function public.update_family_settings(
   p_token text, p_budget numeric, p_currency text, p_dark boolean
 ) returns void
 language plpgsql security definer set search_path = public as $$
+declare
+  v_member uuid;
+  v_role text;
 begin
-  update public.families
-  set budget   = greatest(coalesce(p_budget, 0), 0),
-      currency = coalesce(nullif(btrim(coalesce(p_currency, '')), ''), 'تومان'),
-      dark     = coalesce(p_dark, true)
-  where id = public._family_id(p_token);
+  v_member := public._session_member_id(p_token);
+  select role into v_role from public.members where id = v_member;
+
+  if v_role = 'owner' then
+    update public.families
+    set budget   = greatest(coalesce(p_budget, 0), 0),
+        currency = coalesce(nullif(btrim(coalesce(p_currency, '')), ''), 'تومان'),
+        dark     = coalesce(p_dark, true)
+    where id = public._family_id(p_token);
+  else
+    update public.families
+    set currency = coalesce(nullif(btrim(coalesce(p_currency, '')), ''), 'تومان'),
+        dark     = coalesce(p_dark, true)
+    where id = public._family_id(p_token);
+  end if;
 
   if not found then
     raise exception 'NOT_FOUND';
@@ -1798,7 +1946,7 @@ begin
 end $$;
 
 -- ═══════════════════════════════════════════════════════════
--- باکت آواتار (Supabase Storage) — خواندن عمومی، نوشتن فقط سرور
+-- باکت‌های Supabase Storage — خواندن عمومی، نوشتن فقط سرور
 -- ═══════════════════════════════════════════════════════════
 
 do $$
@@ -1811,5 +1959,14 @@ begin
     execute 'drop policy if exists "avatars_public_read" on storage.objects';
     execute 'create policy "avatars_public_read" on storage.objects
              for select using (bucket_id = ''avatars'')';
+
+    -- تصاویر پیوست تراکنش (رسید/عکس محصول)
+    insert into storage.buckets (id, name, public)
+    values ('tx-photos', 'tx-photos', true)
+    on conflict (id) do nothing;
+
+    execute 'drop policy if exists "tx_photos_public_read" on storage.objects';
+    execute 'create policy "tx_photos_public_read" on storage.objects
+             for select using (bucket_id = ''tx-photos'')';
   end if;
 end $$;

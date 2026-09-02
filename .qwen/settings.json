@@ -32,7 +32,8 @@
       "Bash(curl *)",
       "Bash(git *)",
       "Bash(del *)",
-      "Bash(move *)"
+      "Bash(move *)",
+      "Bash(dir *)"
     ]
   },
   "$version": 4

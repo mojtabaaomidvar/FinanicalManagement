@@ -10,6 +10,7 @@ export {
   Segmented,
 } from "./Form";
 export { JalaliDatePicker } from "./JalaliDatePicker";
+export { WheelColumn } from "./Wheel";
 export { DonutChart, BarChart, LineChart, themeColors } from "./charts";
 export type {
   DonutSlice,

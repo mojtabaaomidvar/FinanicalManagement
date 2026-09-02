@@ -12,6 +12,17 @@ export function formatPercent(n: number): string {
   return toFa(Math.round(n)) + "٪";
 }
 
+/* ساعت فعلی به شکل "HH:MM" */
+export function nowTime(): string {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+/* "14:30" → "۱۴:۳۰" */
+export function formatTime(t: string): string {
+  return toFa(t);
+}
+
 /* ورودی مبلغ کاربر (فارسی/با جداکننده) → عدد؛ خالی/نامعتبر → 0 */
 export function parseAmountInput(raw: string): number {
   const digits = toEn(String(raw)).replace(/[^\d]/g, "");
