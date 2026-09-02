@@ -1,4 +1,4 @@
-/* کارت رویدادهای مهم خانواده — ثبت/حذف */
+/* کارت رویدادهای مهم خانواده — ثبت/حذف + گزینه‌های پیشنهادی */
 
 import { useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
@@ -17,6 +17,22 @@ import {
   today,
   formatLong,
 } from "@/shared/lib/jalali";
+
+/** رویدادهای رایج خانواده‌های ایرانی — قابل انتخاب یا تایپ دلخواه */
+const EVENT_PRESETS = [
+  "تولد",
+  "سالگرد ازدواج",
+  "ورود به مدرسه",
+  "فارغ‌التحصیلی",
+  "نوزاد",
+  "جشن نامزدی",
+  "عروقی",
+  "سفر خانوادگی",
+  "تغییر خانه",
+  "شروع کار",
+  "بازنشستگی",
+  "متفرقه",
+] as const;
 
 export function EventsCard() {
   const { events, useCases, refreshData } = useApp();
@@ -104,9 +120,24 @@ export function EventsCard() {
       )}
 
       <Modal open={open} onClose={() => setOpen(false)} title="رویداد جدید">
+        {/* گزینه‌های پیشنهادی */}
+        <p className="form-label">پیشنهادی:</p>
+        <div className="subchips" style={{ marginBottom: 12 }}>
+          {EVENT_PRESETS.map((p) => (
+            <button
+              key={p}
+              type="button"
+              className={`chip ${title === p ? "active" : ""}`}
+              onClick={() => setTitle(p)}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+
         <div className="form-grid">
           <div className="form-row full">
-            <Field label="عنوان (مثلاً: تولد علی)">
+            <Field label="عنوان">
               <TextInput value={title} onChange={setTitle} autoFocus />
             </Field>
           </div>

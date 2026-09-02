@@ -31,6 +31,7 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
   const [regName, setRegName] = useState("");
   const [regPhone, setRegPhone] = useState("");
   const [regPassword, setRegPassword] = useState("");
+  const [regRelation, setRegRelation] = useState("");
 
   /* OTP */
   const [otpCode, setOtpCode] = useState("");
@@ -162,12 +163,16 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
     if (!phone) return notify("شماره موبایل معتبر نیست (مثل ۰۹۱۲۳۴۵۶۷۸۹)");
     if (!isValidPassword(regPassword))
       return notify("رمز عبور حداقل ۴ کاراکتر باشد");
+    if (preReg && !regRelation) {
+      return notify("نسبت شما با مدیر خانواده را انتخاب کنید");
+    }
 
     const input = {
       familyName: preReg ? preReg.familyName : regFamily.trim(),
       memberName: regName.trim(),
       phone,
       password: regPassword,
+      relation: preReg ? regRelation : undefined,
     };
 
     /* OTP غیرفعال → ثبت‌نام مستقیم */
@@ -316,6 +321,8 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
     setRegPhone,
     regPassword,
     setRegPassword,
+    regRelation,
+    setRegRelation,
     otpCode,
     setOtpCode,
     devCode,

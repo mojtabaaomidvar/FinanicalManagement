@@ -31,6 +31,8 @@ export interface RegisterInput {
   memberName: string;
   phone: string;
   password: string;
+  /** نسبت با مدیر خانواده — فقط وقتی عضو pending تکمیل می‌کند */
+  relation?: string;
 }
 
 export interface InviteAcceptInput {

@@ -120,6 +120,7 @@ export class SupabaseAuthRepository implements AuthRepository {
       p_phone: input.phone,
       p_password_hash: hash,
       p_otp_code: otpCode,
+      p_relation: input.relation ?? "خودم",
     });
     return this.mapAuth(r);
   }

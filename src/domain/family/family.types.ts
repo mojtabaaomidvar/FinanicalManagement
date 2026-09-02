@@ -4,6 +4,17 @@ export type MemberRole = "owner" | "member";
 export type MemberStatus = "pending" | "active";
 export type ThemeMode = "light" | "dark" | "auto";
 
+/** نسبت عضو با مدیر خانواده */
+export const MEMBER_RELATIONS = [
+  "خودم",
+  "همسر",
+  "فرزند",
+  "پدر/مادر",
+  "خواهر/برادر",
+  "سایر",
+] as const;
+export type MemberRelation = (typeof MEMBER_RELATIONS)[number];
+
 export interface Family {
   id: string;
   name: string;
@@ -30,6 +41,8 @@ export interface Member {
   status: MemberStatus;
   /** تنظیم شخصی تم — auto = بر اساس ساعت */
   theme: ThemeMode;
+  /** نسبت با مدیر خانواده */
+  relation: string;
 }
 
 export interface ProfileInput {

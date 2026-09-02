@@ -3,9 +3,9 @@
    فایل: api/upload-avatar.js
    متد: POST { token, image } — image = dataURL
 
-   توکن نشست با کلید service اعتبارسنجی می‌شود،
-   تصویر (حداکثر ~۱MB) در باکت عمومی avatars ذخیره
-   و URL عمومی آن برگردانده می‌شود.
+   توکن نشست با کلید service اعتبارسنجی می‌شود؛
+   باکت avatars در صورت نبود ساخته و public می‌شود؛
+   تصویر (~۱MB) با PUT آپلود و URL عمومی برگردانده می‌شود.
    متغیرها: SUPABASE_URL و SUPABASE_SERVICE_KEY
    ═══════════════════════════════════════════════ */
 
@@ -41,8 +41,8 @@ module.exports = async (req, res) => {
     return json(res, 500, { ok: false, error: "SERVER_NOT_CONFIGURED" });
   }
 
-  /* اعتبارسنجی توکن نشست */
   try {
+    /* اعتبارسنجی توکن نشست */
     const sessions = await sbFetch(
       SB_URL,
       SB_KEY,
@@ -70,23 +70,33 @@ module.exports = async (req, res) => {
       return json(res, 400, { ok: false, error: "INVALID_IMAGE" });
     }
 
+    /* اطمینان از وجود باکت عمومی avatars */
+    await ensureBucket(SB_URL, SB_KEY);
+
     const ext = ALLOWED[mime];
     const path = `${memberId}-${Date.now()}.${ext}`;
 
-    /* آپلود به Supabase Storage با service key */
-    const up = await fetch(`${SB_URL}/storage/v1/object/avatars/${path}`, {
-      method: "POST",
-      headers: {
-        apikey: SB_KEY,
-        Authorization: "Bearer " + SB_KEY,
-        "Content-Type": mime,
-        "x-upsert": "true",
+    /* آپلود با PUT (upsert) */
+    const up = await fetch(
+      `${SB_URL}/storage/v1/object/avatars/${path}`,
+      {
+        method: "PUT",
+        headers: {
+          apikey: SB_KEY,
+          Authorization: "Bearer " + SB_KEY,
+          "Content-Type": mime,
+          "x-upsert": "true",
+        },
+        body: buf,
       },
-      body: buf,
-    });
+    );
     if (!up.ok) {
       const t = await up.text();
-      throw new Error(`Storage ${up.status}: ${t.slice(0, 150)}`);
+      return json(res, 500, {
+        ok: false,
+        error: "UPLOAD_FAILED",
+        detail: `Storage ${up.status}: ${t.slice(0, 150)}`,
+      });
     }
 
     return json(res, 200, {
@@ -95,9 +105,33 @@ module.exports = async (req, res) => {
     });
   } catch (e) {
     console.error("upload-avatar error:", e.message);
-    return json(res, 500, { ok: false, error: "UPLOAD_FAILED" });
+    return json(res, 500, { ok: false, error: "UPLOAD_FAILED", detail: e.message });
   }
 };
+
+/* ساخت/عمومی‌کردن باکت avatars در صورت نبود */
+async function ensureBucket(url, key) {
+  /* لیست بکت‌ها */
+  const list = await fetch(`${url}/storage/v1/bucket`, {
+    headers: { apikey: key, Authorization: "Bearer " + key },
+  });
+  if (list.ok) {
+    const buckets = await list.json();
+    if (Array.isArray(buckets) && buckets.some((b) => b.id === "avatars" || b.name === "avatars")) {
+      return; /* هست */
+    }
+  }
+  /* ساخت بکت public */
+  await fetch(`${url}/storage/v1/bucket`, {
+    method: "POST",
+    headers: {
+      apikey: key,
+      Authorization: "Bearer " + key,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ id: "avatars", name: "avatars", public: true }),
+  });
+}
 
 /* ═══════════════ ابزارها ═══════════════ */
 

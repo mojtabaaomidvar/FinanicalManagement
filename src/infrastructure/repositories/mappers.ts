@@ -18,6 +18,7 @@ export interface MemberRow {
   avatar_url: string | null;
   status: "pending" | "active";
   theme: "light" | "dark" | "auto";
+  relation: string;
   created_at: string;
 }
 
@@ -74,6 +75,7 @@ export function mapMember(r: MemberRow): Member {
     avatarUrl: r.avatar_url ?? null,
     status: r.status === "pending" ? "pending" : "active",
     theme: r.theme === "light" || r.theme === "dark" ? r.theme : "auto",
+    relation: r.relation ?? "خودم",
     createdAt: r.created_at,
   };
 }

@@ -54,6 +54,8 @@ alter table public.members add column if not exists status text not null default
 -- تنظیمات شخصی عضو (v5.5): تم = light | dark | auto
 alter table public.members add column if not exists theme text not null default 'auto'
   check (theme in ('light','dark','auto'));
+-- نسبت عضو با مدیر خانواده (v5.7): خودم | همسر | فرزند | پدر/مادر | خواهر/برادر | سایر
+alter table public.members add column if not exists relation text not null default 'خودم';
 
 -- ─────────── جدول تراکنش‌ها ───────────
 create table if not exists public.transactions (
@@ -203,9 +205,13 @@ drop policy if exists "members_delete"      on public.members;
 -- ═══════════════════════════════════════════════════════════
 
 drop function if exists public.auth_register(text, text, text, text);
+drop function if exists public.auth_register(text, text, text, text, text);
+drop function if exists public.auth_register(text, text, text, text, text, text);
 drop function if exists public.accept_invite(text, text, text, text);
 drop function if exists public.create_invite(uuid);
 drop function if exists public.auth_check_otp(text, text);
+drop function if exists public.add_member_by_manager(text, text, text);
+drop function if exists public.add_member_by_manager(text, text, text, text);
 drop function if exists public.add_account(text, uuid, text, text, text, text, text);
 drop function if exists public.add_transaction(text, uuid, text, numeric, text, date, text);
 drop function if exists public.update_transaction(text, uuid, uuid, text, numeric, text, date, text);
@@ -434,7 +440,8 @@ end $$;
 -- ثبت‌نام همان عضو را کامل می‌کند (خانواده موجود، نقش member)
 create or replace function public.auth_register(
   p_family_name text, p_member_name text,
-  p_phone text, p_password_hash text, p_otp_code text
+  p_phone text, p_password_hash text, p_otp_code text,
+  p_relation text default 'خودم'
 ) returns json
 language plpgsql security definer set search_path = public as $$
 declare
@@ -444,6 +451,10 @@ declare
 begin
   perform public._consume_otp(p_phone, p_otp_code);
 
+  if p_relation is null or btrim(p_relation) = '' then
+    raise exception 'INVALID_RELATION';
+  end if;
+
   select * into v_member from public.members where phone = p_phone;
   if found then
     if v_member.status = 'pending' then
@@ -451,7 +462,8 @@ begin
       update public.members
       set name         = coalesce(nullif(btrim(p_member_name), ''), name),
           password_hash = p_password_hash,
-          status       = 'active'
+          status       = 'active',
+          relation     = btrim(p_relation)
       where id = v_member.id
       returning * into v_member;
 
@@ -471,8 +483,9 @@ begin
   values (p_family_name, public.generate_family_code())
   returning * into v_family;
 
-  insert into public.members (family_id, name, role, phone, password_hash)
-  values (v_family.id, p_member_name, 'owner', p_phone, p_password_hash)
+  -- عضو اول = مدیر (نسبت همیشه «خودم»)
+  insert into public.members (family_id, name, role, phone, password_hash, relation)
+  values (v_family.id, p_member_name, 'owner', p_phone, p_password_hash, 'خودم')
   returning * into v_member;
 
   v_token := public._create_session(v_member.id);
@@ -507,9 +520,9 @@ language sql security definer set search_path = public as $$
   )::json
 $$;
 
--- افزودن عضو توسط مدیر (فقط اسم و شماره — عضو pending تا خودش ثبت‌نام کند)
+-- افزودن عضو توسط مدیر (اسم، شماره و نسبت با مدیر — عضو pending تا خودش ثبت‌نام کند)
 create or replace function public.add_member_by_manager(
-  p_token text, p_name text, p_phone text
+  p_token text, p_name text, p_phone text, p_relation text default 'سایر'
 ) returns json
 language plpgsql security definer set search_path = public as $$
 declare
@@ -532,12 +545,15 @@ begin
   if p_phone is null or p_phone !~ '^09\d{9}$' then
     raise exception 'INVALID_PHONE';
   end if;
+  if p_relation is null or btrim(p_relation) = '' then
+    raise exception 'INVALID_RELATION';
+  end if;
   if exists (select 1 from public.members where phone = p_phone) then
     raise exception 'PHONE_EXISTS';
   end if;
 
-  insert into public.members (family_id, name, role, phone, status)
-  values (v_family_id, btrim(p_name), 'member', p_phone, 'pending')
+  insert into public.members (family_id, name, role, phone, status, relation)
+  values (v_family_id, btrim(p_name), 'member', p_phone, 'pending', btrim(p_relation))
   returning * into v_row;
 
   return to_jsonb(v_row);

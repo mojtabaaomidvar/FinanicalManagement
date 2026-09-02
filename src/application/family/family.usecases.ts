@@ -52,7 +52,11 @@ export class SetThemeUseCase {
 
 export class AddMemberByManagerUseCase {
   constructor(private readonly repo: FamilyRepository) {}
-  async execute(name: string, phone: string): Promise<Member> {
+  async execute(
+    name: string,
+    phone: string,
+    relation: string,
+  ): Promise<Member> {
     const trimmed = name.trim();
     if (!trimmed || trimmed.length > 40) {
       throw new AppError("INVALID_TX", "نام عضو را وارد کنید (حداکثر ۴۰ کاراکتر)");
@@ -60,7 +64,10 @@ export class AddMemberByManagerUseCase {
     if (!/^09\d{9}$/.test(phone)) {
       throw new AppError("INVALID_TX", "شماره موبایل معتبر نیست (۰۹xxxxxxxxx)");
     }
-    return this.repo.addMemberByManager(trimmed, phone);
+    if (!relation.trim()) {
+      throw new AppError("INVALID_TX", "نسبت عضو با مدیر خانواده را انتخاب کنید");
+    }
+    return this.repo.addMemberByManager(trimmed, phone, relation.trim());
   }
 }
 

@@ -70,11 +70,16 @@ export class SupabaseFamilyRepository implements FamilyRepository {
     return mapMember(row);
   }
 
-  async addMemberByManager(name: string, phone: string): Promise<Member> {
+  async addMemberByManager(
+    name: string,
+    phone: string,
+    relation: string,
+  ): Promise<Member> {
     const row = await rpc<MemberRow>("add_member_by_manager", {
       p_token: await this.tok(),
       p_name: name,
       p_phone: phone,
+      p_relation: relation,
     });
     return mapMember(row);
   }

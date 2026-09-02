@@ -4,6 +4,7 @@
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
 import { useAuthModel } from "../model/useAuthModel";
+import { MEMBER_RELATIONS } from "@/domain/family/family.types";
 import { toFa } from "@/shared/lib/digits";
 
 export function AuthFeature() {
@@ -155,6 +156,21 @@ export function AuthFeature() {
               m.submitRegister(finish);
             }}
           >
+            {/* شماره موبایل — اول (تشخیص عضو پیش‌ثبت‌شده) */}
+            <input
+              className="auth-input"
+              type="tel"
+              dir="ltr"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="شماره موبایل"
+              value={m.regPhone}
+              onChange={(e) => {
+                m.setRegPhone(e.target.value);
+                m.checkPreRegistered(e.target.value);
+              }}
+            />
+
             {/* بنر عضو پیش‌ثبت‌شده — اطلاعات خانواده قفل */}
             {m.preReg ? (
               <div className="prereg-banner">
@@ -189,20 +205,23 @@ export function AuthFeature() {
               value={m.regName}
               onChange={(e) => m.setRegName(e.target.value)}
             />
-            <input
-              className="auth-input"
-              type="tel"
-              dir="ltr"
-              inputMode="tel"
-              autoComplete="tel"
-              placeholder="شماره موبایل"
-              value={m.regPhone}
-              onChange={(e) => {
-                m.setRegPhone(e.target.value);
-                /* با کامل‌شدن شماره، بررسی عضو پیش‌ثبت‌شده */
-                m.checkPreRegistered(e.target.value);
-              }}
-            />
+
+            {/* نسبت با مدیر — فقط برای عضو پیش‌ثبت‌شده */}
+            {m.preReg ? (
+              <select
+                className="auth-input"
+                value={m.regRelation}
+                onChange={(e) => m.setRegRelation(e.target.value)}
+              >
+                <option value="">نسبت شما با مدیر خانواده</option>
+                {MEMBER_RELATIONS.filter((r) => r !== "خودم").map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+
             <input
               className="auth-input"
               type="password"

@@ -13,18 +13,6 @@ import {
 import { isoToJalali, jalaliToIso, parse, formatISO } from "@/shared/lib/jalali";
 import { toEn } from "@/shared/lib/digits";
 
-const PRESET_AVATARS = [
-  "/avatars/m1.svg",
-  "/avatars/m2.svg",
-  "/avatars/m3.svg",
-  "/avatars/f1.svg",
-  "/avatars/f2.svg",
-  "/avatars/f3.svg",
-];
-
-const MALE_AVATARS = PRESET_AVATARS.slice(0, 3);
-const FEMALE_AVATARS = PRESET_AVATARS.slice(3);
-
 export function ProfileCard() {
   const { member, useCases, updateMember } = useApp();
   const { show } = useToast();
@@ -47,9 +35,6 @@ export function ProfileCard() {
     setAvatarUrl(member.avatarUrl);
   }, [member]);
 
-  /* آواتارهای پیشنهادی بر اساس جنسیت (یا همه) */
-  const suggestions = gender === "male" ? MALE_AVATARS : gender === "female" ? FEMALE_AVATARS : PRESET_AVATARS;
-
   async function save(overrides?: { avatarUrl?: string }) {
     setBusy(true);
     try {
@@ -69,10 +54,6 @@ export function ProfileCard() {
     } finally {
       setBusy(false);
     }
-  }
-
-  async function pickPreset(url: string) {
-    await save({ avatarUrl: url });
   }
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -144,23 +125,6 @@ export function ProfileCard() {
         </div>
       </div>
 
-      <p className="form-note" style={{ textAlign: "right", marginBottom: 8 }}>
-        آواتار پیشنهادی (بر اساس جنسیت) یا عکس خودتان:
-      </p>
-      <div className="avatar-picks">
-        {suggestions.map((url) => (
-          <button
-            key={url}
-            type="button"
-            className={avatarUrl === url ? "active" : ""}
-            onClick={() => pickPreset(url)}
-            title="انتخاب این آواتار"
-          >
-            <img src={url} alt="" />
-          </button>
-        ))}
-      </div>
-
       <input
         ref={fileRef}
         type="file"
@@ -175,7 +139,7 @@ export function ProfileCard() {
         onClick={() => fileRef.current?.click()}
         style={{ marginBottom: 16 }}
       >
-        {uploading ? "در حال آپلود…" : "آپلود عکس پروفایل"}
+        {uploading ? "در حال آپلود…" : "انتخاب عکس پروفایل"}
       </button>
 
       <div className="form-grid">
