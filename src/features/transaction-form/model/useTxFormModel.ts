@@ -16,6 +16,7 @@ import {
   liveFormatJalaliDate,
   parseAmountInput,
 } from "@/shared/lib/format";
+import { fromDisplay, toDisplay } from "@/shared/lib/currency";
 import { isoToJalali, today, formatISO } from "@/shared/lib/jalali";
 
 export interface TxFormState {
@@ -36,6 +37,7 @@ export function useTxFormModel(
   members: Member[],
   currentMemberId: string,
   notify: (m: string) => void,
+  currency: string = "تومان",
 ) {
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [open, setOpen] = useState(false);
@@ -64,7 +66,7 @@ export function useTxFormModel(
     setEditing(tx);
     setForm({
       type: tx.type,
-      amount: formatAmount(tx.amount),
+      amount: formatAmount(toDisplay(tx.amount, currency)),
       categoryId: tx.category,
       date: formatISO(isoToJalali(tx.date)),
       memberId: tx.memberId,
@@ -117,7 +119,7 @@ export function useTxFormModel(
     const input = {
       memberId: form.memberId || currentMemberId,
       type: form.type,
-      amount,
+      amount: fromDisplay(amount, currency),
       category: form.categoryId,
       date: jalaliToIso(parsedDate),
       note: form.note.trim() || null,

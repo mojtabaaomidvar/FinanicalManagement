@@ -5,6 +5,7 @@ import type { BankSms } from "@/domain/sms/sms.types";
 import type { UseCases } from "@/application/useCases";
 import { smsDraftDefaults } from "@/domain/sms/sms.rules";
 import { parseAmountInput, liveFormatJalaliDate } from "@/shared/lib/format";
+import { fromDisplay } from "@/shared/lib/currency";
 import { parse, formatISO, today, jalaliToIso } from "@/shared/lib/jalali";
 import { categoriesFor } from "@/domain/category/category.catalog";
 
@@ -12,6 +13,7 @@ export function usePendingSmsModel(
   useCases: UseCases,
   currentMemberId: string,
   notify: (m: string) => void,
+  currency: string = "تومان",
 ) {
   const [list, setList] = useState<BankSms[]>([]);
   const [idx, setIdx] = useState(0);
@@ -85,7 +87,7 @@ export function usePendingSmsModel(
       await useCases.recordSms.execute(sms, {
         memberId: memberId || currentMemberId,
         type,
-        amount: amt,
+        amount: fromDisplay(amt, currency),
         category: categoryId,
         date: jalaliToIso(parsedDate),
         note:

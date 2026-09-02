@@ -34,7 +34,7 @@ function accountLabel(
 
 export function TransactionFormFeature({ form }: { form: TxFormModel }) {
   const m = form;
-  const { accounts, subcategories, customCategories, useCases, refreshData } =
+  const { accounts, subcategories, customCategories, useCases, family, refreshData } =
     useApp();
   const { show } = useToast();
 
@@ -128,7 +128,7 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
 
         <div className="form-grid" style={{ marginTop: 16 }}>
           <div className="form-row full">
-            <Field label="مبلغ (تومان)">
+            <Field label={`مبلغ (${family?.currency ?? "تومان"})`}>
               <AmountInput value={m.form.amount} onChange={m.setAmount} big />
             </Field>
           </div>

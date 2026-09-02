@@ -5,7 +5,6 @@ import { toFa } from "@/shared/lib/digits";
 
 export function CheckBudgetStatus({
   status,
-  currency = "تومان",
 }: {
   status: BudgetStatus | null;
   currency?: string;

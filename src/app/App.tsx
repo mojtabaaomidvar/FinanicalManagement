@@ -91,9 +91,15 @@ function MainShell({
   refreshKey: number;
   currentMemberId: string;
 }) {
-  const { useCases, members } = useApp();
+  const { useCases, members, family } = useApp();
   const { show } = useToast();
-  const form = useTxFormModel(useCases!, members, currentMemberId, show);
+  const form = useTxFormModel(
+    useCases!,
+    members,
+    currentMemberId,
+    show,
+    family?.currency ?? "تومان",
+  );
 
   const nav = useCallback(
     (r: Route) => {

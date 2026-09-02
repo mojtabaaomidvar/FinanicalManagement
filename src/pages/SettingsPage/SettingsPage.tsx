@@ -1,6 +1,6 @@
 /* صفحه تنظیمات — دو شاخه اصلی: مالی | برنامه + پروفایل/خانواده/رویدادها */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
 import { Card, Segmented } from "@/shared/ui";
@@ -22,7 +22,8 @@ type SettingsSection =
 const APP_VERSION = "۵.۵.۰";
 
 export function SettingsPage() {
-  const { useCases, family, members, txs, member, onLoggedOut } = useApp();
+  const { useCases, family, members, txs, member, refreshData, onLoggedOut } =
+    useApp();
   const { show } = useToast();
   const { themeMode, changeTheme } = useTheme(member, useCases);
 
@@ -107,7 +108,7 @@ export function SettingsPage() {
         <Card>
           <div className="form-grid">
             <div className="form-row">
-              <label className="form-label">بودجه ماهانه</label>
+              <label className="form-label">بودجه ماهانه ({currency})</label>
               <input
                 type="text"
                 className="num-input"
@@ -115,12 +116,8 @@ export function SettingsPage() {
                 placeholder="۰"
                 value={budget}
                 onChange={(e) => {
-                  const fa = liveFormatAmount(e.target.value);
-                  setBudget(fa);
-                  const en = fa.replace(/[۰-۹]/g, (d) =>
-                    String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)),
-                  ).replace(/,/g, "");
-                  saveSettings({ budget: +en || 0 });
+                  setBudget(liveFormatAmount(e.target.value));
+                  setDirty(true);
                 }}
               />
             </div>
@@ -128,15 +125,26 @@ export function SettingsPage() {
               <label className="form-label">واحد پول</label>
               <select
                 className="select-input"
-                value={family?.currency ?? "تومان"}
-                onChange={(e) => saveSettings({ currency: e.target.value })}
+                value={currency}
+                onChange={(e) => {
+                  setCurrency(e.target.value);
+                  setDirty(true);
+                }}
               >
                 <option value="تومان">تومان</option>
                 <option value="ریال">ریال</option>
               </select>
             </div>
           </div>
-          <CheckBudgetStatus status={budgetStatus} />
+          <CheckBudgetStatus status={budgetStatus} currency={currency} />
+          <button
+            className="btn-primary btn-block"
+            style={{ marginTop: 12 }}
+            disabled={!dirty || saving}
+            onClick={applyFinanceSettings}
+          >
+            {saving ? "…" : dirty ? "اعمال تغییرات" : "ذخیره شد"}
+          </button>
         </Card>
 
         <Card title="خروجی داده‌ها">

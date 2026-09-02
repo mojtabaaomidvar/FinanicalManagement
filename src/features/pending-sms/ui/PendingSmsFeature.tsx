@@ -9,9 +9,15 @@ import { categoriesFor } from "@/domain/category/category.catalog";
 import { toFa } from "@/shared/lib/digits";
 
 export function PendingSmsFeature({ refreshKey }: { refreshKey: number }) {
-  const { useCases, member, accounts, subcategories, refreshData } = useApp();
+  const { useCases, member, family, accounts, subcategories, refreshData } =
+    useApp();
   const { show } = useToast();
-  const m = usePendingSmsModel(useCases!, member?.id ?? "", show);
+  const m = usePendingSmsModel(
+    useCases!,
+    member?.id ?? "",
+    show,
+    family?.currency ?? "تومان",
+  );
 
   const subsOfCategory = subcategories.filter(
     (s) => s.category === m.categoryId,
