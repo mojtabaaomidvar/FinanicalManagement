@@ -1,6 +1,12 @@
 /* ریشه اپ — ناوبری، لینک دعوت، تب‌بار، پیامک‌های pending */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { useApp } from "./providers/AppProvider";
 import { useTheme } from "./providers/useTheme";
 import type { Route } from "./router";
@@ -92,6 +98,15 @@ function AppBody() {
   );
 }
 
+/* آیتم‌های تب‌بار — خانه دایره جدا شناور است (null = جای خالی وسط) */
+const NAV_ITEMS: ({ r: Route; icon: string; label: string } | null)[] = [
+  { r: "transactions", icon: "i-receipt", label: "تراکنش‌ها" },
+  { r: "reports", icon: "i-chart", label: "گزارش‌ها" },
+  null,
+  { r: "accounts", icon: "i-card", label: "کارت‌ها" },
+  { r: "settings", icon: "i-gear", label: "تنظیمات" },
+];
+
 function MainShell({
   route,
   setRoute,
@@ -114,6 +129,32 @@ function MainShell({
     show,
     family?.currency ?? "تومان",
   );
+
+  const navRef = useRef<HTMLElement | null>(null);
+  const activeTabRef = useRef<HTMLButtonElement | null>(null);
+  const [barShape, setBarShape] = useState({
+    w: 0,
+    h: 0,
+    cx: null as number | null,
+  });
+
+  /* مرکز تب فعال برای رسم ناچ منحنی تب‌بار — قبل از رنگ‌آمیزی تا فلش نداشته باشیم */
+  useLayoutEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const measure = () => {
+      const btn = activeTabRef.current;
+      setBarShape({
+        w: nav.clientWidth,
+        h: nav.clientHeight,
+        cx: btn ? btn.offsetLeft + btn.offsetWidth / 2 : null,
+      });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(nav);
+    return () => ro.disconnect();
+  }, [route]);
 
   const nav = useCallback(
     (r: Route) => {
@@ -142,31 +183,81 @@ function MainShell({
       <TransactionFormFeature form={form} />
       <PendingSmsFeature refreshKey={refreshKey} />
 
-      <nav className="tabbar tabbar-5" aria-label="ناوبری اصلی">
-        {/* ترتیب RTL: تراکنش‌ها، گزارش‌ها — خانه (وسط) — کارت‌ها، تنظیمات */}
-        {(
-          [
-            { r: "transactions", icon: "i-receipt", label: "تراکنش‌ها" },
-            { r: "reports", icon: "i-chart", label: "گزارش‌ها" },
-            { r: "dashboard", icon: "i-home", label: "خانه" },
-            { r: "accounts", icon: "i-card", label: "کارت‌ها" },
-            { r: "settings", icon: "i-gear", label: "تنظیمات" },
-          ] as const
-        ).map((t) => (
-          <button
-            key={t.r}
-            className={`tab-btn ${t.r === "dashboard" ? "home" : ""} ${route === t.r ? "active" : ""}`}
-            onClick={() => nav(t.r)}
-          >
-            <span className="tab-ico">
-              <svg>
-                <use href={`#${t.icon}`} />
-              </svg>
-            </span>
-            <span className="tab-label">{t.label}</span>
-          </button>
-        ))}
+      <nav ref={navRef} className="tabbar tabbar-5" aria-label="ناوبری اصلی">
+        <TabBarShape w={barShape.w} h={barShape.h} cx={barShape.cx} />
+
+        {/* ترتیب RTL: تراکنش‌ها، گزارش‌ها — جای خانه — کارت‌ها، تنظیمات */}
+        {NAV_ITEMS.map((t, i) =>
+          t ? (
+            <button
+              key={t.r}
+              ref={route === t.r ? activeTabRef : undefined}
+              className={`tab-btn ${route === t.r ? "active" : ""}`}
+              onClick={() => nav(t.r)}
+            >
+              <span className="tab-ico">
+                <svg>
+                  <use href={`#${t.icon}`} />
+                </svg>
+              </span>
+              <span className="tab-label">{t.label}</span>
+            </button>
+          ) : (
+            <span key={`slot-${i}`} aria-hidden="true" />
+          ),
+        )}
+
+        {/* خانه — دایره کاملاً جدا، شناور بالای نوار */}
+        <button
+          type="button"
+          className={`tab-home ${route === "dashboard" ? "active" : ""}`}
+          aria-label="خانه"
+          aria-current={route === "dashboard" ? "page" : undefined}
+          onClick={() => nav("dashboard")}
+        >
+          <svg>
+            <use href="#i-home" />
+          </svg>
+        </button>
       </nav>
     </>
+  );
+}
+
+/* بدنه تب‌بار — خط بالای نوار (y = LINE) دور حباب تب فعال با دو منحنی
+   به قوس RA می‌رسد و به سمت آیکون‌های چپ و راست باز می‌شود (ناچ SVG) */
+function TabBarShape({
+  w,
+  h,
+  cx,
+}: {
+  w: number;
+  h: number;
+  cx: number | null;
+}) {
+  if (w < 2 || h < 2) return null;
+
+  const LINE = 32; /* y خط بالای نوار = مرکز حباب فعال */
+  const RA = 28; /* شعاع قوس ناچ (حباب ۲۴ + گپ ۴) */
+  const A = RA * Math.SQRT1_2; /* لنگر قوس روی منحنی */
+  const AY = LINE - A;
+  const P = 8; /* طول تانژانت */
+  const REACH = 38; /* شروع منحنی از خط صاف */
+
+  let top = `M 0 ${LINE}`;
+  if (cx != null) {
+    top +=
+      ` H ${cx - REACH}` +
+      ` C ${cx - 29} ${LINE}, ${cx - A - P} ${AY + P}, ${cx - A} ${AY}` +
+      ` A ${RA} ${RA} 0 0 1 ${cx + A} ${AY}` +
+      ` C ${cx + A + P} ${AY + P}, ${cx + 29} ${LINE}, ${cx + REACH} ${LINE}`;
+  }
+  top += ` H ${w}`;
+
+  return (
+    <svg className="tabbar-shape" aria-hidden="true" focusable="false">
+      <path className="tabbar-fill" d={`${top} V ${h} H 0 Z`} />
+      <path className="tabbar-line" d={top} />
+    </svg>
   );
 }
