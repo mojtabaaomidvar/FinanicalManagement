@@ -1291,22 +1291,23 @@ button:active {
   transform: scale(0.92);
 }
 
-/* ─────────── تب‌بار پیل شناور (برند flat) ───────────
-   کپسول سفید شناور با حاشیه، ۵ آیتم مساوی؛ نشانگر قرص سبز
+/* ─────────── تب‌بار چسبیده به پایین (برند flat) ───────────
+   نوار تمام‌عرض مات چسبیده به لبه پایین، ۵ آیتم مساوی؛ نشانگر قرص سبز
    زیر آیتم فعال می‌لغزد؛ آیتم فعال سرمه‌ای/سبز تیره می‌شود */
 .tabbar-5 {
-  bottom: calc(10px + env(safe-area-inset-bottom));
-  left: 14px;
-  right: 14px;
-  max-width: 480px;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-width: 552px;
   margin: 0 auto;
   grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
   align-items: stretch;
-  padding: 6px;
-  border-radius: var(--r-pill);
-  border: 1px solid var(--border-strong);
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  border-radius: 0;
+  border: none;
+  border-top: 1px solid var(--border-strong);
   background: var(--tabbar-blur);
-  box-shadow: 0 4px 20px rgba(13, 27, 42, 0.14);
+  box-shadow: 0 -2px 12px rgba(13, 27, 42, 0.08);
   isolation: isolate;
 }
 
@@ -1315,7 +1316,6 @@ button:active {
   position: absolute;
   z-index: -1;
   inset: 0;
-  border-radius: inherit;
   background: var(--tabbar-blur);
 }
 
@@ -1323,7 +1323,7 @@ button:active {
 .tabbar-5 .tab-ind {
   position: absolute;
   top: 6px;
-  height: calc(100% - 12px);
+  height: calc(100% - 12px - env(safe-area-inset-bottom));
   width: calc(20% - 10px);
   border-radius: var(--r-pill);
   background: var(--accent-soft);
