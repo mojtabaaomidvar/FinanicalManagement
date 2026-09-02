@@ -48,6 +48,14 @@ export function ProfileCard() {
       });
       updateMember(updated);
       if (overrides?.avatarUrl) setAvatarUrl(overrides.avatarUrl);
+
+      /* همگام‌سازی رویداد تولد با تاریخ تولد جدید */
+      try {
+        await useCases!.syncBirthdays.execute();
+      } catch {
+        /* بی‌صدا */
+      }
+
       show("پروفایل ذخیره شد");
     } catch (e) {
       show((e as Error).message || "خطا در ذخیره پروفایل");

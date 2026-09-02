@@ -34,8 +34,15 @@ function accountLabel(
 
 export function TransactionFormFeature({ form }: { form: TxFormModel }) {
   const m = form;
-  const { accounts, subcategories, customCategories, useCases, family, refreshData } =
-    useApp();
+  const {
+    accounts,
+    subcategories,
+    customCategories,
+    useCases,
+    family,
+    member,
+    refreshData,
+  } = useApp();
   const { show } = useToast();
 
   const [subModalOpen, setSubModalOpen] = useState(false);
@@ -257,7 +264,8 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
             ذخیره
           </button>
         </div>
-        {m.editing ? (
+        {m.editing &&
+        (member?.role === "owner" || m.editing.memberId === member?.id) ? (
           <button className="btn-danger-block" onClick={() => m.remove(refreshData)}>
             حذف تراکنش
           </button>

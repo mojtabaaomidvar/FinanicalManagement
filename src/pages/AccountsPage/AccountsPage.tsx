@@ -169,15 +169,17 @@ export function AccountsPage() {
                       {owner ? ` · ${owner.name}` : ""}
                     </p>
                   </div>
-                  <button
-                    className="icon-btn small danger"
-                    aria-label="حذف"
-                    onClick={() => remove(acc)}
-                  >
-                    <svg>
-                      <use href="#i-trash" />
-                    </svg>
-                  </button>
+                  {member?.role === "owner" || acc.memberId === member?.id ? (
+                    <button
+                      className="icon-btn small danger"
+                      aria-label="حذف"
+                      onClick={() => remove(acc)}
+                    >
+                      <svg>
+                        <use href="#i-trash" />
+                      </svg>
+                    </button>
+                  ) : null}
                 </div>
 
                 {acc.cardNumber ? (

@@ -31,3 +31,11 @@ export class DeleteEventUseCase {
     return this.repo.remove(id);
   }
 }
+
+/** همگام‌سازی تولدها از تاریخ تولد پروفایل اعضا */
+export class SyncBirthdaysUseCase {
+  constructor(private readonly repo: EventRepository) {}
+  execute(): Promise<number> {
+    return this.repo.syncBirthdays();
+  }
+}

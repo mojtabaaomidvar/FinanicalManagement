@@ -212,6 +212,11 @@ drop function if exists public.create_invite(uuid);
 drop function if exists public.auth_check_otp(text, text);
 drop function if exists public.add_member_by_manager(text, text, text);
 drop function if exists public.add_member_by_manager(text, text, text, text);
+drop function if exists public.add_event(text, text, date, text);
+drop function if exists public.add_event(text, text, date, text, uuid);
+drop function if exists public.delete_event(text, uuid);
+drop function if exists public.delete_transaction(text, uuid, uuid);
+drop function if exists public.delete_account(text, uuid, text);
 drop function if exists public.add_account(text, uuid, text, text, text, text, text);
 drop function if exists public.add_transaction(text, uuid, text, numeric, text, date, text);
 drop function if exists public.update_transaction(text, uuid, uuid, text, numeric, text, date, text);
@@ -907,14 +912,27 @@ begin
   end if;
 end $$;
 
--- حذف تراکنش (فقط تراکنش‌های خانواده خود کاربر)
+-- حذف تراکنش: مدیر = هر تراکنش خانواده؛ عضو = فقط تراکنش خودش
 create or replace function public.delete_transaction(
   p_token text, p_tx_id uuid
 ) returns void
 language plpgsql security definer set search_path = public as $$
+declare
+  v_member uuid;
+  v_role text;
 begin
-  delete from public.transactions
-  where id = p_tx_id and family_id = public._family_id(p_token);
+  v_member := public._session_member_id(p_token);
+  select role into v_role from public.members where id = v_member;
+
+  if v_role = 'owner' then
+    delete from public.transactions
+    where id = p_tx_id and family_id = public._family_id(p_token);
+  else
+    delete from public.transactions
+    where id = p_tx_id
+      and family_id = public._family_id(p_token)
+      and member_id = v_member;
+  end if;
 
   if not found then
     raise exception 'NOT_FOUND';
@@ -1155,14 +1173,27 @@ begin
   return to_jsonb(v_row);
 end $$;
 
--- حذف کارت/حساب (فقط کارت‌های خانواده خود کاربر)
+-- حذف کارت/حساب: مدیر = هر کارت خانواده؛ عضو = فقط کارت خودش
 create or replace function public.delete_account(
   p_token text, p_account_id uuid
 ) returns void
 language plpgsql security definer set search_path = public as $$
+declare
+  v_member uuid;
+  v_role text;
 begin
-  delete from public.accounts
-  where id = p_account_id and family_id = public._family_id(p_token);
+  v_member := public._session_member_id(p_token);
+  select role into v_role from public.members where id = v_member;
+
+  if v_role = 'owner' then
+    delete from public.accounts
+    where id = p_account_id and family_id = public._family_id(p_token);
+  else
+    delete from public.accounts
+    where id = p_account_id
+      and family_id = public._family_id(p_token)
+      and member_id = v_member;
+  end if;
 
   if not found then
     raise exception 'NOT_FOUND';
@@ -1624,16 +1655,19 @@ begin
 end $$;
 
 create or replace function public.add_event(
-  p_token text, p_title text, p_date date, p_note text
+  p_token text, p_title text, p_date date, p_note text,
+  p_member_id uuid default null
 ) returns json
 language plpgsql security definer set search_path = public as $$
 declare
   v_family_id uuid;
-  v_member_id uuid;
+  v_actor uuid;
+  v_role text;
   v_row public.family_events;
 begin
   v_family_id := public._family_id(p_token);
-  v_member_id := public._session_member_id(p_token);
+  v_actor := public._session_member_id(p_token);
+  select role into v_role from public.members where id = v_actor;
 
   if p_title is null or length(btrim(p_title)) < 1 or length(btrim(p_title)) > 60 then
     raise exception 'INVALID_TITLE';
@@ -1642,25 +1676,102 @@ begin
     raise exception 'INVALID_DATE';
   end if;
 
+  -- عضو فقط برای خودش رویداد می‌سازد؛ مدیر برای هر عضو
+  if v_role <> 'owner' and p_member_id is not null and p_member_id <> v_actor then
+    raise exception 'FORBIDDEN';
+  end if;
+
+  -- دی‌دوبل: رویداد هم‌عنوان هم‌تاریخ برای همان عضو قبلا هست
+  if exists (
+    select 1 from public.family_events
+    where family_id = v_family_id
+      and title = btrim(p_title)
+      and date = p_date
+      and (p_member_id is null or member_id = p_member_id)
+  ) then
+    raise exception 'EVENT_DUPLICATE';
+  end if;
+
   insert into public.family_events (family_id, member_id, title, date, note)
-  values (v_family_id, v_member_id, btrim(p_title), p_date,
+  values (v_family_id, coalesce(p_member_id, v_actor), btrim(p_title), p_date,
           nullif(btrim(coalesce(p_note, '')), ''))
   returning * into v_row;
 
   return to_jsonb(v_row);
 end $$;
 
+-- حذف رویداد: مدیر = هر رویداد؛ عضو = فقط رویداد خودش
 create or replace function public.delete_event(
   p_token text, p_event_id uuid
 ) returns void
 language plpgsql security definer set search_path = public as $$
+declare
+  v_member uuid;
+  v_role text;
 begin
-  delete from public.family_events
-  where id = p_event_id and family_id = public._family_id(p_token);
+  v_member := public._session_member_id(p_token);
+  select role into v_role from public.members where id = v_member;
+
+  if v_role = 'owner' then
+    delete from public.family_events
+    where id = p_event_id and family_id = public._family_id(p_token);
+  else
+    delete from public.family_events
+    where id = p_event_id
+      and family_id = public._family_id(p_token)
+      and member_id = v_member;
+  end if;
 
   if not found then
     raise exception 'NOT_FOUND';
   end if;
+end $$;
+
+-- همگام‌سازی تولد اعضا: از تاریخ تولد پروفایل، رویداد «تولد [نام]» می‌سازد
+-- (اگر نباشد؛ اگر تاریخ عوض شده باشد آپدیت؛ اگر حذف شده باشد رویداد حذف)
+create or replace function public.sync_birthday_events(p_token text)
+returns integer
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+  v_count int := 0;
+  v_member record;
+  v_event record;
+begin
+  v_family_id := public._family_id(p_token);
+
+  for v_member in
+    select id, name, birth_date from public.members
+    where family_id = v_family_id and status = 'active' and birth_date is not null
+  loop
+    select * into v_event from public.family_events
+    where family_id = v_family_id
+      and member_id = v_member.id
+      and title = 'تولد ' || v_member.name
+    limit 1;
+
+    if not found then
+      insert into public.family_events (family_id, member_id, title, date, note)
+      values (v_family_id, v_member.id, 'تولد ' || v_member.name, v_member.birth_date, null);
+      v_count := v_count + 1;
+    elsif v_event.date <> v_member.birth_date then
+      update public.family_events
+      set date = v_member.birth_date
+      where id = v_event.id;
+      v_count := v_count + 1;
+    end if;
+  end loop;
+
+  -- عضو بدون تاریخ تولد؟ رویداد تولد او حذف شود
+  delete from public.family_events e
+  where e.family_id = v_family_id
+    and e.title like 'تولد %'
+    and e.member_id in (
+      select id from public.members
+      where family_id = v_family_id and birth_date is null
+    );
+
+  return v_count;
 end $$;
 
 -- ═══════════════════════════════════════════════════════════

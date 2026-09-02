@@ -28,6 +28,7 @@ export class SupabaseEventRepository implements EventRepository {
       p_title: input.title,
       p_date: input.date,
       p_note: input.note ?? null,
+      p_member_id: input.memberId ?? null,
     });
     return mapEvent(row);
   }
@@ -36,6 +37,12 @@ export class SupabaseEventRepository implements EventRepository {
     await rpc("delete_event", {
       p_token: await this.tok(),
       p_event_id: id,
+    });
+  }
+
+  async syncBirthdays(): Promise<number> {
+    return rpc<number>("sync_birthday_events", {
+      p_token: await this.tok(),
     });
   }
 }

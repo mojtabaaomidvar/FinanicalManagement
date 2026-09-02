@@ -35,7 +35,7 @@ const EVENT_PRESETS = [
 ] as const;
 
 export function EventsCard() {
-  const { events, useCases, refreshData } = useApp();
+  const { events, useCases, refreshData, member } = useApp();
   const { show } = useToast();
 
   const [open, setOpen] = useState(false);
@@ -73,9 +73,18 @@ export function EventsCard() {
       show("حذف شد");
       await refreshData();
     } catch (e) {
-      show((e as Error).message || "خطا در حذف");
+      const msg = (e as Error).message || "خطا در حذف";
+      if (/یافت نشد/.test(msg)) {
+        show("فقط مدیر یا سازنده رویداد می‌تواند آن را حذف کند");
+      } else {
+        show(msg);
+      }
     }
   }
+
+  /* مدیر: رویدادِ متعلق به دیگری را نمی‌تواند بزند جز خودش — حذف عادی کار می‌کند */
+  const canDelete = (ev: { memberId: string | null }) =>
+    member?.role === "owner" || ev.memberId === member?.id;
 
   return (
     <Card
@@ -100,16 +109,18 @@ export function EventsCard() {
                 {ev.note ? <p>{ev.note}</p> : null}
                 <p>{formatLong(jd)}</p>
               </div>
-              <button
-                type="button"
-                className="icon-btn small danger"
-                aria-label="حذف"
-                onClick={() => remove(ev.id, ev.title)}
-              >
-                <svg>
-                  <use href="#i-trash" />
-                </svg>
-              </button>
+              {canDelete(ev) ? (
+                <button
+                  type="button"
+                  className="icon-btn small danger"
+                  aria-label="حذف"
+                  onClick={() => remove(ev.id, ev.title)}
+                >
+                  <svg>
+                    <use href="#i-trash" />
+                  </svg>
+                </button>
+              ) : null}
             </div>
           );
         })

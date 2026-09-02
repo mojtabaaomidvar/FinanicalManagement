@@ -20,6 +20,7 @@ import {
   AddEventUseCase,
   DeleteEventUseCase,
   ListEventsUseCase,
+  SyncBirthdaysUseCase,
 } from "./event/event.usecases";
 import {
   AddTransactionUseCase,
@@ -108,6 +109,7 @@ export interface UseCases {
   listEvents: ListEventsUseCase;
   addEvent: AddEventUseCase;
   deleteEvent: DeleteEventUseCase;
+  syncBirthdays: SyncBirthdaysUseCase;
 
   listAccounts: ListAccountsUseCase;
   addAccount: AddAccountUseCase;
@@ -171,6 +173,7 @@ export function createUseCases(c: Container): UseCases {
     listEvents: new ListEventsUseCase(c.repos.events),
     addEvent: new AddEventUseCase(c.repos.events),
     deleteEvent: new DeleteEventUseCase(c.repos.events),
+    syncBirthdays: new SyncBirthdaysUseCase(c.repos.events),
 
     listAccounts: new ListAccountsUseCase(c.repos.accounts),
     addAccount: new AddAccountUseCase(c.repos.accounts),

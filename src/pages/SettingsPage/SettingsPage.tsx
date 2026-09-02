@@ -227,9 +227,6 @@ export function SettingsPage() {
               نسخه {APP_VERSION}
             </p>
           </div>
-          <button className="btn-danger-block" onClick={logout}>
-            خروج از حساب
-          </button>
         </Card>
       </SettingsSubPage>
     );
@@ -247,36 +244,6 @@ export function SettingsPage() {
 
       <div className="content">
         <Card>
-          <button className="settings-nav-row" onClick={() => setSection("finance")}>
-            <span className="settings-nav-icon">
-              <svg>
-                <use href="#i-wallet" />
-              </svg>
-            </span>
-            <div>
-              <h4>تنظیمات مالی</h4>
-              <p>بودجه ماهانه، واحد پول و خروجی داده</p>
-            </div>
-            <svg className="settings-nav-arrow">
-              <use href="#i-arrow-l" />
-            </svg>
-          </button>
-
-          <button className="settings-nav-row" onClick={() => setSection("app")}>
-            <span className="settings-nav-icon">
-              <svg>
-                <use href="#i-gear" />
-              </svg>
-            </span>
-            <div>
-              <h4>تنظیمات برنامه</h4>
-              <p>تم، به‌روزرسانی و درباره اپلیکیشن</p>
-            </div>
-            <svg className="settings-nav-arrow">
-              <use href="#i-arrow-l" />
-            </svg>
-          </button>
-
           <button className="settings-nav-row" onClick={() => setSection("profile")}>
             <span className="settings-nav-icon">
               <svg>
@@ -285,7 +252,22 @@ export function SettingsPage() {
             </span>
             <div>
               <h4>پروفایل من</h4>
-              <p>آواتار، نام، تاریخ تولد و کد ملی</p>
+              <p>عکس، نام، تاریخ تولد و کد ملی</p>
+            </div>
+            <svg className="settings-nav-arrow">
+              <use href="#i-arrow-l" />
+            </svg>
+          </button>
+
+          <button className="settings-nav-row" onClick={() => setSection("finance")}>
+            <span className="settings-nav-icon">
+              <svg>
+                <use href="#i-wallet" />
+              </svg>
+            </span>
+            <div>
+              <h4>تنظیمات مالی</h4>
+              <p>بودجه، واحد پول و خروجی داده</p>
             </div>
             <svg className="settings-nav-arrow">
               <use href="#i-arrow-l" />
@@ -300,7 +282,7 @@ export function SettingsPage() {
             </span>
             <div>
               <h4>خانواده</h4>
-              <p>اعضا و دعوت با لینک/QR</p>
+              <p>اعضا، نسبت‌ها و دعوت</p>
             </div>
             <svg className="settings-nav-arrow">
               <use href="#i-arrow-l" />
@@ -315,13 +297,32 @@ export function SettingsPage() {
             </span>
             <div>
               <h4>رویدادهای مهم</h4>
-              <p>تولدها، سالگردها و مناسبت‌ها</p>
+              <p>تولدها و مناسبت‌ها</p>
+            </div>
+            <svg className="settings-nav-arrow">
+              <use href="#i-arrow-l" />
+            </svg>
+          </button>
+
+          <button className="settings-nav-row" onClick={() => setSection("app")}>
+            <span className="settings-nav-icon">
+              <svg>
+                <use href="#i-gear" />
+              </svg>
+            </span>
+            <div>
+              <h4>تنظیمات برنامه</h4>
+              <p>تم، به‌روزرسانی و درباره</p>
             </div>
             <svg className="settings-nav-arrow">
               <use href="#i-arrow-l" />
             </svg>
           </button>
         </Card>
+
+        <button className="btn-danger-block" onClick={logout}>
+          خروج از حساب
+        </button>
 
         <p className="version-tag">خانه یار · نسخه {APP_VERSION}</p>
       </div>
