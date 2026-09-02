@@ -1292,8 +1292,8 @@ button:active {
 }
 
 /* ─────────── تب‌بار چسبیده به پایین (برند flat) ───────────
-   نوار تمام‌عرض مات چسبیده به لبه پایین، ۵ آیتم مساوی؛ نشانگر قرص سبز
-   زیر آیتم فعال می‌لغزد؛ آیتم فعال سرمه‌ای/سبز تیره می‌شود */
+   نوار تمام‌عرض مات چسبیده به لبه پایین، ۵ آیتم مساوی؛ تب فعال:
+   دایره پر سبز دور آیکون (کمی بالاتر از لبه بالا) + متن رنگی */
 .tabbar-5 {
   bottom: 0;
   left: 0;
@@ -1319,47 +1319,60 @@ button:active {
   background: var(--tabbar-blur);
 }
 
-/* نشانگر متحرک — قرص کوچک زیر آیتم فعال */
-.tabbar-5 .tab-ind {
-  position: absolute;
-  top: 6px;
-  height: calc(100% - 12px - env(safe-area-inset-bottom));
-  width: calc(20% - 10px);
-  border-radius: var(--r-pill);
-  background: var(--accent-soft);
-  border: 1px solid var(--accent);
-  transition: inset-inline-start 0.38s var(--ease-spring);
-  z-index: 0;
-  pointer-events: none;
-}
+/* آیتم‌ها — دایره دور آیکون + متن زیر آن */
 .tabbar-5 .tab-btn {
   position: relative;
   z-index: 1;
-  gap: 2px;
-  padding: 8px 0;
-  border-radius: var(--r-pill);
-  transition:
-    color var(--dur-med) ease,
-    background var(--dur-med) ease;
+  gap: 3px;
+  padding: 0 0 5px;
+  border-radius: var(--r-md);
+  transition: color var(--dur-med) ease;
 }
-.tabbar-5 .tab-btn.active {
+
+/* قاب دایره‌ای دور آیکون — آیکون با grid وسط‌چین است،
+   پس مرکز دایره دقیقاً روی مرکز آیکون می‌افتد */
+.tabbar-5 .tab-ico {
+  width: 52px;
+  height: 52px;
+  /* کمی بالاتر از لبه بالای تب‌بار */
+  margin-top: -15px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+}
+.tabbar-5 .tab-ico svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* آیتم خانه — وسط، آیکون همیشه سبز */
+.tabbar-5 .tab-btn.home .tab-ico {
   color: var(--accent-strong);
 }
 
-/* آیتم خانه — وسط، همیشه سبز پر (active یا نه) */
-.tabbar-5 .tab-btn.home {
+/* تب فعال — دایره پر رنگ دور آیکون + متن رنگی */
+.tabbar-5 .tab-btn.active {
+  color: var(--accent-strong);
+}
+.tabbar-5 .tab-btn.active .tab-ico {
   background: var(--accent);
   color: #fff;
+  box-shadow: 0 3px 12px rgba(16, 185, 129, 0.35);
+  animation: tabBubble 0.34s var(--ease-spring);
 }
-.tabbar-5 .tab-btn.home:active {
-  transform: scale(0.92);
+
+@keyframes tabBubble {
+  from {
+    transform: scale(0.55);
+  }
+  to {
+    transform: scale(1);
+  }
 }
 
 .tab-btn svg {
   transition: transform var(--dur-med) var(--ease-spring);
-}
-.tab-btn.active svg {
-  transform: translateY(-1px);
 }
 
 /* انیمیشن ترنزیشن صفحه */

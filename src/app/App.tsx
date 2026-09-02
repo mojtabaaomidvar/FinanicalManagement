@@ -15,15 +15,6 @@ import { AccountsPage } from "@/pages/AccountsPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { useToast } from "./providers/ToastProvider";
 
-/* ترتیب تب‌ها در DOM (RTL) — مبنای موقعیت نشانگر متحرک تب‌بار */
-const TAB_ORDER: Route[] = [
-  "transactions",
-  "reports",
-  "dashboard",
-  "accounts",
-  "settings",
-];
-
 export function App() {
   return (
     <PwaUpdateProvider>
@@ -132,10 +123,6 @@ function MainShell({
     [setRoute],
   );
 
-  /* ترتیب تب‌ها در DOM (RTL) برای موقعیت نشانگر متحرک */
-  const tabIndex = TAB_ORDER.indexOf(route);
-  void tabIndex;
-
   return (
     <>
       <div key={route} className="page-anim">
@@ -156,16 +143,6 @@ function MainShell({
       <PendingSmsFeature refreshKey={refreshKey} />
 
       <nav className="tabbar tabbar-5" aria-label="ناوبری اصلی">
-        {/* نشانگر متحرک — روی خانه مخفی (خودش سبز پر است) */}
-        {route !== "dashboard" ? (
-          <div
-            className="tab-ind"
-            style={{
-              insetInlineStart: `calc(${TAB_ORDER.indexOf(route) * 20}% + 5px)`,
-            }}
-          />
-        ) : null}
-
         {/* ترتیب RTL: تراکنش‌ها، گزارش‌ها — خانه (وسط) — کارت‌ها، تنظیمات */}
         {(
           [
@@ -181,10 +158,12 @@ function MainShell({
             className={`tab-btn ${t.r === "dashboard" ? "home" : ""} ${route === t.r ? "active" : ""}`}
             onClick={() => nav(t.r)}
           >
-            <svg>
-              <use href={`#${t.icon}`} />
-            </svg>
-            <span>{t.label}</span>
+            <span className="tab-ico">
+              <svg>
+                <use href={`#${t.icon}`} />
+              </svg>
+            </span>
+            <span className="tab-label">{t.label}</span>
           </button>
         ))}
       </nav>
