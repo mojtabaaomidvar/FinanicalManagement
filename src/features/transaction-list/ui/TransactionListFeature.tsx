@@ -57,7 +57,7 @@ export function TransactionListFeature({ form }: { form: TxFormModel }) {
                   ) : null}
                   {g.income && g.expense ? " · " : ""}
                   {g.expense ? (
-                    <span style={{ color: "var(--expense)" }}>−{formatAmount(toDisplay(g.expense, cur))}</span>
+                    <span style={{ color: "var(--expense)" }}>{formatAmount(toDisplay(g.expense, cur))}</span>
                   ) : null}
                 </span>
               </div>

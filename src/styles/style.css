@@ -488,7 +488,7 @@ button:active {
   color: var(--income);
 }
 .tx-amount.expense b {
-  color: var(--text);
+  color: var(--expense);
 }
 
 /* grouped by date */

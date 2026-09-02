@@ -7,9 +7,9 @@ export function formatAmount(n: number): string {
   return toFa(Math.round(Math.abs(n)).toLocaleString("en-US"));
 }
 
-/* مبلغ علامت‌دار: +۱,۲۳۴ / −۱,۲۳۴ */
+/* مبلغ با علامت: درآمد +۱,۲۳۴ / هزینه ۱,۲۳۴ (قرمز از رنگ کلاس می‌آید) */
 export function formatSigned(n: number, type: "income" | "expense"): string {
-  return (type === "income" ? "+" : "−") + formatAmount(n);
+  return type === "income" ? "+" + formatAmount(n) : formatAmount(n);
 }
 
 /* درصد فارسی */

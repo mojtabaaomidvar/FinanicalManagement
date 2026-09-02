@@ -55,8 +55,11 @@ export function DashboardSummaryWidget({
     <>
       <div className="balance-card">
         <p className="balance-label">موجودی کل خانواده</p>
-        <h2>
-          {data.balance < 0 ? "−" : ""}
+        <h2
+          style={
+            data.balance < 0 ? { color: "var(--danger)" } : undefined
+          }
+        >
           {formatAmount(toDisplay(data.balance, cur))}
         </h2>
         <p className="balance-sub">{cur}</p>
