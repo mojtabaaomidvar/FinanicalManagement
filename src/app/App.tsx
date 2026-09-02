@@ -131,30 +131,19 @@ function MainShell({
   );
 
   const navRef = useRef<HTMLElement | null>(null);
-  const activeTabRef = useRef<HTMLButtonElement | null>(null);
-  const [barShape, setBarShape] = useState({
-    w: 0,
-    h: 0,
-    cx: null as number | null,
-  });
+  const [barSize, setBarSize] = useState({ w: 0, h: 0 });
 
-  /* مرکز تب فعال برای رسم ناچ منحنی تب‌بار — قبل از رنگ‌آمیزی تا فلش نداشته باشیم */
+  /* ابعاد نوار برای رسم بدنه کپسول + ناچ (شکل ثابت است، ناچ همیشه وسط) */
   useLayoutEffect(() => {
     const nav = navRef.current;
     if (!nav) return;
-    const measure = () => {
-      const btn = activeTabRef.current;
-      setBarShape({
-        w: nav.clientWidth,
-        h: nav.clientHeight,
-        cx: btn ? btn.offsetLeft + btn.offsetWidth / 2 : null,
-      });
-    };
+    const measure = () =>
+      setBarSize({ w: nav.clientWidth, h: nav.clientHeight });
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(nav);
     return () => ro.disconnect();
-  }, [route]);
+  }, []);
 
   const nav = useCallback(
     (r: Route) => {
@@ -184,14 +173,13 @@ function MainShell({
       <PendingSmsFeature refreshKey={refreshKey} />
 
       <nav ref={navRef} className="tabbar tabbar-5" aria-label="ناوبری اصلی">
-        <TabBarShape w={barShape.w} h={barShape.h} cx={barShape.cx} />
+        <TabBarShape w={barSize.w} h={barSize.h} />
 
-        {/* ترتیب RTL: تراکنش‌ها، گزارش‌ها — جای خانه — کارت‌ها، تنظیمات */}
+        {/* ترتیب RTL: تراکنش‌ها، گزارش‌ها — ناچ خانه — کارت‌ها، تنظیمات */}
         {NAV_ITEMS.map((t, i) =>
           t ? (
             <button
               key={t.r}
-              ref={route === t.r ? activeTabRef : undefined}
               className={`tab-btn ${route === t.r ? "active" : ""}`}
               onClick={() => nav(t.r)}
             >
@@ -207,7 +195,7 @@ function MainShell({
           ),
         )}
 
-        {/* خانه — دایره کاملاً جدا، شناور بالای نوار */}
+        {/* خانه — FAB نشسته در ناچ وسط لبه بالای نوار */}
         <button
           type="button"
           className={`tab-home ${route === "dashboard" ? "active" : ""}`}
@@ -224,40 +212,33 @@ function MainShell({
   );
 }
 
-/* بدنه تب‌بار — خط بالای نوار (y = LINE) دور حباب تب فعال با دو منحنی
-   به قوس RA می‌رسد و به سمت آیکون‌های چپ و راست باز می‌شود (ناچ SVG) */
-function TabBarShape({
-  w,
-  h,
-  cx,
-}: {
-  w: number;
-  h: number;
-  cx: number | null;
-}) {
+/* بدنه کپسول شناور — pill با ناچ نیم‌دایره در وسط لبه بالا که
+   FAB خانه در آن می‌نشیند (ناچ = شعاع FAB + گپ) */
+function TabBarShape({ w, h }: { w: number; h: number }) {
   if (w < 2 || h < 2) return null;
 
-  const LINE = 32; /* y خط بالای نوار = مرکز حباب فعال */
-  const RA = 28; /* شعاع قوس ناچ (حباب ۲۴ + گپ ۴) */
-  const A = RA * Math.SQRT1_2; /* لنگر قوس روی منحنی */
-  const AY = LINE - A;
-  const P = 8; /* طول تانژانت */
-  const REACH = 38; /* شروع منحنی از خط صاف */
+  const r = h / 2; /* گوشه کپسول = نصف ارتفاع */
+  const c = w / 2;
+  const NR = 33; /* شعاع ناچ — FAB قطر ۵۸ + گپ ۴ (با .tab-home هماهنگ بماند) */
 
-  let top = `M 0 ${LINE}`;
-  if (cx != null) {
-    top +=
-      ` H ${cx - REACH}` +
-      ` C ${cx - 29} ${LINE}, ${cx - A - P} ${AY + P}, ${cx - A} ${AY}` +
-      ` A ${RA} ${RA} 0 0 1 ${cx + A} ${AY}` +
-      ` C ${cx + A + P} ${AY + P}, ${cx + 29} ${LINE}, ${cx + REACH} ${LINE}`;
-  }
-  top += ` H ${w}`;
+  const d =
+    `M ${r} 0` +
+    ` H ${c - NR}` +
+    ` A ${NR} ${NR} 0 0 1 ${c + NR} 0` +
+    ` H ${w - r}` +
+    ` A ${r} ${r} 0 0 1 ${w} ${r}` +
+    ` V ${h - r}` +
+    ` A ${r} ${r} 0 0 1 ${w - r} ${h}` +
+    ` H ${r}` +
+    ` A ${r} ${r} 0 0 1 0 ${h - r}` +
+    ` V ${r}` +
+    ` A ${r} ${r} 0 0 1 ${r} 0` +
+    " Z";
 
   return (
     <svg className="tabbar-shape" aria-hidden="true" focusable="false">
-      <path className="tabbar-fill" d={`${top} V ${h} H 0 Z`} />
-      <path className="tabbar-line" d={top} />
+      <path className="tabbar-fill" d={d} />
+      <path className="tabbar-line" d={d} />
     </svg>
   );
 }

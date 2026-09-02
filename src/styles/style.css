@@ -972,7 +972,7 @@ button:active {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(102px + env(safe-area-inset-bottom));
+  bottom: calc(78px + env(safe-area-inset-bottom));
   width: 58px;
   height: 58px;
   border-radius: var(--r-xl);
@@ -1291,20 +1291,21 @@ button:active {
   transform: scale(0.92);
 }
 
-/* ─────────── تب‌بار چسبیده به پایین (برند flat) ───────────
-   بدنه نوار با SVG رسم می‌شود (tabbar-shape) تا خط بالای نوار
-   دور حباب تب فعال با منحنی از چپ و راست باز شود؛
-   خانه = دایره کاملاً جدا شناور بالای نوار */
+/* ─────────── تب‌بار کپسول شناور (برند flat) ───────────
+   pill تمام‌گرد شناور با فاصله از لبه‌ها + سایه نرم؛ بدنه با SVG
+   رسم می‌شود تا ناچ نیم‌دایره وسط لبه بالا برای FAB خانه بریده شود.
+   پالت از توکن‌ها: نوار --tabbar-blur · FAB --accent ·
+   آیکون/متن --text-3 (غیرفعال) و --accent-strong (فعال) — تم‌پذیر */
 .tabbar-5 {
-  bottom: 0;
-  left: 0;
-  right: 0;
-  max-width: 552px;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  left: 20px;
+  right: 20px;
+  max-width: 440px;
   margin: 0 auto;
+  height: 58px;
   grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
-  align-items: stretch;
-  /* خط بالای نوار در y=32 — فضای بالای آن جای حباب تب فعال است */
-  padding: 32px 8px calc(10px + env(safe-area-inset-bottom));
+  align-items: center;
+  padding: 0 10px;
   background: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -1312,7 +1313,7 @@ button:active {
   box-shadow: none;
 }
 
-/* بدنه و خط بالای نوار — fill/stroke از توکن‌های تم */
+/* بدنه و خط دور کپسول — سایه از silhouette واقعی (شامل ناچ) */
 .tabbar-shape {
   position: absolute;
   inset: 0;
@@ -1320,7 +1321,7 @@ button:active {
   width: 100%;
   height: 100%;
   pointer-events: none;
-  filter: drop-shadow(0 -3px 10px rgba(13, 27, 42, 0.1));
+  filter: drop-shadow(0 10px 26px rgba(13, 27, 42, 0.2));
 }
 .tabbar-fill {
   fill: var(--tabbar-blur);
@@ -1331,77 +1332,72 @@ button:active {
   stroke-width: 1;
 }
 
-/* آیتم‌ها — آیکون داخل نوار + متن زیر آن */
+/* آیتم‌های کناری — آیکون بالا + برچسب زیر، هر دو هم‌مرکز */
 .tabbar-5 .tab-btn {
   position: relative;
   z-index: 1;
   padding: 0;
   gap: 4px;
   border-radius: var(--r-md);
+  color: var(--text-3);
   transition: color var(--dur-med) ease;
 }
 
-/* قاب آیکون — داخل نوار؛ تب فعال با transform بالا می‌آید تا مرکزش
-   روی خط بالای نوار بنشیند (لی‌اوت ثابت می‌ماند و جابجا نمی‌شود) */
 .tabbar-5 .tab-ico {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
   display: grid;
   place-items: center;
-  color: var(--text-3);
-  transition:
-    transform var(--dur-med) var(--ease-spring),
-    background var(--dur-med) ease,
-    color var(--dur-med) ease,
-    box-shadow var(--dur-med) ease;
+  color: inherit;
 }
 .tabbar-5 .tab-ico svg {
-  width: 23px;
-  height: 23px;
+  width: 22px;
+  height: 22px;
+}
+.tabbar-5 .tab-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: inherit;
 }
 
-/* تب فعال — دایره پر رنگ، مرکز روی خط بالای نوار + متن رنگی */
+/* تب فعال — فقط رنگ آیکون و متن */
 .tabbar-5 .tab-btn.active {
   color: var(--accent-strong);
 }
-.tabbar-5 .tab-btn.active .tab-ico {
-  transform: translateY(-24px);
-  background: var(--accent);
-  color: #fff;
-  box-shadow: 0 3px 12px rgba(16, 185, 129, 0.35);
-}
 
-/* خانه — دایره کاملاً جدا از نوار، شناور بالای وسط */
+/* خانه — FAB برجسته نشسته در ناچ؛ مرکزش روی لبه بالای نوار.
+   قطر ۵۸ = شعاع ناچ ۳۳ منهای گپ ۴ (در TabBarShape هماهنگ است) */
 .tab-home {
   position: absolute;
-  z-index: 1;
+  z-index: 2;
+  top: 0;
   left: 50%;
-  bottom: calc(88px + env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  width: 56px;
-  height: 56px;
+  transform: translate(-50%, -50%);
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
   background: var(--accent);
   color: #fff;
   display: grid;
   place-items: center;
-  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+  /* سایه مستقل و قوی‌تر از نوار — حس نشستن روی کپسول */
+  box-shadow:
+    0 8px 20px rgba(16, 185, 129, 0.45),
+    0 2px 6px rgba(0, 0, 0, 0.25);
   transition:
     box-shadow var(--dur-med) ease,
     transform var(--dur-fast) var(--ease-spring);
 }
 .tab-home svg {
-  width: 26px;
-  height: 26px;
+  width: 25px;
+  height: 25px;
 }
 .tab-home:active {
-  transform: translateX(-50%) scale(0.93);
+  transform: translate(-50%, -50%) scale(0.93);
 }
 .tab-home.active {
   box-shadow:
     0 0 0 5px var(--accent-soft),
-    0 6px 16px rgba(16, 185, 129, 0.4);
+    0 8px 20px rgba(16, 185, 129, 0.45),
+    0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
 .tab-btn svg {
