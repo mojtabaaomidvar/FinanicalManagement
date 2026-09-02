@@ -124,7 +124,11 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
 
   return (
     <>
-      <Modal open={m.open} onClose={m.close} title={m.editing ? "ویرایش تراکنش" : "تراکنش جدید"}>
+      <Modal
+        open={m.open}
+        onClose={m.close}
+        title={m.editing ? "ویرایش تراکنش" : "تراکنش جدید"}
+      >
         <Segmented
           value={m.form.type}
           onChange={m.setType}
@@ -179,7 +183,7 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
                   <TextInput
                     value={newCatName}
                     onChange={setNewCatName}
-                    placeholder="مثلاً کمک‌های والدین"
+                    placeholder="نام دسته مورد نظر شما"
                     autoFocus
                   />
                   <button
@@ -204,7 +208,6 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
               >
                 {selectedSub ? (
                   <>
-                    <span>{activeCat.name}</span>
                     <b>{selectedSub.name}</b>
                   </>
                 ) : (
@@ -212,22 +215,26 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
                     انتخاب زیردسته برای «{activeCat.name}»…
                   </span>
                 )}
-                <svg>
-                  <use href="#i-arrow-l" />
-                </svg>
               </button>
             </Field>
           </div>
 
-          <div className="form-row">
+          <div className="form-row full">
             <Field
-              label={m.form.type === "expense" ? "از حساب (الزامی)" : "به حساب (الزامی)"}
+              label={
+                m.form.type === "expense"
+                  ? "از حساب (الزامی)"
+                  : "به حساب (الزامی)"
+              }
             >
               <Select
                 value={m.form.accountId}
                 onChange={(v) => m.setForm({ ...m.form, accountId: v })}
                 options={[
-                  { value: "", label: accounts.length ? "انتخاب کنید…" : "کارتی ثبت نشده" },
+                  {
+                    value: "",
+                    label: accounts.length ? "انتخاب کنید…" : "کارتی ثبت نشده",
+                  },
                   ...accounts.map((a) => ({
                     value: a.id,
                     label: accountLabel(a.title, a.bank, a.cardNumber),
@@ -336,7 +343,10 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
         </div>
         {m.editing &&
         (member?.role === "owner" || m.editing.memberId === member?.id) ? (
-          <button className="btn-danger-block" onClick={() => m.remove(refreshData)}>
+          <button
+            className="btn-danger-block"
+            onClick={() => m.remove(refreshData)}
+          >
             حذف تراکنش
           </button>
         ) : null}
@@ -370,7 +380,7 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
               <TextInput
                 value={newSubName}
                 onChange={setNewSubName}
-                placeholder="مثلاً رستوران"
+                placeholder=""
               />
               <button
                 type="button"

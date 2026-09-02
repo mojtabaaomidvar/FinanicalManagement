@@ -10,6 +10,9 @@ import { EventsCard } from "./EventsCard";
 import { MembersCard } from "./MembersCard";
 import { SettingsSubPage } from "./SettingsSubPage";
 import { useTheme } from "@/app/providers/useTheme";
+import { usePwaUpdateState } from "@/app/pwaUpdate.tsx";
+import { APP_VERSION } from "@/shared/config/version";
+import { toFa } from "@/shared/lib/digits";
 import {
   formatAmount,
   liveFormatAmount,
@@ -23,8 +26,6 @@ type SettingsSection =
   | "events"
   | "finance"
   | "app";
-
-const APP_VERSION = "۵.۵.۰";
 
 export function SettingsPage() {
   const { useCases, family, members, txs, member, refreshData, onLoggedOut } =
@@ -221,23 +222,7 @@ export function SettingsPage() {
           />
         </Card>
 
-        <Card title="به‌روزرسانی">
-          <button
-            className="btn-secondary btn-block"
-            onClick={async () => {
-              show("در حال بررسی…");
-              try {
-                const keys = await caches.keys();
-                await Promise.all(keys.map((k) => caches.delete(k)));
-              } catch {
-                /* بی‌صدا */
-              }
-              location.reload();
-            }}
-          >
-            دریافت آخرین نسخه
-          </button>
-        </Card>
+        <VersionCard />
 
         <Card title="درباره">
           <div style={{ textAlign: "center", padding: "12px 0" }}>
@@ -251,7 +236,7 @@ export function SettingsPage() {
               دستیار مالی خانواده
             </p>
             <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: 10 }}>
-              نسخه {APP_VERSION}
+              نسخه {toFa(APP_VERSION)}
             </p>
           </div>
         </Card>
@@ -351,8 +336,62 @@ export function SettingsPage() {
           خروج از حساب
         </button>
 
-        <p className="version-tag">خانه یار · نسخه {APP_VERSION}</p>
+        <p className="version-tag">خانه یار · نسخه {toFa(APP_VERSION)}</p>
       </div>
     </section>
+  );
+}
+
+/* کارت نسخه و به‌روزرسانی — وضعیت نسخه فعلی + بررسی دستی */
+function VersionCard() {
+  const { updateReady, applyUpdate, checkForUpdate } = usePwaUpdateState();
+  const { show } = useToast();
+  const [checking, setChecking] = useState(false);
+  const [upToDate, setUpToDate] = useState(false);
+
+  async function onCheck() {
+    setChecking(true);
+    try {
+      const found = await checkForUpdate();
+      if (!found) {
+        setUpToDate(true);
+        show("شما آخرین نسخه را دارید");
+      }
+    } catch {
+      show("بررسی به‌روزرسانی ناموفق بود");
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  return (
+    <Card title="نسخه و به‌روزرسانی">
+      <div className="version-status">
+        <div className="version-info">
+          <h4>نسخه {toFa(APP_VERSION)}</h4>
+          <p>
+            {updateReady
+              ? "نسخه جدید آماده نصب است"
+              : upToDate
+                ? "شما آخرین نسخه را دارید"
+                : "برای اطمینان، به‌روزرسانی را بررسی کن"}
+          </p>
+        </div>
+        {updateReady ? (
+          <button type="button" className="btn-primary" onClick={applyUpdate}>
+            به‌روزرسانی
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={checking}
+            onClick={() => void onCheck()}
+          >
+            {checking ? "…" : "بررسی"}
+          </button>
+        )}
+      </div>
+    </Card>
   );
 }

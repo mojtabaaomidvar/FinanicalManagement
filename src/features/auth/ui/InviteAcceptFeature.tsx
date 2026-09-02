@@ -50,7 +50,7 @@ export function InviteAcceptFeature({ token }: { token: string }) {
             <TextInput
               value={m.invName}
               onChange={m.setInvName}
-              placeholder="مثلاً سارا"
+              placeholder="نام"
             />
           </Field>
           <Field label="شماره موبایل">
@@ -73,7 +73,11 @@ export function InviteAcceptFeature({ token }: { token: string }) {
               autoComplete="new-password"
             />
           </Field>
-          <button type="submit" className="btn-primary btn-block" disabled={m.busy}>
+          <button
+            type="submit"
+            className="btn-primary btn-block"
+            disabled={m.busy}
+          >
             عضویت در خانواده
           </button>
         </form>
@@ -87,7 +91,8 @@ export function InviteAcceptFeature({ token }: { token: string }) {
             }}
           >
             <p className="otp-desc">
-              کد ۶ رقمی ارسال‌شده به <b>{toFa(m.flow?.phone ?? "")}</b> را وارد کنید
+              کد ۶ رقمی ارسال‌شده به <b>{toFa(m.flow?.phone ?? "")}</b> را وارد
+              کنید
             </p>
             <div className="form-row">
               <input

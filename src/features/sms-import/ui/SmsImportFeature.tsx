@@ -28,10 +28,14 @@ export function SmsImportFeature({
         </svg>
       </button>
 
-      <Modal open={m.open} onClose={() => m.setOpen(false)} title="ورود پیامک بانکی">
+      <Modal
+        open={m.open}
+        onClose={() => m.setOpen(false)}
+        title="ورود پیامک بانکی"
+      >
         <p className="modal-sub">
-          متن پیامک واریز/برداشت را اینجا بچسبانید (Paste). می‌توانید چند پیامک را
-          با خط خالی از هم جدا کنید.
+          متن پیامک واریز/برداشت را اینجا بچسبانید (Paste). می‌توانید چند پیامک
+          را با خط خالی از هم جدا کنید.
         </p>
 
         <div className="form-row">
@@ -39,7 +43,7 @@ export function SmsImportFeature({
           <textarea
             className="text-input sms-textarea"
             rows={5}
-            placeholder="مثلاً: بانک ملت: برداشت مبلغ 250,000 ریال..."
+            placeholder="متن پیامک بانک ..."
             value={m.raw}
             onChange={(e) => m.setRaw(e.target.value)}
           />
@@ -56,7 +60,9 @@ export function SmsImportFeature({
                     {formatAmount(x.p.amount!)}
                   </b>
                   <span>
-                    {x.p.date ? formatISO(x.p.date.jalali as [number, number, number]) : "بدون تاریخ"}
+                    {x.p.date
+                      ? formatISO(x.p.date.jalali as [number, number, number])
+                      : "بدون تاریخ"}
                   </span>
                 </div>
               ) : (

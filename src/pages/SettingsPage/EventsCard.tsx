@@ -3,14 +3,7 @@
 import { useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
-import {
-  Card,
-  Field,
-  JalaliDateInput,
-  Modal,
-  Select,
-  TextInput,
-} from "@/shared/ui";
+import { Card, Field, JalaliDateInput, Modal, TextInput } from "@/shared/ui";
 import {
   isoToJalali,
   jalaliToIso,
@@ -27,24 +20,20 @@ const EVENT_PRESETS = [
   "فارغ‌التحصیلی",
   "جشن نامزدی",
   "خرید خانه",
+  "خرید خودرو",
   "شروع کار",
   "بازنشستگی",
 ] as const;
 
 export function EventsCard() {
-  const { events, members, useCases, refreshData, member } = useApp();
+  const { events, useCases, refreshData, member } = useApp();
   const { show } = useToast();
 
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
-  const [forMemberId, setForMemberId] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
-
-  const activeMembers = members.filter((m) => m.status === "active");
-  const memberNameOf = (id: string | null) =>
-    id ? activeMembers.find((m) => m.id === id)?.name ?? null : null;
 
   async function add() {
     setBusy(true);
@@ -54,12 +43,10 @@ export function EventsCard() {
         title: title.trim(),
         date: jalaliToIso(parsed),
         note: note.trim() || null,
-        forMemberId: forMemberId || null,
       });
       setOpen(false);
       setTitle("");
       setDate("");
-      setForMemberId("");
       setNote("");
       show("رویداد ثبت شد");
       await refreshData();
@@ -102,7 +89,6 @@ export function EventsCard() {
       {events.length ? (
         events.map((ev) => {
           const jd = isoToJalali(ev.date);
-          const forName = memberNameOf(ev.forMemberId);
           return (
             <div className="event-item" key={ev.id}>
               <div className="event-date-badge">
@@ -111,12 +97,6 @@ export function EventsCard() {
               </div>
               <div className="event-info">
                 <h5>{ev.title}</h5>
-                {forName && !ev.title.includes(forName) ? (
-                  <span className="event-member">
-                    <i>{forName.charAt(0)}</i>
-                    {forName}
-                  </span>
-                ) : null}
                 {ev.note ? <p>{ev.note}</p> : null}
                 <p>{formatLong(jd)}</p>
               </div>
@@ -168,23 +148,6 @@ export function EventsCard() {
               <JalaliDateInput value={date} onChange={setDate} />
             </Field>
           </div>
-          {activeMembers.length ? (
-            <div className="form-row full">
-              <Field label="متعلق به کدام عضو؟ (اختیاری)">
-                <Select
-                  value={forMemberId}
-                  onChange={setForMemberId}
-                  options={[
-                    { value: "", label: "بدون عضو خاص" },
-                    ...activeMembers.map((m) => ({
-                      value: m.id,
-                      label: m.name,
-                    })),
-                  ]}
-                />
-              </Field>
-            </div>
-          ) : null}
           <div className="form-row full">
             <Field label="توضیح (اختیاری)">
               <TextInput value={note} onChange={setNote} />

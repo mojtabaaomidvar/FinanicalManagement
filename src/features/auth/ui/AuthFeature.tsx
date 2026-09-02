@@ -6,11 +6,13 @@ import { useToast } from "@/app/providers/ToastProvider";
 import { useAuthModel } from "../model/useAuthModel";
 import { MEMBER_RELATIONS } from "@/domain/family/family.types";
 import { toFa } from "@/shared/lib/digits";
+import { usePwaUpdateState } from "@/app/pwaUpdate.tsx";
 
 export function AuthFeature() {
   const { useCases, onAuthenticated, refreshData } = useApp();
   const { show } = useToast();
   const m = useAuthModel(useCases!, show);
+  const { updateReady, applyUpdate } = usePwaUpdateState();
 
   const otpStep = m.step === "otp";
   const isRegister = m.mode === "register";
@@ -34,7 +36,8 @@ export function AuthFeature() {
         <div className="auth-otp">
           <h2>کد تأیید</h2>
           <p className="auth-note">
-            کد ۶ رقمی ارسال‌شده به <b>{toFa(m.flow?.phone ?? "")}</b> را وارد کنید
+            کد ۶ رقمی ارسال‌شده به <b>{toFa(m.flow?.phone ?? "")}</b> را وارد
+            کنید
           </p>
           {m.devCode ? (
             <div className="otp-hint">
@@ -91,6 +94,18 @@ export function AuthFeature() {
         <h1>خانه یار</h1>
         <p>دستیار مالی خانواده</p>
       </header>
+
+      {updateReady ? (
+        <div className="update-banner" role="status">
+          <div>
+            <b>نسخه جدید آماده است</b>
+            <p>اول به‌روزرسانی کن، بعد وارد شو</p>
+          </div>
+          <button type="button" className="btn-primary" onClick={applyUpdate}>
+            به‌روزرسانی
+          </button>
+        </div>
+      ) : null}
 
       {/* سوییچر قرصی با نشانگر متحرک */}
       <div className={`auth-switch ${isRegister ? "reg" : ""}`}>
@@ -193,7 +208,7 @@ export function AuthFeature() {
               <input
                 className="auth-input"
                 type="text"
-                placeholder="نام خانواده (مثلاً احمدی)"
+                placeholder="نام خانواده"
                 value={m.regFamily}
                 onChange={(e) => m.setRegFamily(e.target.value)}
               />

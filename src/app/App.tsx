@@ -1,9 +1,10 @@
 /* ریشه اپ — ناوبری، لینک دعوت، تب‌بار، پیامک‌های pending */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "./providers/AppProvider";
 import { useTheme } from "./providers/useTheme";
 import type { Route } from "./router";
+import { PwaUpdateProvider, usePwaUpdateState } from "./pwaUpdate.tsx";
 import { AuthFeature, InviteAcceptFeature } from "@/features/auth";
 import { TransactionFormFeature, useTxFormModel } from "@/features/transaction-form";
 import { PendingSmsFeature } from "@/features/pending-sms";
@@ -24,10 +25,20 @@ const TAB_ORDER: Route[] = [
 ];
 
 export function App() {
+  return (
+    <PwaUpdateProvider>
+      <AppBody />
+    </PwaUpdateProvider>
+  );
+}
+
+function AppBody() {
   const { phase, useCases, member, refreshData } = useApp();
   const [route, setRoute] = useState<Route>("dashboard");
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const { show } = useToast();
+  const { updateReady, applyUpdate } = usePwaUpdateState();
 
   useTheme(member, useCases);
 
@@ -43,6 +54,18 @@ export function App() {
       void refreshData().then(() => setRefreshKey((k) => k + 1));
     }
   }, [phase, refreshData]);
+
+  /* نسخه جدید + کاربر لاگین‌شده → نوتیفیکیشن با دکمه به‌روزرسانی (یک‌بار) */
+  const notifiedUpdate = useRef(false);
+  useEffect(() => {
+    if (updateReady && phase === "ready" && !notifiedUpdate.current) {
+      notifiedUpdate.current = true;
+      show("نسخه جدید خانه یار منتشر شده است", {
+        label: "به‌روزرسانی",
+        onClick: applyUpdate,
+      });
+    }
+  }, [updateReady, phase, applyUpdate, show]);
 
   const bumpRefresh = useCallback(async () => {
     await refreshData();
