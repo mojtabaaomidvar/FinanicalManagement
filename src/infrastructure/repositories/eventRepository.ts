@@ -29,6 +29,7 @@ export class SupabaseEventRepository implements EventRepository {
       p_date: input.date,
       p_note: input.note ?? null,
       p_member_id: input.memberId ?? null,
+      p_for_member_id: input.forMemberId ?? null,
     });
     return mapEvent(row);
   }

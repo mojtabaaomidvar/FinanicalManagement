@@ -5,7 +5,7 @@ import { useApp } from "@/app/providers/AppProvider";
 import { useTxListModel } from "../model/useTxListModel";
 import { Segmented } from "@/shared/ui";
 import { isoToJalali, formatISO } from "@/shared/lib/jalali";
-import { formatSigned, formatAmount } from "@/shared/lib/format";
+import { formatAmount } from "@/shared/lib/format";
 import { toDisplay } from "@/shared/lib/currency";
 import type { Transaction } from "@/domain/transaction/transaction.types";
 import type { TxFormModel } from "@/features/transaction-form";
@@ -53,7 +53,7 @@ export function TransactionListFeature({ form }: { form: TxFormModel }) {
                 <span className="day-sum">
                   ·{" "}
                   {g.income ? (
-                    <span style={{ color: "var(--income)" }}>+{formatAmount(toDisplay(g.income, cur))}</span>
+                    <span style={{ color: "var(--income)" }}>{formatAmount(toDisplay(g.income, cur))}</span>
                   ) : null}
                   {g.income && g.expense ? " · " : ""}
                   {g.expense ? (
@@ -123,7 +123,7 @@ export function TxRow({
         </p>
       </div>
       <div className={`tx-amount ${tx.type}`}>
-        <b>{formatSigned(toDisplay(tx.amount, currency), tx.type)}</b>
+        <b>{formatAmount(toDisplay(tx.amount, currency))}</b>
         <span>{currency || "تومان"}</span>
       </div>
     </div>

@@ -1626,6 +1626,7 @@ create table if not exists public.family_events (
   id         uuid primary key default gen_random_uuid(),
   family_id  uuid not null references public.families(id) on delete cascade,
   member_id  uuid references public.members(id) on delete set null,
+  for_member_id uuid references public.members(id) on delete set null,
   title      text not null,
   date       date not null,
   note       text,
@@ -1633,6 +1634,19 @@ create table if not exists public.family_events (
 );
 
 create index if not exists idx_events_family on public.family_events(family_id);
+
+-- مهاجرت دیتابیس‌های موجود: عضوِ مربوط به رویداد (اختیاری)
+alter table public.family_events
+  add column if not exists for_member_id uuid references public.members(id) on delete set null;
+
+-- رویدادهای تولدِ ساخته‌شده با sync قبلی → عضو مربوطه را پر کن
+update public.family_events e
+set for_member_id = e.member_id
+from public.members m
+where e.for_member_id is null
+  and e.member_id = m.id
+  and e.family_id = m.family_id
+  and e.title = 'تولد ' || m.name;
 
 alter table public.family_events enable row level security;
 -- بدون پالیسی → دسترسی فقط از طریق RPC
@@ -1656,7 +1670,8 @@ end $$;
 
 create or replace function public.add_event(
   p_token text, p_title text, p_date date, p_note text,
-  p_member_id uuid default null
+  p_member_id uuid default null,
+  p_for_member_id uuid default null
 ) returns json
 language plpgsql security definer set search_path = public as $$
 declare
@@ -1681,19 +1696,27 @@ begin
     raise exception 'FORBIDDEN';
   end if;
 
-  -- دی‌دوبل: رویداد هم‌عنوان هم‌تاریخ برای همان عضو قبلا هست
+  -- عضو مربوطه باید عضو فعال همین خانواده باشد (مثلاً تولدِ کدام عضو)
+  if p_for_member_id is not null and not exists (
+    select 1 from public.members
+    where id = p_for_member_id and family_id = v_family_id and status = 'active'
+  ) then
+    raise exception 'INVALID_MEMBER';
+  end if;
+
+  -- دی‌دوبل: رویداد هم‌عنوان هم‌تاریخ برای همان عضو مربوطه قبلا هست
   if exists (
     select 1 from public.family_events
     where family_id = v_family_id
       and title = btrim(p_title)
       and date = p_date
-      and (p_member_id is null or member_id = p_member_id)
+      and ((p_for_member_id is null and for_member_id is null) or for_member_id = p_for_member_id)
   ) then
     raise exception 'EVENT_DUPLICATE';
   end if;
 
-  insert into public.family_events (family_id, member_id, title, date, note)
-  values (v_family_id, coalesce(p_member_id, v_actor), btrim(p_title), p_date,
+  insert into public.family_events (family_id, member_id, for_member_id, title, date, note)
+  values (v_family_id, coalesce(p_member_id, v_actor), p_for_member_id, btrim(p_title), p_date,
           nullif(btrim(coalesce(p_note, '')), ''))
   returning * into v_row;
 
@@ -1751,8 +1774,8 @@ begin
     limit 1;
 
     if not found then
-      insert into public.family_events (family_id, member_id, title, date, note)
-      values (v_family_id, v_member.id, 'تولد ' || v_member.name, v_member.birth_date, null);
+      insert into public.family_events (family_id, member_id, for_member_id, title, date, note)
+      values (v_family_id, v_member.id, v_member.id, 'تولد ' || v_member.name, v_member.birth_date, null);
       v_count := v_count + 1;
     elsif v_event.date <> v_member.birth_date then
       update public.family_events

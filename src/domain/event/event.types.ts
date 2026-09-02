@@ -4,6 +4,8 @@ export interface FamilyEvent {
   id: string;
   familyId: string;
   memberId: string | null;
+  /** رویدادِ متعلق به کدام عضو (اختیاری — مثلاً تولدِ چه کسی) */
+  forMemberId: string | null;
   title: string;
   /** "YYYY-MM-DD" میلادی */
   date: string;
@@ -16,8 +18,10 @@ export interface EventInput {
   /** "YYYY-MM-DD" میلادی */
   date: string;
   note?: string | null;
-  /** عضوِ رویداد (اختیاری — مدیر می‌تواند برای دیگری بسازد) */
+  /** سازنده رویداد (اختیاری — مدیر می‌تواند برای دیگری بسازد) */
   memberId?: string | null;
+  /** عضوِ مربوط به رویداد (اختیاری — مثلاً تولدِ کدام عضو) */
+  forMemberId?: string | null;
 }
 
 export interface EventRepository {

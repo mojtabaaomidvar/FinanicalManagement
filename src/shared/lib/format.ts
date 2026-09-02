@@ -2,14 +2,9 @@
 
 import { toFa, toEn } from "./digits";
 
-/* ۱۲۳۴۵۶۷ → "۱,۲۳۴,۵۶۷" */
+/* ۱۲۳۴۵۶۷ → "۱,۲۳۴,۵۶۷" (بدون علامت — مثبت/منفی را رنگ نشان می‌دهد) */
 export function formatAmount(n: number): string {
   return toFa(Math.round(Math.abs(n)).toLocaleString("en-US"));
-}
-
-/* مبلغ با علامت: درآمد +۱,۲۳۴ / هزینه ۱,۲۳۴ (قرمز از رنگ کلاس می‌آید) */
-export function formatSigned(n: number, type: "income" | "expense"): string {
-  return type === "income" ? "+" + formatAmount(n) : formatAmount(n);
 }
 
 /* درصد فارسی */

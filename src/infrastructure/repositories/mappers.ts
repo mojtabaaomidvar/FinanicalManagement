@@ -174,6 +174,7 @@ export interface EventRow {
   id: string;
   family_id: string;
   member_id: string | null;
+  for_member_id: string | null;
   title: string;
   date: string;
   note: string | null;
@@ -187,6 +188,7 @@ export function mapEvent(
     id: r.id,
     familyId: r.family_id,
     memberId: r.member_id,
+    forMemberId: r.for_member_id ?? null,
     title: r.title,
     date: r.date,
     note: r.note,

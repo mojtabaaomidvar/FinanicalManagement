@@ -7,7 +7,7 @@ import { sortTxDesc } from "@/domain/transaction/transaction.rules";
 import { searchTransactions } from "@/domain/report/report.rules";
 import type { CategoryResolver } from "@/domain/category/resolve";
 import { isoToJalali, formatISO, formatWeekday } from "@/shared/lib/jalali";
-import { formatAmount, formatSigned } from "@/shared/lib/format";
+import { formatAmount } from "@/shared/lib/format";
 
 export type TxFilter = "all" | "expense" | "income";
 
@@ -71,6 +71,5 @@ export function useTxListModel(
     groups,
     memberNameOf,
     amountText: formatAmount,
-    signedText: formatSigned,
   };
 }
