@@ -1,6 +1,8 @@
 /* httpClient مرکزی — تنها نقطه خروج درخواست‌های API
+   - دو مسیر: مستقیم به Supabase (خارج از ایران / با VPN) و
+     پروکسی سرورلس /api/rpc (عبور از مسدودسازی دامنه supabase.co در ایران)
+   - مسیر موفق کش می‌شود؛ خطای شبکه → مسیر دیگر به‌صورت خودکار امتحان می‌شود
    - HTTPS اجباری (به‌جز localhost)
-   - هدرهای Supabase (apikey / Authorization)
    - نرمال‌سازی خطاها به AppError با پیام فارسی
    هیچ fetch مستقیمی خارج از این فایل مجاز نیست. */
 
@@ -54,6 +56,104 @@ function assertHttps(url: string): void {
   }
 }
 
+/* ── دو مسیر ارتباط ── */
+
+type RawResponse = { ok: boolean; status: number; text: string };
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: ctl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** مستقیم به PostgREST ساپابیس (مسیر پیش‌فرض — خارج از ایران) */
+async function rpcDirect(
+  fn: string,
+  params: Record<string, unknown>,
+  timeoutMs: number,
+): Promise<RawResponse> {
+  const url = `${supabaseConfig.url.replace(/\/$/, "")}/rest/v1/rpc/${fn}`;
+  assertHttps(url);
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(url, {
+      method: "POST",
+      headers: {
+        apikey: supabaseConfig.anonKey,
+        Authorization: "Bearer " + supabaseConfig.anonKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(params),
+    }, timeoutMs);
+  } catch {
+    throw new AppError("NETWORK", "اتصال مستقیم به سرور ممکن نشد");
+  }
+  return { ok: res.ok, status: res.status, text: await res.text() };
+}
+
+/** از طریق تابع سرورلس /api/rpc روی همان دامنه (عبور از مسدودسازی) */
+async function rpcProxy(
+  fn: string,
+  params: Record<string, unknown>,
+  timeoutMs: number,
+): Promise<RawResponse> {
+  let res: Response;
+  try {
+    res = await fetchWithTimeout("/api/rpc", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fn, params }),
+    }, timeoutMs);
+  } catch {
+    throw new AppError("NETWORK", "سرور میانی در دسترس نیست");
+  }
+  const text = await res.text();
+  /* پاسخ HTML = تابع سرورلس اجرا نشده (vite dev بدون vercel dev) */
+  if (text.startsWith("<")) {
+    throw new AppError(
+      "SERVER",
+      "سرور میانی در دسترس نیست — برای اجرای محلی یا VPN را روشن کنید یا از «npx vercel dev» استفاده کنید",
+    );
+  }
+  return { ok: res.ok, status: res.status, text };
+}
+
+/** تبدیل پاسخ خام به نتیجه یا خطای فارسی */
+function parseRpcResult<T>(raw: RawResponse): T {
+  let data: unknown = null;
+  try {
+    data = raw.text ? JSON.parse(raw.text) : null;
+  } catch {
+    /* بدنه غیر JSON */
+  }
+  if (!raw.ok) {
+    const msg =
+      (data as { message?: string } | null)?.message ?? raw.text ?? "";
+    throw mapRpcError(msg, raw.status);
+  }
+  return data as T;
+}
+
+/* ── انتخاب مسیر: اولین درخواست هر دو را می‌سنجد و مسیر سالم را نگه می‌دارد ── */
+
+type RpcMode = "direct" | "proxy";
+let cachedMode: RpcMode | null = null;
+
+const PROBE_TIMEOUT_MS = 6000;
+const RUN_TIMEOUT_MS = 15000;
+
+function isNetworkError(e: unknown): boolean {
+  return e instanceof AppError && e.code === "NETWORK";
+}
+
 /** فراخوانی تابع RPC ساپابیس — تنها مسیر مجاز دسترسی به داده */
 export async function rpc<T>(
   fn: string,
@@ -66,36 +166,43 @@ export async function rpc<T>(
     );
   }
 
-  const url = `${supabaseConfig.url.replace(/\/$/, "")}/rest/v1/rpc/${fn}`;
-  assertHttps(url);
+  if (cachedMode === "proxy") {
+    try {
+      return parseRpcResult<T>(await rpcProxy(fn, params, RUN_TIMEOUT_MS));
+    } catch (e) {
+      /* مسیر پروکسی قطع شد (مثلاً VPN روشن شد) → مسیر مستقیم */
+      if (!isNetworkError(e)) throw e;
+      cachedMode = null;
+    }
+  } else if (cachedMode === "direct") {
+    try {
+      return parseRpcResult<T>(await rpcDirect(fn, params, RUN_TIMEOUT_MS));
+    } catch (e) {
+      if (!isNetworkError(e)) throw e;
+      cachedMode = null;
+    }
+  }
 
-  let res: Response;
+  /* مسیر کش نشده — سنجش مستقیم با مهلت کوتاه، سپس پروکسی */
   try {
-    res = await fetch(url, {
-      method: "POST",
-      headers: {
-        apikey: supabaseConfig.anonKey,
-        Authorization: "Bearer " + supabaseConfig.anonKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(params),
-    });
-  } catch {
-    throw new AppError("NETWORK", "خطای شبکه — اتصال اینترنت را بررسی کنید");
+    const raw = await rpcDirect(fn, params, PROBE_TIMEOUT_MS);
+    cachedMode = "direct";
+    return parseRpcResult<T>(raw);
+  } catch (e) {
+    if (!isNetworkError(e)) throw e;
   }
 
-  const text = await res.text();
-  let data: unknown = null;
   try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    /* بدنه غیر JSON */
+    const raw = await rpcProxy(fn, params, RUN_TIMEOUT_MS);
+    cachedMode = "proxy";
+    return parseRpcResult<T>(raw);
+  } catch (e) {
+    if (isNetworkError(e)) {
+      throw new AppError(
+        "NETWORK",
+        "اتصال به سرور ممکن نیست — اینترنت یا VPN خود را بررسی کنید",
+      );
+    }
+    throw e;
   }
-
-  if (!res.ok) {
-    const msg =
-      (data as { message?: string } | null)?.message ?? text ?? "";
-    throw mapRpcError(msg, res.status);
-  }
-  return data as T;
 }
