@@ -22,7 +22,7 @@ const CORS = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
-module.exports = async (req, res) => {
+export default async (req, res) => {
   /* CORS preflight */
   if (req.method === "OPTIONS") {
     res.writeHead(204, CORS);

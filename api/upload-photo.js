@@ -19,7 +19,7 @@ const MAX_BASE64 = 1_400_000; /* ~1MB تصویر */
 const BUCKET = "tx-photos";
 const ALLOWED = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
 
-module.exports = async (req, res) => {
+export default async (req, res) => {
   if (req.method === "OPTIONS") {
     res.writeHead(204, CORS);
     return res.end();

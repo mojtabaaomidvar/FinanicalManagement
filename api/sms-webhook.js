@@ -20,7 +20,7 @@ const CORS = {
 
 const MAX_TEXT_LENGTH = 2000;
 
-module.exports = async (req, res) => {
+export default async (req, res) => {
   if (req.method === "OPTIONS") {
     res.writeHead(204, CORS);
     return res.end();

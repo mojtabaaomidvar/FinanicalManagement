@@ -23,7 +23,7 @@ const CORS = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
-module.exports = async (req, res) => {
+export default async (req, res) => {
   if (req.method === "OPTIONS") {
     res.writeHead(204, CORS);
     return res.end();
@@ -53,15 +53,22 @@ module.exports = async (req, res) => {
   }
 
   const url = `${SB_URL.replace(/\/$/, "")}/rest/v1/rpc/${fn}`;
-  const r = await fetch(url, {
-    method: "POST",
-    headers: {
-      apikey: SB_KEY,
-      Authorization: "Bearer " + SB_KEY,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(params),
-  });
+  let r;
+  try {
+    r = await fetch(url, {
+      method: "POST",
+      headers: {
+        apikey: SB_KEY,
+        Authorization: "Bearer " + SB_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(params),
+    });
+  } catch (e) {
+    /* شبکه خروجی (مثلاً اجرای محلی بدون VPN در ایران) */
+    console.error("rpc proxy fetch failed:", e?.message);
+    return json(res, 502, { error: "UPSTREAM_UNREACHABLE" });
+  }
 
   const text = await r.text();
   const ct = r.headers.get("content-type") || "application/json";

@@ -38,7 +38,8 @@
       "Bash(curl.exe *)",
       "Bash(npx *)",
       "Bash(do *)",
-      "Bash(nslookup *)"
+      "Bash(nslookup *)",
+      "Bash(ping *)"
     ]
   },
   "$version": 4
