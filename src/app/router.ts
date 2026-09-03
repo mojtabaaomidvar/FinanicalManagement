@@ -7,6 +7,7 @@ export type Route =
   | "transactions"
   | "reports"
   | "accounts"
+  | "budgets"
   | "settings";
 
 export const MAIN_ROUTES: Route[] = [
@@ -14,5 +15,6 @@ export const MAIN_ROUTES: Route[] = [
   "transactions",
   "reports",
   "accounts",
+  "budgets",
   "settings",
 ];

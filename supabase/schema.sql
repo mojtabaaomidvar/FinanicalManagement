@@ -1946,6 +1946,97 @@ begin
 end $$;
 
 -- ═══════════════════════════════════════════════════════════
+-- بودجه دسته‌های هزینه — سقف ماهانه هر دسته (مصرف هر ماه از صفر)
+-- ═══════════════════════════════════════════════════════════
+
+create table if not exists public.category_budgets (
+  id         uuid primary key default gen_random_uuid(),
+  family_id  uuid not null references public.families(id) on delete cascade,
+  category   text not null,
+  amount     numeric(15,2) not null check (amount > 0),
+  created_at timestamptz not null default now(),
+  unique (family_id, category)
+);
+
+create index if not exists idx_cat_budgets_family on public.category_budgets(family_id);
+
+alter table public.category_budgets enable row level security;
+-- بدون پالیسی → دسترسی فقط از طریق RPC
+
+-- فهرست بودجه‌های خانواده (همه اعضا می‌بینند)
+create or replace function public.list_category_budgets(p_token text)
+returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+begin
+  v_family_id := public._family_id(p_token);
+  return coalesce((
+    select json_agg(row_to_json(b))
+    from (
+      select * from public.category_budgets
+      where family_id = v_family_id
+      order by created_at
+    ) b
+  ), '[]'::json);
+end $$;
+
+-- تعیین/به‌روزرسانی بودجه یک دسته (فقط مدیر خانواده)
+create or replace function public.set_category_budget(
+  p_token text, p_category text, p_amount numeric
+) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+  v_role text;
+  v_row public.category_budgets;
+begin
+  v_family_id := public._family_id(p_token);
+  select role into v_role from public.members where id = public._session_member_id(p_token);
+  if v_role <> 'owner' then
+    raise exception 'FORBIDDEN';
+  end if;
+
+  if p_category is null or length(btrim(p_category)) < 1 or length(p_category) > 60 then
+    raise exception 'INVALID_CATEGORY';
+  end if;
+  if p_amount is null or p_amount <= 0 or p_amount > 999999999999 then
+    raise exception 'INVALID_AMOUNT';
+  end if;
+
+  insert into public.category_budgets (family_id, category, amount)
+  values (v_family_id, btrim(p_category), p_amount)
+  on conflict (family_id, category)
+  do update set amount = excluded.amount
+  returning * into v_row;
+
+  return to_jsonb(v_row);
+end $$;
+
+-- حذف بودجه یک دسته (فقط مدیر خانواده)
+create or replace function public.delete_category_budget(
+  p_token text, p_category text
+) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+  v_role text;
+begin
+  v_family_id := public._family_id(p_token);
+  select role into v_role from public.members where id = public._session_member_id(p_token);
+  if v_role <> 'owner' then
+    raise exception 'FORBIDDEN';
+  end if;
+
+  delete from public.category_budgets
+  where family_id = v_family_id and category = p_category;
+
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+end $$;
+
+-- ═══════════════════════════════════════════════════════════
 -- باکت‌های Supabase Storage — خواندن عمومی، نوشتن فقط سرور
 -- ═══════════════════════════════════════════════════════════
 

@@ -4,13 +4,14 @@ import { categoryById } from "../category/category.catalog";
 import type { CategoryResolver } from "../category/resolve";
 import { sortTxDesc } from "../transaction/transaction.rules";
 import type { Transaction } from "../transaction/transaction.types";
-import { isoToJalali, prevMonth, MONTHS, formatISO } from "@/shared/lib/jalali";
+import { isoToJalali, prevMonth, MONTHS, formatISO, addDays, shortWeekday, jalaliToIso, type JDate } from "@/shared/lib/jalali";
 import { formatAmount } from "@/shared/lib/format";
 import type {
   CategorySlice,
   DailyExpense,
   MonthTotals,
   SixMonthSeries,
+  WeekFlow,
 } from "./report.types";
 
 /* جمع مبالغ یک نوع (درآمد/هزینه) */
@@ -83,6 +84,28 @@ export function sixMonthSeries(
 /* n تراکنش اخیر */
 export function recentTransactions(list: Transaction[], n: number): Transaction[] {
   return sortTxDesc(list).slice(0, n);
+}
+
+/* جریان نقدی ۷ روز منتهی به end (روز آخر = end) — قدیمی → جدید */
+export function weekFlow(list: Transaction[], end: JDate): WeekFlow {
+  const idxOf = new Map<string, number>();
+  const labels: string[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = addDays(end, -i);
+    idxOf.set(jalaliToIso(d), 6 - i);
+    labels.push(shortWeekday(d));
+  }
+  const income = new Array<number>(7).fill(0);
+  const expense = new Array<number>(7).fill(0);
+  for (const t of list) {
+    const idx = idxOf.get(t.date);
+    if (idx === undefined) continue;
+    if (t.type === "income") income[idx] += t.amount;
+    else expense[idx] += t.amount;
+  }
+  const totalIn = income.reduce((s, v) => s + v, 0);
+  const totalOut = expense.reduce((s, v) => s + v, 0);
+  return { labels, income, expense, totalIn, totalOut, net: totalIn - totalOut };
 }
 
 /* جستجو: یادداشت، دسته، نام عضو، مبلغ، تاریخ جلالی */

@@ -23,6 +23,16 @@ export interface SixMonthSeries {
   expense: number[];
 }
 
+export interface WeekFlow {
+  /** حرف روز هفته (۷ روز، قدیمی → جدید) */
+  labels: string[];
+  income: number[];
+  expense: number[];
+  totalIn: number;
+  totalOut: number;
+  net: number;
+}
+
 export interface DashboardSummary {
   balance: number;
   month: MonthTotals;

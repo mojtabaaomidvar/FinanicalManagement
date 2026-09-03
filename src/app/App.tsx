@@ -12,6 +12,7 @@ import { DashboardPage } from "@/pages/DashboardPage";
 import { TransactionsPage } from "@/pages/TransactionsPage";
 import { ReportsPage } from "@/pages/ReportsPage";
 import { AccountsPage } from "@/pages/AccountsPage";
+import { BudgetsPage } from "@/pages/BudgetsPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { useToast } from "./providers/ToastProvider";
 
@@ -92,13 +93,14 @@ function AppBody() {
   );
 }
 
-/* آیتم‌های تب‌بار — خانه دایره جدا شناور است (null = جای خالی وسط) */
-const NAV_ITEMS: ({ r: Route; icon: string; label: string } | null)[] = [
-  { r: "transactions", icon: "i-receipt", label: "تراکنش‌ها" },
-  { r: "reports", icon: "i-chart", label: "گزارش‌ها" },
-  null,
-  { r: "accounts", icon: "i-card", label: "کارت‌ها" },
-  { r: "settings", icon: "i-gear", label: "تنظیمات" },
+/* آیتم‌های تب‌بار (RTL) — خانه اول؛ FAB پلاس جدا از نوار است
+   تراکنش‌ها از هدر خانه (جستجو) و دکمه «همه» دسترس‌پذیر است */
+const NAV_ITEMS: { r: Route; icon: string; label: string }[] = [
+  { r: "dashboard", icon: "i-home", label: "خانه" },
+  { r: "accounts", icon: "i-card", label: "حساب‌ها" },
+  { r: "reports", icon: "i-chart", label: "نمای‌کلی" },
+  { r: "budgets", icon: "i-wallet", label: "بودجه‌ها" },
+  { r: "settings", icon: "i-gear", label: "بیشتر" },
 ];
 
 function MainShell({
@@ -124,6 +126,11 @@ function MainShell({
     family?.currency ?? "تومان",
   );
 
+  const activeIdx = Math.max(
+    0,
+    NAV_ITEMS.findIndex((t) => t.r === route),
+  );
+
   const nav = useCallback(
     (r: Route) => {
       setRoute(r);
@@ -145,19 +152,32 @@ function MainShell({
         {route === "transactions" ? <TransactionsPage form={form} /> : null}
         {route === "reports" ? <ReportsPage form={form} /> : null}
         {route === "accounts" ? <AccountsPage /> : null}
+        {route === "budgets" ? <BudgetsPage /> : null}
         {route === "settings" ? <SettingsPage /> : null}
       </div>
 
       <TransactionFormFeature form={form} />
       <PendingSmsFeature refreshKey={refreshKey} />
 
-      <nav className="tabbar tabbar-5" aria-label="ناوبری اصلی">
-        {/* ترتیب RTL: تراکنش‌ها، گزارش‌ها — ناچ خانه — کارت‌ها، تنظیمات */}
-        {NAV_ITEMS.map((t, i) =>
-          t ? (
+      {/* داک پایین — دو المان مجزا: نوار شیشه‌ای تب‌ها + FAB پلاس */}
+      <div className="tabbar-dock">
+        <nav className="tabbar tabbar-5" aria-label="ناوبری اصلی">
+          {/* پیل لغزنده — کپسول محو پشت تب فعال */}
+          <span
+            className="tab-pill"
+            aria-hidden="true"
+            style={{
+              insetInlineStart: `calc(${activeIdx} * 20% + 5px)`,
+              width: "calc(20% - 10px)",
+            }}
+          />
+
+          {/* ترتیب RTL: خانه، حساب‌ها، نمای‌کلی، بودجه‌ها، بیشتر */}
+          {NAV_ITEMS.map((t) => (
             <button
               key={t.r}
               className={`tab-btn ${route === t.r ? "active" : ""}`}
+              aria-current={route === t.r ? "page" : undefined}
               onClick={() => nav(t.r)}
             >
               <span className="tab-ico">
@@ -167,24 +187,21 @@ function MainShell({
               </span>
               <span className="tab-label">{t.label}</span>
             </button>
-          ) : (
-            <span key={`slot-${i}`} aria-hidden="true" />
-          ),
-        )}
+          ))}
+        </nav>
 
-        {/* خانه — FAB نشسته در ناچ وسط لبه بالای نوار */}
+        {/* FAB پلاس — افزودن تراکنش، جدا از نوار با گپ مشخص */}
         <button
           type="button"
-          className={`tab-home ${route === "dashboard" ? "active" : ""}`}
-          aria-label="خانه"
-          aria-current={route === "dashboard" ? "page" : undefined}
-          onClick={() => nav("dashboard")}
+          className="fab-add"
+          aria-label="افزودن تراکنش"
+          onClick={() => form.openNew()}
         >
           <svg>
-            <use href="#i-home" />
+            <use href="#i-plus" />
           </svg>
         </button>
-      </nav>
+      </div>
     </>
   );
 }

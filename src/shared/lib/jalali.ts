@@ -191,3 +191,18 @@ export function jalaliToIso([jy, jm, jd]: JDate): string {
   const [gy, gm, gd] = toGregorian(jy, jm, jd);
   return `${gy}-${String(gm).padStart(2, "0")}-${String(gd).padStart(2, "0")}`;
 }
+
+/* ── n روز جابه‌جا (مثبت = آینده، منفی = گذشته) ── */
+export function addDays(d: JDate, n: number): JDate {
+  const [gy, gm, gd] = toGregorian(d[0], d[1], d[2]);
+  const dt = new Date(gy, gm - 1, gd + n);
+  return toJalali(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
+}
+
+/* ── حرف روز هفته (getDay: ۰=یکشنبه … ۶=شنبه) ── */
+export const WEEKDAYS_SHORT = ["ی", "د", "س", "چ", "پ", "ج", "ش"] as const;
+
+export function shortWeekday(d: JDate): string {
+  const [gy, gm, gd] = toGregorian(d[0], d[1], d[2]);
+  return WEEKDAYS_SHORT[new Date(gy, gm - 1, gd).getDay()];
+}

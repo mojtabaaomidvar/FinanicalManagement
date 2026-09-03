@@ -6,7 +6,9 @@ import {
   categoryBreakdown,
   dailyExpenses,
   sixMonthSeries,
+  weekFlow,
 } from "./report.rules";
+import { isoToJalali } from "@/shared/lib/jalali";
 import type { Transaction } from "../transaction/transaction.types";
 
 const tx = (
@@ -80,5 +82,30 @@ describe("محاسبات مالی گزارش", () => {
     expect(totalBalance([])).toBe(0);
     expect(categoryBreakdown([])).toEqual([]);
     expect(dailyExpenses([])).toEqual([]);
+  });
+
+  it("جریان نقدی هفته — فقط ۷ روز منتهی به امروز", () => {
+    /* امروز = ۱۴۰۴/۰۶/۱۵ → پنجره ۷ روزه: ۰۶/۰۹ تا ۰۶/۱۵ */
+    const end = isoToJalali("2025-09-06"); /* ۱۴۰۴/۰۶/۱۵ */
+    const list = [
+      tx("1", "income", 500_000, "salary", "2025-09-06"),
+      tx("2", "expense", 200_000, "food", "2025-09-06"),
+      tx("3", "expense", 100_000, "food", "2025-09-01"), /* ۰۶/۱۰ — داخل پنجره */
+      tx("4", "expense", 999_000, "transport", "2025-08-30"), /* خارج از پنجره */
+    ];
+    const w = weekFlow(list, end);
+    expect(w.labels).toHaveLength(7);
+    expect(w.totalIn).toBe(500_000);
+    expect(w.totalOut).toBe(300_000);
+    expect(w.net).toBe(200_000);
+    /* روز آخر هفته = امروز */
+    expect(w.income[6]).toBe(500_000);
+    expect(w.expense[6]).toBe(200_000);
+  });
+
+  it("جریان نقدی — هفته خالی", () => {
+    const w = weekFlow([], isoToJalali("2025-09-06"));
+    expect(w.net).toBe(0);
+    expect(w.income.every((v) => v === 0)).toBe(true);
   });
 });

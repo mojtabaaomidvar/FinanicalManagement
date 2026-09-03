@@ -79,6 +79,7 @@
   --tabbar-blur: #ffffff;
   --tabbar-glass: rgba(255, 255, 255, 0.68);
   --tabbar-border: rgba(255, 255, 255, 0.65);
+  --tabbar-pill: rgba(13, 27, 42, 0.08);
   --shadow: 0 1px 3px rgba(13, 27, 42, 0.07);
   --scrim: rgba(13, 27, 42, 0.42);
 }
@@ -105,6 +106,7 @@
   --tabbar-blur: #132639;
   --tabbar-glass: rgba(19, 38, 57, 0.62);
   --tabbar-border: rgba(255, 255, 255, 0.12);
+  --tabbar-pill: rgba(255, 255, 255, 0.1);
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   --scrim: rgba(0, 0, 0, 0.55);
 }
@@ -937,6 +939,160 @@ button:active {
   background: var(--expense);
 }
 
+/* ─────────── صفحه بودجه‌بندی دسته‌ها ─────────── */
+.budget-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.budget-month {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--accent-strong);
+}
+.budget-summary-nums {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.budget-summary-nums > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: center;
+}
+.budget-summary-nums span {
+  font-size: 10.5px;
+  color: var(--text-3);
+}
+.budget-summary-nums b {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text);
+}
+.budget-summary-nums b.expense {
+  color: var(--expense);
+}
+.budget-summary-nums b.income {
+  color: var(--income);
+}
+.budget-reset-hint {
+  font-size: 10.5px;
+  color: var(--text-3);
+  line-height: 1.7;
+}
+.budget-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  font: inherit;
+  text-align: right;
+  cursor: pointer;
+  transition: background var(--dur-fast) ease;
+}
+.budget-row:last-of-type {
+  border-bottom: 0;
+}
+.budget-row:not(:disabled):hover {
+  background: var(--card-2);
+}
+.budget-row:not(:disabled):active {
+  background: var(--accent-soft);
+}
+.budget-row:disabled {
+  cursor: default;
+}
+.budget-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.budget-cat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.budget-cat svg {
+  width: 20px;
+  height: 20px;
+  color: var(--accent-strong);
+  flex-shrink: 0;
+}
+.budget-cat b {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.budget-nums {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+.budget-nums .spent {
+  font-weight: 800;
+  color: var(--text);
+}
+.budget-nums .cap {
+  color: var(--text-3);
+  font-size: 11px;
+}
+.budget-nums .cap.none {
+  color: var(--text-3);
+  opacity: 0.7;
+}
+.budget-bar {
+  height: 8px;
+  border-radius: var(--r-pill);
+  background: var(--card-2);
+  overflow: hidden;
+}
+.budget-bar .fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  transition: width 0.6s var(--ease-out);
+}
+.budget-bar .fill.warn {
+  background: var(--c3);
+}
+.budget-bar .fill.over {
+  background: var(--expense);
+}
+.budget-row-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10.5px;
+  color: var(--text-3);
+}
+.budget-row-foot .income {
+  color: var(--income);
+  font-weight: 700;
+}
+.budget-row-foot .expense {
+  color: var(--expense);
+  font-weight: 700;
+}
+.budget-perm {
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: center;
+  padding: 8px 0 2px;
+}
+
 .version-tag {
   text-align: center;
   font-size: 11px;
@@ -1295,56 +1451,63 @@ button:active {
   transform: scale(0.92);
 }
 
-/* ─────────── تب‌بار کپسول شیشه‌ای شناور (سبک iOS) ───────────
-   frosted glass واقعی: backdrop-filter بلور + اشباع روی پس‌زمینه شفاف؛
-   ناچ نیم‌دایره وسط لبه بالا با mask از بدنه شیشه‌ای بریده می‌شود
-   (سایه/بوردر هم از silhouette واقعی پیروی می‌کنند) */
-.tabbar-5 {
-  bottom: calc(14px + env(safe-area-inset-bottom));
-  left: 20px;
-  right: 20px;
-  max-width: 440px;
-  margin: 0 auto;
-  height: 58px;
-  grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+/* ─────────── داک پایین Liquid Glass (سبک iOS) ───────────
+   دو المان مجزا کنار هم: کپسول شیشه‌ای تب‌ها + FAB پلاس؛
+   شناور با فاصله از لبه‌ها، پیل محو پشت تب فعال فنری می‌لغزد */
+.tabbar-dock {
+  position: fixed;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  left: 16px;
+  right: 16px;
+  z-index: 50;
+  display: flex;
   align-items: center;
-  padding: 0 10px;
-  background: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border: none;
-  box-shadow: none;
+  justify-content: center;
+  gap: 10px;
+  /* نوار خالی داک نباید لمس محتوا را بگیرد */
+  pointer-events: none;
 }
 
-/* بدنه شیشه‌ای — روی pseudo تا ماسک ناچ، محتوای نوار را نبرد */
-.tabbar-5::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  border-radius: 999px;
+/* نوار تب — کپسول شیشه‌ای تمام‌گرد (بدون ناچ، بدون متن خانه) */
+.tabbar-5 {
+  position: relative;
+  pointer-events: auto;
+  flex: 1 1 auto;
+  max-width: 420px;
+  margin: 0;
+  height: 62px;
+  display: flex;
+  align-items: stretch;
+  padding: 0;
   background: var(--tabbar-glass);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(22px) saturate(170%);
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
   border: 1px solid var(--tabbar-border);
+  border-radius: 999px;
   box-shadow:
-    0 12px 32px rgba(13, 27, 42, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  /* بریدن ناچ: دایره شفاف به شعاع ۳۳ وسط لبه بالا (FAB ۲۹ + گپ ۴) */
-  -webkit-mask-image: radial-gradient(
-    circle at 50% 0,
-    transparent 33px,
-    #000 34px
-  );
-  mask-image: radial-gradient(circle at 50% 0, transparent 33px, #000 34px);
+    0 10px 30px rgba(13, 27, 42, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
-/* آیتم‌های کناری — آیکون بالا + برچسب زیر، هر دو هم‌مرکز */
+/* پیل لغزنده — کپسول محو فقط دور تب فعال؛ spring ≈ ۳۲۰ms */
+.tab-pill {
+  position: absolute;
+  top: 5px;
+  height: calc(100% - 10px);
+  border-radius: 999px;
+  background: var(--tabbar-pill);
+  z-index: 0;
+  pointer-events: none;
+  transition: inset-inline-start 320ms var(--ease-spring);
+}
+
+/* آیتم‌های کناری — آیکون خط‌محور بالا + برچسب کوچک زیر، هم‌مرکز */
 .tabbar-5 .tab-btn {
   position: relative;
   z-index: 1;
-  padding: 0;
-  gap: 4px;
+  flex: 1 1 0;
+  padding: 8px 0 7px;
+  gap: 3px;
   border-radius: var(--r-md);
   color: var(--text-3);
   transition: color var(--dur-med) ease;
@@ -1365,45 +1528,36 @@ button:active {
   color: inherit;
 }
 
-/* تب فعال — فقط رنگ آیکون و متن (مثل iOS) */
+/* تب فعال — هایلایت برند روی آیکون و برچسب */
 .tabbar-5 .tab-btn.active {
   color: var(--accent-strong);
 }
 
-/* خانه — FAB برجسته نشسته در ناچ؛ مرکزش روی لبه بالای نوار.
-   قطر ۵۸ = شعاع ناچ ۳۳ منهای گپ ۴ (با mask هماهنگ است) */
-.tab-home {
-  position: absolute;
-  z-index: 2;
-  top: 0;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 58px;
-  height: 58px;
+/* FAB پلاس — دایره توپر جدا از نوار؛ کنتراست بالا با پالت خنثی نوار */
+.fab-add {
+  pointer-events: auto;
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: var(--accent);
   color: #fff;
   display: grid;
   place-items: center;
+  /* سایه مستقل و قوی‌تر از نوار — اولویت بصری بالاتر */
   box-shadow:
-    0 8px 20px rgba(16, 185, 129, 0.45),
-    0 2px 6px rgba(0, 0, 0, 0.25);
+    0 10px 24px rgba(16, 185, 129, 0.5),
+    0 3px 8px rgba(0, 0, 0, 0.28);
   transition:
     box-shadow var(--dur-med) ease,
     transform var(--dur-fast) var(--ease-spring);
 }
-.tab-home svg {
-  width: 25px;
-  height: 25px;
+.fab-add svg {
+  width: 24px;
+  height: 24px;
 }
-.tab-home:active {
-  transform: translate(-50%, -50%) scale(0.93);
-}
-.tab-home.active {
-  box-shadow:
-    0 0 0 5px var(--accent-soft),
-    0 8px 20px rgba(16, 185, 129, 0.45),
-    0 2px 6px rgba(0, 0, 0, 0.25);
+.fab-add:active {
+  transform: scale(0.92);
 }
 
 .tab-btn svg {
@@ -1642,8 +1796,8 @@ button:active {
     -webkit-backdrop-filter: none;
     background: var(--bg);
   }
-  /* تب‌بار شیشه‌ای: نسخه مات بدون بلور */
-  .tabbar-5::before {
+  /* نوار شیشه‌ای: نسخه مات بدون بلور */
+  .tabbar-5 {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     background: var(--tabbar-blur);

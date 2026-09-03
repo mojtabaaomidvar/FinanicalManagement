@@ -12,6 +12,7 @@ import { SupabaseBridgeRepository } from "./bridgeRepository";
 import { SupabaseSubcategoryRepository } from "./subcategoryRepository";
 import { SupabaseCustomCategoryRepository } from "./customCategoryRepository";
 import { SupabaseEventRepository } from "./eventRepository";
+import { SupabaseCategoryBudgetRepository } from "./categoryBudgetRepository";
 import type { SecureStorage } from "@/infrastructure/storage/secureStorage.adapter";
 
 export interface Repositories {
@@ -24,6 +25,7 @@ export interface Repositories {
   subcategories: SupabaseSubcategoryRepository;
   customCategories: SupabaseCustomCategoryRepository;
   events: SupabaseEventRepository;
+  categoryBudgets: SupabaseCategoryBudgetRepository;
 }
 
 export interface Container {
@@ -53,6 +55,7 @@ export function getContainer(): Promise<Container> {
           subcategories: new SupabaseSubcategoryRepository(tokenProvider),
           customCategories: new SupabaseCustomCategoryRepository(tokenProvider),
           events: new SupabaseEventRepository(tokenProvider),
+          categoryBudgets: new SupabaseCategoryBudgetRepository(tokenProvider),
         },
       };
     })();

@@ -70,6 +70,11 @@ import {
   EnsureDefaultSubcategoriesUseCase,
   ListCustomCategoriesUseCase,
 } from "./category/custom-category.usecases";
+import {
+  DeleteCategoryBudgetUseCase,
+  ListCategoryBudgetsUseCase,
+  SetCategoryBudgetUseCase,
+} from "./budget/category-budget.usecases";
 
 export interface UseCases {
   getPublicConfig: GetPublicConfigUseCase;
@@ -134,6 +139,10 @@ export interface UseCases {
   listCustomCategories: ListCustomCategoriesUseCase;
   addCustomCategory: AddCustomCategoryUseCase;
   ensureDefaultSubcategories: EnsureDefaultSubcategoriesUseCase;
+
+  listCategoryBudgets: ListCategoryBudgetsUseCase;
+  setCategoryBudget: SetCategoryBudgetUseCase;
+  deleteCategoryBudget: DeleteCategoryBudgetUseCase;
 }
 
 export function createUseCases(c: Container): UseCases {
@@ -206,6 +215,14 @@ export function createUseCases(c: Container): UseCases {
     addCustomCategory: new AddCustomCategoryUseCase(c.repos.customCategories),
     ensureDefaultSubcategories: new EnsureDefaultSubcategoriesUseCase(
       c.repos.customCategories,
+    ),
+
+    listCategoryBudgets: new ListCategoryBudgetsUseCase(
+      c.repos.categoryBudgets,
+    ),
+    setCategoryBudget: new SetCategoryBudgetUseCase(c.repos.categoryBudgets),
+    deleteCategoryBudget: new DeleteCategoryBudgetUseCase(
+      c.repos.categoryBudgets,
     ),
   };
 }

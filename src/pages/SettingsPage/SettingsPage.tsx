@@ -8,6 +8,7 @@ import { CheckBudgetStatus } from "./CheckBudgetStatus";
 import { ProfileCard } from "./ProfileCard";
 import { EventsCard } from "./EventsCard";
 import { MembersCard } from "./MembersCard";
+import { AccountsCard } from "./AccountsCard";
 import { SettingsSubPage } from "./SettingsSubPage";
 import { useTheme } from "@/app/providers/useTheme";
 import { usePwaUpdateState } from "@/app/pwaUpdate.tsx";
@@ -174,6 +175,8 @@ export function SettingsPage() {
             {saving ? "…" : dirty ? "اعمال تغییرات" : "ذخیره شد"}
           </button>
         </Card>
+
+        <AccountsCard />
 
         <Card title="خروجی داده‌ها">
           <button

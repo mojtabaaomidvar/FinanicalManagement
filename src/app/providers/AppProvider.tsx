@@ -16,6 +16,7 @@ import type { Transaction } from "@/domain/transaction/transaction.types";
 import type { Account } from "@/domain/account/account.types";
 import type { Subcategory } from "@/domain/category/subcategory.types";
 import type { CustomCategory } from "@/domain/category/custom-category.types";
+import type { CategoryBudget } from "@/domain/category/category-budget.types";
 import type { FamilyEvent } from "@/domain/event/event.types";
 
 type Phase = "boot" | "auth" | "ready";
@@ -30,6 +31,7 @@ interface AppState {
   subcategories: Subcategory[];
   customCategories: CustomCategory[];
   events: FamilyEvent[];
+  budgets: CategoryBudget[];
   useCases: UseCases | null;
   refreshData: () => Promise<void>;
   /** به‌روزرسانی عضو فعلی پس از ذخیره پروفایل */
@@ -57,6 +59,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [],
   );
   const [events, setEvents] = useState<FamilyEvent[]>([]);
+  const [budgets, setBudgets] = useState<CategoryBudget[]>([]);
   const [useCases, setUseCases] = useState<UseCases | null>(null);
   const seeded = useRef(false);
 
@@ -107,6 +110,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         subRows,
         customCatRows,
         eventRows,
+        budgetRows,
       ] = await Promise.all([
         useCases.getFamily.execute(),
         useCases.getMembers.execute(),
@@ -115,6 +119,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         useCases.listSubcategories.execute(),
         useCases.listCustomCategories.execute(),
         useCases.listEvents.execute(),
+        /* RPC جدید — تا زمان اجرای schema.sql روی سرور ممکن است نباشد */
+        useCases.listCategoryBudgets.execute().catch(() => []),
       ]);
       setFamily(familyRow);
       setMembers(memberRows);
@@ -123,6 +129,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setSubcategories(subRows);
       setCustomCategories(customCatRows);
       setEvents(eventRows);
+      setBudgets(budgetRows);
     },
     [useCases],
   );
@@ -138,6 +145,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       subcategories,
       customCategories,
       events,
+      budgets,
       useCases,
       refreshData,
       updateMember: (m: Member) => {
@@ -159,6 +167,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setSubcategories([]);
         setCustomCategories([]);
         setEvents([]);
+        setBudgets([]);
         seeded.current = false;
         setPhase("auth");
       },
@@ -173,6 +182,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       subcategories,
       customCategories,
       events,
+      budgets,
       useCases,
       refreshData,
     ],

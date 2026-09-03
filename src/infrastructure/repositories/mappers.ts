@@ -203,3 +203,25 @@ export function mapEvent(
     createdAt: r.created_at,
   };
 }
+
+/* ── بودجه دسته‌های هزینه ── */
+
+export interface CategoryBudgetRow {
+  id: string;
+  family_id: string;
+  category: string;
+  amount: number;
+  created_at: string;
+}
+
+export function mapCategoryBudget(
+  r: CategoryBudgetRow,
+): import("@/domain/category/category-budget.types").CategoryBudget {
+  return {
+    id: r.id,
+    familyId: r.family_id,
+    category: r.category,
+    amount: Number(r.amount),
+    createdAt: r.created_at,
+  };
+}

@@ -35,7 +35,9 @@
       "Bash(move *)",
       "Bash(dir *)",
       "Bash(ren *)",
-      "Bash(curl.exe *)"
+      "Bash(curl.exe *)",
+      "Bash(npx *)",
+      "Bash(do *)"
     ]
   },
   "$version": 4
