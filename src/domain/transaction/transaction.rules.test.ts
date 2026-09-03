@@ -70,6 +70,29 @@ describe("validateTransaction", () => {
       }).error,
     ).toBe("INVALID_TRANSFER");
   });
+
+  it("تکرارشونده: تاریخ پایان الزامی، معتبر و بعد از تاریخ تراکنش", () => {
+    /* بدون تکرار → بدون نیاز به پایان */
+    expect(ok({ repeatEnd: null }).ok).toBe(true);
+    /* تکرار + پایان معتبر */
+    expect(
+      ok({ repeat: "monthly", repeatEnd: "2025-10-06" }).ok,
+    ).toBe(true);
+    /* تکرار بدون پایان */
+    expect(
+      ok({ repeat: "monthly", repeatEnd: null }).error,
+    ).toBe("INVALID_REPEAT_END");
+    /* پایان قبل از تاریخ تراکنش */
+    expect(
+      ok({ repeat: "monthly", repeatEnd: "2025-09-01" }).error,
+    ).toBe("INVALID_REPEAT_END");
+    /* پایان مساوی تاریخ تراکنش مجاز است */
+    expect(ok({ repeat: "monthly", repeatEnd: "2025-09-06" }).ok).toBe(true);
+    /* پایان نامعتبر */
+    expect(
+      ok({ repeat: "weekly", repeatEnd: "1404/07/01" }).error,
+    ).toBe("INVALID_REPEAT_END");
+  });
 });
 
 const tx = (
@@ -91,6 +114,7 @@ const tx = (
   toAccountId: null,
   subcategoryId: null,
   repeat: "none",
+  repeatEnd: null,
   photos: [],
   createdAt,
 });

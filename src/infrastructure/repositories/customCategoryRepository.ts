@@ -54,10 +54,4 @@ export class SupabaseCustomCategoryRepository
     });
     return mapCustomCategory(row);
   }
-
-  async ensureDefaults(): Promise<number> {
-    return rpc<number>("ensure_default_subcategories", {
-      p_token: await this.tok(),
-    });
-  }
 }

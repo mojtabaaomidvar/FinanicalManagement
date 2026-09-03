@@ -1,8 +1,9 @@
-/* ویجت خلاصه داشبورد — موجودی، درآمد/هزینه ماه، نمودار حلقه‌ای، اخیر */
+/* ویجت خلاصه داشبورد — کارت مالی بازطراحی‌شده (موجودی + روند ماه)،
+   نمودار هزینه ماه با نوع انتخابی کاربر، ۳ تراکنش آخر */
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
-import { Card, DonutChart, themeColors } from "@/shared/ui";
+import { Card, BarChart, DonutChart, themeColors } from "@/shared/ui";
 import { TxRow } from "@/features/transaction-list";
 import { txsInJalaliMonth } from "@/domain/transaction/transaction.rules";
 import {
@@ -18,6 +19,25 @@ import { toDisplay } from "@/shared/lib/currency";
 import { toFa } from "@/shared/lib/digits";
 import type { TxFormModel } from "@/features/transaction-form";
 
+/** نوع نمودار هزینه ماه — انتخاب کاربر؛ در localStorage ماندگار است */
+type ChartKind = "donut" | "bar";
+
+const CHART_KINDS: { value: ChartKind; label: string }[] = [
+  { value: "donut", label: "حلقه‌ای" },
+  { value: "bar", label: "ستونی" },
+];
+
+const CHART_KEY = "khaneyar.chartKind";
+
+function loadChartKind(): ChartKind {
+  try {
+    const v = localStorage.getItem(CHART_KEY);
+    return v === "bar" ? "bar" : "donut";
+  } catch {
+    return "donut";
+  }
+}
+
 export function DashboardSummaryWidget({
   form,
   onNavTransactions,
@@ -27,6 +47,7 @@ export function DashboardSummaryWidget({
 }) {
   const { txs, members, family, subcategories, customCategories } = useApp();
   const [jy, jm] = today();
+  const [chartKind, setChartKind] = useState<ChartKind>(loadChartKind);
 
   const resolve = useMemo(
     () => buildCategoryResolver(customCategories),
@@ -39,7 +60,7 @@ export function DashboardSummaryWidget({
       balance: totalBalance(txs),
       totals: monthTotals(mtx),
       cats: categoryBreakdown(mtx, resolve),
-      recent: recentTransactions(txs, 5),
+      recent: recentTransactions(txs, 3),
     };
   }, [txs, jy, jm, resolve]);
 
@@ -51,41 +72,98 @@ export function DashboardSummaryWidget({
     color: palette[i % palette.length],
   }));
 
+  /* مانده ماه = درآمد − هزینه (خروج ماه) */
+  const monthNet = data.totals.income - data.totals.expense;
+
+  function switchChart(kind: ChartKind) {
+    setChartKind(kind);
+    try {
+      localStorage.setItem(CHART_KEY, kind);
+    } catch {
+      /* حالت private browsing */
+    }
+  }
+
   return (
     <>
-      <div className="balance-card">
-        <p className="balance-label">موجودی کل خانواده</p>
-        <h2
-          style={
-            data.balance < 0 ? { color: "var(--danger)" } : undefined
-          }
-        >
-          {formatAmount(toDisplay(data.balance, cur))}
-        </h2>
-        <p className="balance-sub">{cur}</p>
-        <div className="balance-mini">
-          <div className="mini-item income">
-            <span>درآمد ماه</span>
-            <b>{formatAmount(toDisplay(data.totals.income, cur))}</b>
+      {/* ── کارت مالی اصلی (بازطراحی v7) ── */}
+      <div className="fin-hero">
+        <div className="fin-hero-top">
+          <p className="fin-hero-label">موجودی کل خانواده</p>
+          <h2
+            className="fin-hero-balance"
+            style={data.balance < 0 ? { color: "var(--danger)" } : undefined}
+          >
+            {formatAmount(toDisplay(data.balance, cur))}
+            <span className="fin-hero-cur">{cur}</span>
+          </h2>
+        </div>
+        <div className="fin-hero-grid">
+          <div className="fin-cell">
+            <span className="fin-cell-label">
+              <i className="fin-dot income" />
+              درآمد ماه
+            </span>
+            <b className="fin-cell-value income">
+              {formatAmount(toDisplay(data.totals.income, cur))}
+            </b>
           </div>
-          <div className="mini-item expense">
-            <span>هزینه ماه</span>
-            <b>{formatAmount(toDisplay(data.totals.expense, cur))}</b>
+          <div className="fin-cell">
+            <span className="fin-cell-label">
+              <i className="fin-dot expense" />
+              هزینه ماه
+            </span>
+            <b className="fin-cell-value expense">
+              {formatAmount(toDisplay(data.totals.expense, cur))}
+            </b>
+          </div>
+          <div className="fin-cell wide">
+            <span className="fin-cell-label">مانده ماه</span>
+            <b
+              className={`fin-cell-value net ${monthNet >= 0 ? "income" : "expense"}`}
+            >
+              {monthNet >= 0 ? "＋" : "−"}
+              {formatAmount(toDisplay(Math.abs(monthNet), cur))}
+            </b>
           </div>
         </div>
       </div>
 
+      {/* ── نمودار هزینه‌های ماه — نوع انتخابی کاربر ── */}
       <Card
         title="هزینه‌های ماه جاری"
-        action={<span className="badge">{formatMonth(jy, jm)}</span>}
-      >
-        <div className="donut-wrap">
-          <DonutChart data={slices} />
-          <div className="donut-center">
-            <b>{formatAmount(toDisplay(data.totals.expense, cur))}</b>
-            <span>جمع هزینه</span>
+        action={
+          <div className="chart-kind-switch">
+            {CHART_KINDS.map((k) => (
+              <button
+                key={k.value}
+                type="button"
+                className={`chart-kind-btn ${chartKind === k.value ? "active" : ""}`}
+                onClick={() => switchChart(k.value)}
+              >
+                {k.label}
+              </button>
+            ))}
           </div>
-        </div>
+        }
+      >
+        {chartKind === "donut" ? (
+          <div className="donut-wrap">
+            <DonutChart data={slices} />
+            <div className="donut-center">
+              <b>{formatAmount(toDisplay(data.totals.expense, cur))}</b>
+              <span>جمع هزینه</span>
+            </div>
+          </div>
+        ) : (
+          <BarChart
+            data={slices.map((s) => ({
+              label: s.label.length > 10 ? s.label.slice(0, 10) + "…" : s.label,
+              value: s.value,
+            }))}
+            height={200}
+          />
+        )}
         <div className="legend">
           {slices.length ? (
             slices.map((d) => (
@@ -109,10 +187,12 @@ export function DashboardSummaryWidget({
             </div>
           )}
         </div>
+        <p className="chart-kind-hint">{formatMonth(jy, jm)}</p>
       </Card>
 
+      {/* ── ۳ تراکنش آخر ── */}
       <Card
-        title="تراکنش‌های اخیر"
+        title="آخرین تراکنش‌ها"
         action={
           <button className="link-btn" onClick={onNavTransactions}>
             مشاهده همه
@@ -142,7 +222,7 @@ export function DashboardSummaryWidget({
             <div className="empty-state" style={{ padding: "24px 8px" }}>
               <p>هنوز تراکنشی ثبت نشده</p>
               <p style={{ fontSize: 11.5, marginTop: 4 }}>
-                برای شروع، دکمه سبز + بالای صفحه را بزنید
+                برای شروع، دکمه سبز + پایین صفحه را بزنید
               </p>
             </div>
           )}

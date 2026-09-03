@@ -4,7 +4,9 @@
    Radius: دکمه/اینپوت ۸px · کارت ۱۲px (flat، بدون گرادیان)
    ═══════════════════════════════════════════════════════════ */
 
-@import url("https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css");
+/* فونت وزیرمتن — بسته npm (local) به‌جای CDN که در ایران لود نمی‌شود
+   نسخه Variable: یک فایل woff2 برای همه وزن‌ها (۱۰۰–۹۰۰) */
+@import "vazirmatn/Vazirmatn-Variable-font-face.css";
 
 /* ─────────── Tokens ─────────── */
 :root {
@@ -171,7 +173,8 @@ button:active {
 .page {
   display: none;
   min-height: 100dvh;
-  padding-bottom: calc(118px + env(safe-area-inset-bottom));
+  /* داک v7: تب‌بار + FAB شناور بالای آن */
+  padding-bottom: calc(138px + env(safe-area-inset-bottom));
 }
 .page.active {
   display: block;
@@ -296,7 +299,7 @@ button:active {
   border-radius: var(--r-sm);
 }
 
-/* ─────────── Balance card — سطوح خلاصه مالی برند (سبز کم‌رنگ) ─────────── */
+/* ─────────── Balance card (حساب‌ها: ثروت کل) ─────────── */
 .balance-card {
   position: relative;
   overflow: hidden;
@@ -326,38 +329,150 @@ button:active {
   color: var(--text-3);
 }
 
-.balance-mini {
+/* ─────────── کارت مالی اصلی (بازطراحی v7) ─────────── */
+.fin-hero {
+  border-radius: var(--r-xl);
+  padding: var(--sp-6);
+  background: var(--brand-navy);
+  color: #fff;
+  box-shadow: 0 14px 34px rgba(13, 27, 42, 0.28);
+  overflow: hidden;
+}
+[data-theme="dark"] .fin-hero {
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--accent) 22%, var(--bg-elev)),
+    var(--bg-elev)
+  );
+}
+
+.fin-hero-top {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fin-hero-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.fin-hero-balance {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.fin-hero-cur {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+  margin-inline-start: 6px;
+}
+
+.fin-hero-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--sp-3);
   margin-top: var(--sp-5);
 }
 
-.mini-item {
+.fin-cell {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: var(--r-md);
   padding: var(--sp-3) var(--sp-4);
-  font-size: 12px;
-  color: var(--text-2);
-}
-[data-theme="light"] .mini-item {
-  background: var(--card-2);
 }
 
-.mini-item b {
-  font-size: 15px;
-  color: var(--text);
+.fin-cell.wide {
+  grid-column: 1 / -1;
+}
+
+.fin-cell-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.66);
+}
+
+.fin-cell-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
   font-variant-numeric: tabular-nums;
 }
-.mini-item.income b {
-  color: var(--income);
+.fin-cell-value.income {
+  color: #6ee7b7;
 }
-.mini-item.expense b {
-  color: var(--expense);
+.fin-cell-value.expense {
+  color: #fca5a5;
+}
+
+.fin-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.fin-dot.income {
+  background: #34d399;
+}
+.fin-dot.expense {
+  background: #f87171;
+}
+
+/* سوییچ نوع نمودار هزینه ماه */
+.chart-kind-switch {
+  display: inline-flex;
+  gap: 4px;
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  padding: 3px;
+}
+.chart-kind-btn {
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+  transition: all var(--dur-fast) ease;
+}
+.chart-kind-btn.active {
+  background: var(--card);
+  color: var(--text);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+[data-theme="light"] .chart-kind-btn.active {
+  background: #fff;
+}
+.chart-kind-hint {
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: center;
+  margin-top: 8px;
+}
+
+/* نمایشگر مبلغ فقط‌خواندنی در فرم — ورود عدد فقط با کیپد */
+.amount-display {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  overflow-x: auto;
+  white-space: nowrap;
+  cursor: default;
+  font-variant-numeric: tabular-nums;
+}
+.amount-display .amount-empty {
+  color: var(--text-3);
 }
 
 .mini-dot {
@@ -1360,24 +1475,6 @@ button:active {
 .amount-row .segmented {
   flex-shrink: 0;
 }
-.calc-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 6px;
-  padding: 6px 12px;
-  border-radius: var(--r-pill);
-  border: 1px solid var(--border);
-  background: var(--card-2);
-  color: var(--text-2);
-  font: inherit;
-  font-size: 11.5px;
-  cursor: pointer;
-}
-.calc-toggle svg {
-  width: 15px;
-  height: 15px;
-}
 .calc-pad {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -2183,28 +2280,22 @@ button:active {
 }
 
 /* ─────────── داک پایین Liquid Glass (سبک iOS) ───────────
-   دو المان مجزا کنار هم: کپسول شیشه‌ای تب‌ها + FAB پلاس؛
-   شناور با فاصله از لبه‌ها، پیل محو پشت تب فعال فنری می‌لغزد */
+   v7: تب‌بار تمام‌عرض (flex-basis 100%) + FAB پلاس شناور بالای نوار */
 .tabbar-dock {
   position: fixed;
-  bottom: calc(16px + env(safe-area-inset-bottom));
-  left: 16px;
-  right: 16px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  left: 12px;
+  right: 12px;
   z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
   /* نوار خالی داک نباید لمس محتوا را بگیرد */
   pointer-events: none;
 }
 
-/* نوار تب — کپسول شیشه‌ای تمام‌گرد (بدون ناچ، بدون متن خانه) */
+/* نوار تب — کپسول شیشه‌ای تمام‌عرض */
 .tabbar-5 {
   position: relative;
   pointer-events: auto;
-  flex: 1 1 auto;
-  max-width: 420px;
+  width: 100%;
   margin: 0;
   height: 62px;
   display: flex;
@@ -2264,10 +2355,13 @@ button:active {
   color: var(--accent-strong);
 }
 
-/* FAB پلاس — دایره توپر جدا از نوار؛ کنتراست بالا با پالت خنثی نوار */
+/* FAB پلاس — شناور بالای تب‌بار (وسط‌چین)؛ کنتراست بالا با پالت خنثی نوار */
 .fab-add {
   pointer-events: auto;
-  flex-shrink: 0;
+  position: absolute;
+  top: -26px;
+  left: 50%;
+  transform: translateX(-50%);
   width: 56px;
   height: 56px;
   border-radius: 50%;
@@ -2288,7 +2382,7 @@ button:active {
   height: 24px;
 }
 .fab-add:active {
-  transform: scale(0.92);
+  transform: translateX(-50%) scale(0.92);
 }
 
 .tab-btn svg {
@@ -2540,7 +2634,7 @@ button:active {
   .cat-grid {
     grid-template-columns: repeat(3, 1fr);
   }
-  .balance-card h2 {
+  .fin-hero-balance {
     font-size: 29px;
   }
 }

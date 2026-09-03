@@ -95,15 +95,6 @@ export function DashboardPage({
               <span className="notif-badge">{notifs.length}</span>
             ) : null}
           </button>
-          <button
-            className="icon-btn add-btn"
-            aria-label="افزودن تراکنش"
-            onClick={form.openNew}
-          >
-            <svg>
-              <use href="#i-plus" />
-            </svg>
-          </button>
           <SmsImportFeature onImported={onImported} />
         </div>
       </header>

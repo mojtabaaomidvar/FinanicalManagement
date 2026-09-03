@@ -46,6 +46,7 @@ export interface TransactionRow {
   to_account_id?: string | null;
   subcategory_id: string | null;
   repeat?: "none" | "weekly" | "monthly" | "yearly" | null;
+  repeat_end?: string | null;
   photos?: { id: string; url: string; caption: string | null }[] | null;
   created_at: string;
 }
@@ -113,6 +114,7 @@ export function mapTransaction(r: TransactionRow): Transaction {
       r.repeat === "weekly" || r.repeat === "monthly" || r.repeat === "yearly"
         ? r.repeat
         : "none",
+    repeatEnd: r.repeat_end ?? null,
     photos: (r.photos ?? []).map((p) => ({
       id: p.id,
       url: p.url,

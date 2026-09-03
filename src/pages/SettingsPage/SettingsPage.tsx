@@ -27,6 +27,7 @@ import {
 } from "@/shared/lib/csv";
 import { sortTxDesc } from "@/domain/transaction/transaction.rules";
 import { CATEGORIES } from "@/domain/category/category.catalog";
+import { isoToJalali, formatISO } from "@/shared/lib/jalali";
 
 type SettingsSection =
   | "family"
@@ -536,6 +537,9 @@ function ScheduledTxsCard() {
                   <use href="#i-repeat" />
                 </svg>
                 {repeatFa[t.repeat] ?? t.repeat}
+                {t.repeatEnd
+                  ? ` تا ${formatISO(isoToJalali(t.repeatEnd))}`
+                  : ""}
               </span>
               <b className="scheduled-title">
                 {t.note || resolveName(t.category)}

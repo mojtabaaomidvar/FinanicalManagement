@@ -14,6 +14,4 @@ export interface CustomCategoryRepository {
   list(): Promise<CustomCategory[]>;
   /** افزودن (تکراری → همان موجود) */
   add(type: TxType, name: string): Promise<CustomCategory>;
-  /** درج زیردسته‌های پیش‌فرض (idempotent) — تعداد درج‌شده */
-  ensureDefaults(): Promise<number>;
 }

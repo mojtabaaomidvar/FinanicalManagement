@@ -67,7 +67,6 @@ import {
 } from "./category/subcategory.usecases";
 import {
   AddCustomCategoryUseCase,
-  EnsureDefaultSubcategoriesUseCase,
   ListCustomCategoriesUseCase,
 } from "./category/custom-category.usecases";
 import {
@@ -138,7 +137,6 @@ export interface UseCases {
 
   listCustomCategories: ListCustomCategoriesUseCase;
   addCustomCategory: AddCustomCategoryUseCase;
-  ensureDefaultSubcategories: EnsureDefaultSubcategoriesUseCase;
 
   listCategoryBudgets: ListCategoryBudgetsUseCase;
   setCategoryBudget: SetCategoryBudgetUseCase;
@@ -213,9 +211,6 @@ export function createUseCases(c: Container): UseCases {
       c.repos.customCategories,
     ),
     addCustomCategory: new AddCustomCategoryUseCase(c.repos.customCategories),
-    ensureDefaultSubcategories: new EnsureDefaultSubcategoriesUseCase(
-      c.repos.customCategories,
-    ),
 
     listCategoryBudgets: new ListCategoryBudgetsUseCase(
       c.repos.categoryBudgets,

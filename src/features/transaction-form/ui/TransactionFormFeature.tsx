@@ -1,13 +1,12 @@
 /* UI فرم تراکنش — مودال افزودن/ویرایش
-   (سه تب هزینه/درآمد/انتقال + کیپد ماشین‌حساب + سوییچ ارز ورودی
-    + برچسب‌های سریع + تکرار دوره‌ای با نمونه‌های آماده + تم رنگی دسته) */
+   (سه تب هزینه/درآمد/انتقال + کیپد ماشین‌حساب همیشه‌باز زیر مبلغ
+    + سوییچ ارز ورودی + برچسب‌های سریع + تکرار دوره‌ای با تاریخ پایان + تم رنگی دسته) */
 
 import { useRef, useState, type CSSProperties } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
 import type { TxFormModel } from "../model/useTxFormModel";
 import {
-  AmountInput,
   CalcKeypad,
   Field,
   JalaliDateInput,
@@ -19,7 +18,6 @@ import {
 import {
   categoriesFor,
   CUSTOM_CATEGORY_ICON,
-  categoryById,
 } from "@/domain/category/category.catalog";
 import { categoryColor } from "@/domain/category/category.colors";
 import { TX_REPEATS, type TxRepeat } from "@/domain/transaction/transaction.types";
@@ -71,13 +69,9 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
   } = useApp();
   const { show } = useToast();
 
-  const [subModalOpen, setSubModalOpen] = useState(false);
   const [showAddCat, setShowAddCat] = useState(false);
   const [newCatName, setNewCatName] = useState("");
   const [addingCat, setAddingCat] = useState(false);
-  const [newSubName, setNewSubName] = useState("");
-  const [addingSub, setAddingSub] = useState(false);
-  const [showPad, setShowPad] = useState(false);
   const photoFileRef = useRef<HTMLInputElement>(null);
 
   const isTransfer = m.form.type === "transfer";
@@ -97,8 +91,7 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
           })),
       ];
 
-  const activeCat = categoryById(isTransfer ? "transfer" : m.form.categoryId);
-  const selectedSub = subcategories.find((s) => s.id === m.form.subcategoryId);
+  /* پیشنهادهای لیبل = زیردسته‌هایی که این خانواده برای این دسته ساخته */
   const subsOfCategory = subcategories.filter(
     (s) => s.category === m.form.categoryId,
   );
@@ -110,11 +103,9 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
 
   function pickCategory(catId: string) {
     if (catId !== m.form.categoryId) {
-      /* انتخاب دسته جدید → ریست زیردسته */
-      m.setForm({ ...m.form, categoryId: catId, subcategoryId: "" });
+      /* انتخاب دسته جدید → ریست لیبل */
+      m.setForm({ ...m.form, categoryId: catId, label: "" });
     }
-    /* همیشه مودال زیردسته‌ها باز شود */
-    setSubModalOpen(true);
   }
 
   async function addCategory() {
@@ -127,7 +118,7 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
         name,
       );
       await refreshData();
-      m.setForm({ ...m.form, categoryId: created.id, subcategoryId: "" });
+      m.setForm({ ...m.form, categoryId: created.id, label: "" });
       setShowAddCat(false);
       setNewCatName("");
       show("دسته اضافه شد");
@@ -135,26 +126,6 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
       show((e as Error).message || "خطا در افزودن دسته");
     } finally {
       setAddingCat(false);
-    }
-  }
-
-  async function addSubcategory() {
-    const name = newSubName.trim();
-    if (!name) return show("نام زیردسته را وارد کنید");
-    setAddingSub(true);
-    try {
-      const created = await useCases!.addSubcategory.execute(
-        m.form.categoryId,
-        name,
-      );
-      await refreshData();
-      m.setForm({ ...m.form, subcategoryId: created.id });
-      setNewSubName("");
-      show("زیردسته اضافه شد");
-    } catch (e) {
-      show((e as Error).message || "خطا در افزودن زیردسته");
-    } finally {
-      setAddingSub(false);
     }
   }
 
@@ -183,7 +154,10 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
           <div className="form-row full">
             <Field label={`مبلغ (${m.entryCurrency})`}>
               <div className="amount-row">
-                <AmountInput value={m.form.amount} onChange={m.setAmount} big />
+                {/* نمایشگر مبلغ — فقط‌خواندنی؛ ورود عدد فقط با کیپد زیرین */}
+                <div className="amount-display num-input big" dir="ltr">
+                  {m.form.amount || <span className="amount-empty">۰</span>}
+                </div>
                 {/* سوییچ ارز ورودی — مستقل از ارز اصلی */}
                 <Segmented
                   value={m.entryCurrency}
@@ -194,24 +168,13 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
                   ]}
                 />
               </div>
-            </Field>
-            <button
-              type="button"
-              className="calc-toggle"
-              onClick={() => setShowPad((v) => !v)}
-            >
-              <svg>
-                <use href="#i-calc" />
-              </svg>
-              ماشین‌حساب
-            </button>
-            {showPad ? (
+              {/* کیپد ماشین‌حساب — همیشه باز، جایگزین کیبورد موبایل */}
               <CalcKeypad
                 value={m.form.amount}
                 onChange={m.setAmount}
                 onDone={m.setAmount}
               />
-            ) : null}
+            </Field>
           </div>
 
           {isTransfer ? (
@@ -324,22 +287,32 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
               ) : null}
 
               <div className="form-row full">
-                <Field label="زیردسته (الزامی)">
-                  <button
-                    type="button"
-                    className="subcat-trigger"
-                    onClick={() => setSubModalOpen(true)}
-                  >
-                    {selectedSub ? (
-                      <>
-                        <b>{selectedSub.name}</b>
-                      </>
-                    ) : (
-                      <span className="subcat-empty">
-                        انتخاب زیردسته برای «{activeCat.name}»…
-                      </span>
-                    )}
-                  </button>
+                <Field label="لیبل (اختیاری)">
+                  <TextInput
+                    value={m.form.label}
+                    onChange={(v) =>
+                      m.setForm({ ...m.form, label: v.slice(0, 30) })
+                    }
+                    placeholder="مثلاً نانوایی، اسنپ، اجاره…"
+                    maxLength={30}
+                  />
+                  {/* پیشنهادها = لیبل‌هایی که همین خانواده قبلاً برای این دسته تایپ کرده */}
+                  {subsOfCategory.length ? (
+                    <div className="quick-chips">
+                      {subsOfCategory.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          className={`chip ${m.form.label === s.name ? "active" : ""}`}
+                          onClick={() =>
+                            m.setForm({ ...m.form, label: s.name })
+                          }
+                        >
+                          {s.name}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </Field>
               </div>
 
@@ -403,10 +376,22 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
                     ))}
                   </div>
                 ) : (
-                  <p className="repeat-hint">
-                    این تراکنش به‌صورت {TX_REPEATS.find((r) => r.value === m.form.repeat)?.label} تکرار می‌شود و در
-                    فهرست «تراکنش‌های زمان‌بندی‌شده» تنظیمات دیده می‌گیرد
-                  </p>
+                  <>
+                    {/* تاریخ پایان تکرار — الزامی برای هر تراکنش تکرارشونده */}
+                    <Field label="تاریخ پایان تکرار (الزامی)">
+                      <JalaliDateInput
+                        value={m.form.repeatEnd}
+                        onChange={m.setRepeatEnd}
+                        placeholder="تا چه تاریخی تکرار شود؟"
+                      />
+                    </Field>
+                    <p className="repeat-hint">
+                      این تراکنش به‌صورت{" "}
+                      {TX_REPEATS.find((r) => r.value === m.form.repeat)?.label} تا{" "}
+                      {m.form.repeatEnd || "…"} تکرار می‌شود و در فهرست
+                      «تراکنش‌های زمان‌بندی‌شده» تنظیمات دیده می‌گیرد
+                    </p>
+                  </>
                 )}
               </div>
             </>
@@ -533,55 +518,6 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
           </button>
         ) : null}
         </div>
-      </Modal>
-
-      {/* مودال انتخاب زیردسته برای دسته فعلی */}
-      <Modal
-        open={subModalOpen}
-        onClose={() => setSubModalOpen(false)}
-        title={`زیردسته‌های «${activeCat.name}»`}
-      >
-        <div className="subchips">
-          {subsOfCategory.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              className={`chip ${m.form.subcategoryId === s.id ? "active" : ""}`}
-              onClick={() => {
-                m.setForm({ ...m.form, subcategoryId: s.id });
-                setSubModalOpen(false);
-              }}
-            >
-              {s.name}
-            </button>
-          ))}
-        </div>
-
-        <div className="form-row" style={{ marginTop: 16 }}>
-          <Field label="زیردسته جدید برای همین دسته">
-            <div className="convert-row">
-              <TextInput
-                value={newSubName}
-                onChange={setNewSubName}
-                placeholder=""
-              />
-              <button
-                type="button"
-                className="action-btn convert-btn"
-                disabled={addingSub}
-                onClick={addSubcategory}
-              >
-                {addingSub ? "…" : "افزودن"}
-              </button>
-            </div>
-          </Field>
-        </div>
-
-        {!subsOfCategory.length ? (
-          <p className="modal-sub">
-            هنوز زیردسته‌ای برای این دسته ثبت نشده — اولین را بسازید.
-          </p>
-        ) : null}
       </Modal>
     </>
   );

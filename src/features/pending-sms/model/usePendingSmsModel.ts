@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { BankSms } from "@/domain/sms/sms.types";
 import type { UseCases } from "@/application/useCases";
-import { smsDraftDefaults } from "@/domain/sms/sms.rules";
+import { smsDraftDefaults, smsSummary } from "@/domain/sms/sms.rules";
 import { parseAmountInput, liveFormatJalaliDate } from "@/shared/lib/format";
 import { fromDisplay } from "@/shared/lib/currency";
 import { parse, formatISO, today, jalaliToIso } from "@/shared/lib/jalali";
@@ -25,7 +25,8 @@ export function usePendingSmsModel(
   const [date, setDate] = useState("");
   const [memberId, setMemberId] = useState(currentMemberId);
   const [accountId, setAccountId] = useState("");
-  const [subcategoryId, setSubcategoryId] = useState("");
+  /* لیبل آزاد اختیاری — هر خانواده لیبل‌های خودش را دارد */
+  const [label, setLabel] = useState("");
 
   async function load() {
     try {
@@ -48,7 +49,7 @@ export function usePendingSmsModel(
     setDate(formatISO(d.jalaliDate));
     setMemberId(d.memberId);
     setAccountId("");
-    setSubcategoryId("");
+    setLabel("");
   }
 
   function close() {
@@ -65,13 +66,6 @@ export function usePendingSmsModel(
     const amt = parseAmountInput(amount);
     if (!amt || amt <= 0) return notify("لطفاً مبلغ معتبر وارد کنید");
 
-    /* زیردسته الزامی */
-    if (!subcategoryId) {
-      return notify(
-        "انتخاب زیردسته الزامی است — یکی را انتخاب کنید (یا «متفرقه»)",
-      );
-    }
-
     /* حساب الزامی */
     if (!accountId) {
       if (!accountsCount) {
@@ -83,6 +77,17 @@ export function usePendingSmsModel(
     }
 
     const parsedDate = parse(date) ?? today();
+    /* لیبل اختیاری → زیردسته (اگر خالی نباشد) */
+    let subcategoryId: string | null = null;
+    const labelVal = label.trim();
+    if (labelVal) {
+      try {
+        const sub = await useCases.addSubcategory.execute(categoryId, labelVal);
+        subcategoryId = sub.id;
+      } catch (e) {
+        return notify((e as Error).message || "خطا در ثبت لیبل");
+      }
+    }
     try {
       await useCases.recordSms.execute(sms, {
         memberId: memberId || currentMemberId,
@@ -90,11 +95,10 @@ export function usePendingSmsModel(
         amount: fromDisplay(amt, currency),
         category: categoryId,
         date: jalaliToIso(parsedDate),
-        note:
-          (sms.bank ? sms.bank + " — " : "پیامک — ") +
-          String(sms.rawText || "").slice(0, 50),
+        /* شرح خوانا — بانک + نوع + مبلغ؛ متن خام پیامک نمایش داده نمی‌شود */
+        note: smsSummary(sms),
         accountId,
-        subcategoryId: subcategoryId || null,
+        subcategoryId,
       });
       const next = idx + 1;
       if (next >= list.length) {
@@ -131,7 +135,7 @@ export function usePendingSmsModel(
   function changeType(t: "expense" | "income") {
     setType(t);
     setCategoryId(categoriesFor(t)[0].id);
-    setSubcategoryId("");
+    setLabel("");
   }
 
   return {
@@ -144,12 +148,12 @@ export function usePendingSmsModel(
     date,
     memberId,
     accountId,
-    subcategoryId,
+    label,
     setCategoryId,
     setMemberId,
     setAmount,
     setAccountId,
-    setSubcategoryId,
+    setLabel,
     changeType,
     setDate: (v: string) => setDate(liveFormatJalaliDate(v)),
     load,

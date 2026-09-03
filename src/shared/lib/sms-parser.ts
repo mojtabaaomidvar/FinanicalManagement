@@ -185,9 +185,21 @@ export function parseSms(rawText: string): ParsedSms | null {
   const balance = extractBalance(text);
   const amounts = extractAmounts(text);
 
-  /* حذف مبلغ موجودی از لیست مبالغ */
-  const txAmounts = amounts.filter((a) => a.value !== balance);
-  const amount = txAmounts.length ? txAmounts[0].value : (amounts[0]?.value ?? null);
+  /* مبلغ تراکنش:
+     ۱) عددی که بعد از کلیدواژه «مبلغ» آمده (معتبرترین نشانگر)
+     ۲) اولین عدد بزرگ ≠ موجودی
+     ۳) اولین عدد بزرگ */
+  let amount: number | null = null;
+  const amountKw = text.match(
+    /مبلغ[^0-9]{0,10}(\d{1,3}(?:,\d{3})+|\d{4,})/,
+  );
+  if (amountKw && +amountKw[1].replace(/,/g, "") !== balance) {
+    amount = +amountKw[1].replace(/,/g, "");
+  }
+  if (amount == null) {
+    const txAmounts = amounts.filter((a) => a.value !== balance);
+    amount = txAmounts.length ? txAmounts[0].value : (amounts[0]?.value ?? null);
+  }
 
   return {
     rawText: text,

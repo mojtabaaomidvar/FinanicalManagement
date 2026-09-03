@@ -5,6 +5,7 @@ import type { SmsTxType } from "./sms.types";
 import type { BankSms } from "./sms.types";
 import type { TransactionInput } from "../transaction/transaction.types";
 import { parseSms } from "@/shared/lib/sms-parser";
+import { formatAmount } from "@/shared/lib/format";
 import { isoToJalali, jalaliToIso, today } from "@/shared/lib/jalali";
 
 export interface SmsDraftDefaults {
@@ -39,9 +40,7 @@ export function smsDraftDefaults(
       ? parsed.date.jalali
       : today();
 
-  const note =
-    (sms.bank ? sms.bank + " — " : "پیامک — ") +
-    String(sms.rawText || "").slice(0, 50);
+  const note = smsSummary(sms);
 
   return {
     type,
@@ -51,6 +50,19 @@ export function smsDraftDefaults(
     jalaliDate,
     note,
   };
+}
+
+/** شرح خوانا برای تراکنش پیامکی — بانک + نوع + مبلغ (بدون متن خام پیامک) */
+export function smsSummary(sms: BankSms): string {
+  const parsed = parseSms(sms.rawText || "");
+  const type = sms.type ?? parsed?.type;
+  const amount = sms.amount ?? parsed?.amount;
+  const bank = sms.bank ?? parsed?.bank;
+  const parts: string[] = [];
+  if (bank) parts.push(bank);
+  if (type) parts.push(type === "income" ? "واریز" : "برداشت");
+  if (amount) parts.push(formatAmount(amount));
+  return parts.length ? parts.join(" — ") : "تراکنش پیامکی";
 }
 
 /** تبدیل پیش‌نویس به ورودی تراکنش */

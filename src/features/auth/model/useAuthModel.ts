@@ -132,8 +132,9 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
         return;
       }
 
-      /* OTP غیرفعال → ورود مستقیم */
-      if (otpEnabled === false) {
+      /* OTP غیرفعال یا نامشخص → ورود مستقیم با شماره + رمز
+         (اگر OTP روی سرور روشن باشد، INVALID_OTP برمی‌گردد و جریان کد ادامه می‌یابد) */
+      if (otpEnabled !== true) {
         try {
           const r = await useCases.loginWithOtp.execute(phone, null);
           await useCases.saveSession.execute(r);
@@ -175,8 +176,8 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
       relation: preReg ? regRelation : undefined,
     };
 
-    /* OTP غیرفعال → ثبت‌نام مستقیم */
-    if (otpEnabled === false) {
+    /* OTP غیرفعال یا نامشخص → ثبت‌نام مستقیم */
+    if (otpEnabled !== true) {
       setBusy(true);
       try {
         const r = await useCases.register.execute(input, null);
@@ -218,8 +219,8 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
       password: invPassword,
     };
 
-    /* OTP غیرفعال → عضویت مستقیم */
-    if (otpEnabled === false) {
+    /* OTP غیرفعال یا نامشخص → عضویت مستقیم */
+    if (otpEnabled !== true) {
       setBusy(true);
       try {
         const r = await useCases.acceptInvite.execute(input, null);

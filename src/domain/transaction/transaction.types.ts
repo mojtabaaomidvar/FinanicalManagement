@@ -39,6 +39,8 @@ export interface Transaction {
   subcategoryId: string | null;
   /** تکرار دوره‌ای — پیش‌فرض none */
   repeat: TxRepeat;
+  /** تاریخ پایان تکرار (میلادی ISO) — الزامی وقتی repeat ≠ none */
+  repeatEnd: string | null;
   photos: TransactionPhoto[];
   createdAt: string;
 }
@@ -61,4 +63,6 @@ export interface TransactionInput {
   subcategoryId?: string | null;
   /** تکرار دوره‌ای */
   repeat?: TxRepeat;
+  /** تاریخ پایان تکرار (میلادی ISO) — الزامی وقتی repeat ≠ none؛ باید بعد از date باشد */
+  repeatEnd?: string | null;
 }

@@ -34,6 +34,7 @@ const tx = (
   toAccountId: null,
   subcategoryId: null,
   repeat: "none",
+  repeatEnd: null,
   photos: [],
   createdAt: "2025-01-01T00:00:00Z",
 });

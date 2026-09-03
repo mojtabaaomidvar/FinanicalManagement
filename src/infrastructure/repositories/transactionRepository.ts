@@ -39,6 +39,10 @@ export class SupabaseTransactionRepository implements TransactionRepository {
       p_subcategory_id: input.subcategoryId ?? null,
       p_to_account_id: input.toAccountId ?? null,
       p_repeat: input.repeat ?? "none",
+      p_repeat_end:
+        input.repeat && input.repeat !== "none"
+          ? (input.repeatEnd ?? null)
+          : null,
     });
     return mapTransaction(row);
   }
@@ -58,6 +62,10 @@ export class SupabaseTransactionRepository implements TransactionRepository {
       p_subcategory_id: input.subcategoryId ?? null,
       p_to_account_id: input.toAccountId ?? null,
       p_repeat: input.repeat ?? "none",
+      p_repeat_end:
+        input.repeat && input.repeat !== "none"
+          ? (input.repeatEnd ?? null)
+          : null,
     });
   }
 

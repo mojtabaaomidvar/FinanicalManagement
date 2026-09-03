@@ -227,6 +227,8 @@ drop function if exists public.add_transaction(text, uuid, text, numeric, text, 
 drop function if exists public.update_transaction(text, uuid, uuid, text, numeric, text, date, text, uuid);
 drop function if exists public.add_transaction(text, uuid, text, numeric, text, date, text, uuid, uuid);
 drop function if exists public.update_transaction(text, uuid, uuid, text, numeric, text, date, text, uuid, uuid);
+drop function if exists public.add_transaction(text, uuid, text, numeric, text, date, text, uuid, uuid, text, uuid, text);
+drop function if exists public.update_transaction(text, uuid, uuid, text, numeric, text, date, text, uuid, uuid, text, uuid, text);
 
 -- ═══════════════════════════════════════════════════════════
 -- توابع کمکی داخلی
@@ -791,6 +793,9 @@ alter table public.transactions
 alter table public.transactions
   add column if not exists repeat text not null default 'none'
   check (repeat in ('none','weekly','monthly','yearly'));
+-- مهاجرت: تاریخ پایان تکرار — الزامی برای تراکنش‌های تکرارشونده (v6.1)
+alter table public.transactions
+  add column if not exists repeat_end date;
 
 create or replace function public.add_transaction(
   p_token text, p_member_id uuid, p_type text, p_amount numeric,
@@ -798,7 +803,8 @@ create or replace function public.add_transaction(
   p_account_id uuid, p_subcategory_id uuid default null,
   p_time text default null,
   p_to_account_id uuid default null,
-  p_repeat text default 'none'
+  p_repeat text default 'none',
+  p_repeat_end date default null
 ) returns json
 language plpgsql security definer set search_path = public as $$
 declare
@@ -824,6 +830,15 @@ begin
   end if;
   if p_repeat is null or p_repeat not in ('none','weekly','monthly','yearly') then
     raise exception 'INVALID_REPEAT';
+  end if;
+  -- تراکنش تکرارشونده حتماً تاریخ پایان بعد از تاریخ خود تراکنش دارد
+  if p_repeat <> 'none' then
+    if p_repeat_end is null then
+      raise exception 'REPEAT_END_REQUIRED';
+    end if;
+    if p_repeat_end < p_date then
+      raise exception 'INVALID_REPEAT_END';
+    end if;
   end if;
   if not exists (select 1 from public.members
                  where id = p_member_id and family_id = v_family_id) then
@@ -876,11 +891,11 @@ begin
 
   insert into public.transactions
     (family_id, member_id, type, amount, category, date, time, note, account_id,
-     to_account_id, subcategory_id, repeat)
+     to_account_id, subcategory_id, repeat, repeat_end)
   values
     (v_family_id, p_member_id, p_type, p_amount, btrim(p_category), p_date, p_time,
      nullif(btrim(coalesce(p_note, '')), ''), p_account_id, p_to_account_id,
-     p_subcategory_id, p_repeat)
+     p_subcategory_id, p_repeat, case when p_repeat <> 'none' then p_repeat_end end)
   returning * into v_row;
 
   return to_jsonb(v_row);
@@ -893,7 +908,8 @@ create or replace function public.update_transaction(
   p_account_id uuid, p_subcategory_id uuid default null,
   p_time text default null,
   p_to_account_id uuid default null,
-  p_repeat text default 'none'
+  p_repeat text default 'none',
+  p_repeat_end date default null
 ) returns void
 language plpgsql security definer set search_path = public as $$
 declare
@@ -918,6 +934,14 @@ begin
   end if;
   if p_repeat is null or p_repeat not in ('none','weekly','monthly','yearly') then
     raise exception 'INVALID_REPEAT';
+  end if;
+  if p_repeat <> 'none' then
+    if p_repeat_end is null then
+      raise exception 'REPEAT_END_REQUIRED';
+    end if;
+    if p_repeat_end < p_date then
+      raise exception 'INVALID_REPEAT_END';
+    end if;
   end if;
   if not exists (select 1 from public.members
                  where id = p_member_id and family_id = v_family_id) then
@@ -975,7 +999,8 @@ begin
       account_id = p_account_id,
       to_account_id = p_to_account_id,
       subcategory_id = p_subcategory_id,
-      repeat = p_repeat
+      repeat = p_repeat,
+      repeat_end = case when p_repeat <> 'none' then p_repeat_end end
   where id = p_tx_id and family_id = v_family_id;
 
   if not found then
@@ -1559,155 +1584,13 @@ begin
   return to_jsonb(v_row);
 end $$;
 
--- درج زیردسته‌های پیش‌فرض برای خانواده (idempotent — فقط موارد ناموجود)
-create or replace function public.ensure_default_subcategories(p_token text)
-returns integer
-language plpgsql security definer set search_path = public as $$
-declare
-  v_family_id uuid;
-  v_count integer;
-begin
-  v_family_id := public._family_id(p_token);
-
-  with ins as (
-    insert into public.subcategories (family_id, category, name)
-    select v_family_id, d.cat, d.name
-    from (values
-      ('food','خرید خواربار'),
-      ('food','رستوران و فست‌فود'),
-      ('food','کافه'),
-      ('food','نانوایی'),
-      ('food','میوه و سبزیجات'),
-      ('food','گوشت و پروتئین'),
-      ('food','لبنیات'),
-      ('food','تنقلات'),
-      ('food','نوشیدنی'),
-      ('food','غذا بیرون و سفارش آنلاین'),
-      ('food','متفرقه'),
-      ('home','اجاره خانه'),
-      ('home','شارژ ساختمان'),
-      ('home','تعمیرات خانه'),
-      ('home','لوازم خانه'),
-      ('home','دکوراسیون'),
-      ('home','نظافت'),
-      ('home','امور منزل و خدمات'),
-      ('home','متفرقه'),
-      ('bills','برق'),
-      ('bills','آب و فاضلاب'),
-      ('bills','گاز'),
-      ('bills','تلفن و اینترنت'),
-      ('bills','سایر قبض‌ها'),
-      ('bills','متفرقه'),
-      ('transport','سوخت و بنزین'),
-      ('transport','تاکسی و اسنپ'),
-      ('transport','عوارض و جرائم'),
-      ('transport','سرویس دوره‌ای'),
-      ('transport','تعمیر خودرو'),
-      ('transport','بلیط اتوبوس و مترو'),
-      ('transport','پارکینگ'),
-      ('transport','کارواش'),
-      ('transport','متفرقه'),
-      ('health','دارو'),
-      ('health','ویزیت پزشک'),
-      ('health','دندانپزشکی'),
-      ('health','آزمایش و تصویربرداری'),
-      ('health','عینک'),
-      ('health','بستری و جراحی'),
-      ('health','متفرقه'),
-      ('clothing','لباس'),
-      ('clothing','کفش'),
-      ('clothing','کیف و اکسسوری'),
-      ('clothing','خیاطی و تعمیر'),
-      ('clothing','متفرقه'),
-      ('edu','شهریه'),
-      ('edu','کتاب و لوازم تحریر'),
-      ('edu','دوره آنلاین'),
-      ('edu','کلاس خاص'),
-      ('edu','آموزشگاه زبان'),
-      ('edu','متفرقه'),
-      ('fun','سینما و تئاتر'),
-      ('fun','گردش و سفر'),
-      ('fun','بازی'),
-      ('fun','اسباب‌بازی'),
-      ('fun','کنسرت'),
-      ('fun','متفرقه'),
-      ('shopping','خرید آنلاین'),
-      ('shopping','لوازم جانبی'),
-      ('shopping','لوازم برقی'),
-      ('shopping','متفرقه'),
-      ('comm','شارژ موبایل'),
-      ('comm','بسته اینترنت'),
-      ('comm','سیم‌کارت و خدمات'),
-      ('comm','متفرقه'),
-      ('finance','کارمزد بانکی'),
-      ('finance','اقساط وام'),
-      ('finance','جریمه و دیرکرد'),
-      ('finance','مالیات و عوارض'),
-      ('finance','انتقال و کارت به کارت'),
-      ('finance','متفرقه'),
-      ('insurance','بیمه شخص ثالث'),
-      ('insurance','بیمه بدنه'),
-      ('insurance','بیمه عمر'),
-      ('insurance','بیمه درمان تکمیلی'),
-      ('insurance','متفرقه'),
-      ('gifte','هدیه تولد'),
-      ('gifte','عیدی'),
-      ('gifte','صدقه و خیریه'),
-      ('gifte','مراسم و مهمانی'),
-      ('gifte','متفرقه'),
-      ('family','لوازم کودک'),
-      ('family','شیرخشک و پوشک'),
-      ('family','مهدکودک'),
-      ('family','سالمندان'),
-      ('family','متفرقه'),
-      ('beauty','آرایشی'),
-      ('beauty','مراقبت پوست و مو'),
-      ('beauty','سلم و اسپا'),
-      ('beauty','اصلاح و آرایشگاه'),
-      ('beauty','متفرقه'),
-      ('sport','باشگاه'),
-      ('sport','تجهیزات ورزشی'),
-      ('sport','استخر'),
-      ('sport','متفرقه'),
-      ('pet','غذای حیوانات'),
-      ('pet','دامپزشکی'),
-      ('pet','لوازم حیوانات'),
-      ('pet','متفرقه'),
-      ('salary','حقوق پایه'),
-      ('salary','اضافه‌کاری'),
-      ('salary','پاداش'),
-      ('salary','عیدی و سنوات'),
-      ('salary','متفرقه'),
-      ('business','فروش محصول'),
-      ('business','ارائه خدمات'),
-      ('business','سود مشارکت'),
-      ('business','متفرقه'),
-      ('invest','سود سپرده بانکی'),
-      ('invest','سود صندوق'),
-      ('invest','سود بورس'),
-      ('invest','اجاره املاک'),
-      ('invest','متفرقه'),
-      ('sale','فروش وسایل'),
-      ('sale','فروش طلا و ارز'),
-      ('sale','متفرقه'),
-      ('gift','عیدی دریافتی'),
-      ('gift','هدیه دریافتی'),
-      ('gift','متفرقه'),
-      ('other-e','متفرقه'),
-      ('other-i','متفرقه')
-    ) as d(cat, name)
-    on conflict (family_id, category, name) do nothing
-    returning 1
-  )
-  select count(*) into v_count from ins;
-
-  return v_count;
-end $$;
+-- زیردسته‌ها دیگر به‌صورت پیش‌فرض seed نمی‌شوند (v6.1):
+-- زیردسته = لیبل آزاد اختیاری که هر خانواده خودش تایپ می‌کند
+drop function if exists public.ensure_default_subcategories(text);
 
 -- ═══════════════════════════════════════════════════════════
--- پل پیامک — اتصال خودکار از گوشی اندروید (اپ فوروادر)
+-- پل پیامک — اتصال خودکار از گوشی اندروید (اپ فوروارد)
 -- ═══════════════════════════════════════════════════════════
-
 create table if not exists public.sms_bridges (
   id         uuid primary key default gen_random_uuid(),
   family_id  uuid not null references public.families(id) on delete cascade,

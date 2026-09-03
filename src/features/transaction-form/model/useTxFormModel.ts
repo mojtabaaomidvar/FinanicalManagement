@@ -1,6 +1,7 @@
 /* مدل فرم تراکنش — افزودن/ویرایش با اعتبارسنجی */
 
 import { useEffect, useState } from "react";
+import type { Subcategory } from "@/domain/category/subcategory.types";
 import type { Transaction, TxRepeat } from "@/domain/transaction/transaction.types";
 import type { UseCases } from "@/application/useCases";
 import type { Member } from "@/domain/family/family.types";
@@ -33,10 +34,12 @@ export interface TxFormState {
   accountId: string;
   /** حساب مقصد انتقال — الزامی برای type=transfer */
   toAccountId: string;
-  /** زیردسته — الزامی برای هزینه/درآمد (متفرقه هم یک زیردسته است) */
-  subcategoryId: string;
+  /** لیبل آزاد (زیردسته) — اختیاری؛ در صورت پر بودن ساخته/یافته می‌شود */
+  label: string;
   /** دوره تکرار */
   repeat: TxRepeat;
+  /** تاریخ پایان تکرار — الزامی وقتی repeat ≠ none ("۱۴۰۴/۰۶/۱۵") */
+  repeatEnd: string;
 }
 
 /** تصویر پیوست در فرم — موجود (سمت سرور) یا در صف آپلود */
@@ -55,6 +58,7 @@ export function useTxFormModel(
   currentMemberId: string,
   notify: (m: string) => void,
   currency: string = "تومان",
+  subcategories: Subcategory[] = [],
 ) {
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [open, setOpen] = useState(false);
@@ -75,8 +79,9 @@ export function useTxFormModel(
       note: "",
       accountId: "",
       toAccountId: "",
-      subcategoryId: "",
+      label: "",
       repeat: "none",
+      repeatEnd: "",
     };
   }
 
@@ -100,8 +105,10 @@ export function useTxFormModel(
       note: tx.note ?? "",
       accountId: tx.accountId ?? "",
       toAccountId: tx.toAccountId ?? "",
-      subcategoryId: tx.subcategoryId ?? "",
+      label:
+        subcategories.find((s) => s.id === tx.subcategoryId)?.name ?? "",
       repeat: tx.repeat,
+      repeatEnd: tx.repeatEnd ? formatISO(isoToJalali(tx.repeatEnd)) : "",
     });
     setPhotos(
       tx.photos.map((p) => ({
@@ -119,7 +126,7 @@ export function useTxFormModel(
       ...f,
       type,
       categoryId: defaultCategoryOf(type).id,
-      subcategoryId: "", /* دسته عوض شد — زیردسته نامعتبر می‌شود */
+      label: "", /* دسته عوض شد — لیبل قبلی نامعتبر می‌شود */
     }));
   }
 
@@ -142,13 +149,6 @@ export function useTxFormModel(
     if (!amount || amount <= 0) return notify("لطفاً مبلغ معتبر وارد کنید");
 
     const isTransfer = form.type === "transfer";
-
-    /* زیردسته الزامی برای هزینه/درآمد — متفرقه هم یک زیردسته است */
-    if (!isTransfer && !form.subcategoryId) {
-      return notify(
-        "انتخاب زیردسته الزامی است — روی دسته‌بندی بزنید و یکی را انتخاب کنید (یا «متفرقه»)",
-      );
-    }
 
     /* حساب الزامی — با پیام دقیق */
     if (!form.accountId) {
@@ -176,6 +176,39 @@ export function useTxFormModel(
       }
     }
 
+    /* تراکنش تکرارشونده حتماً تاریخ پایان معتبر دارد */
+    const repeat = form.repeat;
+    let repeatEndIso: string | null = null;
+    if (repeat !== "none") {
+      const parsedEnd = parse(form.repeatEnd);
+      if (!parsedEnd) {
+        return notify(
+          "تاریخ پایان تکرار را انتخاب کنید — این تراکنش تا چه زمانی تکرار شود؟",
+        );
+      }
+      const parsedDate = parse(form.date) ?? today();
+      const endIso = jalaliToIso(parsedEnd);
+      if (endIso < jalaliToIso(parsedDate)) {
+        return notify("تاریخ پایان تکرار نمی‌تواند قبل از تاریخ تراکنش باشد");
+      }
+      repeatEndIso = endIso;
+    }
+
+    /* لیبل اختیاری → زیردسته (یافته یا ساخته می‌شود) */
+    let subcategoryId: string | null = null;
+    const label = form.label.trim();
+    if (!isTransfer && label) {
+      try {
+        const sub = await useCases.addSubcategory.execute(
+          form.categoryId,
+          label,
+        );
+        subcategoryId = sub.id;
+      } catch (e) {
+        return notify((e as Error).message || "خطا در ثبت لیبل");
+      }
+    }
+
     const parsedDate = parse(form.date) ?? today();
 
     const input = {
@@ -188,8 +221,9 @@ export function useTxFormModel(
       note: form.note.trim() || null,
       accountId: form.accountId,
       toAccountId: isTransfer ? form.toAccountId : null,
-      subcategoryId: isTransfer ? null : form.subcategoryId || null,
-      repeat: form.repeat,
+      subcategoryId: isTransfer ? null : subcategoryId,
+      repeat,
+      repeatEnd: repeatEndIso,
     };
 
     setBusy(true);
@@ -272,6 +306,8 @@ export function useTxFormModel(
     setDate: (v: string) => setForm((f) => ({ ...f, date: liveFormatJalaliDate(v) })),
     setTime: (v: string) => setForm((f) => ({ ...f, time: v })),
     setRepeat: (v: TxRepeat) => setForm((f) => ({ ...f, repeat: v })),
+    setRepeatEnd: (v: string) =>
+      setForm((f) => ({ ...f, repeatEnd: liveFormatJalaliDate(v) })),
     /* ارز ورودی مبلغ */
     entryCurrency,
     switchEntryCurrency,

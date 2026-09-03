@@ -22,6 +22,8 @@ const RPC_ERROR_MAP: { re: RegExp; code: AppErrorCode; msg: string }[] = [
   { re: /FORBIDDEN/, code: "FORBIDDEN", msg: "اجازه انجام این کار را ندارید" },
   { re: /INVALID_(TYPE|AMOUNT|CATEGORY|DATE)/, code: "INVALID_TX", msg: "اطلاعات تراکنش معتبر نیست" },
   { re: /INVALID_TIME/, code: "INVALID_TX", msg: "ساعت انتخاب‌شده معتبر نیست" },
+  { re: /REPEAT_END_REQUIRED/, code: "INVALID_TX", msg: "تراکنش تکرارشونده باید تاریخ پایان داشته باشد" },
+  { re: /INVALID_REPEAT_END/, code: "INVALID_TX", msg: "تاریخ پایان تکرار باید بعد از تاریخ تراکنش باشد" },
   { re: /INVALID_REPEAT/, code: "INVALID_TX", msg: "دوره تکرار معتبر نیست" },
   { re: /INVALID_TRANSFER/, code: "INVALID_TX", msg: "برای انتقال، حساب مبدأ و مقصد (متفاوت) را انتخاب کنید" },
   { re: /INVALID_TITLE/, code: "INVALID_ACCOUNT", msg: "نام کارت/حساب معتبر نیست (حداکثر ۴۰ کاراکتر)" },

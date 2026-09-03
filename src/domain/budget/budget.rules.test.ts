@@ -17,6 +17,7 @@ function tx(partial: Partial<Transaction>): Transaction {
     toAccountId: null,
     subcategoryId: null,
     repeat: "none",
+    repeatEnd: null,
     photos: [],
     createdAt: "2026-06-01T10:00:00Z",
     ...partial,

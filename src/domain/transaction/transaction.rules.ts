@@ -25,7 +25,8 @@ export type TxValidationCode =
   | "INVALID_DATE"
   | "INVALID_MEMBER"
   | "INVALID_NOTE"
-  | "INVALID_TRANSFER";
+  | "INVALID_TRANSFER"
+  | "INVALID_REPEAT_END";
 
 export interface TxValidationResult {
   ok: boolean;
@@ -73,6 +74,15 @@ export function validateTransaction(input: TransactionInput): TxValidationResult
     }
     if (input.accountId === input.toAccountId) {
       return { ok: false, error: "INVALID_TRANSFER" };
+    }
+  }
+  /* تراکنش تکرارشونده حتماً تاریخ پایان معتبر بعد از تاریخ خود تراکنش دارد */
+  if (input.repeat && input.repeat !== "none") {
+    if (!input.repeatEnd || !isValidGregorianIso(input.repeatEnd)) {
+      return { ok: false, error: "INVALID_REPEAT_END" };
+    }
+    if (input.repeatEnd < input.date) {
+      return { ok: false, error: "INVALID_REPEAT_END" };
     }
   }
   return { ok: true };

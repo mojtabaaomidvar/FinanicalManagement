@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
 import { usePendingSmsModel } from "../model/usePendingSmsModel";
-import { AmountInput, Field, JalaliDateInput, Modal, Select } from "@/shared/ui";
+import { AmountInput, Field, JalaliDateInput, Modal, Select, TextInput } from "@/shared/ui";
 import { categoriesFor } from "@/domain/category/category.catalog";
 import { toFa } from "@/shared/lib/digits";
 
@@ -71,19 +71,27 @@ export function PendingSmsFeature({ refreshKey }: { refreshKey: number }) {
                 }))}
               />
             </Field>
-            <Field label="زیردسته (الزامی)">
-              <div className="subchips">
-                {subsOfCategory.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    className={`chip ${m.subcategoryId === s.id ? "active" : ""}`}
-                    onClick={() => m.setSubcategoryId(s.id)}
-                  >
-                    {s.name}
-                  </button>
-                ))}
-              </div>
+            <Field label="لیبل (اختیاری)">
+              <TextInput
+                value={m.label}
+                onChange={m.setLabel}
+                placeholder="مثلاً نانوایی، اسنپ، اجاره…"
+                maxLength={30}
+              />
+              {subsOfCategory.length ? (
+                <div className="quick-chips">
+                  {subsOfCategory.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      className={`chip ${m.label === s.name ? "active" : ""}`}
+                      onClick={() => m.setLabel(s.name)}
+                    >
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </Field>
             <Field label="حساب (الزامی)">
               <Select

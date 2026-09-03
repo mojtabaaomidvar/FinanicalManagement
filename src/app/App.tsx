@@ -132,7 +132,7 @@ function MainShell({
   filterSignal: number;
   bumpFilterSignal: () => void;
 }) {
-  const { useCases, members, family } = useApp();
+  const { useCases, members, family, subcategories } = useApp();
   const { show } = useToast();
   const form = useTxFormModel(
     useCases!,
@@ -140,6 +140,7 @@ function MainShell({
     currentMemberId,
     show,
     family?.currency ?? "تومان",
+    subcategories,
   );
 
   const activeIdx = Math.max(
@@ -199,7 +200,7 @@ function MainShell({
       <TransactionFormFeature form={form} />
       <PendingSmsFeature refreshKey={refreshKey} />
 
-      {/* داک پایین — دو المان مجزا: نوار شیشه‌ای تب‌ها + FAB پلاس */}
+      {/* داک پایین — تب‌بار تمام‌عرض + FAB پلاس شناور بالای نوار */}
       <div className="tabbar-dock">
         <nav className="tabbar tabbar-5" aria-label="ناوبری اصلی">
           {/* پیل لغزنده — کپسول محو پشت تب فعال */}
@@ -230,7 +231,7 @@ function MainShell({
           ))}
         </nav>
 
-        {/* FAB پلاس — افزودن تراکنش، جدا از نوار با گپ مشخص */}
+        {/* FAB پلاس — شناور بالای تب‌بار، نوار کل عرض را می‌گیرد */}
         <button
           type="button"
           className="fab-add"

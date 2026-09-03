@@ -5,7 +5,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -61,7 +60,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [events, setEvents] = useState<FamilyEvent[]>([]);
   const [budgets, setBudgets] = useState<CategoryBudget[]>([]);
   const [useCases, setUseCases] = useState<UseCases | null>(null);
-  const seeded = useRef(false);
 
   /* راه‌اندازی: container + بازیابی نشست */
   useEffect(() => {
@@ -91,16 +89,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const refreshData = useMemo(
     () => async () => {
       if (!useCases) return;
-
-      /* seed زیردسته‌های پیش‌فرض فقط یک‌بار در هر نشست */
-      if (!seeded.current) {
-        try {
-          await useCases.ensureDefaultSubcategories.execute();
-        } catch {
-          /* بی‌صدا */
-        }
-        seeded.current = true;
-      }
 
       const [
         familyRow,
@@ -168,7 +156,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setCustomCategories([]);
         setEvents([]);
         setBudgets([]);
-        seeded.current = false;
         setPhase("auth");
       },
     }),
