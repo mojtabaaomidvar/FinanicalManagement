@@ -1,11 +1,10 @@
 /* مدل فرم تراکنش — افزودن/ویرایش با اعتبارسنجی */
 
 import { useEffect, useState } from "react";
-import type { Transaction } from "@/domain/transaction/transaction.types";
+import type { Transaction, TxRepeat } from "@/domain/transaction/transaction.types";
 import type { UseCases } from "@/application/useCases";
 import type { Member } from "@/domain/family/family.types";
 import {
-  categoriesFor,
   defaultCategoryOf,
 } from "@/domain/category/category.catalog";
 import { parse } from "@/shared/lib/jalali";
@@ -22,7 +21,7 @@ import { fromDisplay, toDisplay } from "@/shared/lib/currency";
 import { isoToJalali, today, formatISO } from "@/shared/lib/jalali";
 
 export interface TxFormState {
-  type: "expense" | "income";
+  type: "expense" | "income" | "transfer";
   amount: string;
   categoryId: string;
   date: string;
@@ -30,10 +29,14 @@ export interface TxFormState {
   time: string;
   memberId: string;
   note: string;
-  /** حساب منشا/مقصد — الزامی */
+  /** حساب منشا (هزینه/انتقال) یا مقصد واریز (درآمد) — الزامی */
   accountId: string;
-  /** زیردسته — الزامی (متفرقه هم یک زیردسته است) */
+  /** حساب مقصد انتقال — الزامی برای type=transfer */
+  toAccountId: string;
+  /** زیردسته — الزامی برای هزینه/درآمد (متفرقه هم یک زیردسته است) */
   subcategoryId: string;
+  /** دوره تکرار */
+  repeat: TxRepeat;
 }
 
 /** تصویر پیوست در فرم — موجود (سمت سرور) یا در صف آپلود */
@@ -58,6 +61,8 @@ export function useTxFormModel(
   const [form, setForm] = useState<TxFormState>(defaults());
   const [photos, setPhotos] = useState<TxPhotoItem[]>([]);
   const [busy, setBusy] = useState(false);
+  /** ارز ورودی مبلغ — مستقل از ارز اصلی، همان لحظه ثبت */
+  const [entryCurrency, setEntryCurrency] = useState<string>(currency);
 
   function defaults(): TxFormState {
     return {
@@ -69,7 +74,9 @@ export function useTxFormModel(
       memberId: currentMemberId,
       note: "",
       accountId: "",
+      toAccountId: "",
       subcategoryId: "",
+      repeat: "none",
     };
   }
 
@@ -77,6 +84,7 @@ export function useTxFormModel(
     setEditing(null);
     setForm(defaults());
     setPhotos([]);
+    setEntryCurrency(currency);
     setOpen(true);
   }
 
@@ -91,7 +99,9 @@ export function useTxFormModel(
       memberId: tx.memberId,
       note: tx.note ?? "",
       accountId: tx.accountId ?? "",
+      toAccountId: tx.toAccountId ?? "",
       subcategoryId: tx.subcategoryId ?? "",
+      repeat: tx.repeat,
     });
     setPhotos(
       tx.photos.map((p) => ({
@@ -100,16 +110,27 @@ export function useTxFormModel(
         caption: p.caption ?? "",
       })),
     );
+    setEntryCurrency(currency);
     setOpen(true);
   }
 
-  function setType(type: "expense" | "income") {
+  function setType(type: "expense" | "income" | "transfer") {
     setForm((f) => ({
       ...f,
       type,
-      categoryId: categoriesFor(type)[0].id,
+      categoryId: defaultCategoryOf(type).id,
       subcategoryId: "", /* دسته عوض شد — زیردسته نامعتبر می‌شود */
     }));
+  }
+
+  /** تعویض ارز ورودی — مقدار تایپ‌شده به واحد جدید تبدیل می‌شود */
+  function switchEntryCurrency(next: string) {
+    const v = parseAmountInput(form.amount);
+    setForm((f) => ({
+      ...f,
+      amount: v ? formatAmount(toDisplay(fromDisplay(v, entryCurrency), next)) : "",
+    }));
+    setEntryCurrency(next);
   }
 
   async function save(
@@ -120,8 +141,10 @@ export function useTxFormModel(
     const amount = parseAmountInput(form.amount);
     if (!amount || amount <= 0) return notify("لطفاً مبلغ معتبر وارد کنید");
 
-    /* زیردسته الزامی — متفرقه هم یک زیردسته است */
-    if (!form.subcategoryId) {
+    const isTransfer = form.type === "transfer";
+
+    /* زیردسته الزامی برای هزینه/درآمد — متفرقه هم یک زیردسته است */
+    if (!isTransfer && !form.subcategoryId) {
       return notify(
         "انتخاب زیردسته الزامی است — روی دسته‌بندی بزنید و یکی را انتخاب کنید (یا «متفرقه»)",
       );
@@ -131,14 +154,26 @@ export function useTxFormModel(
     if (!form.accountId) {
       if (!accountsCount) {
         return notify(
-          "هنوز هیچ کارت/حسابی ثبت نشده — ابتدا از تب «کارت‌ها» یک حساب اضافه کنید",
+          "هنوز هیچ کارت/حسابی ثبت نشده — ابتدا از تب «حساب‌ها» یک حساب اضافه کنید",
         );
       }
       return notify(
-        form.type === "expense"
-          ? "انتخاب حساب الزامی است — این هزینه از کدام حساب پرداخت شد؟"
-          : "انتخاب حساب الزامی است — این درآمد به کدام حساب واریز شد؟",
+        isTransfer
+          ? "حساب مبدأ را انتخاب کنید — انتقال از کدام حساب انجام شود؟"
+          : form.type === "expense"
+            ? "انتخاب حساب الزامی است — این هزینه از کدام حساب پرداخت شد؟"
+            : "انتخاب حساب الزامی است — این درآمد به کدام حساب واریز شد؟",
       );
+    }
+
+    /* انتقال: مقصد الزامی و متفاوت از مبدأ */
+    if (isTransfer) {
+      if (!form.toAccountId) {
+        return notify("حساب مقصد را انتخاب کنید — پول به کدام حساب/کیف‌پول برود؟");
+      }
+      if (form.toAccountId === form.accountId) {
+        return notify("حساب مبدأ و مقصد نباید یکی باشد");
+      }
     }
 
     const parsedDate = parse(form.date) ?? today();
@@ -146,13 +181,15 @@ export function useTxFormModel(
     const input = {
       memberId: form.memberId || currentMemberId,
       type: form.type,
-      amount: fromDisplay(amount, currency),
-      category: form.categoryId,
+      amount: fromDisplay(amount, entryCurrency),
+      category: isTransfer ? "transfer" : form.categoryId,
       date: jalaliToIso(parsedDate),
       time: form.time || null,
       note: form.note.trim() || null,
       accountId: form.accountId,
-      subcategoryId: form.subcategoryId || null,
+      toAccountId: isTransfer ? form.toAccountId : null,
+      subcategoryId: isTransfer ? null : form.subcategoryId || null,
+      repeat: form.repeat,
     };
 
     setBusy(true);
@@ -234,6 +271,10 @@ export function useTxFormModel(
     setAmount: (v: string) => setForm((f) => ({ ...f, amount: liveFormatAmount(v) })),
     setDate: (v: string) => setForm((f) => ({ ...f, date: liveFormatJalaliDate(v) })),
     setTime: (v: string) => setForm((f) => ({ ...f, time: v })),
+    setRepeat: (v: TxRepeat) => setForm((f) => ({ ...f, repeat: v })),
+    /* ارز ورودی مبلغ */
+    entryCurrency,
+    switchEntryCurrency,
     /* انتخاب فایل‌های تصویر → فشرده‌سازی و افزودن به صف آپلود */
     addPhotoFiles: async (files: File[]) => {
       const room = MAX_PHOTOS - photos.length;

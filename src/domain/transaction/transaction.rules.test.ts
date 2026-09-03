@@ -39,7 +39,36 @@ describe("validateTransaction", () => {
   });
 
   it("نوع نامعتبر", () => {
-    expect(ok({ type: "transfer" as "expense" }).error).toBe("INVALID_TYPE");
+    expect(ok({ type: "foo" as "expense" }).error).toBe("INVALID_TYPE");
+  });
+
+  it("انتقال: سالم — مبدأ و مقصد الزامی و متفاوت", () => {
+    expect(
+      ok({
+        type: "transfer",
+        category: "transfer",
+        accountId: "a1",
+        toAccountId: "a2",
+      }).ok,
+    ).toBe(true);
+    /* بدون مقصد */
+    expect(
+      ok({
+        type: "transfer",
+        category: "transfer",
+        accountId: "a1",
+        toAccountId: null,
+      }).error,
+    ).toBe("INVALID_TRANSFER");
+    /* مبدأ = مقصد */
+    expect(
+      ok({
+        type: "transfer",
+        category: "transfer",
+        accountId: "a1",
+        toAccountId: "a1",
+      }).error,
+    ).toBe("INVALID_TRANSFER");
   });
 });
 
@@ -59,7 +88,9 @@ const tx = (
   time,
   note: null,
   accountId: null,
+  toAccountId: null,
   subcategoryId: null,
+  repeat: "none",
   photos: [],
   createdAt,
 });

@@ -20,6 +20,13 @@ import {
   parseAmountInput,
 } from "@/shared/lib/format";
 import { fromDisplay, toDisplay } from "@/shared/lib/currency";
+import {
+  transactionsToCsv,
+  transactionsToExcelXml,
+  downloadTextFile,
+} from "@/shared/lib/csv";
+import { sortTxDesc } from "@/domain/transaction/transaction.rules";
+import { CATEGORIES } from "@/domain/category/category.catalog";
 
 type SettingsSection =
   | "family"
@@ -29,8 +36,17 @@ type SettingsSection =
   | "app";
 
 export function SettingsPage() {
-  const { useCases, family, members, txs, member, refreshData, onLoggedOut } =
-    useApp();
+  const {
+    useCases,
+    family,
+    members,
+    txs,
+    accounts,
+    member,
+    customCategories,
+    refreshData,
+    onLoggedOut,
+  } = useApp();
   const { show } = useToast();
   const { themeMode, changeTheme } = useTheme(member, useCases);
 
@@ -89,6 +105,7 @@ export function SettingsPage() {
     return (
       <SettingsSubPage title="پروفایل من" onBack={back}>
         <ProfileCard />
+        <PremiumCard />
       </SettingsSubPage>
     );
   }
@@ -178,32 +195,89 @@ export function SettingsPage() {
 
         <AccountsCard />
 
+        {/* تراکنش‌های زمان‌بندی‌شده (تکرارشونده) */}
+        <ScheduledTxsCard />
+
         <Card title="خروجی داده‌ها">
-          <button
-            className="btn-secondary btn-block"
-            onClick={() => {
-              if (!family) return;
-              const data = useCases!.buildBackupJson.execute({
-                family,
-                members,
-                transactions: txs,
-              });
-              const blob = new Blob([JSON.stringify(data, null, 2)], {
-                type: "application/json",
-              });
-              const a = document.createElement("a");
-              a.href = URL.createObjectURL(blob);
-              a.download =
-                "khaneyar-backup-" +
-                new Date().toISOString().slice(0, 10) +
-                ".json";
-              a.click();
-              URL.revokeObjectURL(a.href);
-              show("فایل پشتیبان دانلود شد");
-            }}
-          >
-            دانلود فایل پشتیبان
-          </button>
+          <div className="export-grid">
+            <button
+              className="btn-secondary"
+              onClick={() => {
+                if (!family) return;
+                const data = useCases!.buildBackupJson.execute({
+                  family,
+                  members,
+                  transactions: txs,
+                });
+                const blob = new Blob([JSON.stringify(data, null, 2)], {
+                  type: "application/json",
+                });
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download =
+                  "khaneyar-backup-" +
+                  new Date().toISOString().slice(0, 10) +
+                  ".json";
+                a.click();
+                URL.revokeObjectURL(a.href);
+                show("فایل پشتیبان دانلود شد");
+              }}
+            >
+              <svg>
+                <use href="#i-download" />
+              </svg>
+              پشتیبان JSON
+            </button>
+            <button
+              className="btn-secondary"
+              onClick={() => {
+                const csv = transactionsToCsv(
+                  sortTxDesc(txs),
+                  members.map((m) => ({ id: m.id, name: m.name })),
+                  [
+                    ...CATEGORIES.map((c) => ({ id: c.id, name: c.name })),
+                    ...customCategories.map((c) => ({ id: c.id, name: c.name })),
+                  ],
+                  (id) => accounts.find((a) => a.id === id)?.title ?? "",
+                );
+                downloadTextFile(csv, "khaneyar-transactions.csv");
+                show("فایل CSV دانلود شد");
+              }}
+            >
+              <svg>
+                <use href="#i-download" />
+              </svg>
+              CSV (اکسل)
+            </button>
+            <button
+              className="btn-secondary"
+              onClick={() => {
+                const xml = transactionsToExcelXml(
+                  sortTxDesc(txs),
+                  members.map((m) => ({ id: m.id, name: m.name })),
+                  [
+                    ...CATEGORIES.map((c) => ({ id: c.id, name: c.name })),
+                    ...customCategories.map((c) => ({ id: c.id, name: c.name })),
+                  ],
+                  (id) => accounts.find((a) => a.id === id)?.title ?? "",
+                );
+                downloadTextFile(
+                  xml,
+                  "khaneyar-transactions.xls",
+                  "application/vnd.ms-excel;charset=utf-8",
+                );
+                show("فایل Excel دانلود شد");
+              }}
+            >
+              <svg>
+                <use href="#i-download" />
+              </svg>
+              Excel
+            </button>
+          </div>
+          <p className="modal-sub" style={{ marginTop: 10 }}>
+            مبالغ در همه فرمت‌ها به تومان (ارز پایه) است.
+          </p>
         </Card>
       </SettingsSubPage>
     );
@@ -395,6 +469,92 @@ function VersionCard() {
           </button>
         )}
       </div>
+    </Card>
+  );
+}
+
+/* ارتقا به نسخه‌ی پرمیوم — ورودی مشخص */
+function PremiumCard() {
+  const { show } = useToast();
+  return (
+    <div className="premium-card">
+      <div className="premium-head">
+        <span className="premium-crown">
+          <svg>
+            <use href="#i-crown" />
+          </svg>
+        </span>
+        <div>
+          <h4>خانه‌یار پرمیوم</h4>
+          <p>قابلیت‌های بیشتر برای مدیریت مالی خانواده</p>
+        </div>
+      </div>
+      <ul className="premium-features">
+        <li>خروجی گزارش‌های کامل (Excel و CSV)</li>
+        <li>بودجه‌بندی نامحدود دسته‌ها</li>
+        <li>پشتیبانی اولویت‌دار</li>
+      </ul>
+      <button
+        className="btn-primary btn-block"
+        onClick={() => show("نسخه پرمیوم به‌زودی عرضه می‌شود — منتظر باشید")}
+      >
+        ارتقا به نسخه پرمیوم
+      </button>
+    </div>
+  );
+}
+
+/* فهرست تراکنش‌های زمان‌بندی‌شده — تکرارشونده‌ها */
+function ScheduledTxsCard() {
+  const { txs, family, customCategories, members } = useApp();
+  const cur = family?.currency ?? "تومان";
+
+  const scheduled = useMemo(
+    () => sortTxDesc(txs.filter((t) => t.repeat && t.repeat !== "none")),
+    [txs],
+  );
+
+  const repeatFa: Record<string, string> = {
+    weekly: "هفتگی",
+    monthly: "ماهانه",
+    yearly: "سالانه",
+  };
+
+  const resolveName = (id: string) =>
+    CATEGORIES.find((c) => c.id === id)?.name ??
+    customCategories.find((c) => c.id === id)?.name ??
+    id;
+
+  return (
+    <Card title="تراکنش‌های زمان‌بندی‌شده">
+      {scheduled.length ? (
+        <div className="scheduled-list">
+          {scheduled.map((t) => (
+            <div className="scheduled-row" key={t.id}>
+              <span className="scheduled-repeat">
+                <svg>
+                  <use href="#i-repeat" />
+                </svg>
+                {repeatFa[t.repeat] ?? t.repeat}
+              </span>
+              <b className="scheduled-title">
+                {t.note || resolveName(t.category)}
+              </b>
+              <span className="scheduled-amount">
+                {formatAmount(toDisplay(t.amount, cur))} {cur}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="modal-sub">
+          تراکنش تکرارشونده‌ای ندارید — موقع ثبت تراکنش، «تکرار» را روی
+          دوره‌ای بگذارید (قسط، حقوق، اجاره…).
+        </p>
+      )}
+      <p className="modal-sub" style={{ marginTop: 8 }}>
+        {members.length} عضو · {scheduled.length} تراکنش زمان‌بندی‌شده
+      </p>
     </Card>
   );
 }

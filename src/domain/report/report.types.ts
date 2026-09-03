@@ -33,6 +33,21 @@ export interface WeekFlow {
   net: number;
 }
 
+/** بازه نمودار ثروت */
+export type WealthRange = "7d" | "1m" | "1y" | "max";
+
+export interface WealthPoint {
+  /** تاریخ جلالی ISO برای تولتیپ */
+  date: string;
+  value: number;
+}
+
+/** موجودی یک حساب در پایان هر روز (مجموع تراکنش‌های تا آن روز) */
+export interface AccountBalance {
+  account: import("../account/account.types").Account;
+  balance: number;
+}
+
 export interface DashboardSummary {
   balance: number;
   month: MonthTotals;

@@ -7,13 +7,16 @@ import {
   dailyExpenses,
   sixMonthSeries,
   weekFlow,
+  accountBalances,
+  wealthSeries,
+  memberExpenseShare,
 } from "./report.rules";
 import { isoToJalali } from "@/shared/lib/jalali";
 import type { Transaction } from "../transaction/transaction.types";
 
 const tx = (
   id: string,
-  type: "expense" | "income",
+  type: "expense" | "income" | "transfer",
   amount: number,
   category: string,
   date: string,
@@ -28,7 +31,9 @@ const tx = (
   time: null,
   note: null,
   accountId: null,
+  toAccountId: null,
   subcategoryId: null,
+  repeat: "none",
   photos: [],
   createdAt: "2025-01-01T00:00:00Z",
 });
@@ -48,6 +53,17 @@ describe("محاسبات مالی گزارش", () => {
 
   it("موجودی کل = درآمد − هزینه", () => {
     expect(totalBalance(list)).toBe(600_000);
+  });
+
+  it("انتقال در موجودی و جمع ماه اثری ندارد", () => {
+    const withTransfer = [
+      ...list,
+      tx("t1", "transfer", 700_000, "transfer", "2025-09-02"),
+    ];
+    expect(totalBalance(withTransfer)).toBe(600_000);
+    const t = monthTotals(withTransfer);
+    expect(t.income).toBe(1_000_000);
+    expect(t.expense).toBe(400_000);
   });
 
   it("جمع ماه", () => {
@@ -107,5 +123,42 @@ describe("محاسبات مالی گزارش", () => {
     const w = weekFlow([], isoToJalali("2025-09-06"));
     expect(w.net).toBe(0);
     expect(w.income.every((v) => v === 0)).toBe(true);
+  });
+
+  it("موجودی حساب‌ها — انتقال مبدأ را کم و مقصد را زیاد می‌کند", () => {
+    const acc = { id: "a1" } as never;
+    const acc2 = { id: "a2" } as never;
+    const list = [
+      { ...tx("1", "income", 1_000_000, "salary", "2025-09-01"), accountId: "a1" },
+      { ...tx("2", "expense", 200_000, "food", "2025-09-02"), accountId: "a1" },
+      { ...tx("3", "transfer", 300_000, "transfer", "2025-09-03"), accountId: "a1", toAccountId: "a2" },
+    ];
+    const bals = accountBalances(list, [acc, acc2]);
+    expect(bals[0].balance).toBe(500_000);
+    expect(bals[1].balance).toBe(300_000);
+  });
+
+  it("سری ثروت — تجمعی روزانه، انتقال بی‌اثر", () => {
+    const list = [
+      tx("1", "income", 100_000, "salary", "2025-09-01"),
+      tx("2", "expense", 30_000, "food", "2025-09-02"),
+      { ...tx("3", "transfer", 999_000, "transfer", "2025-09-02") },
+    ];
+    const pts = wealthSeries(list, "7d", isoToJalali("2025-09-03"));
+    expect(pts).toHaveLength(7);
+    expect(pts[6].value).toBe(70_000);
+    /* روز قبل از هر تراکنش: صفر */
+    expect(pts[5].value).toBe(70_000);
+  });
+
+  it("سهم اعضا از هزینه — نزولی", () => {
+    const list = [
+      { ...tx("1", "expense", 100, "food", "2025-09-01"), memberId: "m2" },
+      { ...tx("2", "expense", 400, "food", "2025-09-01"), memberId: "m1" },
+      { ...tx("3", "income", 500, "salary", "2025-09-01"), memberId: "m1" },
+    ];
+    const share = memberExpenseShare(list);
+    expect(share[0]).toEqual({ memberId: "m1", amount: 400 });
+    expect(share).toHaveLength(2);
   });
 });

@@ -29,6 +29,10 @@ function AppBody() {
   const [route, setRoute] = useState<Route>("dashboard");
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  /* جستجوی ارسالی از هدر خانه → صفحه تراکنش‌ها */
+  const [txSearch, setTxSearch] = useState("");
+  /* سیگنال باز شدن فیلتر پیشرفته در صفحه تراکنش‌ها */
+  const [filterSignal, setFilterSignal] = useState(0);
   const { show } = useToast();
   const { updateReady, applyUpdate } = usePwaUpdateState();
 
@@ -89,6 +93,10 @@ function AppBody() {
       bumpRefresh={bumpRefresh}
       refreshKey={refreshKey}
       currentMemberId={member?.id ?? ""}
+      txSearch={txSearch}
+      setTxSearch={setTxSearch}
+      filterSignal={filterSignal}
+      bumpFilterSignal={() => setFilterSignal((s) => s + 1)}
     />
   );
 }
@@ -109,12 +117,20 @@ function MainShell({
   bumpRefresh,
   refreshKey,
   currentMemberId,
+  txSearch,
+  setTxSearch,
+  filterSignal,
+  bumpFilterSignal,
 }: {
   route: Route;
   setRoute: (r: Route) => void;
   bumpRefresh: () => Promise<void>;
   refreshKey: number;
   currentMemberId: string;
+  txSearch: string;
+  setTxSearch: (q: string) => void;
+  filterSignal: number;
+  bumpFilterSignal: () => void;
 }) {
   const { useCases, members, family } = useApp();
   const { show } = useToast();
@@ -139,6 +155,20 @@ function MainShell({
     [setRoute],
   );
 
+  /* جستجو از هدر خانه: انتقال به تراکنش‌ها با متن جستجو */
+  const searchFromHome = useCallback(
+    (q: string) => {
+      setTxSearch(q);
+      nav("transactions");
+    },
+    [nav, setTxSearch],
+  );
+
+  const openFilters = useCallback(() => {
+    bumpFilterSignal();
+    nav("transactions");
+  }, [nav, bumpFilterSignal]);
+
   return (
     <>
       <div key={route} className="page-anim">
@@ -147,9 +177,19 @@ function MainShell({
             form={form}
             onImported={bumpRefresh}
             onNavTransactions={() => nav("transactions")}
+            onNavBudgets={() => nav("budgets")}
+            onOpenFilters={openFilters}
+            onSearch={searchFromHome}
           />
         ) : null}
-        {route === "transactions" ? <TransactionsPage form={form} /> : null}
+        {route === "transactions" ? (
+          <TransactionsPage
+            form={form}
+            initialSearch={txSearch}
+            onSearchConsumed={() => setTxSearch("")}
+            filterSignal={filterSignal}
+          />
+        ) : null}
         {route === "reports" ? <ReportsPage form={form} /> : null}
         {route === "accounts" ? <AccountsPage /> : null}
         {route === "budgets" ? <BudgetsPage /> : null}

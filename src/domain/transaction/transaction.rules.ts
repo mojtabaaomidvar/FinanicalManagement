@@ -8,11 +8,12 @@ import { isoToJalali } from "@/shared/lib/jalali";
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** دسته معتبر: از کاتالوگ ثابت یا uuid دسته سفارشی خانواده */
+/** دسته معتبر: از کاتالوگ ثابت (هر نوع) یا uuid دسته سفارشی خانواده */
 export function isValidCategoryId(id: string): boolean {
   return (
     isValidCategory(id, "expense") ||
     isValidCategory(id, "income") ||
+    isValidCategory(id, "transfer") ||
     UUID_RE.test(id)
   );
 }
@@ -23,7 +24,8 @@ export type TxValidationCode =
   | "INVALID_CATEGORY"
   | "INVALID_DATE"
   | "INVALID_MEMBER"
-  | "INVALID_NOTE";
+  | "INVALID_NOTE"
+  | "INVALID_TRANSFER";
 
 export interface TxValidationResult {
   ok: boolean;
@@ -42,7 +44,7 @@ function isValidGregorianIso(date: string): boolean {
 }
 
 export function validateTransaction(input: TransactionInput): TxValidationResult {
-  if (input.type !== "expense" && input.type !== "income") {
+  if (input.type !== "expense" && input.type !== "income" && input.type !== "transfer") {
     return { ok: false, error: "INVALID_TYPE" };
   }
   if (
@@ -63,6 +65,15 @@ export function validateTransaction(input: TransactionInput): TxValidationResult
   }
   if ((input.note ?? "").length > MAX_NOTE_LENGTH) {
     return { ok: false, error: "INVALID_NOTE" };
+  }
+  /* انتقال: حساب مبدأ و مقصد الزامی و متفاوت */
+  if (input.type === "transfer") {
+    if (!input.accountId || !input.toAccountId) {
+      return { ok: false, error: "INVALID_TRANSFER" };
+    }
+    if (input.accountId === input.toAccountId) {
+      return { ok: false, error: "INVALID_TRANSFER" };
+    }
   }
   return { ok: true };
 }

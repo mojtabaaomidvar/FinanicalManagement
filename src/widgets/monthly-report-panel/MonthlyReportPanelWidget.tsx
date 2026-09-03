@@ -7,6 +7,7 @@ import { txsInJalaliMonth } from "@/domain/transaction/transaction.rules";
 import {
   categoryBreakdown,
   dailyExpenses,
+  memberExpenseShare,
   monthTotals,
   sixMonthSeries,
 } from "@/domain/report/report.rules";
@@ -16,7 +17,7 @@ import { toDisplay } from "@/shared/lib/currency";
 import { formatAmount, formatPercent } from "@/shared/lib/format";
 
 export function MonthlyReportPanelWidget() {
-  const { txs, family } = useApp();
+  const { txs, family, members } = useApp();
   const cur = family?.currency ?? "تومان";
   const [jy, setJy] = useState(() => today()[0]);
   const [jm, setJm] = useState(() => today()[1]);
@@ -27,6 +28,7 @@ export function MonthlyReportPanelWidget() {
       daily: dailyExpenses(mtx),
       series: sixMonthSeries((y, m) => txsInJalaliMonth(txs, y, m), jy, jm),
       cats: categoryBreakdown(mtx),
+      shares: memberExpenseShare(mtx),
       total: monthTotals(mtx).expense,
     };
   }, [txs, jy, jm]);
@@ -155,6 +157,58 @@ export function MonthlyReportPanelWidget() {
             </p>
           )}
         </div>
+      </Card>
+
+      {/* سهم اعضا از هزینه‌های ماه */}
+      <Card title="سهم اعضا از هزینه‌ها">
+        {report.shares.length ? (
+          <div className="member-share">
+            {report.shares.map((s, i) => {
+              const m = members.find((x) => x.id === s.memberId);
+              const pct = report.total
+                ? Math.round((s.amount / report.total) * 100)
+                : 0;
+              const color = C.palette[i % C.palette.length];
+              return (
+                <div className="member-share-row" key={s.memberId}>
+                  <span
+                    className="ms-avatar"
+                    style={{ background: color }}
+                    aria-hidden="true"
+                  >
+                    {(m?.name ?? "؟").slice(0, 1)}
+                  </span>
+                  <div className="ms-body">
+                    <div className="ms-top">
+                      <b>{m?.name ?? "عضو حذف‌شده"}</b>
+                      <span>
+                        {formatAmount(toDisplay(s.amount, cur))} {cur}
+                      </span>
+                    </div>
+                    <div className="cat-bar">
+                      <div
+                        className="cat-bar-fill"
+                        style={{ width: `${pct}%`, background: color }}
+                      />
+                    </div>
+                    <span className="ms-pct">{formatPercent(pct)} از هزینه‌های ماه</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p
+            style={{
+              fontSize: 13,
+              color: "var(--text-3)",
+              textAlign: "center",
+              padding: "16px 0",
+            }}
+          >
+            هزینه‌ای در این ماه ثبت نشده
+          </p>
+        )}
       </Card>
     </>
   );

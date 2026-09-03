@@ -1,8 +1,9 @@
 /* انتیتی پیامک بانکی */
 
-import type { TxType } from "../transaction/transaction.types";
-
 export type SmsStatus = "pending" | "recorded" | "ignored";
+
+/** نوع تراکنش قابل استخراج از پیامک — انتقال از پیامک ساخته نمی‌شود */
+export type SmsTxType = "expense" | "income";
 
 export interface BankSms {
   id: string;
@@ -10,7 +11,7 @@ export interface BankSms {
   memberId: string | null;
   rawText: string;
   bank: string | null;
-  type: TxType | null;
+  type: SmsTxType | null;
   amount: number | null;
   balance: number | null;
   /** "YYYY-MM-DD" میلادی */
@@ -22,7 +23,7 @@ export interface BankSms {
 export interface NewBankSms {
   rawText: string;
   bank: string | null;
-  type: TxType | null;
+  type: SmsTxType | null;
   amount: number | null;
   balance: number | null;
   /** "YYYY-MM-DD" میلادی */

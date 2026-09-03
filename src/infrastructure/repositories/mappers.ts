@@ -36,14 +36,16 @@ export interface TransactionRow {
   id: string;
   family_id: string;
   member_id: string;
-  type: "expense" | "income";
+  type: "expense" | "income" | "transfer";
   amount: string | number;
   category: string;
   date: string;
   time: string | null;
   note: string | null;
   account_id: string | null;
+  to_account_id?: string | null;
   subcategory_id: string | null;
+  repeat?: "none" | "weekly" | "monthly" | "yearly" | null;
   photos?: { id: string; url: string; caption: string | null }[] | null;
   created_at: string;
 }
@@ -105,7 +107,12 @@ export function mapTransaction(r: TransactionRow): Transaction {
     time: r.time ?? null,
     note: r.note,
     accountId: r.account_id,
+    toAccountId: r.to_account_id ?? null,
     subcategoryId: r.subcategory_id,
+    repeat:
+      r.repeat === "weekly" || r.repeat === "monthly" || r.repeat === "yearly"
+        ? r.repeat
+        : "none",
     photos: (r.photos ?? []).map((p) => ({
       id: p.id,
       url: p.url,
@@ -153,6 +160,7 @@ export interface AccountRow {
   family_id: string;
   member_id: string;
   title: string;
+  kind?: "bank" | "wallet" | null;
   bank: string | null;
   card_number: string | null;
   account_number: string | null;
@@ -168,6 +176,7 @@ export function mapAccount(
     familyId: r.family_id,
     memberId: r.member_id,
     title: r.title,
+    kind: r.kind === "wallet" ? "wallet" : "bank",
     bank: r.bank,
     cardNumber: r.card_number,
     accountNumber: r.account_number,

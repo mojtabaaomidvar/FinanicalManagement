@@ -1,12 +1,14 @@
 /* UI فرم تراکنش — مودال افزودن/ویرایش
-   (حساب الزامی + انتخاب دسته با مودال زیردسته‌ها + افزودن دسته + تصاویر پیوست) */
+   (سه تب هزینه/درآمد/انتقال + کیپد ماشین‌حساب + سوییچ ارز ورودی
+    + برچسب‌های سریع + تکرار دوره‌ای با نمونه‌های آماده + تم رنگی دسته) */
 
-import { useRef, useState } from "react";
+import { useRef, useState, type CSSProperties } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
 import type { TxFormModel } from "../model/useTxFormModel";
 import {
   AmountInput,
+  CalcKeypad,
   Field,
   JalaliDateInput,
   Modal,
@@ -19,6 +21,8 @@ import {
   CUSTOM_CATEGORY_ICON,
   categoryById,
 } from "@/domain/category/category.catalog";
+import { categoryColor } from "@/domain/category/category.colors";
+import { TX_REPEATS, type TxRepeat } from "@/domain/transaction/transaction.types";
 import { maskCardNumber } from "@/domain/account/account.rules";
 
 function accountLabel(
@@ -32,6 +36,29 @@ function accountLabel(
   return parts.join(" · ");
 }
 
+/* برچسب‌های سریع شرح — یک‌تپی */
+const QUICK_LABELS: Record<"expense" | "income", string[]> = {
+  expense: [
+    "خرید روزانه",
+    "نان",
+    "میوه",
+    "تاکسی",
+    "بنزین",
+    "قبض",
+    "دارو",
+    "کیف پول خرد",
+  ],
+  income: ["حقوق", "پاداش", "عیدی", "فروش", "سود سرمایه", "هدیه"],
+};
+
+/* نمونه‌های آماده تکرار — دوره + شرح */
+const REPEAT_PRESETS: { label: string; note: string; repeat: TxRepeat }[] = [
+  { label: "قسط", note: "قسط ماهانه", repeat: "monthly" },
+  { label: "حقوق پرسنل", note: "حقوق پرسنل", repeat: "monthly" },
+  { label: "اجاره خانه", note: "اجاره خانه", repeat: "monthly" },
+  { label: "شارژ ساختمان", note: "شارژ ساختمان", repeat: "monthly" },
+];
+
 export function TransactionFormFeature({ form }: { form: TxFormModel }) {
   const m = form;
   const {
@@ -39,7 +66,6 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
     subcategories,
     customCategories,
     useCases,
-    family,
     member,
     refreshData,
   } = useApp();
@@ -51,25 +77,35 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
   const [addingCat, setAddingCat] = useState(false);
   const [newSubName, setNewSubName] = useState("");
   const [addingSub, setAddingSub] = useState(false);
+  const [showPad, setShowPad] = useState(false);
   const photoFileRef = useRef<HTMLInputElement>(null);
 
-  /* دسته‌های قابل نمایش: ثابت + سفارشی همین نوع */
-  const cats = [
-    ...categoriesFor(m.form.type),
-    ...customCategories
-      .filter((c) => c.type === m.form.type)
-      .map((c) => ({
-        id: c.id,
-        name: c.name,
-        icon: CUSTOM_CATEGORY_ICON,
-        type: c.type,
-      })),
-  ];
+  const isTransfer = m.form.type === "transfer";
 
-  const activeCat = categoryById(m.form.categoryId);
+  /* دسته‌های قابل نمایش: ثابت + سفارشی همین نوع (انتقال دسته ندارد) */
+  const cats = isTransfer
+    ? []
+    : [
+        ...categoriesFor(m.form.type),
+        ...customCategories
+          .filter((c) => c.type === m.form.type)
+          .map((c) => ({
+            id: c.id,
+            name: c.name,
+            icon: CUSTOM_CATEGORY_ICON,
+            type: c.type,
+          })),
+      ];
+
+  const activeCat = categoryById(isTransfer ? "transfer" : m.form.categoryId);
   const selectedSub = subcategories.find((s) => s.id === m.form.subcategoryId);
   const subsOfCategory = subcategories.filter(
     (s) => s.category === m.form.categoryId,
+  );
+
+  /* تم رنگی فرم — رنگ پاستل دسته انتخاب‌شده */
+  const catColor = categoryColor(
+    isTransfer ? "transfer" : m.form.categoryId,
   );
 
   function pickCategory(catId: string) {
@@ -129,120 +165,252 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
         onClose={m.close}
         title={m.editing ? "ویرایش تراکنش" : "تراکنش جدید"}
       >
-        <Segmented
-          value={m.form.type}
-          onChange={m.setType}
-          options={[
-            { value: "expense", label: "هزینه" },
-            { value: "income", label: "درآمد" },
-          ]}
-        />
+        <div
+          className="tx-form"
+          style={{ "--cat-color": catColor } as CSSProperties}
+        >
+          <Segmented
+            value={m.form.type}
+            onChange={m.setType}
+            options={[
+              { value: "expense", label: "هزینه" },
+              { value: "income", label: "درآمد" },
+              { value: "transfer", label: "انتقال" },
+            ]}
+          />
 
-        <div className="form-grid" style={{ marginTop: 16 }}>
+          <div className="form-grid" style={{ marginTop: 16 }}>
           <div className="form-row full">
-            <Field label={`مبلغ (${family?.currency ?? "تومان"})`}>
-              <AmountInput value={m.form.amount} onChange={m.setAmount} big />
-            </Field>
-          </div>
-
-          <div className="form-row full">
-            <Field label="دسته‌بندی">
-              <div className="cat-grid">
-                {cats.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    className={`cat-cell ${m.form.categoryId === c.id ? "active" : ""}`}
-                    onClick={() => pickCategory(c.id)}
-                  >
-                    <svg>
-                      <use href={`#${c.icon}`} />
-                    </svg>
-                    <span>{c.name}</span>
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  className="cat-cell cat-add"
-                  onClick={() => setShowAddCat((v) => !v)}
-                  title="افزودن دسته جدید"
-                >
-                  <svg>
-                    <use href="#i-plus" />
-                  </svg>
-                  <span>دسته جدید</span>
-                </button>
+            <Field label={`مبلغ (${m.entryCurrency})`}>
+              <div className="amount-row">
+                <AmountInput value={m.form.amount} onChange={m.setAmount} big />
+                {/* سوییچ ارز ورودی — مستقل از ارز اصلی */}
+                <Segmented
+                  value={m.entryCurrency}
+                  onChange={m.switchEntryCurrency}
+                  options={[
+                    { value: "تومان", label: "تومان" },
+                    { value: "ریال", label: "ریال" },
+                  ]}
+                />
               </div>
             </Field>
+            <button
+              type="button"
+              className="calc-toggle"
+              onClick={() => setShowPad((v) => !v)}
+            >
+              <svg>
+                <use href="#i-calc" />
+              </svg>
+              ماشین‌حساب
+            </button>
+            {showPad ? (
+              <CalcKeypad
+                value={m.form.amount}
+                onChange={m.setAmount}
+                onDone={m.setAmount}
+              />
+            ) : null}
           </div>
 
-          {showAddCat ? (
-            <div className="form-row full">
-              <Field label="نام دسته جدید">
-                <div className="convert-row">
-                  <TextInput
-                    value={newCatName}
-                    onChange={setNewCatName}
-                    placeholder="نام دسته مورد نظر شما"
-                    autoFocus
+          {isTransfer ? (
+            /* ── حالت انتقال: مبدأ و مقصد ── */
+            <>
+              <div className="form-row full">
+                <Field label="از حساب (مبدأ)">
+                  <Select
+                    value={m.form.accountId}
+                    onChange={(v) => m.setForm({ ...m.form, accountId: v })}
+                    options={[
+                      {
+                        value: "",
+                        label: accounts.length ? "انتخاب کنید…" : "حسابی ثبت نشده",
+                      },
+                      ...accounts.map((a) => ({
+                        value: a.id,
+                        label: accountLabel(a.title, a.bank, a.cardNumber),
+                      })),
+                    ]}
                   />
+                </Field>
+              </div>
+              <div className="form-row full">
+                <Field label="به حساب (مقصد)">
+                  <Select
+                    value={m.form.toAccountId}
+                    onChange={(v) => m.setForm({ ...m.form, toAccountId: v })}
+                    options={[
+                      {
+                        value: "",
+                        label: accounts.length ? "انتخاب کنید…" : "حسابی ثبت نشده",
+                      },
+                      ...accounts
+                        .filter((a) => a.id !== m.form.accountId)
+                        .map((a) => ({
+                          value: a.id,
+                          label: accountLabel(a.title, a.bank, a.cardNumber),
+                        })),
+                    ]}
+                  />
+                </Field>
+              </div>
+              <p className="transfer-hint">
+                مثال: برداشت نقد از حساب بانکی → انتخاب بانک در «مبدأ» و کیف‌پول
+                نقدی در «مقصد». انتقال در گزارش‌های درآمد/هزینه حساب نمی‌شود.
+              </p>
+            </>
+          ) : (
+            /* ── هزینه/درآمد: دسته‌بندی + زیردسته + حساب ── */
+            <>
+              <div className="form-row full">
+                <Field label="دسته‌بندی">
+                  <div className="cat-grid">
+                    {cats.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className={`cat-cell ${m.form.categoryId === c.id ? "active" : ""}`}
+                        style={{
+                          background:
+                            m.form.categoryId === c.id
+                              ? categoryColor(c.id)
+                              : undefined,
+                        }}
+                        onClick={() => pickCategory(c.id)}
+                      >
+                        <svg style={{ color: m.form.categoryId === c.id ? "var(--card)" : categoryColor(c.id) }}>
+                          <use href={`#${c.icon}`} />
+                        </svg>
+                        <span>{c.name}</span>
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      className="cat-cell cat-add"
+                      onClick={() => setShowAddCat((v) => !v)}
+                      title="افزودن دسته جدید"
+                    >
+                      <svg>
+                        <use href="#i-plus" />
+                      </svg>
+                      <span>دسته جدید</span>
+                    </button>
+                  </div>
+                </Field>
+              </div>
+
+              {showAddCat ? (
+                <div className="form-row full">
+                  <Field label="نام دسته جدید">
+                    <div className="convert-row">
+                      <TextInput
+                        value={newCatName}
+                        onChange={setNewCatName}
+                        placeholder="نام دسته مورد نظر شما"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        className="action-btn convert-btn"
+                        disabled={addingCat}
+                        onClick={addCategory}
+                      >
+                        {addingCat ? "…" : "ثبت"}
+                      </button>
+                    </div>
+                  </Field>
+                </div>
+              ) : null}
+
+              <div className="form-row full">
+                <Field label="زیردسته (الزامی)">
                   <button
                     type="button"
-                    className="action-btn convert-btn"
-                    disabled={addingCat}
-                    onClick={addCategory}
+                    className="subcat-trigger"
+                    onClick={() => setSubModalOpen(true)}
                   >
-                    {addingCat ? "…" : "ثبت"}
+                    {selectedSub ? (
+                      <>
+                        <b>{selectedSub.name}</b>
+                      </>
+                    ) : (
+                      <span className="subcat-empty">
+                        انتخاب زیردسته برای «{activeCat.name}»…
+                      </span>
+                    )}
                   </button>
-                </div>
-              </Field>
-            </div>
-          ) : null}
+                </Field>
+              </div>
 
-          <div className="form-row full">
-            <Field label="زیردسته (الزامی)">
-              <button
-                type="button"
-                className="subcat-trigger"
-                onClick={() => setSubModalOpen(true)}
-              >
-                {selectedSub ? (
-                  <>
-                    <b>{selectedSub.name}</b>
-                  </>
+              <div className="form-row full">
+                <Field
+                  label={
+                    m.form.type === "expense"
+                      ? "از حساب (الزامی)"
+                      : "به حساب (الزامی)"
+                  }
+                >
+                  <Select
+                    value={m.form.accountId}
+                    onChange={(v) => m.setForm({ ...m.form, accountId: v })}
+                    options={[
+                      {
+                        value: "",
+                        label: accounts.length ? "انتخاب کنید…" : "کارتی ثبت نشده",
+                      },
+                      ...accounts.map((a) => ({
+                        value: a.id,
+                        label: accountLabel(a.title, a.bank, a.cardNumber),
+                      })),
+                    ]}
+                  />
+                </Field>
+              </div>
+
+              <div className="form-row full">
+                <Field label="تکرار">
+                  <Select
+                    value={m.form.repeat}
+                    onChange={(v) => m.setRepeat(v as TxRepeat)}
+                    options={TX_REPEATS.map((r) => ({
+                      value: r.value,
+                      label: r.label,
+                    }))}
+                  />
+                </Field>
+                {m.form.repeat === "none" ? (
+                  <div className="quick-chips">
+                    {REPEAT_PRESETS.map((p) => (
+                      <button
+                        key={p.label}
+                        type="button"
+                        className="chip"
+                        onClick={() => {
+                          m.setRepeat(p.repeat);
+                          if (!m.form.note.trim()) {
+                            m.setForm({ ...m.form, note: p.note, repeat: p.repeat });
+                          } else {
+                            m.setRepeat(p.repeat);
+                          }
+                        }}
+                      >
+                        <svg>
+                          <use href="#i-repeat" />
+                        </svg>
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
                 ) : (
-                  <span className="subcat-empty">
-                    انتخاب زیردسته برای «{activeCat.name}»…
-                  </span>
+                  <p className="repeat-hint">
+                    این تراکنش به‌صورت {TX_REPEATS.find((r) => r.value === m.form.repeat)?.label} تکرار می‌شود و در
+                    فهرست «تراکنش‌های زمان‌بندی‌شده» تنظیمات دیده می‌گیرد
+                  </p>
                 )}
-              </button>
-            </Field>
-          </div>
-
-          <div className="form-row full">
-            <Field
-              label={
-                m.form.type === "expense"
-                  ? "از حساب (الزامی)"
-                  : "به حساب (الزامی)"
-              }
-            >
-              <Select
-                value={m.form.accountId}
-                onChange={(v) => m.setForm({ ...m.form, accountId: v })}
-                options={[
-                  {
-                    value: "",
-                    label: accounts.length ? "انتخاب کنید…" : "کارتی ثبت نشده",
-                  },
-                  ...accounts.map((a) => ({
-                    value: a.id,
-                    label: accountLabel(a.title, a.bank, a.cardNumber),
-                  })),
-                ]}
-              />
-            </Field>
-          </div>
+              </div>
+            </>
+          )}
 
           <div className="form-row full">
             <Field label="تاریخ و ساعت">
@@ -263,6 +431,20 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
                 placeholder="مثلاً ناهار با دوستان"
               />
             </Field>
+            {m.form.type !== "transfer" ? (
+              <div className="quick-chips">
+                {QUICK_LABELS[m.form.type].map((l) => (
+                  <button
+                    key={l}
+                    type="button"
+                    className={`chip ${m.form.note.trim() === l ? "active" : ""}`}
+                    onClick={() => m.setForm({ ...m.form, note: l })}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           <div className="form-row full">
@@ -350,6 +532,7 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
             حذف تراکنش
           </button>
         ) : null}
+        </div>
       </Modal>
 
       {/* مودال انتخاب زیردسته برای دسته فعلی */}

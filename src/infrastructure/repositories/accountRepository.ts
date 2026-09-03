@@ -31,6 +31,7 @@ export class SupabaseAccountRepository implements AccountRepository {
       p_card_number: input.cardNumber ?? null,
       p_account_number: input.accountNumber ?? null,
       p_sheba: input.sheba ?? null,
+      p_kind: input.kind ?? "bank",
     });
     return mapAccount(row);
   }

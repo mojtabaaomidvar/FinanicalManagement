@@ -1093,6 +1093,737 @@ button:active {
   padding: 8px 0 2px;
 }
 
+/* ─────────── هدر خانه: جستجو + فیلتر ─────────── */
+.home-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 552px;
+  margin: 10px auto 0;
+  padding: 0 var(--sp-4);
+}
+.home-search form {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.home-search .hs-icon {
+  position: absolute;
+  inset-inline-start: 12px;
+  width: 17px;
+  height: 17px;
+  color: var(--text-3);
+  pointer-events: none;
+}
+.home-search input {
+  width: 100%;
+  height: 42px;
+  padding-inline: 38px 14px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  background: var(--card);
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  outline: none;
+  transition: border-color var(--dur-fast) ease;
+}
+.home-search input:focus {
+  border-color: var(--accent);
+}
+.home-search input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+.hs-filter {
+  flex-shrink: 0;
+}
+.hs-filter.on {
+  color: var(--accent-strong);
+  border-color: var(--accent);
+}
+
+/* ─────────── زنگ اعلان ─────────── */
+.notif-btn {
+  position: relative;
+}
+.notif-badge {
+  position: absolute;
+  top: -3px;
+  inset-inline-end: -3px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: var(--r-pill);
+  background: var(--expense);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  line-height: 1;
+}
+.notif-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  border-radius: var(--r-md);
+  background: var(--card-2);
+}
+.notif-item.danger {
+  background: var(--expense-soft);
+}
+.notif-ico {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.notif-item.danger .notif-ico {
+  background: var(--expense-soft);
+  color: var(--expense);
+}
+.notif-ico svg {
+  width: 17px;
+  height: 17px;
+}
+.notif-item b {
+  display: block;
+  font-size: 12.5px;
+  color: var(--text);
+}
+.notif-item p {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+/* ─────────── کارت جریان نقدی هفتگی ─────────── */
+.flow-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.flow-net {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.flow-net span {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.flow-net b {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+.flow-net b i {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  margin-inline-start: 4px;
+}
+.flow-net b.income {
+  color: var(--income);
+}
+.flow-net b.expense {
+  color: var(--expense);
+}
+.flow-io {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.flow-io span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+}
+.flow-io svg {
+  width: 15px;
+  height: 15px;
+}
+.flow-io .in {
+  color: var(--income);
+}
+.flow-io .out {
+  color: var(--expense);
+}
+.flow-io b {
+  font-weight: 800;
+}
+
+/* ─────────── دایره‌های بودجه دسته‌ها ─────────── */
+.budget-circles {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 4px 2px 8px;
+  scrollbar-width: none;
+}
+.budget-circles::-webkit-scrollbar {
+  display: none;
+}
+.budget-circle {
+  flex-shrink: 0;
+  width: 92px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+.budget-circle .ring {
+  width: 64px;
+  height: 64px;
+}
+.ring-track {
+  fill: none;
+  stroke: var(--card-2);
+  stroke-width: 6;
+}
+.ring-fill {
+  fill: none;
+  stroke-width: 6;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+.ring-pct {
+  font-size: 12px;
+  font-weight: 800;
+  fill: var(--text);
+  text-anchor: middle;
+  font-family: var(--font-sans);
+}
+.budget-circle b {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text);
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.budget-circle span {
+  font-size: 9.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.budget-circle.add .budget-add-plus {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--r-pill);
+  border: 1.5px dashed var(--border-strong);
+  display: grid;
+  place-items: center;
+  color: var(--accent-strong);
+}
+.budget-circle.add .budget-add-plus svg {
+  width: 22px;
+  height: 22px;
+}
+.budget-circles-hint {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.8;
+}
+
+/* ─────────── کیپد ماشین‌حساب ─────────── */
+.amount-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.amount-row .num-input {
+  flex: 1;
+}
+.amount-row .segmented {
+  flex-shrink: 0;
+}
+.calc-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  background: var(--card-2);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.calc-toggle svg {
+  width: 15px;
+  height: 15px;
+}
+.calc-pad {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+.calc-key {
+  height: 42px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) ease,
+    transform var(--dur-fast) ease;
+}
+.calc-key:active {
+  transform: scale(0.94);
+  background: var(--card-2);
+}
+.calc-key.op {
+  background: var(--card-2);
+  color: var(--accent-strong);
+}
+.calc-key.eq {
+  background: var(--cat-color, var(--accent));
+  color: #fff;
+  font-weight: 800;
+}
+
+/* ─────────── برچسب‌های سریع و تکرار ─────────── */
+.quick-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.quick-chips .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.quick-chips .chip svg {
+  width: 13px;
+  height: 13px;
+}
+.repeat-hint,
+.transfer-hint {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.8;
+  margin-top: 6px;
+}
+
+/* ─────────── تم رنگی فرم با دسته انتخاب‌شده ─────────── */
+.tx-form .seg-btn.active {
+  background: color-mix(in srgb, var(--cat-color, var(--accent)) 28%, var(--card));
+  color: var(--text);
+}
+.tx-form .cat-cell.active {
+  border-color: transparent;
+}
+.tx-form .btn-primary {
+  background: var(--cat-color, var(--accent));
+}
+.tx-form .amount-row .num-input {
+  border-color: color-mix(in srgb, var(--cat-color, var(--accent)) 45%, var(--border));
+}
+
+/* ─────────── نوار ابزار لیست + فیلتر پیشرفته ─────────── */
+.list-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.list-toolbar .segmented {
+  flex: 1;
+}
+.filter-btn.on {
+  color: var(--accent-strong);
+  border-color: var(--accent);
+}
+.adv-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 7px 12px;
+  border-radius: var(--r-md);
+  border: 1px dashed var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+  text-align: start;
+}
+.adv-filter-chip svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.adv-filter-chip .adv-clear {
+  margin-inline-start: auto;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+/* نشان تکرار روی ردیف تراکنش */
+.tx-repeat-badge {
+  display: inline-flex;
+  margin-inline-start: 4px;
+  color: var(--text-3);
+  vertical-align: middle;
+}
+.tx-repeat-badge svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* آیکون/رنگ انتقال در لیست */
+.tx-icon.transfer {
+  background: color-mix(in srgb, var(--c2) 18%, var(--card));
+  color: var(--c2);
+}
+.tx-amount.transfer b {
+  color: var(--c2);
+}
+
+/* ─────────── صفحه حساب‌ها: ثروت کل + کیف‌پول ─────────── */
+.wealth-card .wealth-range {
+  margin-top: 12px;
+}
+.wealth-card .wealth-range .seg-control {
+  display: flex;
+}
+.wealth-chart {
+  margin-top: 10px;
+}
+.wealth-svg {
+  display: block;
+  width: 100%;
+  height: 110px;
+}
+
+/* کارت حساب در حالت صفحه (فلت، داخل Card) */
+.account-card.flat {
+  border: 0;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  position: relative;
+}
+.account-card.flat:last-of-type {
+  border-bottom: 0;
+}
+.account-balance {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  margin-inline-start: auto;
+}
+.account-balance b {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text);
+}
+.account-balance span {
+  font-size: 10px;
+  color: var(--text-3);
+}
+.account-del {
+  position: absolute;
+  bottom: 8px;
+  inset-inline-end: 0;
+}
+.accounts-empty {
+  font-size: 12px;
+  color: var(--text-3);
+  text-align: center;
+  padding: 10px 0;
+}
+
+/* کیف‌پول‌ها */
+.wallet-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.wallet-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  background: var(--card-soft);
+}
+.wallet-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.wallet-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-md);
+  background: var(--card);
+  border: 1px solid var(--border);
+  display: grid;
+  place-items: center;
+  color: var(--accent-strong);
+  flex-shrink: 0;
+}
+.wallet-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.wallet-head b {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--text);
+  max-width: 88px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wallet-head p {
+  font-size: 10.5px;
+  color: var(--text-3);
+}
+.wallet-balance {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.wallet-balance b {
+  font-size: 15px;
+  font-weight: 800;
+}
+.wallet-balance span {
+  font-size: 10px;
+  color: var(--text-3);
+}
+.wallet-card .icon-btn.danger {
+  position: absolute;
+  top: 8px;
+  inset-inline-end: 8px;
+  width: 26px;
+  height: 26px;
+}
+.wallet-card .icon-btn.danger svg {
+  width: 13px;
+  height: 13px;
+}
+.wallet-empty p {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.9;
+}
+
+/* ─────────── تنظیمات: پرمیوم، خروجی، زمان‌بندی‌شده ─────────── */
+.premium-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--r-lg);
+  border: 1.5px solid color-mix(in srgb, var(--c3) 55%, var(--border));
+  background: color-mix(in srgb, var(--c3) 10%, var(--card));
+}
+.premium-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.premium-crown {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--c3) 25%, var(--card));
+  color: color-mix(in srgb, var(--c3) 70%, var(--text));
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.premium-crown svg {
+  width: 22px;
+  height: 22px;
+}
+.premium-head h4 {
+  font-size: 14.5px;
+  font-weight: 800;
+  color: var(--text);
+}
+.premium-head p {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+.premium-features {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.premium-features li {
+  position: relative;
+  padding-inline-start: 18px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.premium-features li::before {
+  content: "✓";
+  position: absolute;
+  inset-inline-start: 0;
+  color: var(--accent-strong);
+  font-weight: 800;
+}
+
+/* گرید سه‌دکمه‌ای خروجی */
+.export-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.export-grid .btn-secondary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 12px 6px;
+  font-size: 11.5px;
+}
+.export-grid svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* فهرست زمان‌بندی‌شده‌ها */
+.scheduled-list {
+  display: flex;
+  flex-direction: column;
+}
+.scheduled-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.scheduled-row:last-child {
+  border-bottom: 0;
+}
+.scheduled-repeat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 10px;
+  font-weight: 700;
+}
+.scheduled-repeat svg {
+  width: 11px;
+  height: 11px;
+}
+.scheduled-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.scheduled-amount {
+  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+/* سهم اعضا از هزینه‌ها (نمای‌کلی) */
+.member-share {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.member-share-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.ms-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-pill);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.ms-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.ms-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ms-top b {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--text);
+}
+.ms-top span {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.ms-pct {
+  font-size: 10px;
+  color: var(--text-3);
+}
+
 .version-tag {
   text-align: center;
   font-size: 11px;

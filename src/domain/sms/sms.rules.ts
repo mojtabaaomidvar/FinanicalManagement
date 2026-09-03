@@ -1,14 +1,14 @@
 /* قوانین پیامک بانکی — ساخت پیش‌نویس تراکنش از پیامک (خالص) */
 
 import { categoriesFor } from "../category/category.catalog";
-import type { TxType } from "../transaction/transaction.types";
+import type { SmsTxType } from "./sms.types";
 import type { BankSms } from "./sms.types";
 import type { TransactionInput } from "../transaction/transaction.types";
 import { parseSms } from "@/shared/lib/sms-parser";
 import { isoToJalali, jalaliToIso, today } from "@/shared/lib/jalali";
 
 export interface SmsDraftDefaults {
-  type: TxType;
+  type: SmsTxType;
   categoryId: string;
   amount: number;
   memberId: string;
@@ -26,7 +26,7 @@ export function smsDraftDefaults(
   currentMemberId: string,
 ): SmsDraftDefaults {
   const parsed = parseSms(sms.rawText || "");
-  const type: TxType = sms.type ?? parsed?.type ?? "expense";
+  const type: SmsTxType = sms.type ?? parsed?.type ?? "expense";
 
   let categoryId = parsed?.category ?? null;
   if (!categoryId || !categoriesFor(type).some((c) => c.id === categoryId)) {
@@ -55,7 +55,7 @@ export function smsDraftDefaults(
 
 /** تبدیل پیش‌نویس به ورودی تراکنش */
 export function draftToTransactionInput(d: {
-  type: TxType;
+  type: SmsTxType;
   categoryId: string;
   amount: number;
   memberId: string;

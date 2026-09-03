@@ -1,6 +1,16 @@
 /* انتیتی تراکنش و ورودی آن */
 
-export type TxType = "expense" | "income";
+export type TxType = "expense" | "income" | "transfer";
+
+/** دوره تکرار تراکنش (برای قسط/حقوق/اجاره و…) */
+export type TxRepeat = "none" | "weekly" | "monthly" | "yearly";
+
+export const TX_REPEATS: { value: TxRepeat; label: string }[] = [
+  { value: "none", label: "بدون تکرار" },
+  { value: "weekly", label: "هفتگی" },
+  { value: "monthly", label: "ماهانه" },
+  { value: "yearly", label: "سالانه" },
+];
 
 /** تصویر پیوست تراکنش — رسید خرید، عکس محصول و… */
 export interface TransactionPhoto {
@@ -21,10 +31,14 @@ export interface Transaction {
   /** ساعت ثبت — "HH:MM" یا null */
   time: string | null;
   note: string | null;
-  /** حساب منشا/مقصد (الزامی) */
+  /** حساب منشا (هزینه/انتقال) یا مقصد واریز (درآمد) — الزامی */
   accountId: string | null;
+  /** حساب مقصد انتقال — فقط type=transfer */
+  toAccountId: string | null;
   /** زیردسته (اختیاری) */
   subcategoryId: string | null;
+  /** تکرار دوره‌ای — پیش‌فرض none */
+  repeat: TxRepeat;
   photos: TransactionPhoto[];
   createdAt: string;
 }
@@ -39,8 +53,12 @@ export interface TransactionInput {
   /** "HH:MM" — اختیاری */
   time?: string | null;
   note?: string | null;
-  /** حساب منشا/مقصد (الزامی) */
+  /** حساب منشا (هزینه/انتقال) یا مقصد واریز (درآمد) — الزامی */
   accountId?: string | null;
+  /** حساب مقصد انتقال — الزامی برای type=transfer */
+  toAccountId?: string | null;
   /** زیردسته (اختیاری) */
   subcategoryId?: string | null;
+  /** تکرار دوره‌ای */
+  repeat?: TxRepeat;
 }

@@ -785,11 +785,20 @@ begin
 end $$;
 
 -- افزودن تراکنش (حساب الزامی؛ زیردسته و ساعت اختیاری)
+-- مهاجرت: ستون‌های انتقال وجه و تکرار دوره‌ای (v6)
+alter table public.transactions
+  add column if not exists to_account_id uuid references public.accounts(id) on delete set null;
+alter table public.transactions
+  add column if not exists repeat text not null default 'none'
+  check (repeat in ('none','weekly','monthly','yearly'));
+
 create or replace function public.add_transaction(
   p_token text, p_member_id uuid, p_type text, p_amount numeric,
   p_category text, p_date date, p_note text,
   p_account_id uuid, p_subcategory_id uuid default null,
-  p_time text default null
+  p_time text default null,
+  p_to_account_id uuid default null,
+  p_repeat text default 'none'
 ) returns json
 language plpgsql security definer set search_path = public as $$
 declare
@@ -798,7 +807,7 @@ declare
 begin
   v_family_id := public._family_id(p_token);
 
-  if p_type not in ('expense','income') then
+  if p_type not in ('expense','income','transfer') then
     raise exception 'INVALID_TYPE';
   end if;
   if p_amount is null or p_amount <= 0 then
@@ -812,6 +821,9 @@ begin
   end if;
   if p_time is not null and p_time !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$' then
     raise exception 'INVALID_TIME';
+  end if;
+  if p_repeat is null or p_repeat not in ('none','weekly','monthly','yearly') then
+    raise exception 'INVALID_REPEAT';
   end if;
   if not exists (select 1 from public.members
                  where id = p_member_id and family_id = v_family_id) then
@@ -826,7 +838,7 @@ begin
   ) and btrim(p_category) not in (
     'food','home','bills','transport','health','clothing','edu','fun','shopping',
     'comm','finance','insurance','gifte','family','beauty','sport','pet','other-e',
-    'salary','business','invest','sale','gift','other-i'
+    'salary','business','invest','sale','gift','other-i','transfer'
   ) then
     raise exception 'INVALID_CATEGORY';
   end if;
@@ -840,6 +852,20 @@ begin
     raise exception 'INVALID_ACCOUNT_ID';
   end if;
 
+  -- انتقال وجه: حساب مقصد الزامی، متفاوت از مبدأ و متعلق به همین خانواده
+  if p_type = 'transfer' then
+    if btrim(p_category) <> 'transfer' then
+      raise exception 'INVALID_CATEGORY';
+    end if;
+    if p_to_account_id is null or p_to_account_id = p_account_id then
+      raise exception 'INVALID_TRANSFER';
+    end if;
+    if not exists (select 1 from public.accounts
+                   where id = p_to_account_id and family_id = v_family_id) then
+      raise exception 'INVALID_ACCOUNT_ID';
+    end if;
+  end if;
+
   -- زیردسته باید متعلق به همین خانواده و همین دسته باشد
   if p_subcategory_id is not null and not exists (
     select 1 from public.subcategories
@@ -849,10 +875,12 @@ begin
   end if;
 
   insert into public.transactions
-    (family_id, member_id, type, amount, category, date, time, note, account_id, subcategory_id)
+    (family_id, member_id, type, amount, category, date, time, note, account_id,
+     to_account_id, subcategory_id, repeat)
   values
     (v_family_id, p_member_id, p_type, p_amount, btrim(p_category), p_date, p_time,
-     nullif(btrim(coalesce(p_note, '')), ''), p_account_id, p_subcategory_id)
+     nullif(btrim(coalesce(p_note, '')), ''), p_account_id, p_to_account_id,
+     p_subcategory_id, p_repeat)
   returning * into v_row;
 
   return to_jsonb(v_row);
@@ -863,7 +891,9 @@ create or replace function public.update_transaction(
   p_token text, p_tx_id uuid, p_member_id uuid, p_type text, p_amount numeric,
   p_category text, p_date date, p_note text,
   p_account_id uuid, p_subcategory_id uuid default null,
-  p_time text default null
+  p_time text default null,
+  p_to_account_id uuid default null,
+  p_repeat text default 'none'
 ) returns void
 language plpgsql security definer set search_path = public as $$
 declare
@@ -871,7 +901,7 @@ declare
 begin
   v_family_id := public._family_id(p_token);
 
-  if p_type not in ('expense','income') then
+  if p_type not in ('expense','income','transfer') then
     raise exception 'INVALID_TYPE';
   end if;
   if p_amount is null or p_amount <= 0 then
@@ -886,6 +916,9 @@ begin
   if p_time is not null and p_time !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$' then
     raise exception 'INVALID_TIME';
   end if;
+  if p_repeat is null or p_repeat not in ('none','weekly','monthly','yearly') then
+    raise exception 'INVALID_REPEAT';
+  end if;
   if not exists (select 1 from public.members
                  where id = p_member_id and family_id = v_family_id) then
     raise exception 'INVALID_MEMBER';
@@ -898,7 +931,7 @@ begin
   ) and btrim(p_category) not in (
     'food','home','bills','transport','health','clothing','edu','fun','shopping',
     'comm','finance','insurance','gifte','family','beauty','sport','pet','other-e',
-    'salary','business','invest','sale','gift','other-i'
+    'salary','business','invest','sale','gift','other-i','transfer'
   ) then
     raise exception 'INVALID_CATEGORY';
   end if;
@@ -909,6 +942,19 @@ begin
   if not exists (select 1 from public.accounts
                  where id = p_account_id and family_id = v_family_id) then
     raise exception 'INVALID_ACCOUNT_ID';
+  end if;
+
+  if p_type = 'transfer' then
+    if btrim(p_category) <> 'transfer' then
+      raise exception 'INVALID_CATEGORY';
+    end if;
+    if p_to_account_id is null or p_to_account_id = p_account_id then
+      raise exception 'INVALID_TRANSFER';
+    end if;
+    if not exists (select 1 from public.accounts
+                   where id = p_to_account_id and family_id = v_family_id) then
+      raise exception 'INVALID_ACCOUNT_ID';
+    end if;
   end if;
 
   if p_subcategory_id is not null and not exists (
@@ -927,7 +973,9 @@ begin
       time      = p_time,
       note      = nullif(btrim(coalesce(p_note, '')), ''),
       account_id = p_account_id,
-      subcategory_id = p_subcategory_id
+      to_account_id = p_to_account_id,
+      subcategory_id = p_subcategory_id,
+      repeat = p_repeat
   where id = p_tx_id and family_id = v_family_id;
 
   if not found then
@@ -1196,6 +1244,11 @@ create table if not exists public.accounts (
 
 create index if not exists idx_accounts_family on public.accounts(family_id);
 
+-- مهاجرت: نوع حساب — bank = بانکی، wallet = کیف‌پول (نقد/پس‌انداز/سفر) (v6)
+alter table public.accounts
+  add column if not exists kind text not null default 'bank'
+  check (kind in ('bank','wallet'));
+
 alter table public.accounts enable row level security;
 -- بدون پالیسی → دسترسی فقط از طریق RPC
 
@@ -1231,6 +1284,7 @@ on conflict (bin) do nothing;
 -- حذف نسخه‌های قدیمی در صورت تغییر امضا
 drop function if exists public.list_accounts(text);
 drop function if exists public.add_account(text, uuid, text, text, text, text, text);
+drop function if exists public.add_account(text, uuid, text, text, text, text, text, text);
 drop function if exists public.delete_account(text, uuid);
 
 -- همه کارت‌های خانواده
@@ -1253,9 +1307,11 @@ end $$;
 
 -- افزودن کارت/حساب (اعتبارسنجی کامل سمت سرور + هم‌خوانی BIN کارت با بانک)
 -- هر یک از فیلدهای کارت/حساب/شبا به‌تنهایی کافی است؛ همه اختیاری‌اند
+-- p_kind: bank (پیش‌فرض) یا wallet — کیف‌پول فقط نام دارد
 create or replace function public.add_account(
   p_token text, p_member_id uuid, p_title text, p_bank text,
-  p_card_number text, p_account_number text, p_sheba text
+  p_card_number text, p_account_number text, p_sheba text,
+  p_kind text default 'bank'
 ) returns json
 language plpgsql security definer set search_path = public as $$
 declare
@@ -1264,8 +1320,14 @@ declare
   v_card text;
   v_sheba text;
   v_account_no text;
+  v_kind text;
 begin
   v_family_id := public._family_id(p_token);
+
+  v_kind := coalesce(nullif(btrim(p_kind), ''), 'bank');
+  if v_kind not in ('bank','wallet') then
+    raise exception 'INVALID_KIND';
+  end if;
 
   if p_title is null or btrim(p_title) = '' then
     raise exception 'INVALID_TITLE';
@@ -1291,7 +1353,7 @@ begin
   if v_account_no is not null and v_account_no !~ '^\d{5,20}$' then
     raise exception 'INVALID_ACCOUNT_NO';
   end if;
-  if v_card is null and v_account_no is null and v_sheba is null then
+  if v_kind = 'bank' and v_card is null and v_account_no is null and v_sheba is null then
     raise exception 'EMPTY_ACCOUNT';
   end if;
 
@@ -1311,11 +1373,11 @@ begin
   end if;
 
   insert into public.accounts
-    (family_id, member_id, title, bank, card_number, account_number, sheba)
+    (family_id, member_id, title, bank, card_number, account_number, sheba, kind)
   values
     (v_family_id, p_member_id, btrim(p_title),
      nullif(btrim(coalesce(p_bank, '')), ''),
-     v_card, v_account_no, v_sheba)
+     v_card, v_account_no, v_sheba, v_kind)
   returning * into v_row;
 
   return to_jsonb(v_row);

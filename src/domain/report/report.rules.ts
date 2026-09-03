@@ -4,7 +4,7 @@ import { categoryById } from "../category/category.catalog";
 import type { CategoryResolver } from "../category/resolve";
 import { sortTxDesc } from "../transaction/transaction.rules";
 import type { Transaction } from "../transaction/transaction.types";
-import { isoToJalali, prevMonth, MONTHS, formatISO, addDays, shortWeekday, jalaliToIso, type JDate } from "@/shared/lib/jalali";
+import { isoToJalali, prevMonth, MONTHS, formatISO, addDays, shortWeekday, jalaliToIso, cmp, type JDate } from "@/shared/lib/jalali";
 import { formatAmount } from "@/shared/lib/format";
 import type {
   CategorySlice,
@@ -19,12 +19,13 @@ export function sumByType(list: Transaction[], type: Transaction["type"]): numbe
   return list.filter((t) => t.type === type).reduce((s, t) => s + t.amount, 0);
 }
 
-/* موجودی کل = جمع درآمد − جمع هزینه */
+/* موجودی کل = جمع درآمد − جمع هزینه (انتقال جابه‌جایی است، نه تغییر ثروت) */
 export function totalBalance(list: Transaction[]): number {
-  return list.reduce(
-    (s, t) => s + (t.type === "income" ? t.amount : -t.amount),
-    0,
-  );
+  return list.reduce((s, t) => {
+    if (t.type === "income") return s + t.amount;
+    if (t.type === "expense") return s - t.amount;
+    return s;
+  }, 0);
 }
 
 /* جمع ماه: درآمد + هزینه */
@@ -106,6 +107,85 @@ export function weekFlow(list: Transaction[], end: JDate): WeekFlow {
   const totalIn = income.reduce((s, v) => s + v, 0);
   const totalOut = expense.reduce((s, v) => s + v, 0);
   return { labels, income, expense, totalIn, totalOut, net: totalIn - totalOut };
+}
+
+/* موجودی هر حساب = درآمد مستقیم − هزینه مستقیم + ورودی انتقال − خروجی انتقال */
+export function accountBalances(
+  list: Transaction[],
+  accounts: import("../account/account.types").Account[],
+): import("./report.types").AccountBalance[] {
+  const map = new Map<string, number>(accounts.map((a) => [a.id, 0]));
+  for (const t of list) {
+    if (t.accountId && map.has(t.accountId)) {
+      const cur = map.get(t.accountId)!;
+      if (t.type === "income") map.set(t.accountId, cur + t.amount);
+      else if (t.type === "expense" || t.type === "transfer")
+        map.set(t.accountId, cur - t.amount);
+    }
+    if (t.type === "transfer" && t.toAccountId && map.has(t.toAccountId)) {
+      const cur = map.get(t.toAccountId)!;
+      map.set(t.toAccountId, cur + t.amount);
+    }
+  }
+  return accounts.map((a) => ({ account: a, balance: map.get(a.id) ?? 0 }));
+}
+
+/* سری زمانی ثروت کل خانواده — یک نقطه در پایان هر روزِ بازه
+   ثروت روز d = جمع درآمد−هزینه همه تراکنش‌های تاریخ ≤ d */
+export function wealthSeries(
+  list: Transaction[],
+  range: import("./report.types").WealthRange,
+  end: JDate,
+): import("./report.types").WealthPoint[] {
+  /* مرتب‌سازی صعودی بر اساس تاریخ */
+  const sorted = [...list].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+  /* طول بازه به روز */
+  let days: number;
+  if (range === "7d") days = 7;
+  else if (range === "1m") days = 30;
+  else if (range === "1y") days = 365;
+  else {
+    /* حداکثر: از اولین تراکنش تا امروز (حداقل ۷ نقطه) */
+    const first = sorted.length ? isoToJalali(sorted[0].date) : end;
+    days = Math.max(7, 0);
+    let cur = first;
+    while (cmp(cur, end) < 0 && days < 3650) {
+      cur = addDays(cur, 1);
+      days++;
+    }
+  }
+
+  /* نقاط روزانه */
+  const points: import("./report.types").WealthPoint[] = [];
+  let idx = 0;
+  let wealth = 0;
+  for (let i = days - 1; i >= 0; i--) {
+    const d = addDays(end, -i);
+    const iso = jalaliToIso(d);
+    while (idx < sorted.length && sorted[idx].date <= iso) {
+      const t = sorted[idx];
+      if (t.type === "income") wealth += t.amount;
+      else if (t.type === "expense") wealth -= t.amount;
+      idx++;
+    }
+    points.push({ date: iso, value: wealth });
+  }
+  return points;
+}
+
+/* سهم اعضا از هزینه‌های یک ماه — نزولی */
+export function memberExpenseShare(
+  list: Transaction[],
+): { memberId: string; amount: number }[] {
+  const map = new Map<string, number>();
+  for (const t of list) {
+    if (t.type !== "expense") continue;
+    map.set(t.memberId, (map.get(t.memberId) ?? 0) + t.amount);
+  }
+  return [...map.entries()]
+    .map(([memberId, amount]) => ({ memberId, amount }))
+    .sort((a, b) => b.amount - a.amount);
 }
 
 /* جستجو: یادداشت، دسته، نام عضو، مبلغ، تاریخ جلالی */

@@ -37,6 +37,9 @@ export const CATEGORIES: Category[] = [
   { id: "invest", name: "سرمایه‌گذاری", icon: "i-piggy", type: "income" },
   { id: "sale", name: "فروش دارایی", icon: "i-tag", type: "income" },
   { id: "gift", name: "هدیه دریافتی", icon: "i-gift", type: "income" },
+
+  /* ── انتقال (۱) — جابه‌جایی پول بین حساب‌ها/کیف‌پول‌ها ── */
+  { id: "transfer", name: "انتقال وجه", icon: "i-swap", type: "transfer" },
 ];
 
 /* دسته‌های قدیمی که از UI حذف شده‌اند ولی داده‌های قبلی به آنها ارجاع می‌دهند */
@@ -46,7 +49,7 @@ export const LEGACY_CATEGORIES: Category[] = [
 ];
 
 /** دسته پیش‌فرض برای فرم جدید — اولین دسته از نوع (متفرقه حذف شده است) */
-export function defaultCategoryOf(type: "expense" | "income"): Category {
+export function defaultCategoryOf(type: TxType): Category {
   return CATEGORIES.find((c) => c.type === type) ?? LEGACY_CATEGORIES[0];
 }
 
