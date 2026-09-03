@@ -39,7 +39,9 @@
       "Bash(npx *)",
       "Bash(do *)",
       "Bash(nslookup *)",
-      "Bash(ping *)"
+      "Bash(ping *)",
+      "computer_use__page",
+      "Bash(python *)"
     ]
   },
   "$version": 4

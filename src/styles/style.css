@@ -173,8 +173,8 @@ button:active {
 .page {
   display: none;
   min-height: 100dvh;
-  /* داک v7: تب‌بار + FAB شناور بالای آن */
-  padding-bottom: calc(138px + env(safe-area-inset-bottom));
+  /* داک v7: تب‌بار + FAB شناور بالای نوار (سمت چپ) */
+  padding-bottom: calc(150px + env(safe-area-inset-bottom));
 }
 .page.active {
   display: block;
@@ -329,6 +329,85 @@ button:active {
   color: var(--text-3);
 }
 
+/* ─────────── شیت پایینی تراکنش — نمایشگر مبلغ بزرگ + ذخیره چسبان ─────────── */
+.sheet-amount {
+  margin-top: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-4);
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--cat-color, var(--accent)) 10%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--cat-color, var(--accent)) 25%, var(--border));
+}
+
+.sheet-amount-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+/* دکمه کوچک تعویض ارز ورودی — تومان⇄ریال */
+.amount-currency-toggle {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--cat-color, var(--accent-strong));
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  padding: 3px 12px;
+}
+
+.sheet-amount-display {
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  line-height: 1.25;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  overflow-x: auto;
+  white-space: nowrap;
+  text-align: center;
+  min-height: 50px;
+}
+
+.sheet-amount-display .amount-empty {
+  color: var(--text-3);
+}
+
+/* ردیف ذخیره — دکمه تمام‌عرض چسبان در انتهای شیت */
+.sheet-save-row {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-5);
+}
+
+.sheet-save-btn {
+  flex: 1;
+  padding: 14px;
+  font-size: 15.5px;
+  font-weight: 800;
+}
+
+.btn-danger-ghost-icon {
+  flex-shrink: 0;
+  width: 52px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  background: var(--danger-soft);
+  display: grid;
+  place-items: center;
+}
+.btn-danger-ghost-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
 /* ─────────── کارت مالی اصلی (بازطراحی v7) ─────────── */
 .fin-hero {
   border-radius: var(--r-xl);
@@ -458,21 +537,6 @@ button:active {
   color: var(--text-3);
   text-align: center;
   margin-top: 8px;
-}
-
-/* نمایشگر مبلغ فقط‌خواندنی در فرم — ورود عدد فقط با کیپد */
-.amount-display {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  overflow-x: auto;
-  white-space: nowrap;
-  cursor: default;
-  font-variant-numeric: tabular-nums;
-}
-.amount-display .amount-empty {
-  color: var(--text-3);
 }
 
 .mini-dot {
@@ -1464,25 +1528,14 @@ button:active {
 }
 
 /* ─────────── کیپد ماشین‌حساب ─────────── */
-.amount-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.amount-row .num-input {
-  flex: 1;
-}
-.amount-row .segmented {
-  flex-shrink: 0;
-}
 .calc-pad {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 .calc-key {
-  height: 42px;
+  height: 48px;
   border-radius: var(--r-md);
   border: 1px solid var(--border);
   background: var(--card);
@@ -1544,8 +1597,12 @@ button:active {
 .tx-form .btn-primary {
   background: var(--cat-color, var(--accent));
 }
-.tx-form .amount-row .num-input {
-  border-color: color-mix(in srgb, var(--cat-color, var(--accent)) 45%, var(--border));
+.tx-form .sheet-amount {
+  background: color-mix(in srgb, var(--cat-color, var(--accent)) 10%, var(--card));
+  border-color: color-mix(in srgb, var(--cat-color, var(--accent)) 25%, var(--border));
+}
+.tx-form .amount-currency-toggle {
+  color: var(--cat-color, var(--accent-strong));
 }
 
 /* ─────────── نوار ابزار لیست + فیلتر پیشرفته ─────────── */
@@ -2355,13 +2412,13 @@ button:active {
   color: var(--accent-strong);
 }
 
-/* FAB پلاس — شناور بالای تب‌بار (وسط‌چین)؛ کنتراست بالا با پالت خنثی نوار */
+/* FAB پلاس — کاملاً بالای تب‌بار، سمت چپ صفحه (فاصله ۱۴px از نوار؛ هیچ تب‌ای را نمی‌پوشاند) */
 .fab-add {
   pointer-events: auto;
   position: absolute;
-  top: -26px;
-  left: 50%;
-  transform: translateX(-50%);
+  /* 62px ارتفاع نوار + 14px گپ */
+  bottom: calc(100% + 14px);
+  inset-inline-start: 10px;
   width: 56px;
   height: 56px;
   border-radius: 50%;
@@ -2382,7 +2439,7 @@ button:active {
   height: 24px;
 }
 .fab-add:active {
-  transform: translateX(-50%) scale(0.92);
+  transform: scale(0.92);
 }
 
 .tab-btn svg {

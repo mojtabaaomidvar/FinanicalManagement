@@ -1,5 +1,5 @@
-/* UI فرم تراکنش — مودال افزودن/ویرایش
-   (سه تب هزینه/درآمد/انتقال + کیپد ماشین‌حساب همیشه‌باز زیر مبلغ
+/* UI فرم تراکنش — شیت پایینی افزودن/ویرایش
+   (سوییچ هزینه/درآمد/انتقال + نمایشگر مبلغ بزرگ + کیپد ماشین‌حساب همیشه‌باز
     + سوییچ ارز ورودی + برچسب‌های سریع + تکرار دوره‌ای با تاریخ پایان + تم رنگی دسته) */
 
 import { useRef, useState, type CSSProperties } from "react";
@@ -130,53 +130,53 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
   }
 
   return (
-    <>
-      <Modal
-        open={m.open}
-        onClose={m.close}
-        title={m.editing ? "ویرایش تراکنش" : "تراکنش جدید"}
+    <Modal
+      open={m.open}
+      onClose={m.close}
+      title={m.editing ? "ویرایش تراکنش" : "تراکنش جدید"}
+    >
+      <div
+        className="tx-form"
+        style={{ "--cat-color": catColor } as CSSProperties}
       >
-        <div
-          className="tx-form"
-          style={{ "--cat-color": catColor } as CSSProperties}
-        >
-          <Segmented
-            value={m.form.type}
-            onChange={m.setType}
-            options={[
-              { value: "expense", label: "هزینه" },
-              { value: "income", label: "درآمد" },
-              { value: "transfer", label: "انتقال" },
-            ]}
-          />
+        {/* ── سوییچ نوع تراکنش ── */}
+        <Segmented
+          value={m.form.type}
+          onChange={m.setType}
+          options={[
+            { value: "expense", label: "هزینه" },
+            { value: "income", label: "درآمد" },
+            { value: "transfer", label: "انتقال" },
+          ]}
+        />
 
-          <div className="form-grid" style={{ marginTop: 16 }}>
-          <div className="form-row full">
-            <Field label={`مبلغ (${m.entryCurrency})`}>
-              <div className="amount-row">
-                {/* نمایشگر مبلغ — فقط‌خواندنی؛ ورود عدد فقط با کیپد زیرین */}
-                <div className="amount-display num-input big" dir="ltr">
-                  {m.form.amount || <span className="amount-empty">۰</span>}
-                </div>
-                {/* سوییچ ارز ورودی — مستقل از ارز اصلی */}
-                <Segmented
-                  value={m.entryCurrency}
-                  onChange={m.switchEntryCurrency}
-                  options={[
-                    { value: "تومان", label: "تومان" },
-                    { value: "ریال", label: "ریال" },
-                  ]}
-                />
-              </div>
-              {/* کیپد ماشین‌حساب — همیشه باز، جایگزین کیبورد موبایل */}
-              <CalcKeypad
-                value={m.form.amount}
-                onChange={m.setAmount}
-                onDone={m.setAmount}
-              />
-            </Field>
+        {/* ── نمایشگر مبلغ بزرگ + سوییچ ارز + کیپد همیشه‌باز ── */}
+        <div className="sheet-amount">
+          <span className="sheet-amount-label">
+            مبلغ
+            <button
+              type="button"
+              className="amount-currency-toggle"
+              onClick={() =>
+                m.switchEntryCurrency(
+                  m.entryCurrency === "تومان" ? "ریال" : "تومان",
+                )
+              }
+            >
+              {m.entryCurrency}
+            </button>
+          </span>
+          <div className="sheet-amount-display" dir="ltr">
+            {m.form.amount || <span className="amount-empty">۰</span>}
           </div>
+        </div>
+        <CalcKeypad
+          value={m.form.amount}
+          onChange={m.setAmount}
+          onDone={m.setAmount}
+        />
 
+        <div className="form-grid" style={{ marginTop: 16 }}>
           {isTransfer ? (
             /* ── حالت انتقال: مبدأ و مقصد ── */
             <>
@@ -224,7 +224,7 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
               </p>
             </>
           ) : (
-            /* ── هزینه/درآمد: دسته‌بندی + زیردسته + حساب ── */
+            /* ── هزینه/درآمد: دسته‌بندی + لیبل + حساب ── */
             <>
               <div className="form-row full">
                 <Field label="دسته‌بندی">
@@ -496,29 +496,29 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
           </div>
         </div>
 
-        <div className="modal-actions">
-          <button className="btn-secondary" onClick={m.close}>
-            انصراف
-          </button>
+        {/* ── دکمه ذخیره چسبان پایین شیت ── */}
+        <div className="sheet-save-row">
+          {m.editing &&
+          (member?.role === "owner" || m.editing.memberId === member?.id) ? (
+            <button
+              className="btn-danger-ghost-icon"
+              aria-label="حذف تراکنش"
+              onClick={() => m.remove(refreshData)}
+            >
+              <svg>
+                <use href="#i-trash" />
+              </svg>
+            </button>
+          ) : null}
           <button
-            className="btn-primary"
+            className="btn-primary sheet-save-btn"
             disabled={m.busy}
             onClick={() => m.save(refreshData, accounts.length)}
           >
-            {m.busy ? "…" : "ذخیره"}
+            {m.busy ? "…" : m.editing ? "ذخیره تغییرات" : "ثبت تراکنش"}
           </button>
         </div>
-        {m.editing &&
-        (member?.role === "owner" || m.editing.memberId === member?.id) ? (
-          <button
-            className="btn-danger-block"
-            onClick={() => m.remove(refreshData)}
-          >
-            حذف تراکنش
-          </button>
-        ) : null}
-        </div>
-      </Modal>
-    </>
+      </div>
+    </Modal>
   );
 }
