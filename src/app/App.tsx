@@ -1,12 +1,6 @@
 /* ریشه اپ — ناوبری، لینک دعوت، تب‌بار، پیامک‌های pending */
 
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "./providers/AppProvider";
 import { useTheme } from "./providers/useTheme";
 import type { Route } from "./router";
@@ -130,21 +124,6 @@ function MainShell({
     family?.currency ?? "تومان",
   );
 
-  const navRef = useRef<HTMLElement | null>(null);
-  const [barSize, setBarSize] = useState({ w: 0, h: 0 });
-
-  /* ابعاد نوار برای رسم بدنه کپسول + ناچ (شکل ثابت است، ناچ همیشه وسط) */
-  useLayoutEffect(() => {
-    const nav = navRef.current;
-    if (!nav) return;
-    const measure = () =>
-      setBarSize({ w: nav.clientWidth, h: nav.clientHeight });
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(nav);
-    return () => ro.disconnect();
-  }, []);
-
   const nav = useCallback(
     (r: Route) => {
       setRoute(r);
@@ -172,9 +151,7 @@ function MainShell({
       <TransactionFormFeature form={form} />
       <PendingSmsFeature refreshKey={refreshKey} />
 
-      <nav ref={navRef} className="tabbar tabbar-5" aria-label="ناوبری اصلی">
-        <TabBarShape w={barSize.w} h={barSize.h} />
-
+      <nav className="tabbar tabbar-5" aria-label="ناوبری اصلی">
         {/* ترتیب RTL: تراکنش‌ها، گزارش‌ها — ناچ خانه — کارت‌ها، تنظیمات */}
         {NAV_ITEMS.map((t, i) =>
           t ? (
@@ -209,36 +186,5 @@ function MainShell({
         </button>
       </nav>
     </>
-  );
-}
-
-/* بدنه کپسول شناور — pill با ناچ نیم‌دایره در وسط لبه بالا که
-   FAB خانه در آن می‌نشیند (ناچ = شعاع FAB + گپ) */
-function TabBarShape({ w, h }: { w: number; h: number }) {
-  if (w < 2 || h < 2) return null;
-
-  const r = h / 2; /* گوشه کپسول = نصف ارتفاع */
-  const c = w / 2;
-  const NR = 33; /* شعاع ناچ — FAB قطر ۵۸ + گپ ۴ (با .tab-home هماهنگ بماند) */
-
-  const d =
-    `M ${r} 0` +
-    ` H ${c - NR}` +
-    ` A ${NR} ${NR} 0 0 1 ${c + NR} 0` +
-    ` H ${w - r}` +
-    ` A ${r} ${r} 0 0 1 ${w} ${r}` +
-    ` V ${h - r}` +
-    ` A ${r} ${r} 0 0 1 ${w - r} ${h}` +
-    ` H ${r}` +
-    ` A ${r} ${r} 0 0 1 0 ${h - r}` +
-    ` V ${r}` +
-    ` A ${r} ${r} 0 0 1 ${r} 0` +
-    " Z";
-
-  return (
-    <svg className="tabbar-shape" aria-hidden="true" focusable="false">
-      <path className="tabbar-fill" d={d} />
-      <path className="tabbar-line" d={d} />
-    </svg>
   );
 }
