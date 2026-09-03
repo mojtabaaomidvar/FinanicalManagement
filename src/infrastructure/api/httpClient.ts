@@ -1,9 +1,9 @@
 /* httpClient مرکزی — تنها نقطه خروج درخواست‌های API
-   - دو مسیر: مستقیم به Supabase (خارج از ایران / با VPN) و
-     پروکسی سرورلس /api/rpc (عبور از مسدودسازی دامنه supabase.co در ایران)
-   - مسیر موفق کش می‌شود؛ خطای شبکه → مسیر دیگر به‌صورت خودکار امتحان می‌شود
-   - HTTPS اجباری (به‌جز localhost)
-   - نرمال‌سازی خطاها به AppError با پیام فارسی
+   - دو مسیر: مستقیم به Supabase و پروکسی سرورلس /api/rpc (عبور از مسدودسازی supabase.co در ایران)
+   - مسیر برنده با یک سنجش همزمان (RPC فقط-خواندنی) پیدا و در localStorage ذخیره می‌شود
+     → بدون انتظار تکراری برای کاربرانی که مسیر مستقیم برایشان مسدود است
+   - خطای شبکه هر مسیر → یک‌بار مسیر دیگر امتحان می‌شود (مثلاً وسط نشست VPN روشن/خاموش شود)
+   - HTTPS اجباری (به‌جز localhost) · نرمال‌سازی خطاها به AppError با پیام فارسی
    هیچ fetch مستقیمی خارج از این فایل مجاز نیست. */
 
 import { supabaseConfig, isSupabaseConfigured } from "@/shared/config/supabase";
@@ -38,6 +38,8 @@ const RPC_ERROR_MAP: { re: RegExp; code: AppErrorCode; msg: string }[] = [
   { re: /BANK_MISMATCH/, code: "INVALID_ACCOUNT", msg: "شماره کارت با بانک انتخاب‌شده هم‌خوانی ندارد" },
   { re: /NOT_FOUND/, code: "NOT_FOUND", msg: "مورد یافت نشد" },
   { re: /OTP_API_ONLY/, code: "OTP_API_ONLY", msg: "ارسال پیامک تنظیم نشده است" },
+  { re: /UPSTREAM_UNREACHABLE/, code: "NETWORK", msg: "سرور میانی به دیتابیس دسترسی ندارد" },
+  { re: /SERVER_NOT_CONFIGURED/, code: "SERVER", msg: "تنظیمات سرور ناقص است (SUPABASE_URL/KEY)" },
 ];
 
 function mapRpcError(message: string, status: number): AppError {
@@ -54,6 +56,20 @@ function assertHttps(url: string): void {
   if (!url.startsWith("https://") && !isLocal) {
     throw new AppError("SERVER", "اتصال باید رمزنگاری‌شده (HTTPS) باشد");
   }
+}
+
+function isLocalHost(): boolean {
+  return (
+    typeof location !== "undefined" &&
+    /^(localhost|127\.0\.0\.1)/.test(location.hostname)
+  );
+}
+
+/** پیام خطای شبکه — در اجرای محلی راهنمایی دقیق‌تر */
+function networkFailMessage(): string {
+  return isLocalHost()
+    ? "اتصال به دیتابیس ممکن نیست — برای تست محلی VPN را روشن کنید (یا از نسخه دپلوی‌شده استفاده کنید)"
+    : "اتصال به سرور ممکن نیست — اینترنت خود را بررسی کنید";
 }
 
 /* ── دو مسیر ارتباط ── */
@@ -94,7 +110,7 @@ async function rpcDirect(
       body: JSON.stringify(params),
     }, timeoutMs);
   } catch {
-    throw new AppError("NETWORK", "اتصال مستقیم به سرور ممکن نشد");
+    throw new AppError("NETWORK", networkFailMessage());
   }
   return { ok: res.ok, status: res.status, text: await res.text() };
 }
@@ -113,16 +129,23 @@ async function rpcProxy(
       body: JSON.stringify({ fn, params }),
     }, timeoutMs);
   } catch {
-    throw new AppError("NETWORK", "سرور میانی در دسترس نیست");
+    throw new AppError("NETWORK", networkFailMessage());
   }
   const text = await res.text();
+
   /* پاسخ HTML = تابع سرورلس اجرا نشده (vite dev بدون vercel dev) */
   if (text.startsWith("<")) {
     throw new AppError(
-      "SERVER",
-      "سرور میانی در دسترس نیست — برای اجرای محلی یا VPN را روشن کنید یا از «npx vercel dev» استفاده کنید",
+      "NETWORK",
+      "سرور میانی در دسترس نیست — برای اجرای محلی «npx vercel dev» یا VPN لازم است",
     );
   }
+
+  /* پروکسی به دیتابیس نرسید (مثلاً تابع محلی بدون VPN در ایران) */
+  if (!res.ok && text.includes("UPSTREAM_UNREACHABLE")) {
+    throw new AppError("NETWORK", networkFailMessage());
+  }
+
   return { ok: res.ok, status: res.status, text };
 }
 
@@ -135,23 +158,90 @@ function parseRpcResult<T>(raw: RawResponse): T {
     /* بدنه غیر JSON */
   }
   if (!raw.ok) {
-    const msg =
-      (data as { message?: string } | null)?.message ?? raw.text ?? "";
+    const err = data as { message?: string; error?: string } | null;
+    const msg = err?.message ?? err?.error ?? raw.text ?? "";
     throw mapRpcError(msg, raw.status);
   }
   return data as T;
 }
 
-/* ── انتخاب مسیر: اولین درخواست هر دو را می‌سنجد و مسیر سالم را نگه می‌دارد ── */
+/* ── انتخاب مسیر: سنجش همزمان + ذخیره مسیر برنده ── */
 
 type RpcMode = "direct" | "proxy";
-let cachedMode: RpcMode | null = null;
 
-const PROBE_TIMEOUT_MS = 6000;
+const MODE_STORAGE_KEY = "mali-man.rpcMode";
+const PROBE_TIMEOUT_MS = 5000;
 const RUN_TIMEOUT_MS = 15000;
+
+let cachedMode: RpcMode | null = null;
+let modeLoaded = false;
+let probePromise: Promise<RpcMode> | null = null;
+
+function loadMode(): RpcMode | null {
+  if (!modeLoaded) {
+    modeLoaded = true;
+    try {
+      const saved = localStorage.getItem(MODE_STORAGE_KEY);
+      if (saved === "direct" || saved === "proxy") cachedMode = saved;
+    } catch {
+      /* حالت خصوصی مرورگر */
+    }
+  }
+  return cachedMode;
+}
+
+function saveMode(m: RpcMode | null): void {
+  cachedMode = m;
+  try {
+    if (m) localStorage.setItem(MODE_STORAGE_KEY, m);
+    else localStorage.removeItem(MODE_STORAGE_KEY);
+  } catch {
+    /* بی‌صدا */
+  }
+}
 
 function isNetworkError(e: unknown): boolean {
   return e instanceof AppError && e.code === "NETWORK";
+}
+
+/**
+ * سنجش همزمان دو مسیر با get_public_config — فقط-خواندنی و بدون توکن،
+ * پس اجرای موازی آن عارضه‌ای ندارد. هر پاسخ HTTP (حتی خطای 4xx) یعنی
+ * مسیر زنده است؛ فقط شکست fetch (مسدودی/تایم‌اوت) یعنی مسیر مرده.
+ */
+function probeMode(): Promise<RpcMode> {
+  if (!probePromise) {
+    probePromise = (async () => {
+      const attempt = async (via: RpcMode): Promise<RpcMode> => {
+        if (via === "direct") {
+          await rpcDirect("get_public_config", {}, PROBE_TIMEOUT_MS);
+        } else {
+          await rpcProxy("get_public_config", {}, PROBE_TIMEOUT_MS);
+        }
+        return via;
+      };
+      try {
+        const winner = await Promise.any([attempt("direct"), attempt("proxy")]);
+        saveMode(winner);
+        return winner;
+      } finally {
+        probePromise = null;
+      }
+    })();
+  }
+  return probePromise;
+}
+
+async function runVia<T>(
+  mode: RpcMode,
+  fn: string,
+  params: Record<string, unknown>,
+): Promise<T> {
+  const raw =
+    mode === "direct"
+      ? await rpcDirect(fn, params, RUN_TIMEOUT_MS)
+      : await rpcProxy(fn, params, RUN_TIMEOUT_MS);
+  return parseRpcResult<T>(raw);
 }
 
 /** فراخوانی تابع RPC ساپابیس — تنها مسیر مجاز دسترسی به داده */
@@ -166,42 +256,31 @@ export async function rpc<T>(
     );
   }
 
-  if (cachedMode === "proxy") {
+  let mode = loadMode();
+  if (!mode) {
     try {
-      return parseRpcResult<T>(await rpcProxy(fn, params, RUN_TIMEOUT_MS));
-    } catch (e) {
-      /* مسیر پروکسی قطع شد (مثلاً VPN روشن شد) → مسیر مستقیم */
-      if (!isNetworkError(e)) throw e;
-      cachedMode = null;
-    }
-  } else if (cachedMode === "direct") {
-    try {
-      return parseRpcResult<T>(await rpcDirect(fn, params, RUN_TIMEOUT_MS));
-    } catch (e) {
-      if (!isNetworkError(e)) throw e;
-      cachedMode = null;
+      mode = await probeMode();
+    } catch {
+      throw new AppError("NETWORK", networkFailMessage());
     }
   }
 
-  /* مسیر کش نشده — سنجش مستقیم با مهلت کوتاه، سپس پروکسی */
+  /* اجرا با مسیر فعلی؛ خطای شبکه → یک‌بار مسیر دیگر */
   try {
-    const raw = await rpcDirect(fn, params, PROBE_TIMEOUT_MS);
-    cachedMode = "direct";
-    return parseRpcResult<T>(raw);
+    return await runVia<T>(mode, fn, params);
   } catch (e) {
     if (!isNetworkError(e)) throw e;
   }
 
+  const other: RpcMode = mode === "direct" ? "proxy" : "direct";
   try {
-    const raw = await rpcProxy(fn, params, RUN_TIMEOUT_MS);
-    cachedMode = "proxy";
-    return parseRpcResult<T>(raw);
+    const result = await runVia<T>(other, fn, params);
+    saveMode(other);
+    return result;
   } catch (e) {
     if (isNetworkError(e)) {
-      throw new AppError(
-        "NETWORK",
-        "اتصال به سرور ممکن نیست — اینترنت یا VPN خود را بررسی کنید",
-      );
+      saveMode(null);
+      throw new AppError("NETWORK", networkFailMessage());
     }
     throw e;
   }
