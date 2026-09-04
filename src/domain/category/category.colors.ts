@@ -38,6 +38,9 @@ export const CATEGORY_COLORS: Record<string, string> = {
   invest: "#5EEAD4",
   sale: "#FCD34D",
   gift: "#F9A8D4",
+
+  /* ── انتقال ── */
+  transfer: "#6EE7B7",
 };
 
 function hashOf(id: string): number {

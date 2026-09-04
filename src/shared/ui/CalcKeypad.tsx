@@ -1,5 +1,6 @@
-/* کیپد ماشین‌حساب مبلغ — چهار عمل اصلی + ارزیابی امن (بدون eval)
-   عبارت در همان فیلد مبلغ نمایش داده می‌شود؛ = نتیجه را می‌گذارد */
+/* کیپد ماشین‌حساب مبلغ — چیدمان ۴×۴ پیل: رقم‌ها + عملگرها در ستون چهارم
+   فشردن عملگر پس از عبارت کامل، نتیجه را همان‌جا می‌گذارد (محاسبه inline)؛
+   ارزیابی امن دو-گذره بدون eval (اولویت ضرب/تقسیم، سپس جمع/تفریق) */
 
 import { toEn, toFa } from "@/shared/lib/digits";
 
@@ -39,21 +40,20 @@ export function evaluateExpression(raw: string): number | null {
 }
 
 const KEYS = [
-  "۷", "۸", "۹", "÷",
+  "۱", "۲", "۳", "÷",
   "۴", "۵", "۶", "×",
-  "۱", "۲", "۳", "-",
-  "۰", "۰۰۰", "⌫", "+",
+  "۷", "۸", "۹", "-",
+  "۰۰۰", "۰", "⌫", "+",
 ] as const;
+
+const OPS = ["+", "-", "×", "÷"] as const;
 
 export function CalcKeypad({
   value,
   onChange,
-  onDone,
 }: {
   value: string;
   onChange: (v: string) => void;
-  /** = — ارزیابی و جای‌گذاری نتیجه */
-  onDone: (v: string) => void;
 }) {
   function press(k: string) {
     if (k === "⌫") {
@@ -65,23 +65,26 @@ export function CalcKeypad({
       onChange(digits ? toFa(digits + "000") : "");
       return;
     }
-    if (["+", "-", "×", "÷"].includes(k)) {
+    if ((OPS as readonly string[]).includes(k)) {
       if (!value) return;
       const last = value.slice(-1);
-      if (["+", "-", "×", "÷"].includes(last)) {
+      if ((OPS as readonly string[]).includes(last)) {
+        /* جایگزینی عملگر قبلی */
         onChange(value.slice(0, -1) + k);
-      } else {
-        onChange(value + k);
+        return;
       }
+      /* عبارت کامل → نتیجه + عملگر جدید (محاسبه inline) */
+      if ((OPS as readonly string[]).some((op) => value.includes(op))) {
+        const r = evaluateExpression(value);
+        if (r !== null) {
+          onChange(toFa(Math.round(r).toLocaleString("en-US")) + k);
+          return;
+        }
+      }
+      onChange(value + k);
       return;
     }
     onChange(value + k);
-  }
-
-  function equals() {
-    const r = evaluateExpression(value);
-    if (r === null) return;
-    onDone(toFa(Math.round(r).toLocaleString("en-US")));
   }
 
   return (
@@ -90,15 +93,13 @@ export function CalcKeypad({
         <button
           key={k}
           type="button"
-          className={`calc-key ${["+", "-", "×", "÷"].includes(k) ? "op" : ""}`}
+          className={`calc-key ${(OPS as readonly string[]).includes(k) ? "op" : ""} ${k === "⌫" ? "back" : ""}`}
+          aria-label={k === "⌫" ? "پاک‌کردن رقم آخر" : `درج ${k}`}
           onClick={() => press(k)}
         >
           {k}
         </button>
       ))}
-      <button type="button" className="calc-key eq" onClick={equals}>
-        =
-      </button>
     </div>
   );
 }

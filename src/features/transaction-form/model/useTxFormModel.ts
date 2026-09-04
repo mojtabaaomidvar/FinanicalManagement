@@ -12,11 +12,12 @@ import { parse } from "@/shared/lib/jalali";
 import { jalaliToIso } from "@/shared/lib/jalali";
 import {
   formatAmount,
-  liveFormatAmount,
   liveFormatJalaliDate,
   nowTime,
   parseAmountInput,
 } from "@/shared/lib/format";
+import { toEn, toFa } from "@/shared/lib/digits";
+import { evaluateExpression } from "@/shared/ui";
 import { compressImage } from "@/shared/lib/image";
 import { fromDisplay, toDisplay } from "@/shared/lib/currency";
 import { isoToJalali, today, formatISO } from "@/shared/lib/jalali";
@@ -72,7 +73,7 @@ export function useTxFormModel(
     return {
       type: "expense",
       amount: "",
-      categoryId: defaultCategoryOf("expense").id,
+      categoryId: "", /* بدون دسته → گرید انتخاب دسته نمایش داده می‌شود */
       date: formatISO(today()),
       time: nowTime(),
       memberId: currentMemberId,
@@ -125,14 +126,15 @@ export function useTxFormModel(
     setForm((f) => ({
       ...f,
       type,
-      categoryId: defaultCategoryOf(type).id,
+      /* انتقال دسته ثابت دارد؛ هزینه/درآمد دوباره از گرید انتخاب می‌شوند */
+      categoryId: type === "transfer" ? defaultCategoryOf("transfer").id : "",
       label: "", /* دسته عوض شد — لیبل قبلی نامعتبر می‌شود */
     }));
   }
 
-  /** تعویض ارز ورودی — مقدار تایپ‌شده به واحد جدید تبدیل می‌شود */
+  /** تعویض ارز ورودی — مقدار تایپ‌شده (حتی عبارت ریاضی) به واحد جدید تبدیل می‌شود */
   function switchEntryCurrency(next: string) {
-    const v = parseAmountInput(form.amount);
+    const v = evaluateExpression(form.amount) ?? parseAmountInput(form.amount);
     setForm((f) => ({
       ...f,
       amount: v ? formatAmount(toDisplay(fromDisplay(v, entryCurrency), next)) : "",
@@ -145,10 +147,16 @@ export function useTxFormModel(
     accountsCount: number,
   ) {
     if (busy) return;
-    const amount = parseAmountInput(form.amount);
+    /* مبلغ می‌تواند عبارت ریاضی باشد — همان‌جا ارزیابی می‌شود */
+    const amount = evaluateExpression(form.amount) ?? parseAmountInput(form.amount);
     if (!amount || amount <= 0) return notify("لطفاً مبلغ معتبر وارد کنید");
 
     const isTransfer = form.type === "transfer";
+
+    /* هزینه/درآمد بدون دسته مجاز نیست (گرید انتخاب دسته) */
+    if (!isTransfer && !form.categoryId) {
+      return notify("دسته‌بندی را انتخاب کنید");
+    }
 
     /* حساب الزامی — با پیام دقیق */
     if (!form.accountId) {
@@ -302,7 +310,12 @@ export function useTxFormModel(
     save,
     remove,
     close: () => setOpen(false),
-    setAmount: (v: string) => setForm((f) => ({ ...f, amount: liveFormatAmount(v) })),
+    setAmount: (v: string) =>
+      /* فقط ارقام و چهار عمل اصلی می‌مانند — پشتیبانی عبارت «۱۲+۵» */
+      setForm((f) => ({
+        ...f,
+        amount: toFa(toEn(v).replace(/[^\d+\-×÷]/g, "")),
+      })),
     setDate: (v: string) => setForm((f) => ({ ...f, date: liveFormatJalaliDate(v) })),
     setTime: (v: string) => setForm((f) => ({ ...f, time: v })),
     setRepeat: (v: TxRepeat) => setForm((f) => ({ ...f, repeat: v })),

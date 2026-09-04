@@ -357,83 +357,591 @@ button:active {
   white-space: nowrap;
 }
 
-/* ─────────── شیت پایینی تراکنش — نمایشگر مبلغ بزرگ + ذخیره چسبان ─────────── */
-.sheet-amount {
-  margin-top: var(--sp-4);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: var(--sp-4);
-  border-radius: var(--r-lg);
-  background: color-mix(in srgb, var(--cat-color, var(--accent)) 10%, var(--card));
-  border: 1px solid color-mix(in srgb, var(--cat-color, var(--accent)) 25%, var(--border));
+/* ─────────── شیت تمام‌قد تراکنش (بازطراحی v8 — تم رنگی دسته) ─────────── */
+@property --sheet-tint {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #d1d5db;
 }
 
-.sheet-amount-label {
+.modal-sheet.no-pad {
+  padding: 0;
+}
+.modal-sheet.tx-sheet {
+  min-height: 92dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+.tx-sheet .modal-grabber {
+  margin-bottom: 0;
+}
+
+.tx-form {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0 18px calc(16px + env(safe-area-inset-bottom));
+  /* گرادیان عمودی تم دسته — تیره‌تر بالا، محو به زمینه پایین */
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--sheet-tint) 34%, var(--bg-elev)),
+    color-mix(in srgb, var(--sheet-tint) 12%, var(--bg-elev)) 38%,
+    var(--bg-elev) 82%
+  );
+  transition: --sheet-tint 380ms ease;
+}
+
+/* هدر — بستن / عنوان / حذف / ذخیره (چسبان) */
+.tx-head {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
+  gap: 8px;
+  margin: 0 -18px;
+  padding: 8px 18px 10px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--sheet-tint) 34%, var(--bg-elev)) 70%,
+    transparent
+  );
+}
+.tx-head-title {
+  flex: 1;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.tx-head-actions {
+  display: inline-flex;
+  gap: 8px;
+}
+.tx-head-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--card) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sheet-tint) 30%, var(--border));
+  color: var(--text-2);
+  cursor: pointer;
+  transition: transform var(--dur-fast) ease;
+}
+.tx-head-btn:active {
+  transform: scale(0.9);
+}
+.tx-head-btn svg {
+  width: 17px;
+  height: 17px;
+}
+.tx-head-btn.tx-save-btn {
+  background: var(--cat-color, var(--accent));
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 6px 16px
+    color-mix(in srgb, var(--cat-color, var(--accent)) 45%, transparent);
+}
+.tx-head-btn.tx-save-btn:disabled {
+  opacity: 0.55;
+}
+.tx-head-btn.tx-trash-btn {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+}
+
+/* تب نوع تراکنش — پیل متنی */
+.tx-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 8px;
+}
+.tx-tab {
+  padding: 7px 22px;
+  border-radius: var(--r-pill);
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
   font-weight: 600;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all var(--dur-fast) ease;
+}
+.tx-tab.on {
+  background: var(--card);
+  color: var(--text);
+  font-weight: 800;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.14);
+}
+
+/* دایره آیکون دسته + برچسب */
+.tx-icon-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 14px auto 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+}
+.tx-icon-circle {
+  width: 116px;
+  height: 116px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--sheet-tint) 35%, transparent);
+  transition:
+    background var(--dur-med) ease,
+    color var(--dur-med) ease,
+    transform var(--dur-med) var(--ease-spring);
+}
+.tx-icon-circle svg {
+  width: 46px;
+  height: 46px;
+}
+.tx-icon-wrap:active .tx-icon-circle {
+  transform: scale(0.94);
+}
+.tx-icon-label {
+  font-size: 13.5px;
+  font-weight: 700;
   color: var(--text-2);
 }
 
-/* دکمه کوچک تعویض ارز ورودی — تومان⇄ریال */
-.amount-currency-toggle {
-  font: inherit;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--cat-color, var(--accent-strong));
+/* ردیف حساب‌های انتقال */
+.tx-transfer-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.tx-swap-btn {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
   background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--r-pill);
-  padding: 3px 12px;
+  color: var(--text-2);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(13, 27, 42, 0.1);
+}
+.tx-swap-btn svg {
+  width: 16px;
+  height: 16px;
+}
+.tx-swap-btn:active {
+  transform: scale(0.9);
 }
 
-.sheet-amount-display {
-  font-size: 40px;
+/* مبلغ درشت + واحد ارز */
+.tx-amount-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: 10px;
+}
+.tx-amount-cap {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+.tx-amount {
+  max-width: 100%;
+  font-size: 56px;
   font-weight: 800;
-  letter-spacing: -0.5px;
-  line-height: 1.25;
+  letter-spacing: -1px;
+  line-height: 1.15;
   color: var(--text);
   font-variant-numeric: tabular-nums;
   overflow-x: auto;
   white-space: nowrap;
-  text-align: center;
-  min-height: 50px;
+  scrollbar-width: none;
+}
+.tx-amount::-webkit-scrollbar {
+  display: none;
+}
+.tx-amount-zero {
+  color: var(--text-3);
+  opacity: 0.55;
+}
+.tx-amount-expr {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.tx-currency-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 4px 14px;
+  border-radius: var(--r-pill);
+  border: none;
+  background: color-mix(in srgb, var(--card) 65%, transparent);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.tx-currency-btn svg {
+  width: 12px;
+  height: 12px;
+  opacity: 0.6;
 }
 
-.sheet-amount-display .amount-empty {
+/* کارت توضیحات — متن + دوربین + تگ‌های سریع */
+.tx-desc-card {
+  margin-top: 14px;
+  border-radius: 28px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--card) 85%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 4px 18px rgba(13, 27, 42, 0.07);
+}
+.tx-desc-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  resize: none;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.9;
+  color: var(--text);
+  min-height: 44px;
+}
+.tx-desc-input:focus {
+  outline: none;
+}
+.tx-desc-input::placeholder {
+  color: var(--text-3);
+}
+.tx-desc-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.tx-cam-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--text);
+  color: var(--bg-elev);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform var(--dur-fast) ease;
+}
+.tx-cam-btn svg {
+  width: 17px;
+  height: 17px;
+}
+.tx-cam-btn:active {
+  transform: scale(0.92);
+}
+
+/* تگ‌های سریع — اسکرول افقی داخل کارت */
+.tx-tags {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.tx-tags::-webkit-scrollbar {
+  display: none;
+}
+.tx-tag {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 13px;
+  border-radius: var(--r-pill);
+  border: none;
+  background: color-mix(in srgb, var(--card-2) 70%, transparent);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--dur-fast) ease;
+}
+.tx-tag svg {
+  width: 12px;
+  height: 12px;
+}
+.tx-tag:active {
+  transform: scale(1.05);
+}
+.tx-tag.on {
+  background: color-mix(in srgb, var(--cat-color, var(--accent)) 30%, var(--card));
+  color: var(--text);
+  font-weight: 800;
+}
+.tx-tag.tx-tag-add {
+  background: transparent;
+  border: 1.5px dashed
+    color-mix(in srgb, var(--sheet-tint) 55%, var(--border-strong));
+}
+.tx-tag.tx-tag-field {
+  background: var(--card);
+  padding: 0 4px 0 12px;
+  gap: 2px;
+}
+.tx-tag.tx-tag-field .text-input {
+  width: 110px;
+  border: none;
+  background: transparent;
+  padding: 6px 0;
+  font-size: 12px;
+}
+.tx-tag.tx-tag-field button {
+  border: none;
+  background: none;
+  color: var(--accent-strong);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 8px;
+}
+.tx-tag.tx-tag-field button svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* نوار تصاویر پیوست (مینی) */
+.tx-photos-strip {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tx-photos-strip::-webkit-scrollbar {
+  display: none;
+}
+.tx-photo-mini {
+  position: relative;
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.tx-photo-mini img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.tx-photo-mini button {
+  position: absolute;
+  top: 3px;
+  inset-inline-start: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(13, 27, 42, 0.65);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.tx-photo-mini button svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* فاز ۱ — گرید انتخاب دسته (۴ ستونه) */
+.tx-grid-title {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+  margin: 16px 0 10px;
+}
+.tx-cat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px 4px;
+}
+.tx-cat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  transition: transform var(--dur-fast) var(--ease-spring);
+}
+.tx-cat:active {
+  transform: scale(0.92);
+}
+.tx-cat-ico {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: var(--card);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 3px 12px rgba(13, 27, 42, 0.08);
+}
+.tx-cat-ico svg {
+  width: 26px;
+  height: 26px;
+}
+.tx-cat-ico-add {
+  color: var(--text-3);
+  background: transparent;
+  border: 1.5px dashed var(--border-strong);
+  box-shadow: none;
+}
+.tx-cat-name {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-2);
+  text-align: center;
+  line-height: 1.5;
+}
+.tx-add-cat {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.tx-add-cat .text-input {
+  flex: 1;
+  background: var(--card);
+}
+.tx-add-cat .btn-primary {
+  padding: 12px 20px;
+}
+
+/* فاز ۲ — ردیف چیپ حساب/تاریخ/تکرار */
+.tx-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.tx-pill {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--card) 82%, transparent);
+  box-shadow: 0 2px 8px rgba(13, 27, 42, 0.06);
+  cursor: pointer;
+}
+.tx-pill > svg {
+  width: 15px;
+  height: 15px;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.tx-pill-select {
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  padding: 0;
+  max-width: 180px;
+  text-overflow: ellipsis;
+}
+.tx-pill-date {
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.tx-pill-date .date-field {
+  height: 40px;
+  border: none;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--card) 82%, transparent);
+  box-shadow: 0 2px 8px rgba(13, 27, 42, 0.06);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 0 14px;
+  max-width: 100%;
+}
+.tx-pill-date .date-field .date-field-icon {
+  display: none;
+}
+.tx-chip-hint {
+  font-size: 11px;
+  font-weight: 600;
   color: var(--text-3);
 }
 
-/* ردیف ذخیره — دکمه تمام‌عرض چسبان در انتهای شیت */
-.sheet-save-row {
-  display: flex;
-  gap: var(--sp-2);
-  margin-top: var(--sp-5);
+/* کیپد + دکمه اسکن — چسبان به پایین شیت */
+.tx-keypad-zone {
+  margin-top: auto;
+  padding-top: 14px;
 }
-
-.sheet-save-btn {
-  flex: 1;
+.tx-scan-btn {
+  width: 100%;
+  margin-top: 10px;
   padding: 14px;
-  font-size: 15.5px;
+  border: none;
+  border-radius: var(--r-pill);
+  background: linear-gradient(
+    90deg,
+    #fdba74,
+    #fcd34d,
+    #6ee7b7,
+    #93c5fd,
+    #c4b5fd
+  );
+  color: #0d1b2a;
+  font: inherit;
+  font-size: 14px;
   font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(109, 168, 129, 0.35);
+  transition: transform var(--dur-fast) ease;
 }
-
-.btn-danger-ghost-icon {
-  flex-shrink: 0;
-  width: 52px;
-  border-radius: var(--r-md);
-  border: 1px solid var(--danger);
-  color: var(--danger);
-  background: var(--danger-soft);
-  display: grid;
-  place-items: center;
+.tx-scan-btn:active {
+  transform: scale(0.98);
 }
-.btn-danger-ghost-icon svg {
-  width: 20px;
-  height: 20px;
+.tx-scan-btn svg {
+  width: 18px;
+  height: 18px;
 }
 
 /* ─────────── کارت مالی اصلی (بازطراحی v7) ─────────── */
@@ -721,94 +1229,6 @@ button:active {
 .tx-photo-badge svg {
   width: 11px;
   height: 11px;
-}
-
-/* ─────────── تصاویر پیوست فرم تراکنش ─────────── */
-.tx-photos {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-.tx-photo {
-  width: 96px;
-}
-.tx-photo-img {
-  position: relative;
-  border-radius: var(--r-sm);
-  overflow: hidden;
-  border: 1px solid var(--border);
-}
-.tx-photo-img a {
-  display: block;
-}
-.tx-photo-img img {
-  display: block;
-  width: 100%;
-  height: 96px;
-  object-fit: cover;
-}
-.tx-photo-del {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(13, 27, 42, 0.65);
-  color: #fff;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-}
-.tx-photo-del svg {
-  width: 13px;
-  height: 13px;
-}
-.tx-photo-del:active {
-  transform: scale(0.9);
-}
-.tx-photo-cap {
-  width: 100%;
-  margin-top: 5px;
-  padding: 6px 8px;
-  background: var(--card-2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  font-family: inherit;
-  font-size: 11.5px;
-  color: var(--text);
-  box-sizing: border-box;
-}
-.tx-photo-cap:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-.tx-photo-add {
-  width: 96px;
-  height: 96px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  border-radius: var(--r-sm);
-  border: 1.5px dashed var(--border-strong);
-  background: none;
-  color: var(--text-3);
-  font-family: inherit;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all var(--dur-fast) ease;
-}
-.tx-photo-add svg {
-  width: 20px;
-  height: 20px;
-}
-.tx-photo-add:active {
-  border-color: var(--accent);
-  color: var(--accent);
 }
 
 /* grouped by date */
@@ -1555,21 +1975,20 @@ button:active {
   line-height: 1.8;
 }
 
-/* ─────────── کیپد ماشین‌حساب ─────────── */
+/* ─────────── کیپد ماشین‌حساب (شیت تراکنش — پیل‌های رنگی) ─────────── */
 .calc-pad {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-  margin-top: 10px;
+  gap: 8px;
 }
 .calc-key {
-  height: 48px;
-  border-radius: var(--r-md);
-  border: 1px solid var(--border);
-  background: var(--card);
+  height: 54px;
+  border-radius: var(--r-pill);
+  border: none;
+  background: color-mix(in srgb, var(--card) 78%, transparent);
   color: var(--text);
   font: inherit;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   cursor: pointer;
   transition:
@@ -1577,17 +1996,17 @@ button:active {
     transform var(--dur-fast) ease;
 }
 .calc-key:active {
-  transform: scale(0.94);
-  background: var(--card-2);
+  transform: scale(0.93);
+  background: var(--card);
 }
 .calc-key.op {
-  background: var(--card-2);
-  color: var(--accent-strong);
-}
-.calc-key.eq {
-  background: var(--cat-color, var(--accent));
-  color: #fff;
+  background: color-mix(in srgb, var(--cat-color, var(--accent)) 20%, transparent);
+  color: color-mix(in srgb, var(--cat-color, var(--accent-strong)) 85%, var(--text));
   font-weight: 800;
+}
+.calc-key.back {
+  background: color-mix(in srgb, var(--text) 80%, transparent);
+  color: var(--bg-elev);
 }
 
 /* ─────────── برچسب‌های سریع و تکرار ─────────── */
@@ -1614,23 +2033,9 @@ button:active {
   margin-top: 6px;
 }
 
-/* ─────────── تم رنگی فرم با دسته انتخاب‌شده ─────────── */
-.tx-form .seg-btn.active {
-  background: color-mix(in srgb, var(--cat-color, var(--accent)) 28%, var(--card));
-  color: var(--text);
-}
-.tx-form .cat-cell.active {
-  border-color: transparent;
-}
+/* ─────────── تم رنگی فرم تراکنش با دسته انتخاب‌شده ─────────── */
 .tx-form .btn-primary {
   background: var(--cat-color, var(--accent));
-}
-.tx-form .sheet-amount {
-  background: color-mix(in srgb, var(--cat-color, var(--accent)) 10%, var(--card));
-  border-color: color-mix(in srgb, var(--cat-color, var(--accent)) 25%, var(--border));
-}
-.tx-form .amount-currency-toggle {
-  color: var(--cat-color, var(--accent-strong));
 }
 
 /* ─────────── نوار ابزار لیست + فیلتر پیشرفته ─────────── */
@@ -2314,15 +2719,7 @@ button:active {
   border-color: var(--accent);
 }
 
-/* سلول افزودن دسته در گرید */
-.cat-cell.cat-add {
-  border-style: dashed;
-  color: var(--text-3);
-  background: transparent;
-}
-.cat-cell.cat-add.active {
-  border-style: solid;
-}
+/* سلول افزودن دسته در فرم تراکنش — استایل در بخش tx-cat-grid */
 .form-row > label,
 .form-label {
   display: block;
@@ -2373,36 +2770,6 @@ button:active {
 }
 .btn-danger-block:active {
   transform: scale(0.97);
-}
-
-/* category grid */
-.cat-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--sp-2);
-}
-
-.cat-cell {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  padding: var(--sp-2) 2px;
-  border-radius: var(--r-md);
-  border: 1px solid transparent;
-  font-size: 10.5px;
-  color: var(--text-2);
-  transition: all var(--dur-fast) ease;
-}
-.cat-cell svg {
-  width: 21px;
-  height: 21px;
-}
-.cat-cell.active {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent);
-  font-weight: 600;
 }
 
 /* ─────────── Tab bar ─────────── */
@@ -2805,11 +3172,18 @@ button:active {
 
 /* ─────────── Small phones ─────────── */
 @media (max-width: 360px) {
-  .cat-grid {
+  .tx-cat-grid {
     grid-template-columns: repeat(3, 1fr);
   }
   .fin-hero-balance {
     font-size: 29px;
+  }
+  .tx-amount {
+    font-size: 46px;
+  }
+  .tx-icon-circle {
+    width: 100px;
+    height: 100px;
   }
 }
 
