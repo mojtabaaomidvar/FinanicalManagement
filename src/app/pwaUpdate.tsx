@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { isNativeApp } from "@/shared/config/apiBase";
 
 export interface PwaUpdateState {
   /** نسخه جدید نصب‌شده و منتظر فعال‌سازی است */
@@ -23,6 +24,8 @@ export function usePwaUpdate(): PwaUpdateState {
   const [updateReady, setUpdateReady] = useState(false);
 
   useEffect(() => {
+    /* در اپ نیتیو به‌روزرسانی استور/بازسازی معنا ندارد — SW بی‌صدا می‌ماند */
+    if (isNativeApp()) return;
     if (!("serviceWorker" in navigator)) return;
 
     let cancelled = false;

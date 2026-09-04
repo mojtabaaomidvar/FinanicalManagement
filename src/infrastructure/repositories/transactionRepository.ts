@@ -6,6 +6,7 @@ import type {
   TransactionInput,
 } from "@/domain/transaction/transaction.types";
 import { rpc } from "@/infrastructure/api/httpClient";
+import { API_BASE } from "@/shared/config/apiBase";
 import { mapTransaction, type TransactionRow } from "./mappers";
 import type { TokenProvider } from "./sessionRepository";
 
@@ -80,7 +81,7 @@ export class SupabaseTransactionRepository implements TransactionRepository {
     const token = await this.tok();
     let res: Response;
     try {
-      res = await fetch("/api/upload-photo", {
+      res = await fetch(`${API_BASE}/api/upload-photo`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, image: dataUrl }),

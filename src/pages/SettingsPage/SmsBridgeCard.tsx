@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
 import { Card } from "@/shared/ui";
+import { API_BASE } from "@/shared/config/apiBase";
 
 export function SmsBridgeCard() {
   const { useCases } = useApp();
@@ -54,7 +55,8 @@ export function SmsBridgeCard() {
     }
   }
 
-  const webhookUrl = location.origin + "/api/sms-webhook";
+  /* در اپ نیتیو location.origin همان localhost است — آدرس واقعی سرور نمایش داده شود */
+  const webhookUrl = `${API_BASE || location.origin}/api/sms-webhook`;
   const bodyTemplate = token
     ? `{"token":"${token}","text":"متن پیامک","sender":"شماره فرستنده"}`
     : "";

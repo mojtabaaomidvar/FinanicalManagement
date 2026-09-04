@@ -131,6 +131,32 @@ npx vercel --prod
 
 آدرس Vercel را در Safari باز کنید → **Share ← Add to Home Screen**
 
+## 🤖 نسخه اندروید (Capacitor)
+
+اپ وب همان‌طور که هست داخل یک اپ نیتیو اندروید بسته می‌شود — بدون بازنویسی:
+
+```bash
+npm run cap:sync     # بیلد وب + کپی به پروژه اندروید
+npm run cap:android  # باز کردن پروژه در Android Studio
+```
+
+- **پروژه نیتیو** در پوشه `android/` (appId: `ir.khaneyar.app`، نام: «خانه یار»)
+- **API**: در اپ نیتیو درخواست‌ها به `VITE_API_BASE` (نسخه دپلوی‌شده Vercel) می‌روند — منطق دو-مسیره (مستقیم/پروکسی) عیناً کار می‌کند؛ در مرورگر همان URL نسبی قبلی است
+- **دسترسی پیامک**: `RECEIVE_SMS`/`READ_SMS` در مانیفست تعریف شده برای ماژول خواندن خودکار پیامک بانکی (فاز بعدی)
+- **PWA/ServiceWorker** در اپ نیتیو غیرفعال است (به‌روزرسانی از استور/APK)
+
+### ساخت APK (یک‌بار برای همیشه)
+
+1. [Android Studio](https://developer.android.com/studio) را نصب کنید (شامل SDK و JDK)
+2. `npm run cap:android` → پروژه باز می‌شود
+3. **Build ← Build Bundle(s)/APK(s) ← Build APK(s)** → خروجی: `android/app/build/outputs/apk/debug/app-debug.apk`
+4. برای نسخه انتشار: **Build ← Generate Signed Bundle/APK** (به keystore امضا نیاز دارد)
+5. APK را مستقیم توزیع کنید یا در کافه‌بازار/مایکت منتشر کنید
+
+> تغییرات وب: `npm run cap:sync` و بعد دوباره Build. فایل‌های داخل `android/app/src/main/assets/public` ساخته‌شده‌اند و کامیت نمی‌شوند.
+>
+> iOS: نیاز به مک + Xcode + اکانت Apple Developer دارد (فعلاً از PWA «Add to Home Screen» استفاده کنید).
+
 ## 🔄 جریان کار اپ
 
 1. **ثبت‌نام** — نام خانواده + نام شما + شماره موبایل + رمز → ورود (اگر OTP فعال باشد: کد ۶ رقمی پیامکی)

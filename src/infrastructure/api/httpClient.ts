@@ -7,6 +7,7 @@
    هیچ fetch مستقیمی خارج از این فایل مجاز نیست. */
 
 import { supabaseConfig, isSupabaseConfigured } from "@/shared/config/supabase";
+import { API_BASE } from "@/shared/config/apiBase";
 import { AppError, type AppErrorCode } from "@/shared/lib/appError";
 
 const RPC_ERROR_MAP: { re: RegExp; code: AppErrorCode; msg: string }[] = [
@@ -116,7 +117,8 @@ async function rpcDirect(
   return { ok: res.ok, status: res.status, text: await res.text() };
 }
 
-/** از طریق تابع سرورلس /api/rpc روی همان دامنه (عبور از مسدودسازی) */
+/** از طریق تابع سرورلس /api/rpc روی همان دامنه (عبور از مسدودسازی)
+    در اپ نیتیو: API_BASE مطلق است چون WebView روی localhost است */
 async function rpcProxy(
   fn: string,
   params: Record<string, unknown>,
@@ -124,7 +126,7 @@ async function rpcProxy(
 ): Promise<RawResponse> {
   let res: Response;
   try {
-    res = await fetchWithTimeout("/api/rpc", {
+    res = await fetchWithTimeout(`${API_BASE}/api/rpc`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fn, params }),

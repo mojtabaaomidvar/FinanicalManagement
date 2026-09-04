@@ -1,6 +1,7 @@
 /* تابع سرورless ارسال OTP (Vercel: /api/send-otp) */
 
 import { AppError } from "@/shared/lib/appError";
+import { API_BASE } from "@/shared/config/apiBase";
 
 export interface OtpServerlessResult {
   ok: boolean;
@@ -12,7 +13,7 @@ export async function sendOtpViaServerless(
   phone: string,
 ): Promise<OtpServerlessResult & { unavailable: boolean }> {
   try {
-    const res = await fetch("api/send-otp", {
+    const res = await fetch(`${API_BASE}/api/send-otp`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone }),

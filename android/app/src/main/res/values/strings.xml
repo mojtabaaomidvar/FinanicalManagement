@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">خانه یار</string>
+    <string name="title_activity_main">خانه یار</string>
+    <string name="package_name">ir.khaneyar.app</string>
+    <string name="custom_url_scheme">ir.khaneyar.app</string>
+</resources>

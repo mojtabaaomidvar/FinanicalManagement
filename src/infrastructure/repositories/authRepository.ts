@@ -12,6 +12,7 @@ import type {
 } from "@/domain/auth/auth.types";
 import { rpc } from "@/infrastructure/api/httpClient";
 import { sendOtpViaServerless } from "@/infrastructure/api/otpApi";
+import { API_BASE } from "@/shared/config/apiBase";
 import { hashPassword } from "@/infrastructure/api/hash";
 import type { TokenProvider } from "./sessionRepository";
 import {
@@ -66,7 +67,7 @@ export class SupabaseAuthRepository implements AuthRepository {
 
     let res: Response;
     try {
-      res = await fetch("/api/upload-avatar", {
+      res = await fetch(`${API_BASE}/api/upload-avatar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, image: dataUrl }),
