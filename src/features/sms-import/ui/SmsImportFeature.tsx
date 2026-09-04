@@ -6,13 +6,15 @@ import { useSmsImportModel } from "../model/useSmsImportModel";
 import { Modal } from "@/shared/ui";
 import { formatAmount } from "@/shared/lib/format";
 import { formatISO } from "@/shared/lib/jalali";
+import { toDisplay } from "@/shared/lib/currency";
 
 export function SmsImportFeature({
   onImported,
 }: {
   onImported: () => void | Promise<void>;
 }) {
-  const { useCases } = useApp();
+  const { useCases, family } = useApp();
+  const cur = family?.currency ?? "تومان";
   const { show } = useToast();
   const m = useSmsImportModel(useCases!, show);
 
@@ -57,7 +59,8 @@ export function SmsImportFeature({
                   <span>{x.p.bank || "بانک ناشناس"}</span>
                   <b className={x.p.type!}>
                     {x.p.type === "income" ? "واریز" : "برداشت"} ·{" "}
-                    {formatAmount(x.p.amount!)}
+                    {formatAmount(toDisplay(x.p.amount!, cur))}
+                    <span className="cur-tag">{cur}</span>
                   </b>
                   <span>
                     {x.p.date

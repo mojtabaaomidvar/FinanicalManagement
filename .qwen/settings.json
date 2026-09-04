@@ -41,7 +41,8 @@
       "Bash(nslookup *)",
       "Bash(ping *)",
       "computer_use__page",
-      "Bash(python *)"
+      "Bash(python *)",
+      "Bash(vercel *)"
     ]
   },
   "$version": 4

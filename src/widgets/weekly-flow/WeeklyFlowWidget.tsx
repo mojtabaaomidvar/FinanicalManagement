@@ -30,13 +30,19 @@ export function WeeklyFlowWidget() {
             <svg style={{ transform: "rotate(-90deg)" }}>
               <use href="#i-arrow-r" />
             </svg>
-            <b>{formatAmount(toDisplay(flow.totalIn, cur))}</b>
+            <b>
+              {formatAmount(toDisplay(flow.totalIn, cur))}
+              <i className="cur-tag">{cur}</i>
+            </b>
           </span>
           <span className="out">
             <svg style={{ transform: "rotate(90deg)" }}>
               <use href="#i-arrow-r" />
             </svg>
-            <b>{formatAmount(toDisplay(flow.totalOut, cur))}</b>
+            <b>
+              {formatAmount(toDisplay(flow.totalOut, cur))}
+              <i className="cur-tag">{cur}</i>
+            </b>
           </span>
         </div>
       </div>

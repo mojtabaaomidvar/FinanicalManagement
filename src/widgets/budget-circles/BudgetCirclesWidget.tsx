@@ -79,6 +79,7 @@ export function BudgetCirclesWidget({ onManage }: { onManage: () => void }) {
             <span>
               {formatAmount(toDisplay(it.spent, cur))} از{" "}
               {formatAmount(toDisplay(it.cap, cur))}
+              <span className="cur-tag">{cur}</span>
             </span>
           </button>
         ))}

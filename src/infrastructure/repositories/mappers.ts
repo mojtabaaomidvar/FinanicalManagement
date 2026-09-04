@@ -165,8 +165,7 @@ export interface AccountRow {
   kind?: "bank" | "wallet" | null;
   bank: string | null;
   card_number: string | null;
-  account_number: string | null;
-  sheba: string | null;
+  initial_balance?: string | number | null;
   created_at: string;
 }
 
@@ -181,8 +180,7 @@ export function mapAccount(
     kind: r.kind === "wallet" ? "wallet" : "bank",
     bank: r.bank,
     cardNumber: r.card_number,
-    accountNumber: r.account_number,
-    sheba: r.sheba,
+    initialBalance: Number(r.initial_balance ?? 0),
     createdAt: r.created_at,
   };
 }

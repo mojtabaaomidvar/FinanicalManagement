@@ -12,9 +12,8 @@ export interface Account {
   bank: string | null;
   /** ۱۶ رقم یا null */
   cardNumber: string | null;
-  accountNumber: string | null;
-  /** IR + ۲۴ رقم یا null */
-  sheba: string | null;
+  /** موجودی اولیه (پایه — تومان) — تراکنش‌ها روی آن جمع می‌شوند */
+  initialBalance: number;
   createdAt: string;
 }
 
@@ -24,6 +23,6 @@ export interface AccountInput {
   kind?: AccountKind;
   bank?: string | null;
   cardNumber?: string | null;
-  accountNumber?: string | null;
-  sheba?: string | null;
+  /** موجودی اولیه (پایه) — پیش‌فرض ۰؛ منفی مجاز نیست */
+  initialBalance?: number;
 }

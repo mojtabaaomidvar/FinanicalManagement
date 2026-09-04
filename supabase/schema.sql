@@ -1261,9 +1261,7 @@ create table if not exists public.accounts (
   member_id      uuid not null references public.members(id) on delete cascade,
   title          text not null,                    -- نام دلخواه (مثل «کارت اصلی من»)
   bank           text,                             -- نام بانک
-  card_number    text,                             -- ۱۶ رقم (اختیاری)
-  account_number text,                             -- شماره حساب (اختیاری)
-  sheba          text,                             -- شبا IR + ۲۴ رقم (اختیاری)
+  card_number    text,                             -- ۱۶ رقم
   created_at     timestamptz not null default now()
 );
 
@@ -1273,6 +1271,14 @@ create index if not exists idx_accounts_family on public.accounts(family_id);
 alter table public.accounts
   add column if not exists kind text not null default 'bank'
   check (kind in ('bank','wallet'));
+
+-- مهاجرت: موجودی اولیه حساب/کیف‌پول (v0.4) — تراکنش‌ها روی این مبنا جمع می‌شوند
+alter table public.accounts
+  add column if not exists initial_balance numeric(18,0) not null default 0;
+
+-- مهاجرت (v0.4): حذف شبا و شماره حساب — حساب بانکی فقط با شماره کارت
+alter table public.accounts drop column if exists account_number;
+alter table public.accounts drop column if exists sheba;
 
 alter table public.accounts enable row level security;
 -- بدون پالیسی → دسترسی فقط از طریق RPC
@@ -1310,6 +1316,7 @@ on conflict (bin) do nothing;
 drop function if exists public.list_accounts(text);
 drop function if exists public.add_account(text, uuid, text, text, text, text, text);
 drop function if exists public.add_account(text, uuid, text, text, text, text, text, text);
+drop function if exists public.add_account(text, uuid, text, text, text, text, text, text, numeric);
 drop function if exists public.delete_account(text, uuid);
 
 -- همه کارت‌های خانواده
@@ -1331,21 +1338,21 @@ begin
 end $$;
 
 -- افزودن کارت/حساب (اعتبارسنجی کامل سمت سرور + هم‌خوانی BIN کارت با بانک)
--- هر یک از فیلدهای کارت/حساب/شبا به‌تنهایی کافی است؛ همه اختیاری‌اند
--- p_kind: bank (پیش‌فرض) یا wallet — کیف‌پول فقط نام دارد
+-- حساب بانکی فقط شماره کارت ۱۶ رقمی دارد (شبا/شماره حساب حذف شدند)؛
+-- p_kind: bank (پیش‌فرض) یا wallet — کیف‌پول فقط نام + موجودی اولیه دارد
 create or replace function public.add_account(
   p_token text, p_member_id uuid, p_title text, p_bank text,
-  p_card_number text, p_account_number text, p_sheba text,
-  p_kind text default 'bank'
+  p_card_number text,
+  p_kind text default 'bank',
+  p_initial_balance numeric default 0
 ) returns json
 language plpgsql security definer set search_path = public as $$
 declare
   v_family_id uuid;
   v_row public.accounts;
   v_card text;
-  v_sheba text;
-  v_account_no text;
   v_kind text;
+  v_initial numeric;
 begin
   v_family_id := public._family_id(p_token);
 
@@ -1365,20 +1372,17 @@ begin
     raise exception 'INVALID_MEMBER';
   end if;
 
-  v_card      := nullif(regexp_replace(coalesce(p_card_number, ''), '[^0-9]', '', 'g'), '');
-  v_account_no := nullif(regexp_replace(coalesce(p_account_number, ''), '[^0-9]', '', 'g'), '');
-  v_sheba     := nullif(upper(regexp_replace(coalesce(p_sheba, ''), '[^0-9a-zA-Z]', '', 'g')), '');
+  v_initial := coalesce(p_initial_balance, 0);
+  if v_initial < 0 or v_initial > 999999999999999 then
+    raise exception 'INVALID_INITIAL_BALANCE';
+  end if;
+
+  v_card := nullif(regexp_replace(coalesce(p_card_number, ''), '[^0-9]', '', 'g'), '');
 
   if v_card is not null and v_card !~ '^\d{16}$' then
     raise exception 'INVALID_CARD';
   end if;
-  if v_sheba is not null and v_sheba !~ '^IR\d{24}$' then
-    raise exception 'INVALID_SHEBA';
-  end if;
-  if v_account_no is not null and v_account_no !~ '^\d{5,20}$' then
-    raise exception 'INVALID_ACCOUNT_NO';
-  end if;
-  if v_kind = 'bank' and v_card is null and v_account_no is null and v_sheba is null then
+  if v_kind = 'bank' and v_card is null then
     raise exception 'EMPTY_ACCOUNT';
   end if;
 
@@ -1398,11 +1402,11 @@ begin
   end if;
 
   insert into public.accounts
-    (family_id, member_id, title, bank, card_number, account_number, sheba, kind)
+    (family_id, member_id, title, bank, card_number, kind, initial_balance)
   values
     (v_family_id, p_member_id, btrim(p_title),
      nullif(btrim(coalesce(p_bank, '')), ''),
-     v_card, v_account_no, v_sheba, v_kind)
+     v_card, v_kind, v_initial)
   returning * into v_row;
 
   return to_jsonb(v_row);

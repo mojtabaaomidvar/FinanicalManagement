@@ -105,9 +105,9 @@ function AppBody() {
    تراکنش‌ها از هدر خانه (جستجو) و دکمه «همه» دسترس‌پذیر است */
 const NAV_ITEMS: { r: Route; icon: string; label: string }[] = [
   { r: "dashboard", icon: "i-home", label: "خانه" },
-  { r: "accounts", icon: "i-card", label: "حساب‌ها" },
+  { r: "accounts", icon: "i-wallet", label: "کیف پول" },
   { r: "reports", icon: "i-chart", label: "نمای‌کلی" },
-  { r: "budgets", icon: "i-wallet", label: "بودجه‌ها" },
+  { r: "budgets", icon: "i-piggy", label: "بودجه‌ها" },
   { r: "settings", icon: "i-gear", label: "بیشتر" },
 ];
 
@@ -231,17 +231,19 @@ function MainShell({
           ))}
         </nav>
 
-        {/* FAB پلاس — شناور بالای تب‌بار، نوار کل عرض را می‌گیرد */}
-        <button
-          type="button"
-          className="fab-add"
-          aria-label="افزودن تراکنش"
-          onClick={() => form.openNew()}
-        >
-          <svg>
-            <use href="#i-plus" />
-          </svg>
-        </button>
+        {/* FAB پلاس — فقط در تب خانه؛ شناور بالای تب‌بار در سمت چپ صفحه */}
+        {route === "dashboard" ? (
+          <button
+            type="button"
+            className="fab-add"
+            aria-label="افزودن تراکنش"
+            onClick={() => form.openNew()}
+          >
+            <svg>
+              <use href="#i-plus" />
+            </svg>
+          </button>
+        ) : null}
       </div>
     </>
   );

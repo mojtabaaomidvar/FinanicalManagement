@@ -3,31 +3,52 @@
 import { useMemo, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
-import { Card, Field, Modal, Segmented, Select, TextInput } from "@/shared/ui";
+import {
+  Card,
+  Field,
+  JalaliDateInput,
+  Modal,
+  Segmented,
+  Select,
+  TextInput,
+  AmountInput,
+} from "@/shared/ui";
 import {
   BANK_NAMES,
   bankOfCard,
-  bankOfSheba,
   cardMatchesBank,
 } from "@/shared/lib/banks";
 import {
   maskCardNumber,
   formatCardFa,
-  formatSheba,
   digitsOf,
 } from "@/domain/account/account.rules";
 import type { Account, AccountKind } from "@/domain/account/account.types";
-import { accountBalances, wealthSeries } from "@/domain/report/report.rules";
+import {
+  accountBalances,
+  wealthSeries,
+  wealthSeriesBetween,
+} from "@/domain/report/report.rules";
 import type { WealthRange } from "@/domain/report/report.types";
-import { today } from "@/shared/lib/jalali";
-import { formatAmount } from "@/shared/lib/format";
-import { toDisplay } from "@/shared/lib/currency";
+import {
+  addDays,
+  cmp,
+  formatISO,
+  isoToJalali,
+  parse,
+  today,
+} from "@/shared/lib/jalali";
+import { formatAmount, parseAmountInput } from "@/shared/lib/format";
+import { toDisplay, fromDisplay } from "@/shared/lib/currency";
 
-const WALLET_PRESETS = [
-  "کیف پول نقدی",
-  "پس‌انداز",
-  "هزینه سفر",
-  "پروژه خاص",
+const WALLET_PRESETS = ["کیف پول نقدی", "پس‌انداز", "هزینه سفر", "پروژه خاص"];
+
+/* بازه‌های آماده نمودار ثروت — کنار دکمه سه‌نقطه (بازه دلخواه) */
+const RANGE_OPTIONS: { value: WealthRange; label: string }[] = [
+  { value: "7d", label: "۷ روز" },
+  { value: "1m", label: "۱ ماه" },
+  { value: "1y", label: "۱ سال" },
+  { value: "max", label: "حداکثر" },
 ];
 
 function AccountLine({
@@ -74,32 +95,65 @@ function AccountLine({
 }
 
 export function AccountsPage() {
-  const { useCases, accounts, members, member, txs, family, refreshData } = useApp();
+  const { useCases, accounts, members, member, txs, family, refreshData } =
+    useApp();
   const { show } = useToast();
   const cur = family?.currency ?? "تومان";
 
-  const [range, setRange] = useState<WealthRange>("1m");
+  const [range, setRange] = useState<WealthRange | "custom">("1m");
+  /* بازه دلخواه — رشته‌های جلالی نمایشی */
+  const [customFrom, setCustomFrom] = useState(() =>
+    formatISO(addDays(today(), -29)),
+  );
+  const [customTo, setCustomTo] = useState(() => formatISO(today()));
+  const [customOpen, setCustomOpen] = useState(false);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [converting, setConverting] = useState(false);
   const [kind, setKind] = useState<AccountKind>("bank");
   const [title, setTitle] = useState("");
   const [bank, setBank] = useState("");
   const [cardNo, setCardNo] = useState("");
-  const [accountNo, setAccountNo] = useState("");
-  const [sheba, setSheba] = useState("");
+  /* موجودی اولیه کیف‌پول — رشته نمایشی فارسی */
+  const [initialBal, setInitialBal] = useState("");
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
 
   /* ثروت کل + سری زمانی + موجودی هر حساب */
-  const balances = useMemo(() => accountBalances(txs, accounts), [txs, accounts]);
+  const balances = useMemo(
+    () => accountBalances(txs, accounts),
+    [txs, accounts],
+  );
   const totalWealth = useMemo(
     () => balances.reduce((s, b) => s + b.balance, 0),
     [balances],
   );
-  const wealth = useMemo(
-    () => wealthSeries(txs, range, today()),
-    [txs, range],
+  /* مبنای نمودار ثروت = جمع موجودی اولیه همه حساب‌ها */
+  const initialTotal = useMemo(
+    () => accounts.reduce((s, a) => s + (a.initialBalance ?? 0), 0),
+    [accounts],
   );
+
+  const wealth = useMemo(() => {
+    if (range === "custom") {
+      const from = parse(customFrom);
+      const to = parse(customTo);
+      if (from && to && cmp(from, to) <= 0) {
+        return wealthSeriesBetween(txs, from, to, initialTotal);
+      }
+      return [];
+    }
+    return wealthSeries(txs, range, today(), initialTotal);
+  }, [txs, range, customFrom, customTo, initialTotal]);
+
+  /** اعمال بازه دلخواه از مودال سه‌نقطه */
+  function applyCustomRange() {
+    const from = parse(customFrom);
+    const to = parse(customTo);
+    if (!from || !to) return show("هر دو تاریخ را انتخاب کنید");
+    if (cmp(from, to) > 0)
+      return show("تاریخ شروع باید قبل از تاریخ پایان باشد");
+    setRange("custom");
+    setCustomOpen(false);
+  }
 
   const banks = balances.filter((b) => b.account.kind !== "wallet");
   const wallets = balances.filter((b) => b.account.kind === "wallet");
@@ -120,39 +174,8 @@ export function AccountsPage() {
     setTitle("");
     setBank("");
     setCardNo("");
-    setAccountNo("");
-    setSheba("");
+    setInitialBal("");
     setOpen(true);
-  }
-
-  /** تبدیل آنلاین کارت → شبا/حساب (best-effort) */
-  async function convertCard() {
-    const digits = digitsOf(cardNo);
-    if (digits.length !== 16) {
-      show("اول شماره کارت ۱۶ رقمی را کامل وارد کنید");
-      return;
-    }
-    setConverting(true);
-    try {
-      const res = await fetch("api/card-convert", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ card: digits }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (data.ok) {
-        if (data.sheba) setSheba(data.sheba);
-        if (data.account) setAccountNo(data.account);
-        if (data.bank) setBank(data.bank);
-        show("اطلاعات حساب دریافت شد");
-      } else {
-        show(data.message || "سرویس تبدیل در دسترس نیست — دستی وارد کنید");
-      }
-    } catch {
-      show("سرویس تبدیل در دسترس نیست — دستی وارد کنید");
-    } finally {
-      setConverting(false);
-    }
   }
 
   async function save() {
@@ -168,8 +191,7 @@ export function AccountsPage() {
         kind,
         bank: kind === "bank" ? bank || null : null,
         cardNumber: kind === "bank" ? cardNo.trim() || null : null,
-        accountNumber: kind === "bank" ? accountNo.trim() || null : null,
-        sheba: kind === "bank" ? sheba.trim() || null : null,
+        initialBalance: fromDisplay(parseAmountInput(initialBal), cur),
       });
       setOpen(false);
       show(kind === "wallet" ? "کیف‌پول اضافه شد" : "حساب بانکی اضافه شد");
@@ -214,57 +236,89 @@ export function AccountsPage() {
     <section className="page active">
       <header className="app-header">
         <div className="header-title">
-          <h1>حساب‌ها</h1>
-          <p>بانکی و کیف‌پول‌های خانواده</p>
-        </div>
-        <div className="header-actions">
-          <button
-            className="icon-btn"
-            aria-label="افزودن حساب بانکی"
-            title="افزودن حساب بانکی"
-            onClick={() => openNew("bank")}
-          >
-            <svg>
-              <use href="#i-plus" />
-            </svg>
-          </button>
-          <button
-            className="icon-btn"
-            aria-label="افزودن کیف پول"
-            title="افزودن کیف پول (نقد، پس‌انداز، سفر)"
-            onClick={() => openNew("wallet")}
-          >
-            <svg>
-              <use href="#i-wallet" />
-            </svg>
-          </button>
+          <h1>کیف پول‌ها</h1>
+          <p>حساب‌های بانکی و کیف‌پول‌های خانواده</p>
         </div>
       </header>
 
       <div className="content">
-        {/* کارت ثروت کل */}
+        {/* کارت ثروت کل — فشرده: مبلغ در همان ردیف عنوان، بازه زیر نمودار */}
         <div className="balance-card wealth-card">
-          <p className="balance-label">ثروت کل خانواده</p>
-          <h2 style={totalWealth < 0 ? { color: "var(--danger)" } : undefined}>
-            {formatAmount(toDisplay(totalWealth, cur))}
-          </h2>
-          <p className="balance-sub">{cur}</p>
-          <div className="wealth-range">
-            <Segmented
-              value={range}
-              onChange={(v) => setRange(v as WealthRange)}
-              options={[
-                { value: "7d", label: "۷ روز" },
-                { value: "1m", label: "۱ ماه" },
-                { value: "1y", label: "۱ سال" },
-                { value: "max", label: "حداکثر" },
-              ]}
-            />
+          <div className="wealth-top">
+            <p className="balance-label">ثروت کل خانواده</p>
+            <b
+              className={`wealth-total ${totalWealth < 0 ? "neg" : ""}`}
+              dir="ltr"
+            >
+              {formatAmount(toDisplay(totalWealth, cur))}
+              <span>{cur}</span>
+            </b>
           </div>
+
           <div className="wealth-chart">
-            <svg viewBox="0 0 340 120" className="wealth-svg" preserveAspectRatio="none">
+            <svg
+              viewBox="0 0 340 100"
+              className="wealth-svg"
+              preserveAspectRatio="none"
+            >
+              <defs>
+                <linearGradient id="wealth-area" x1="0" y1="0" x2="0" y2="1">
+                  <stop
+                    offset="0%"
+                    style={{ stopColor: "var(--accent)", stopOpacity: 0.2 }}
+                  />
+                  <stop
+                    offset="100%"
+                    style={{ stopColor: "var(--accent)", stopOpacity: 0 }}
+                  />
+                </linearGradient>
+              </defs>
               <WealthPath points={wealth.map((p) => p.value)} />
             </svg>
+            {wealth.length >= 2 ? (
+              <div className="wealth-dates" dir="ltr">
+                <span>{formatISO(isoToJalali(wealth[0].date))}</span>
+                <span>
+                  {formatISO(isoToJalali(wealth[wealth.length - 1].date))}
+                </span>
+              </div>
+            ) : null}
+          </div>
+
+          {/* بازه زمانی + سه‌نقطه بازه دلخواه — در یک ردیف زیر نمودار */}
+          <div className="range-row">
+            <div className="range-chips">
+              {RANGE_OPTIONS.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  className={`range-chip ${range === o.value ? "active" : ""}`}
+                  onClick={() => setRange(o.value)}
+                >
+                  {o.label}
+                </button>
+              ))}
+              {range === "custom" ? (
+                <button
+                  type="button"
+                  className="range-chip active"
+                  onClick={() => setCustomOpen(true)}
+                >
+                  دلخواه
+                </button>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              className={`range-more ${range === "custom" ? "active" : ""}`}
+              aria-label="انتخاب بازه دلخواه"
+              title="انتخاب بازه دلخواه"
+              onClick={() => setCustomOpen(true)}
+            >
+              <svg>
+                <use href="#i-more" />
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -310,26 +364,6 @@ export function AccountsPage() {
                       revealed={isRevealed}
                       onToggle={() => toggleReveal(acc.id)}
                       onCopy={() => copy(acc.cardNumber!, "شماره کارت")}
-                    />
-                  ) : null}
-                  {acc.accountNumber ? (
-                    <AccountLine
-                      label="شماره حساب"
-                      hiddenText={"•".repeat(Math.min(acc.accountNumber.length, 8))}
-                      shownText={acc.accountNumber}
-                      revealed={isRevealed}
-                      onToggle={() => toggleReveal(acc.id)}
-                      onCopy={() => copy(acc.accountNumber!, "شماره حساب")}
-                    />
-                  ) : null}
-                  {acc.sheba ? (
-                    <AccountLine
-                      label="شبا"
-                      hiddenText="IR•• •••• •••• •••• •••• ••••"
-                      shownText={formatSheba(acc.sheba)}
-                      revealed={isRevealed}
-                      onToggle={() => toggleReveal(acc.id)}
-                      onCopy={() => copy(acc.sheba!, "شماره شبا")}
                     />
                   ) : null}
 
@@ -399,7 +433,9 @@ export function AccountsPage() {
             </div>
           ) : (
             <div className="wallet-empty">
-              <p>برای پول نقد، پس‌انداز یا هزینه‌ی سفر و پروژه یک کیف‌پول بسازید</p>
+              <p>
+                برای پول نقد، پس‌انداز یا هزینه‌ی سفر و پروژه یک کیف‌پول بسازید
+              </p>
               <div className="quick-chips">
                 {WALLET_PRESETS.map((w) => (
                   <button
@@ -409,6 +445,7 @@ export function AccountsPage() {
                     onClick={() => {
                       setKind("wallet");
                       setTitle(w);
+                      setInitialBal("");
                       setOpen(true);
                     }}
                   >
@@ -441,7 +478,9 @@ export function AccountsPage() {
           </div>
 
           <div className="form-row full">
-            <Field label={kind === "wallet" ? "نام کیف‌پول" : "عنوان کارت/حساب"}>
+            <Field
+              label={kind === "wallet" ? "نام کیف‌پول" : "عنوان کارت/حساب"}
+            >
               <TextInput
                 value={title}
                 onChange={setTitle}
@@ -469,35 +508,23 @@ export function AccountsPage() {
 
           {kind === "bank" ? (
             <>
-              <div className="form-row full">
+              {/* شماره کارت + بانک در یک ردیف — فرم فشرده */}
+              <div className="form-row">
                 <Field label="شماره کارت">
-                  <div className="convert-row">
-                    <TextInput
-                      value={cardNo}
-                      onChange={(v) => {
-                        const digits = v.replace(/[^\d۰-۹]/g, "");
-                        setCardNo(digits);
-                        const detected = bankOfCard(digits);
-                        if (detected) setBank(detected);
-                      }}
-                      placeholder="۶۲۱۹ ۸۶۱۰ ..."
-                      dir="ltr"
-                      inputMode="numeric"
-                    />
-                    <button
-                      type="button"
-                      className="action-btn convert-btn"
-                      disabled={converting}
-                      onClick={convertCard}
-                      title="دریافت شبا/حساب از روی شماره کارت"
-                    >
-                      {converting ? "…" : "تبدیل"}
-                    </button>
-                  </div>
+                  <TextInput
+                    value={cardNo}
+                    onChange={(v) => {
+                      const digits = v.replace(/[^\d۰-۹]/g, "");
+                      setCardNo(digits);
+                      const detected = bankOfCard(digits);
+                      if (detected) setBank(detected);
+                    }}
+                    placeholder="۶۲۱۹ ۸۶۱۰ …"
+                    dir="ltr"
+                    inputMode="numeric"
+                  />
                 </Field>
-                {binError ? <p className="field-error">{binError}</p> : null}
               </div>
-
               <div className="form-row">
                 <Field label="بانک">
                   <Select
@@ -511,43 +538,27 @@ export function AccountsPage() {
                 </Field>
               </div>
 
-              <div className="form-row">
-                <Field label="شماره حساب">
-                  <TextInput
-                    value={accountNo}
-                    onChange={setAccountNo}
-                    placeholder="۱۲۳۴۵۶۷۸۹"
-                    dir="ltr"
-                    inputMode="numeric"
-                  />
-                </Field>
-              </div>
-
-              <div className="form-row">
-                <Field label="شماره شبا">
-                  <TextInput
-                    value={sheba}
-                    onChange={(v) => {
-                      setSheba(v);
-                      const detected = bankOfSheba(v);
-                      if (detected) setBank(detected);
-                    }}
-                    placeholder="IR + ۲۴ رقم"
-                    dir="ltr"
-                  />
-                </Field>
-              </div>
-
+              {binError ? (
+                <p className="field-error full" style={{ gridColumn: "1 / -1" }}>
+                  {binError}
+                </p>
+              ) : null}
               <p className="modal-sub full" style={{ gridColumn: "1 / -1" }}>
-                تنها یکی از فیلدهای کارت، حساب یا شبا کافی است.
+                کارت ۱۶ رقمی الزامی است — بانک خودکار تشخیص داده می‌شود.
               </p>
             </>
-          ) : (
-            <p className="modal-sub full" style={{ gridColumn: "1 / -1" }}>
-              کیف‌پول فقط یک نام دارد (بدون شماره کارت/شبا) — برای نقد، پس‌انداز
-              یا جمع‌کردن پول یک هدف مشخص.
-            </p>
-          )}
+          ) : null}
+
+          {/* موجودی اولیه — مشترک بین حساب بانکی و کیف‌پول */}
+          <div className="form-row full">
+            <Field label="موجودی اولیه (اختیاری)">
+              <AmountInput
+                value={initialBal}
+                onChange={setInitialBal}
+                currency={cur}
+              />
+            </Field>
+          </div>
         </div>
 
         <div className="modal-actions">
@@ -559,33 +570,98 @@ export function AccountsPage() {
           </button>
         </div>
       </Modal>
+
+      {/* بازه دلخواه نمودار ثروت — از طریق سه‌نقطه */}
+      <Modal
+        open={customOpen}
+        onClose={() => setCustomOpen(false)}
+        title="بازه دلخواه"
+      >
+        <div className="form-grid" style={{ marginTop: 8 }}>
+          <div className="form-row">
+            <Field label="از تاریخ">
+              <JalaliDateInput
+                value={customFrom}
+                onChange={setCustomFrom}
+                placeholder="شروع بازه"
+              />
+            </Field>
+          </div>
+          <div className="form-row">
+            <Field label="تا تاریخ">
+              <JalaliDateInput
+                value={customTo}
+                onChange={setCustomTo}
+                placeholder="پایان بازه"
+              />
+            </Field>
+          </div>
+          <p className="modal-sub full" style={{ gridColumn: "1 / -1" }}>
+            نمودار ثروت از اولین تا آخرین روزِ این بازه رسم می‌شود.
+          </p>
+        </div>
+        <div className="modal-actions">
+          <button
+            className="btn-secondary"
+            onClick={() => setCustomOpen(false)}
+          >
+            انصراف
+          </button>
+          <button className="btn-primary" onClick={applyCustomRange}>
+            اعمال
+          </button>
+        </div>
+      </Modal>
     </section>
   );
 }
 
-/* مسیر SVG ثروت — خط + ناحیه پرشده */
+/* مسیر SVG ثروت — خط + ناحیه گرادیانی + نقطه پایان */
 function WealthPath({ points }: { points: number[] }) {
   if (points.length < 2) return null;
   const w = 340;
-  const h = 120;
+  const h = 100;
   const pad = 6;
   const min = Math.min(...points, 0);
   const max = Math.max(...points, 1);
   const span = max - min || 1;
   const x = (i: number) => (i / (points.length - 1)) * w;
   const y = (v: number) => pad + (1 - (v - min) / span) * (h - pad * 2);
-  const d = points.map((v, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(v)}`).join(" ");
+  const d = points
+    .map((v, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(v)}`)
+    .join(" ");
   const area = `${d} L${w},${h} L0,${h} Z`;
   const last = points[points.length - 1];
   const zeroY = y(0);
   return (
     <>
-      <path d={area} fill="var(--accent)" opacity="0.1" />
+      <path d={area} fill="url(#wealth-area)" />
       {min < 0 ? (
-        <line x1="0" y1={zeroY} x2={w} y2={zeroY} stroke="var(--border)" strokeDasharray="3 4" />
+        <line
+          x1="0"
+          y1={zeroY}
+          x2={w}
+          y2={zeroY}
+          stroke="var(--border)"
+          strokeDasharray="3 4"
+        />
       ) : null}
-      <path d={d} fill="none" stroke={last >= 0 ? "var(--income)" : "var(--expense)"} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={x(points.length - 1)} cy={y(last)} r="4" fill="var(--card)" stroke={last >= 0 ? "var(--income)" : "var(--expense)"} strokeWidth="2" />
+      <path
+        d={d}
+        fill="none"
+        stroke={last >= 0 ? "var(--income)" : "var(--expense)"}
+        strokeWidth="2.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+      <circle
+        cx={x(points.length - 1)}
+        cy={y(last)}
+        r="4"
+        fill="var(--card)"
+        stroke={last >= 0 ? "var(--income)" : "var(--expense)"}
+        strokeWidth="2"
+      />
     </>
   );
 }

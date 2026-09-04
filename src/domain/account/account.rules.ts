@@ -7,9 +7,8 @@ export type AccountValidationCode =
   | "INVALID_TITLE"
   | "INVALID_MEMBER"
   | "INVALID_CARD"
-  | "INVALID_SHEBA"
-  | "INVALID_ACCOUNT_NO"
-  | "EMPTY_ACCOUNT";
+  | "EMPTY_ACCOUNT"
+  | "INVALID_INITIAL_BALANCE";
 
 export interface AccountValidationResult {
   ok: boolean;
@@ -21,15 +20,6 @@ export const MAX_TITLE_LENGTH = 40;
 /** فقط ارقام انگلیسی (ورودی فارسی هم تبدیل می‌شود) */
 export function digitsOf(raw: string): string {
   return toEn(String(raw)).replace(/\D/g, "");
-}
-
-/** نرمال‌سازی شبا: IR + ۲۴ رقم */
-export function normalizeSheba(raw: string): string {
-  /* ارقام فارسی/عربی → انگلیسی؛ فقط حروف و ارقام بمانند */
-  const cleaned = toEn(String(raw)).toUpperCase().replace(/[^0-9A-Z]/g, "");
-  /* حذف حروف ابتدایی (مثل IR) و افزودن پیشوند استاندارد */
-  const body = cleaned.replace(/^[A-Z]+/, "");
-  return "IR" + body.replace(/\D/g, "").slice(0, 24);
 }
 
 export function validateAccountInput(
@@ -48,18 +38,14 @@ export function validateAccountInput(
     return { ok: false, error: "INVALID_CARD" };
   }
 
-  const sheba = (input.sheba ?? "").trim();
-  if (sheba && !/^IR\d{24}$/.test(normalizeSheba(sheba))) {
-    return { ok: false, error: "INVALID_SHEBA" };
-  }
-
-  const accNo = (input.accountNumber ?? "").trim();
-  if (accNo && !/^\d{5,20}$/.test(digitsOf(accNo))) {
-    return { ok: false, error: "INVALID_ACCOUNT_NO" };
-  }
-
-  if (!card && !sheba && !accNo) {
+  /* کیف‌پول فقط نام دارد — شماره کارت لازم نیست */
+  if (input.kind !== "wallet" && !card) {
     return { ok: false, error: "EMPTY_ACCOUNT" };
+  }
+
+  const initial = input.initialBalance ?? 0;
+  if (!Number.isFinite(initial) || initial < 0) {
+    return { ok: false, error: "INVALID_INITIAL_BALANCE" };
   }
   return { ok: true };
 }
@@ -81,10 +67,4 @@ export function formatCardFa(card: string): string {
     groups.push(fa.slice(i, i + 4));
   }
   return groups.join(" ");
-}
-
-/** شبا گروه‌بندی‌شده: IR12 3456 ... */
-export function formatSheba(sheba: string): string {
-  const s = normalizeSheba(sheba);
-  return s.replace(/(.{4})(?=.)/g, "$1 ");
 }

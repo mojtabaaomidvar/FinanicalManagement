@@ -109,12 +109,14 @@ export function weekFlow(list: Transaction[], end: JDate): WeekFlow {
   return { labels, income, expense, totalIn, totalOut, net: totalIn - totalOut };
 }
 
-/* موجودی هر حساب = درآمد مستقیم − هزینه مستقیم + ورودی انتقال − خروجی انتقال */
+/* موجودی هر حساب = موجودی اولیه + درآمد مستقیم − هزینه مستقیم + ورودی انتقال − خروجی انتقال */
 export function accountBalances(
   list: Transaction[],
   accounts: import("../account/account.types").Account[],
 ): import("./report.types").AccountBalance[] {
-  const map = new Map<string, number>(accounts.map((a) => [a.id, 0]));
+  const map = new Map<string, number>(
+    accounts.map((a) => [a.id, a.initialBalance ?? 0]),
+  );
   for (const t of list) {
     if (t.accountId && map.has(t.accountId)) {
       const cur = map.get(t.accountId)!;
@@ -131,11 +133,12 @@ export function accountBalances(
 }
 
 /* سری زمانی ثروت کل خانواده — یک نقطه در پایان هر روزِ بازه
-   ثروت روز d = جمع درآمد−هزینه همه تراکنش‌های تاریخ ≤ d */
+   ثروت روز d = مبنای اولیه + جمع درآمد−هزینه همه تراکنش‌های تاریخ ≤ d */
 export function wealthSeries(
   list: Transaction[],
   range: import("./report.types").WealthRange,
   end: JDate,
+  initial = 0,
 ): import("./report.types").WealthPoint[] {
   /* مرتب‌سازی صعودی بر اساس تاریخ */
   const sorted = [...list].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
@@ -155,11 +158,36 @@ export function wealthSeries(
       days++;
     }
   }
+  return wealthSeriesDays(sorted, days, end, initial);
+}
 
-  /* نقاط روزانه */
+/* سری ثروت در بازه دلخواه — از تاریخ «from» تا تاریخ «to» (شامل هر دو) */
+export function wealthSeriesBetween(
+  list: Transaction[],
+  from: JDate,
+  to: JDate,
+  initial = 0,
+): import("./report.types").WealthPoint[] {
+  const sorted = [...list].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  let days = 1;
+  let cur = from;
+  while (cmp(cur, to) < 0 && days < 3650) {
+    cur = addDays(cur, 1);
+    days++;
+  }
+  return wealthSeriesDays(sorted, days, to, initial);
+}
+
+/* نقاط تجمعی روزانه — مشترک بین بازه‌های آماده و دلخواه */
+function wealthSeriesDays(
+  sorted: Transaction[],
+  days: number,
+  end: JDate,
+  initial: number,
+): import("./report.types").WealthPoint[] {
   const points: import("./report.types").WealthPoint[] = [];
   let idx = 0;
-  let wealth = 0;
+  let wealth = initial;
   for (let i = days - 1; i >= 0; i--) {
     const d = addDays(end, -i);
     const iso = jalaliToIso(d);

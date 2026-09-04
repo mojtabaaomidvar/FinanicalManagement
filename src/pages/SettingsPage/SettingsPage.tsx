@@ -135,19 +135,22 @@ export function SettingsPage() {
         <Card>
           <div className="form-grid">
             <div className="form-row">
-              <label className="form-label">بودجه ماهانه ({currency})</label>
-              <input
-                type="text"
-                className="num-input"
-                inputMode="numeric"
-                placeholder="۰"
-                value={budget}
-                disabled={!isOwner}
-                onChange={(e) => {
-                  setBudget(liveFormatAmount(e.target.value));
-                  setDirty(true);
-                }}
-              />
+              <label className="form-label">بودجه ماهانه</label>
+              <div className="amt-field">
+                <input
+                  type="text"
+                  className="num-input"
+                  inputMode="numeric"
+                  placeholder="۰"
+                  value={budget}
+                  disabled={!isOwner}
+                  onChange={(e) => {
+                    setBudget(liveFormatAmount(e.target.value));
+                    setDirty(true);
+                  }}
+                />
+                <span className="cur-suffix">{currency}</span>
+              </div>
             </div>
             <div className="form-row">
               <label className="form-label">واحد پول</label>

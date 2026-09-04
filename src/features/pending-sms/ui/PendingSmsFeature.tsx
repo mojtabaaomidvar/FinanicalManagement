@@ -58,8 +58,12 @@ export function PendingSmsFeature({ refreshKey }: { refreshKey: number }) {
                 ]}
               />
             </Field>
-            <Field label="مبلغ (تومان)">
-              <AmountInput value={m.amount} onChange={m.setAmount} />
+            <Field label="مبلغ">
+              <AmountInput
+                value={m.amount}
+                onChange={m.setAmount}
+                currency={family?.currency ?? "تومان"}
+              />
             </Field>
             <Field label="دسته‌بندی">
               <Select

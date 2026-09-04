@@ -28,10 +28,9 @@ const RPC_ERROR_MAP: { re: RegExp; code: AppErrorCode; msg: string }[] = [
   { re: /INVALID_TRANSFER/, code: "INVALID_TX", msg: "برای انتقال، حساب مبدأ و مقصد (متفاوت) را انتخاب کنید" },
   { re: /INVALID_TITLE/, code: "INVALID_ACCOUNT", msg: "نام کارت/حساب معتبر نیست (حداکثر ۴۰ کاراکتر)" },
   { re: /INVALID_CARD/, code: "INVALID_ACCOUNT", msg: "شماره کارت باید ۱۶ رقم باشد" },
-  { re: /INVALID_SHEBA/, code: "INVALID_ACCOUNT", msg: "شماره شبا معتبر نیست (IR + ۲۴ رقم)" },
-  { re: /INVALID_ACCOUNT_NO/, code: "INVALID_ACCOUNT", msg: "شماره حساب معتبر نیست (۵ تا ۲۰ رقم)" },
-  { re: /EMPTY_ACCOUNT/, code: "INVALID_ACCOUNT", msg: "حداقل یکی از شماره کارت، حساب یا شبا را وارد کنید" },
+  { re: /EMPTY_ACCOUNT/, code: "INVALID_ACCOUNT", msg: "برای حساب بانکی، شماره کارت ۱۶ رقمی الزامی است" },
   { re: /INVALID_KIND/, code: "INVALID_ACCOUNT", msg: "نوع حساب معتبر نیست" },
+  { re: /INVALID_INITIAL_BALANCE/, code: "INVALID_ACCOUNT", msg: "موجودی اولیه معتبر نیست" },
   { re: /INVALID_ACCOUNT_ID/, code: "INVALID_ACCOUNT", msg: "حساب انتخاب‌شده معتبر نیست" },
   { re: /ACCOUNT_REQUIRED/, code: "INVALID_ACCOUNT", msg: "انتخاب حساب برای ثبت تراکنش الزامی است" },
   { re: /INVALID_SUBCATEGORY/, code: "INVALID_TX", msg: "زیردسته انتخاب‌شده معتبر نیست" },
@@ -70,7 +69,7 @@ function isLocalHost(): boolean {
 /** پیام خطای شبکه — در اجرای محلی راهنمایی دقیق‌تر */
 function networkFailMessage(): string {
   return isLocalHost()
-    ? "اتصال به دیتابیس ممکن نیست — برای تست محلی VPN را روشن کنید (یا از نسخه دپلوی‌شده استفاده کنید)"
+    ? "اتصال به دیتابیس ممکن نیست — VPN را روشن کنید یا DEV_API_FALLBACK (آدرس نسخه دپلوی‌شده) را در ‎.env.local‎ تنظیم کنید"
     : "اتصال به سرور ممکن نیست — اینترنت خود را بررسی کنید";
 }
 
@@ -135,11 +134,11 @@ async function rpcProxy(
   }
   const text = await res.text();
 
-  /* پاسخ HTML = تابع سرورلس اجرا نشده (vite dev بدون vercel dev) */
+  /* پاسخ HTML = مسیر /api روی سرور فعلی وجود ندارد */
   if (text.startsWith("<")) {
     throw new AppError(
       "NETWORK",
-      "سرور میانی در دسترس نیست — برای اجرای محلی «npx vercel dev» یا VPN لازم است",
+      "سرور میانی در دسترس نیست — اتصال اینترنت خود را بررسی کنید",
     );
   }
 

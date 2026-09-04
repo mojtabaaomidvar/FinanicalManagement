@@ -329,6 +329,34 @@ button:active {
   color: var(--text-3);
 }
 
+/* ─────────── واحد پول کنار مبالغ ─────────── */
+/* پسوند واحد داخل ورودی مبلغ */
+.amt-field {
+  position: relative;
+}
+.amt-field .num-input {
+  width: 100%;
+  padding-inline-end: 52px;
+}
+.cur-suffix {
+  position: absolute;
+  inset-inline-end: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  pointer-events: none;
+}
+/* برچسب کوچک واحد کنار اعداد نمایشی */
+.cur-tag {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-3);
+  margin-inline-start: 3px;
+  white-space: nowrap;
+}
+
 /* ─────────── شیت پایینی تراکنش — نمایشگر مبلغ بزرگ + ذخیره چسبان ─────────── */
 .sheet-amount {
   margin-top: var(--sp-4);
@@ -1666,20 +1694,108 @@ button:active {
   color: var(--c2);
 }
 
-/* ─────────── صفحه حساب‌ها: ثروت کل + کیف‌پول ─────────── */
-.wealth-card .wealth-range {
-  margin-top: 12px;
+/* ─────────── صفحه حساب‌ها: ثروت کل (فشرده) + کیف‌پول ─────────── */
+.wealth-card {
+  padding: 14px 16px 12px;
 }
-.wealth-card .wealth-range .seg-control {
+.wealth-top {
   display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.wealth-top .balance-label {
+  margin: 0;
+}
+.wealth-total {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.wealth-total span {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-3);
+  margin-left: 4px;
+}
+.wealth-total.neg {
+  color: var(--danger);
 }
 .wealth-chart {
-  margin-top: 10px;
+  margin-top: 8px;
 }
 .wealth-svg {
   display: block;
   width: 100%;
-  height: 110px;
+  height: 84px;
+}
+.wealth-dates {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10.5px;
+  color: var(--text-3);
+  margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ردیف بازه زمانی زیر نمودار — چیپ‌ها + دکمه سه‌نقطه (بازه دلخواه) */
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.range-chips {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.range-chips::-webkit-scrollbar {
+  display: none;
+}
+.range-chip {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border-radius: var(--r-pill);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-2);
+  white-space: nowrap;
+  transition: all var(--dur-fast) ease;
+}
+.range-chip.active {
+  background: var(--accent);
+  color: #fff;
+}
+.range-more {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--text-2);
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  transition: all var(--dur-fast) ease;
+}
+.range-more.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: transparent;
+}
+.range-more svg {
+  width: 18px;
+  height: 18px;
 }
 
 /* کارت حساب در حالت صفحه (فلت، داخل Card) */
@@ -2412,13 +2528,14 @@ button:active {
   color: var(--accent-strong);
 }
 
-/* FAB پلاس — کاملاً بالای تب‌بار، سمت چپ صفحه (فاصله ۱۴px از نوار؛ هیچ تب‌ای را نمی‌پوشاند) */
+/* FAB پلاس — فقط تب خانه؛ کاملاً بالای تب‌بار، سمت چپِ صفحه
+   (در RTL: inline-start = راست، inline-end = چپ) */
 .fab-add {
   pointer-events: auto;
   position: absolute;
   /* 62px ارتفاع نوار + 14px گپ */
   bottom: calc(100% + 14px);
-  inset-inline-start: 10px;
+  inset-inline-end: 10px;
   width: 56px;
   height: 56px;
   border-radius: 50%;

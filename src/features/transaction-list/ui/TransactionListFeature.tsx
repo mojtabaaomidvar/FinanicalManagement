@@ -115,11 +115,17 @@ export function TransactionListFeature({
                 <span className="day-sum">
                   ·{" "}
                   {g.income ? (
-                    <span style={{ color: "var(--income)" }}>{formatAmount(toDisplay(g.income, cur))}</span>
+                    <span style={{ color: "var(--income)" }}>
+                      {formatAmount(toDisplay(g.income, cur))}
+                      <span className="cur-tag">{cur}</span>
+                    </span>
                   ) : null}
                   {g.income && g.expense ? " · " : ""}
                   {g.expense ? (
-                    <span style={{ color: "var(--expense)" }}>{formatAmount(toDisplay(g.expense, cur))}</span>
+                    <span style={{ color: "var(--expense)" }}>
+                      {formatAmount(toDisplay(g.expense, cur))}
+                      <span className="cur-tag">{cur}</span>
+                    </span>
                   ) : null}
                 </span>
               </div>

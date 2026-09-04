@@ -9,6 +9,7 @@ import {
   weekFlow,
   accountBalances,
   wealthSeries,
+  wealthSeriesBetween,
   memberExpenseShare,
 } from "./report.rules";
 import { isoToJalali } from "@/shared/lib/jalali";
@@ -150,6 +151,53 @@ describe("محاسبات مالی گزارش", () => {
     expect(pts[6].value).toBe(70_000);
     /* روز قبل از هر تراکنش: صفر */
     expect(pts[5].value).toBe(70_000);
+  });
+
+  it("سری ثروت بازه دلخواه — از/تای مشخص، تجمعی از قبلِ بازه هم حساب است", () => {
+    const list = [
+      tx("1", "income", 100_000, "salary", "2025-09-01"),
+      tx("2", "expense", 30_000, "food", "2025-09-10"),
+    ];
+    const pts = wealthSeriesBetween(
+      list,
+      isoToJalali("2025-09-05"),
+      isoToJalali("2025-09-08"),
+    );
+    expect(pts).toHaveLength(4);
+    expect(pts[0].date).toBe("2025-09-05");
+    expect(pts[3].date).toBe("2025-09-08");
+    /* درآمد ۱م قبل از بازه است و در ثروت هست؛ هزینه ۱۰م هنوز نه */
+    expect(pts[0].value).toBe(100_000);
+    expect(pts[3].value).toBe(100_000);
+  });
+
+  it("سری ثروت بازه دلخواه — تک‌روز = یک نقطه", () => {
+    const pts = wealthSeriesBetween(
+      [tx("1", "income", 50_000, "salary", "2025-09-01")],
+      isoToJalali("2025-09-03"),
+      isoToJalali("2025-09-03"),
+    );
+    expect(pts).toHaveLength(1);
+    expect(pts[0]).toEqual({ date: "2025-09-03", value: 50_000 });
+  });
+
+  it("موجودی حساب‌ها — موجودی اولیه مبنا است", () => {
+    const acc = {
+      id: "a1",
+      kind: "wallet",
+      initialBalance: 500_000,
+    } as never;
+    const list = [tx("1", "expense", 100_000, "food", "2025-09-02")];
+    list[0].accountId = "a1";
+    const bals = accountBalances(list, [acc]);
+    expect(bals[0].balance).toBe(400_000);
+  });
+
+  it("سری ثروت — مبنای اولیه در همه نقاط هست", () => {
+    const list = [tx("1", "income", 100_000, "salary", "2025-09-01")];
+    const pts = wealthSeries(list, "7d", isoToJalali("2025-09-03"), 250_000);
+    expect(pts[0].value).toBe(250_000);
+    expect(pts[6].value).toBe(350_000);
   });
 
   it("سهم اعضا از هزینه — نزولی", () => {

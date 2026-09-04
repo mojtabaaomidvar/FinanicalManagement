@@ -106,6 +106,7 @@ export function DashboardSummaryWidget({
             </span>
             <b className="fin-cell-value income">
               {formatAmount(toDisplay(data.totals.income, cur))}
+              <span className="cur-tag">{cur}</span>
             </b>
           </div>
           <div className="fin-cell">
@@ -115,6 +116,7 @@ export function DashboardSummaryWidget({
             </span>
             <b className="fin-cell-value expense">
               {formatAmount(toDisplay(data.totals.expense, cur))}
+              <span className="cur-tag">{cur}</span>
             </b>
           </div>
           <div className="fin-cell wide">
@@ -124,6 +126,7 @@ export function DashboardSummaryWidget({
             >
               {monthNet >= 0 ? "＋" : "−"}
               {formatAmount(toDisplay(Math.abs(monthNet), cur))}
+              <span className="cur-tag">{cur}</span>
             </b>
           </div>
         </div>
@@ -151,7 +154,10 @@ export function DashboardSummaryWidget({
           <div className="donut-wrap">
             <DonutChart data={slices} />
             <div className="donut-center">
-              <b>{formatAmount(toDisplay(data.totals.expense, cur))}</b>
+              <b>
+                {formatAmount(toDisplay(data.totals.expense, cur))}
+                <span className="cur-tag">{cur}</span>
+              </b>
               <span>جمع هزینه</span>
             </div>
           </div>
@@ -170,7 +176,10 @@ export function DashboardSummaryWidget({
               <div className="legend-item" key={d.label}>
                 <span className="mini-dot" style={{ background: d.color }} />
                 <span>{d.label}</span>
-                <b>{formatAmount(d.value)}</b>
+                <b>
+                  {formatAmount(d.value)}
+                  <span className="cur-tag">{cur}</span>
+                </b>
                 <span className="pct">
                   {toFa(
                     data.totals.expense

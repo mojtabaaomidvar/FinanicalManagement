@@ -48,14 +48,15 @@ export function TextInput(props: {
   );
 }
 
-/** ورودی مبلغ با فرمت زنده فارسی */
+/** ورودی مبلغ با فرمت زنده فارسی — با currency: پسوند واحد داخل فیلد */
 export function AmountInput(props: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   big?: boolean;
+  currency?: string;
 }) {
-  return (
+  const input = (
     <input
       type="text"
       className={`num-input ${props.big ? "big" : ""}`}
@@ -64,6 +65,13 @@ export function AmountInput(props: {
       value={props.value}
       onChange={(e) => props.onChange(liveFormatAmount(e.target.value))}
     />
+  );
+  if (!props.currency) return input;
+  return (
+    <div className="amt-field">
+      {input}
+      <span className="cur-suffix">{props.currency}</span>
+    </div>
   );
 }
 

@@ -132,7 +132,10 @@ export function MonthlyReportPanelWidget() {
                   <div className="cat-row-top">
                     <span className="mini-dot" style={{ background: color }} />
                     <span>{c.name}</span>
-                    <b>{formatAmount(toDisplay(c.value, cur))}</b>
+                    <b>
+                      {formatAmount(toDisplay(c.value, cur))}
+                      <span className="cur-tag">{cur}</span>
+                    </b>
                     <span className="pct">{formatPercent(pct)}</span>
                   </div>
                   <div className="cat-bar">

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
-import { Card, Field, Modal } from "@/shared/ui";
+import { Card, Field, Modal, AmountInput } from "@/shared/ui";
 import {
   CATEGORIES,
   CUSTOM_CATEGORY_ICON,
@@ -12,11 +12,7 @@ import {
 import { budgetStatus, monthCategorySpend } from "@/domain/budget/budget.rules";
 import { formatMonth, today } from "@/shared/lib/jalali";
 import { toFa } from "@/shared/lib/digits";
-import {
-  formatAmount,
-  liveFormatAmount,
-  parseAmountInput,
-} from "@/shared/lib/format";
+import { formatAmount, parseAmountInput } from "@/shared/lib/format";
 import { fromDisplay, toDisplay } from "@/shared/lib/currency";
 
 export function BudgetsPage() {
@@ -136,18 +132,23 @@ export function BudgetsPage() {
                   {totals.budgetSum
                     ? formatAmount(toDisplay(totals.budgetSum, currency))
                     : "—"}
+                  {totals.budgetSum ? (
+                    <span className="cur-tag">{currency}</span>
+                  ) : null}
                 </b>
               </div>
               <div>
                 <span>مصرف این ماه</span>
                 <b className="expense">
                   {formatAmount(toDisplay(totals.spentSum, currency))}
+                  <span className="cur-tag">{currency}</span>
                 </b>
               </div>
               <div>
                 <span>{totals.remaining >= 0 ? "باقی‌مانده" : "فاتور"}</span>
                 <b className={totals.remaining >= 0 ? "income" : "expense"}>
                   {formatAmount(toDisplay(Math.abs(totals.remaining), currency))}
+                  <span className="cur-tag">{currency}</span>
                 </b>
               </div>
             </div>
@@ -183,10 +184,12 @@ export function BudgetsPage() {
                   <span className="budget-nums">
                     <span className="spent">
                       {formatAmount(toDisplay(spent, currency))}
+                      <span className="cur-tag">{currency}</span>
                     </span>
                     {b ? (
                       <span className="cap">
                         از {formatAmount(toDisplay(b.amount, currency))}
+                        <span className="cur-tag">{currency}</span>
                       </span>
                     ) : (
                       <span className="cap none">بدون بودجه</span>
@@ -233,14 +236,11 @@ export function BudgetsPage() {
       >
         <div className="form-grid" style={{ marginTop: 8 }}>
           <div className="form-row full">
-            <Field label={`مبلغ بودجه ماهانه (${currency})`}>
-              <input
-                type="text"
-                className="num-input"
-                inputMode="numeric"
-                placeholder="۰"
+            <Field label="مبلغ بودجه ماهانه">
+              <AmountInput
                 value={amountStr}
-                onChange={(e) => setAmountStr(liveFormatAmount(e.target.value))}
+                onChange={setAmountStr}
+                currency={currency}
               />
             </Field>
             <p className="modal-sub">
