@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { budgetStatus, monthCategorySpend } from "./budget.rules";
+import { budgetStatus, monthCategorySpend, spendCapacity } from "./budget.rules";
 import type { Transaction } from "../transaction/transaction.types";
 
 function tx(partial: Partial<Transaction>): Transaction {
@@ -73,5 +73,47 @@ describe("monthCategorySpend", () => {
     const spend = monthCategorySpend(txs, 1405, 2);
     expect(spend.get("food")).toBe(999);
     expect(spend.get("bills")).toBeUndefined();
+  });
+});
+
+describe("spendCapacity", () => {
+  const budgets = [
+    { category: "food", amount: 3_000_000 },
+    { category: "bills", amount: 1_000_000 },
+    { category: "fun", amount: 0 } /* غیرفعال */,
+  ];
+
+  it("بدون بودجه → غیرفعال و صفر", () => {
+    const c = spendCapacity([], new Map(), 10);
+    expect(c.active).toBe(false);
+    expect(c.cap).toBe(0);
+    expect(c.perDay).toBe(0);
+  });
+
+  it("سقف = جمع بودجه‌های فعال؛ مصرف فقط از همان دسته‌ها", () => {
+    const spend = new Map([
+      ["food", 1_000_000],
+      ["bills", 200_000],
+      ["transport", 900_000] /* بی‌بودجه — شمرده نمی‌شود */,
+    ]);
+    const c = spendCapacity(budgets, spend, 10);
+    expect(c.cap).toBe(4_000_000);
+    expect(c.spent).toBe(1_200_000);
+    expect(c.remaining).toBe(2_800_000);
+    expect(c.percent).toBe(30);
+    expect(c.perDay).toBe(280_000);
+  });
+
+  it("عبور از سقف → باقیمانده منفی و سهم روزانه صفر", () => {
+    const c = spendCapacity(budgets, new Map([["food", 5_000_000]]), 8);
+    expect(c.remaining).toBe(-1_000_000);
+    expect(c.level).toBe("over");
+    expect(c.perDay).toBe(0);
+  });
+
+  it("روز باقیمانده کمتر از یک → یک روز حساب می‌شود", () => {
+    const c = spendCapacity(budgets, new Map(), 0);
+    expect(c.daysLeft).toBe(1);
+    expect(c.perDay).toBe(4_000_000);
   });
 });

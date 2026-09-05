@@ -42,7 +42,25 @@
       "Bash(ping *)",
       "computer_use__page",
       "Bash(python *)",
-      "Bash(vercel *)"
+      "Bash(vercel *)",
+      "Bash(where *)",
+      "Bash(reg *)",
+      "Bash(java *)",
+      "Bash(@curl *)",
+      "Bash(set *)",
+      "Bash(gradlew.bat *)",
+      "Bash(tar *)",
+      "Bash(\"d:\\jdk-21.0.12.1+1\\bin\\java.exe\" *)",
+      "Bash(rmdir *)",
+      "Bash(cd *)",
+      "Bash(bin\\java.exe *)",
+      "Bash(find *)",
+      "Bash(netstat *)",
+      "Bash(taskkill *)",
+      "Bash(\"d:\\jdk-21.0.12.1+1\\bin\\jstack.exe\" *)",
+      "Bash(/exit)",
+      "Bash(\"d:\\jdk-21.0.12.1+1\\bin\\jshell.exe\" *)",
+      "Bash(system.out.println)"
     ]
   },
   "$version": 4

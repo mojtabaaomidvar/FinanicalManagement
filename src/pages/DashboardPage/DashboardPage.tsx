@@ -1,11 +1,17 @@
-/* صفحه خانه — هدر جستجو/فیلتر/اعلان + خلاصه مالی + جریان هفتگی + بودجه‌ها */
+/* صفحه خانه — سلام و اعلان، جستجو، پنل خلاصه ماه،
+   هزینه‌های ماه، آخرین تراکنش‌ها و نوارهای هفته/اعضا/بودجه
+
+   ثبت تراکنش فقط از راه FAB «+» انجام می‌شود؛ ردیف میان‌بُر پیشین
+   (widgets/quick-actions) حذف شد و «ثبت از پیامک» به شیت تراکنش منتقل شد. */
 
 import { useMemo, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
-import { DashboardSummaryWidget } from "@/widgets/dashboard-summary";
+import { HomeSummaryWidget } from "@/widgets/home-summary";
+import { MonthExpensesWidget } from "@/widgets/month-expenses";
+import { RecentTxWidget } from "@/widgets/recent-tx";
 import { WeeklyFlowWidget } from "@/widgets/weekly-flow";
+import { MemberSpendWidget } from "@/widgets/member-spend";
 import { BudgetCirclesWidget } from "@/widgets/budget-circles";
-import { SmsImportFeature } from "@/features/sms-import";
 import { Modal } from "@/shared/ui";
 import { budgetStatus, monthCategorySpend } from "@/domain/budget/budget.rules";
 import { buildCategoryResolver } from "@/domain/category/resolve";
@@ -14,14 +20,12 @@ import type { TxFormModel } from "@/features/transaction-form";
 
 export function DashboardPage({
   form,
-  onImported,
   onNavTransactions,
   onNavBudgets,
   onOpenFilters,
   onSearch,
 }: {
   form: TxFormModel;
-  onImported: () => void | Promise<void>;
   onNavTransactions: () => void;
   onNavBudgets: () => void;
   onOpenFilters: () => void;
@@ -95,7 +99,6 @@ export function DashboardPage({
               <span className="notif-badge">{notifs.length}</span>
             ) : null}
           </button>
-          <SmsImportFeature onImported={onImported} />
         </div>
       </header>
 
@@ -129,9 +132,12 @@ export function DashboardPage({
         </button>
       </div>
 
-      <div className="content">
-        <DashboardSummaryWidget form={form} onNavTransactions={onNavTransactions} />
+      <div className="content home-content">
+        <HomeSummaryWidget onNavBudgets={onNavBudgets} />
+        <MonthExpensesWidget />
+        <RecentTxWidget form={form} onNavTransactions={onNavTransactions} />
         <WeeklyFlowWidget />
+        <MemberSpendWidget />
         <BudgetCirclesWidget onManage={onNavBudgets} />
       </div>
 

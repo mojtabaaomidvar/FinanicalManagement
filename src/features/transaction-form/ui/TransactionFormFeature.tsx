@@ -1,12 +1,27 @@
-/* شیت ثبت/ویرایش تراکنش — بازطراحی v8 (مطابق پرامپت طراحی)
-   شیت تمام‌قد با تم رنگی دسته: تب نوع + دایره آیکون دسته + مبلغ درشت
-   + کارت توضیحات با تگ‌های سریع + گرید دسته ۴ستونه (پیش از انتخاب دسته)
-   + ردیف چیپ تاریخ/تکرار/حساب + کیپد ماشین‌حساب + دکمه اسکن رسید */
+/* شیت ثبت/ویرایش تراکنش — بازطراحی v9 «دو گام روشن»
 
-import { useMemo, useRef, useState, type CSSProperties } from "react";
+   گام ۱ (هنوز دسته‌ای انتخاب نشده): فقط تب نوع + گرید دسته‌ها + «ثبت از پیامک».
+   هیچ چیز دیگری نشان داده نمی‌شود تا صفحه شلوغ نشود؛ مبلغ فقط اگر از قبل
+   عددی خورده باشد، به‌صورت یک پیل کوچک یادآوری می‌شود.
+
+   گام ۲ (دسته انتخاب شد یا نوع = انتقال): نوار دسته (تپ = بازگشت به گرید)
+   + باکس مبلغ با قاب مشخص + چیپ حساب/تاریخ/تکرار + کارت توضیح و تگ‌ها
+   + کیپد ماشین‌حساب و اسکن رسید.
+
+   دایره ۱۱۶پیکسلی نسخه قبل حذف شد (با تب‌ها هم‌معنا بود و ارتفاع می‌خورد)
+   و جای آن نوار افقی دسته نشست. */
+
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
 import type { TxFormModel } from "../model/useTxFormModel";
+import { SmsImportFeature } from "@/features/sms-import";
 import {
   CalcKeypad,
   evaluateExpression,
@@ -56,13 +71,27 @@ const TYPE_TABS: { value: "expense" | "income" | "transfer"; label: string }[] =
   { value: "transfer", label: "انتقال" },
 ];
 
+/* عنوان بالای باکس مبلغ */
+const AMOUNT_CAPS: Record<string, string> = {
+  expense: "مبلغ هزینه",
+  income: "مبلغ درآمد",
+  transfer: "مبلغ انتقال",
+};
+
 /** رنگ تم شیت — رنگ دسته؛ خنثی قبل از انتخاب؛ منت برای انتقال */
 function sheetBaseColor(type: string, categoryId: string): string {
   if (type === "transfer") return categoryColor("transfer");
   return categoryId ? categoryColor(categoryId) : "#D1D5DB";
 }
 
-export function TransactionFormFeature({ form }: { form: TxFormModel }) {
+export function TransactionFormFeature({
+  form,
+  onImported,
+}: {
+  form: TxFormModel;
+  /** پس از ثبت موفق پیامک‌ها — تازه‌سازی داده اپ */
+  onImported: () => void | Promise<void>;
+}) {
   const m = form;
   const {
     accounts,
@@ -81,8 +110,19 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
   const [tagText, setTagText] = useState("");
   const photoFileRef = useRef<HTMLInputElement>(null);
 
+  /* شیت بسته شد → حالت‌های موقتی UI پاک شوند، وگرنه دفعه بعد
+     فیلد «دسته جدید» یا «لیبل جدید» باز و نیمه‌پرشده باز می‌شود
+     (این کامپوننت همیشه mount است و state آن زنده می‌ماند) */
+  useEffect(() => {
+    if (m.open) return;
+    setShowAddCat(false);
+    setNewCatName("");
+    setTagInput(false);
+    setTagText("");
+  }, [m.open]);
+
   const isTransfer = m.form.type === "transfer";
-  /* فاز گرید = هنوز دسته‌ای انتخاب نشده (فقط هزینه/درآمد) */
+  /* گام ۱ = هنوز دسته‌ای انتخاب نشده (فقط هزینه/درآمد) */
   const showGrid = !isTransfer && !m.form.categoryId;
 
   /* دسته‌های قابل نمایش: ثابت + سفارشی همین نوع */
@@ -109,11 +149,9 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
   /* رنگ اکشن (کیپد/ذخیره/تگ فعال) — خنثی = اکشن برند */
   const catColor = m.form.categoryId || isTransfer ? base : "var(--accent)";
 
-  /* آیکون و برچسب دایره بالای شیت */
-  const headerIcon = isTransfer
-    ? "i-swap"
-    : (activeCat?.icon ?? "i-grid4");
-  const headerLabel = isTransfer
+  /* آیکون و نام نوار دسته در گام ۲ */
+  const catIcon = isTransfer ? "i-swap" : (activeCat?.icon ?? "i-grid4");
+  const catName = isTransfer
     ? "انتقال وجه"
     : (activeCat?.name ?? (m.form.type === "income" ? "درآمد" : "هزینه"));
 
@@ -139,7 +177,7 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
     }
   }
 
-  /* بازگشت به گرید انتخاب دسته — تپ روی دایره */
+  /* بازگشت به گرید انتخاب دسته — تپ روی نوار دسته */
   function backToGrid() {
     if (!isTransfer && m.form.categoryId) {
       m.setForm({ ...m.form, categoryId: "", label: "" });
@@ -151,6 +189,12 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
     if (t) m.setForm({ ...m.form, label: t.slice(0, 30) });
     setTagText("");
     setTagInput(false);
+  }
+
+  /* پیامک‌ها خودشان تراکنش ساختند → شیت دستی دیگر لازم نیست */
+  async function smsImported() {
+    await onImported();
+    m.close();
   }
 
   async function addCategory() {
@@ -254,249 +298,23 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
           ))}
         </div>
 
-        {/* ── دایره آیکون دسته + برچسب ── */}
-        <button
-          type="button"
-          className="tx-icon-wrap"
-          onClick={backToGrid}
-          aria-label={
-            !isTransfer && m.form.categoryId ? "تغییر دسته‌بندی" : undefined
-          }
-        >
-          <span
-            className="tx-icon-circle"
-            style={{
-              background: `color-mix(in srgb, ${base} 45%, var(--card))`,
-              color: `color-mix(in srgb, ${base} 80%, var(--text))`,
-            }}
-          >
-            <svg>
-              <use href={`#${headerIcon}`} />
-            </svg>
-          </span>
-          <span className="tx-icon-label">{headerLabel}</span>
-        </button>
-
-        {/* ── ردیف حساب‌های انتقال (فقط تب انتقال) ── */}
-        {isTransfer ? (
-          <div className="tx-transfer-row">
-            <label className="tx-pill">
-              <svg>
-                <use href="#i-card" />
-              </svg>
-              <Select
-                className="tx-pill-select"
-                value={m.form.accountId}
-                onChange={(v) => m.setForm({ ...m.form, accountId: v })}
-                options={accountOpts}
-              />
-            </label>
-            <button
-              type="button"
-              className="tx-swap-btn"
-              aria-label="جابه‌جایی مبدأ و مقصد"
-              title="جابه‌جایی مبدأ و مقصد"
-              onClick={() =>
-                m.setForm({
-                  ...m.form,
-                  accountId: m.form.toAccountId,
-                  toAccountId: m.form.accountId,
-                })
-              }
-            >
-              <svg>
-                <use href="#i-swap" />
-              </svg>
-            </button>
-            <label className="tx-pill">
-              <svg>
-                <use href="#i-wallet" />
-              </svg>
-              <Select
-                className="tx-pill-select"
-                value={m.form.toAccountId}
-                onChange={(v) => m.setForm({ ...m.form, toAccountId: v })}
-                options={[
-                  { value: "", label: "حساب مقصد…" },
-                  ...accounts
-                    .filter((a) => a.id !== m.form.accountId)
-                    .map((a) => ({
-                      value: a.id,
-                      label: accountLabel(a.title, a.bank, a.cardNumber),
-                    })),
-                ]}
-              />
-            </label>
-          </div>
-        ) : null}
-
-        {/* ── مبلغ درشت + واحد ارز ── */}
-        <div className="tx-amount-zone">
-          {isTransfer ? (
-            <span className="tx-amount-cap">انتقال وجه</span>
-          ) : null}
-          <div className="tx-amount" dir="ltr">
-            {m.form.amount || <span className="tx-amount-zero">۰</span>}
-          </div>
-          {exprResult ? (
-            <div className="tx-amount-expr" dir="ltr">
-              = {exprResult}
-            </div>
-          ) : null}
-          <button
-            type="button"
-            className="tx-currency-btn"
-            onClick={() =>
-              m.switchEntryCurrency(
-                m.entryCurrency === "تومان" ? "ریال" : "تومان",
-              )
-            }
-            title="تغییر واحد ورودی مبلغ"
-          >
-            {m.entryCurrency}
-            <svg style={{ transform: "rotate(90deg)" }}>
-              <use href="#i-arrow-r" />
-            </svg>
-          </button>
-        </div>
-
-        {/* ── کارت توضیحات: متن + دوربین + تگ‌های سریع ── */}
-        <div className="tx-desc-card">
-          <textarea
-            className="tx-desc-input"
-            rows={2}
-            placeholder="توضیح تراکنش…"
-            value={m.form.note}
-            onChange={(e) => m.setForm({ ...m.form, note: e.target.value })}
-          />
-          <div className="tx-desc-foot">
-            <button
-              type="button"
-              className="tx-cam-btn"
-              aria-label="افزودن تصویر رسید"
-              title="افزودن تصویر رسید"
-              onClick={() => photoFileRef.current?.click()}
-            >
-              <svg>
-                <use href="#i-image" />
-              </svg>
-            </button>
-            {!isTransfer ? (
-              <div className="tx-tags">
-                {/* لیبل فعلی خارج از پیشنهادها → چیپ انتخاب‌شده */}
-                {m.form.label && !tags.includes(m.form.label) ? (
-                  <button
-                    type="button"
-                    className="tx-tag on"
-                    onClick={() => m.setForm({ ...m.form, label: "" })}
-                  >
-                    <svg>
-                      <use href="#i-check" />
-                    </svg>
-                    {m.form.label}
-                  </button>
-                ) : null}
-                {tags.map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    className={`tx-tag ${m.form.label === t ? "on" : ""}`}
-                    onClick={() =>
-                      m.setForm({
-                        ...m.form,
-                        label: m.form.label === t ? "" : t,
-                      })
-                    }
-                  >
-                    <svg>
-                      <use href={m.form.label === t ? "#i-check" : "#i-plus"} />
-                    </svg>
-                    {t}
-                  </button>
-                ))}
-                {tagInput ? (
-                  <span className="tx-tag tx-tag-field">
-                    <TextInput
-                      value={tagText}
-                      onChange={(v) => setTagText(v.slice(0, 30))}
-                      placeholder="لیبل جدید…"
-                      maxLength={30}
-                      autoFocus
-                    />
-                    <button
-                      type="button"
-                      aria-label="ثبت لیبل"
-                      onClick={applyCustomLabel}
-                    >
-                      <svg>
-                        <use href="#i-check" />
-                      </svg>
-                    </button>
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    className="tx-tag tx-tag-add"
-                    aria-label="لیبل جدید"
-                    onClick={() => setTagInput(true)}
-                  >
-                    <svg>
-                      <use href="#i-plus" />
-                    </svg>
-                    لیبل
-                  </button>
-                )}
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        <input
-          ref={photoFileRef}
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          multiple
-          style={{ display: "none" }}
-          onChange={(e) => {
-            void m.addPhotoFiles(Array.from(e.target.files ?? []));
-            e.target.value = "";
-          }}
-        />
-
-        {/* نوار تصاویر پیوست */}
-        {m.photos.length ? (
-          <div className="tx-photos-strip">
-            {m.photos.map((p) => (
-              <div className="tx-photo-mini" key={p.key}>
-                <a
-                  href={p.existing?.url ?? p.dataUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label="مشاهده تصویر"
-                >
-                  <img
-                    src={p.existing?.url ?? p.dataUrl}
-                    alt={p.caption || "تصویر تراکنش"}
-                  />
-                </a>
-                <button
-                  type="button"
-                  aria-label="حذف تصویر"
-                  onClick={() => void m.removePhoto(p.key)}
-                >
-                  <svg>
-                    <use href="#i-x" />
-                  </svg>
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : null}
-
         {showGrid ? (
-          /* ── فاز ۱: گرید انتخاب دسته ── */
+          /* ═══ گام ۱ — انتخاب دسته ═══ */
           <>
-            <p className="tx-grid-title">انتخاب دسته</p>
+            {/* یادآوری مبلغی که پیش‌تر وارد شده (بازگشت از گام ۲) */}
+            {m.form.amount ? (
+              <p className="tx-amount-mini">
+                مبلغ واردشده
+                <b dir="ltr">{m.form.amount}</b>
+                <span>{m.entryCurrency}</span>
+              </p>
+            ) : null}
+
+            <p className="tx-sec-title">
+              دسته را انتخاب کنید
+              <small>برای ادامه، یکی از دسته‌های زیر را بزنید</small>
+            </p>
+
             <div className="tx-cat-grid">
               {cats.map((c) => (
                 <button
@@ -529,6 +347,7 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
                 <span className="tx-cat-name">دسته جدید</span>
               </button>
             </div>
+
             {showAddCat ? (
               <div className="tx-add-cat">
                 <TextInput
@@ -547,10 +366,138 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
                 </button>
               </div>
             ) : null}
+
+            {/* راه دوم ثبت — پیامک بانکی (پیش‌تر روی صفحه خانه بود) */}
+            {!m.editing ? (
+              <div className="tx-alt">
+                <span className="tx-alt-sep">
+                  <i />
+                  یا
+                  <i />
+                </span>
+                <SmsImportFeature onImported={smsImported} variant="row" />
+              </div>
+            ) : null}
           </>
         ) : (
-          /* ── فاز ۲: چیپ‌های تاریخ/تکرار/حساب + کیپد + اسکن ── */
+          /* ═══ گام ۲ — جزئیات تراکنش ═══ */
           <>
+            {/* نوار دسته — تپ = بازگشت به گرید (برای انتقال غیرفعال) */}
+            <button
+              type="button"
+              className="tx-catbar"
+              disabled={isTransfer}
+              aria-label={isTransfer ? undefined : "تغییر دسته‌بندی"}
+              onClick={backToGrid}
+            >
+              <span
+                className="tx-catbar-ico"
+                style={{
+                  background: `color-mix(in srgb, ${base} 34%, var(--card))`,
+                  color: `color-mix(in srgb, ${base} 82%, var(--text))`,
+                }}
+              >
+                <svg>
+                  <use href={`#${catIcon}`} />
+                </svg>
+              </span>
+              <span className="tx-catbar-name">{catName}</span>
+              {!isTransfer ? (
+                <span className="tx-catbar-change">
+                  تغییر دسته
+                  <svg>
+                    <use href="#i-arrow-r" />
+                  </svg>
+                </span>
+              ) : null}
+            </button>
+
+            {/* ردیف حساب‌های انتقال (فقط تب انتقال) */}
+            {isTransfer ? (
+              <div className="tx-transfer-row">
+                <label className="tx-pill">
+                  <svg>
+                    <use href="#i-card" />
+                  </svg>
+                  <Select
+                    className="tx-pill-select"
+                    value={m.form.accountId}
+                    onChange={(v) => m.setForm({ ...m.form, accountId: v })}
+                    options={accountOpts}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="tx-swap-btn"
+                  aria-label="جابه‌جایی مبدأ و مقصد"
+                  title="جابه‌جایی مبدأ و مقصد"
+                  onClick={() =>
+                    m.setForm({
+                      ...m.form,
+                      accountId: m.form.toAccountId,
+                      toAccountId: m.form.accountId,
+                    })
+                  }
+                >
+                  <svg>
+                    <use href="#i-swap" />
+                  </svg>
+                </button>
+                <label className="tx-pill">
+                  <svg>
+                    <use href="#i-wallet" />
+                  </svg>
+                  <Select
+                    className="tx-pill-select"
+                    value={m.form.toAccountId}
+                    onChange={(v) => m.setForm({ ...m.form, toAccountId: v })}
+                    options={[
+                      { value: "", label: "حساب مقصد…" },
+                      ...accounts
+                        .filter((a) => a.id !== m.form.accountId)
+                        .map((a) => ({
+                          value: a.id,
+                          label: accountLabel(a.title, a.bank, a.cardNumber),
+                        })),
+                    ]}
+                  />
+                </label>
+              </div>
+            ) : null}
+
+            {/* ── باکس مبلغ (قاب مشخص) ── */}
+            <div className="tx-amount-box">
+              <div className="tx-amount-top">
+                <span className="tx-amount-cap">
+                  {AMOUNT_CAPS[m.form.type] ?? "مبلغ"}
+                </span>
+                <button
+                  type="button"
+                  className="tx-currency-btn"
+                  onClick={() =>
+                    m.switchEntryCurrency(
+                      m.entryCurrency === "تومان" ? "ریال" : "تومان",
+                    )
+                  }
+                  title="تغییر واحد ورودی مبلغ"
+                >
+                  {m.entryCurrency}
+                  <svg style={{ transform: "rotate(90deg)" }}>
+                    <use href="#i-arrow-r" />
+                  </svg>
+                </button>
+              </div>
+              <div className="tx-amount" dir="ltr">
+                {m.form.amount || <span className="tx-amount-zero">۰</span>}
+              </div>
+              {exprResult ? (
+                <div className="tx-amount-expr" dir="ltr">
+                  = {exprResult}
+                </div>
+              ) : null}
+            </div>
+
+            {/* ── چیپ حساب / تاریخ / تکرار ── */}
             <div className="tx-chips">
               {!isTransfer ? (
                 <label className="tx-pill" title="حساب تراکنش">
@@ -611,6 +558,127 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
               </div>
             ) : null}
 
+            {/* ── کارت توضیح: فقط پس از انتخاب دسته دیده می‌شود ── */}
+            <div className="tx-desc-card">
+              <textarea
+                className="tx-desc-input"
+                rows={2}
+                placeholder="توضیح تراکنش (اختیاری)…"
+                value={m.form.note}
+                onChange={(e) => m.setForm({ ...m.form, note: e.target.value })}
+              />
+              <div className="tx-desc-foot">
+                <button
+                  type="button"
+                  className="tx-cam-btn"
+                  aria-label="افزودن تصویر رسید"
+                  title="افزودن تصویر رسید"
+                  onClick={() => photoFileRef.current?.click()}
+                >
+                  <svg>
+                    <use href="#i-image" />
+                  </svg>
+                </button>
+                {!isTransfer ? (
+                  <div className="tx-tags">
+                    {/* لیبل فعلی خارج از پیشنهادها → چیپ انتخاب‌شده */}
+                    {m.form.label && !tags.includes(m.form.label) ? (
+                      <button
+                        type="button"
+                        className="tx-tag on"
+                        onClick={() => m.setForm({ ...m.form, label: "" })}
+                      >
+                        <svg>
+                          <use href="#i-check" />
+                        </svg>
+                        {m.form.label}
+                      </button>
+                    ) : null}
+                    {tags.map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        className={`tx-tag ${m.form.label === t ? "on" : ""}`}
+                        onClick={() =>
+                          m.setForm({
+                            ...m.form,
+                            label: m.form.label === t ? "" : t,
+                          })
+                        }
+                      >
+                        <svg>
+                          <use href={m.form.label === t ? "#i-check" : "#i-plus"} />
+                        </svg>
+                        {t}
+                      </button>
+                    ))}
+                    {tagInput ? (
+                      <span className="tx-tag tx-tag-field">
+                        <TextInput
+                          value={tagText}
+                          onChange={(v) => setTagText(v.slice(0, 30))}
+                          placeholder="لیبل جدید…"
+                          maxLength={30}
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          aria-label="ثبت لیبل"
+                          onClick={applyCustomLabel}
+                        >
+                          <svg>
+                            <use href="#i-check" />
+                          </svg>
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="tx-tag tx-tag-add"
+                        aria-label="لیبل جدید"
+                        onClick={() => setTagInput(true)}
+                      >
+                        <svg>
+                          <use href="#i-plus" />
+                        </svg>
+                        لیبل
+                      </button>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            {/* نوار تصاویر پیوست */}
+            {m.photos.length ? (
+              <div className="tx-photos-strip">
+                {m.photos.map((p) => (
+                  <div className="tx-photo-mini" key={p.key}>
+                    <a
+                      href={p.existing?.url ?? p.dataUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label="مشاهده تصویر"
+                    >
+                      <img
+                        src={p.existing?.url ?? p.dataUrl}
+                        alt={p.caption || "تصویر تراکنش"}
+                      />
+                    </a>
+                    <button
+                      type="button"
+                      aria-label="حذف تصویر"
+                      onClick={() => void m.removePhoto(p.key)}
+                    >
+                      <svg>
+                        <use href="#i-x" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
             <div className="tx-keypad-zone">
               <CalcKeypad value={m.form.amount} onChange={m.setAmount} />
               <button
@@ -626,6 +694,18 @@ export function TransactionFormFeature({ form }: { form: TxFormModel }) {
             </div>
           </>
         )}
+
+        <input
+          ref={photoFileRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          multiple
+          style={{ display: "none" }}
+          onChange={(e) => {
+            void m.addPhotoFiles(Array.from(e.target.files ?? []));
+            e.target.value = "";
+          }}
+        />
       </div>
     </Modal>
   );

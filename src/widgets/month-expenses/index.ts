@@ -1,0 +1,1 @@
+export { MonthExpensesWidget } from "./MonthExpensesWidget";

@@ -3,6 +3,7 @@ import {
   toJalali,
   toGregorian,
   daysInMonth,
+  daysLeftInMonth,
   isLeap,
   parse,
   jalaliToIso,
@@ -47,5 +48,12 @@ describe("jalali — تبدیل رفت‌وبرگشت", () => {
 
   it("formatISO — ارقام فارسی با صفر", () => {
     expect(formatISO([1404, 6, 5])).toBe("۱۴۰۴/۰۶/۰۵");
+  });
+
+  it("روزهای مانده تا پایان ماه — شامل خودِ روز", () => {
+    expect(daysLeftInMonth([1404, 6, 1])).toBe(31); /* شهریور ۳۱ روزه */
+    expect(daysLeftInMonth([1404, 6, 31])).toBe(1);
+    expect(daysLeftInMonth([1404, 7, 25])).toBe(6); /* مهر ۳۰ روزه */
+    expect(daysLeftInMonth([1404, 12, 29])).toBe(1); /* ۱۴۰۴ کبیسه نیست */
   });
 });

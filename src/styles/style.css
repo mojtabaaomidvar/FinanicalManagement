@@ -47,6 +47,8 @@
   --income-soft: rgba(34, 197, 94, 0.12);
   --expense: #ef4444;
   --expense-soft: rgba(239, 68, 68, 0.1);
+  --warn: #f59e0b;
+  --warn-soft: rgba(245, 158, 11, 0.14);
 
   /* chart palette */
   --c1: #10b981;
@@ -59,30 +61,30 @@
   --c8: #e879f9;
 }
 
-/* ─────────── Light theme (پیش‌فرض برند) ─────────── */
+/* ─────────── Light theme (پیش‌فرض برند — کاغذی و آرام) ─────────── */
 :root {
-  --bg: #f9fafb;
+  --bg: #f5f7f4;
   --bg-elev: #ffffff;
   --card: #ffffff;
-  --card-2: #f3f4f6;
+  --card-2: #eef1ec; /* پرکنندهٔ ملایم — باید از --bg قابل تفکیک بماند */
   --card-soft: #e6f7f0; /* بخش‌های خلاصه مالی */
-  --border: rgba(13, 27, 42, 0.1);
+  --border: rgba(13, 27, 42, 0.09);
   --border-strong: rgba(13, 27, 42, 0.16);
   --text: #0d1b2a;
   --text-2: #4b5563;
-  --text-3: #6b7280;
+  --text-3: #656d79; /* کمی تیره‌تر از خاکستری پایه تا روی کاغذ هم ≥۴٫۵ بماند */
   --accent: #10b981;
   --accent-strong: #059669;
   --accent-soft: #e6f7f0;
   --accent-text: #ffffff;
   --danger: #ef4444;
   --danger-soft: rgba(239, 68, 68, 0.08);
-  --header-blur: rgba(249, 250, 251, 0.82);
+  --header-blur: rgba(245, 247, 244, 0.82);
   --tabbar-blur: #ffffff;
   --tabbar-glass: rgba(255, 255, 255, 0.68);
   --tabbar-border: rgba(255, 255, 255, 0.65);
   --tabbar-pill: rgba(13, 27, 42, 0.08);
-  --shadow: 0 1px 3px rgba(13, 27, 42, 0.07);
+  --shadow: 0 1px 2px rgba(13, 27, 42, 0.05);
   --scrim: rgba(13, 27, 42, 0.42);
 }
 
@@ -104,6 +106,8 @@
   --accent-text: #ffffff;
   --danger: #fb7185;
   --danger-soft: rgba(251, 113, 133, 0.12);
+  --warn: #fbbf24;
+  --warn-soft: rgba(251, 191, 36, 0.16);
   --header-blur: rgba(13, 27, 42, 0.78);
   --tabbar-blur: #132639;
   --tabbar-glass: rgba(19, 38, 57, 0.62);
@@ -382,12 +386,13 @@ button:active {
   display: flex;
   flex-direction: column;
   padding: 0 18px calc(16px + env(safe-area-inset-bottom));
-  /* گرادیان عمودی تم دسته — تیره‌تر بالا، محو به زمینه پایین */
+  /* گرادیان عمودی تم دسته — ملایم بالا، محو به زمینه پایین
+     (نسبت‌ها نسبت به v8 نصف شد تا شیت آرام‌تر و خواناتر باشد) */
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--sheet-tint) 34%, var(--bg-elev)),
-    color-mix(in srgb, var(--sheet-tint) 12%, var(--bg-elev)) 38%,
-    var(--bg-elev) 82%
+    color-mix(in srgb, var(--sheet-tint) 20%, var(--bg-elev)),
+    color-mix(in srgb, var(--sheet-tint) 7%, var(--bg-elev)) 38%,
+    var(--bg-elev) 78%
   );
   transition: --sheet-tint 380ms ease;
 }
@@ -404,7 +409,7 @@ button:active {
   padding: 8px 18px 10px;
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--sheet-tint) 34%, var(--bg-elev)) 70%,
+    color-mix(in srgb, var(--sheet-tint) 20%, var(--bg-elev)) 70%,
     transparent
   );
 }
@@ -479,42 +484,67 @@ button:active {
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.14);
 }
 
-/* دایره آیکون دسته + برچسب */
-.tx-icon-wrap {
+/* نوار دسته (گام ۲) — جانشین دایره ۱۱۶پیکسلی نسخه قبل
+   تپ روی آن = بازگشت به گرید انتخاب دسته */
+.tx-catbar {
+  width: 100%;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  margin: 14px auto 0;
-  background: none;
-  border: none;
-  cursor: pointer;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 9px 12px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: var(--shadow);
   font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: transform var(--dur-fast) ease;
 }
-.tx-icon-circle {
-  width: 116px;
-  height: 116px;
+.tx-catbar:disabled {
+  cursor: default;
+}
+.tx-catbar:not(:disabled):active {
+  transform: scale(0.985);
+}
+.tx-catbar-ico {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--sheet-tint) 35%, transparent);
   transition:
     background var(--dur-med) ease,
-    color var(--dur-med) ease,
-    transform var(--dur-med) var(--ease-spring);
+    color var(--dur-med) ease;
 }
-.tx-icon-circle svg {
-  width: 46px;
-  height: 46px;
+.tx-catbar-ico svg {
+  width: 21px;
+  height: 21px;
 }
-.tx-icon-wrap:active .tx-icon-circle {
-  transform: scale(0.94);
+.tx-catbar-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.tx-icon-label {
-  font-size: 13.5px;
+.tx-catbar-change {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11.5px;
   font-weight: 700;
-  color: var(--text-2);
+  color: var(--text-3);
+}
+.tx-catbar-change svg {
+  width: 12px;
+  height: 12px;
 }
 
 /* ردیف حساب‌های انتقال */
@@ -545,25 +575,37 @@ button:active {
   transform: scale(0.9);
 }
 
-/* مبلغ درشت + واحد ارز */
-.tx-amount-zone {
+/* ═══ باکس مبلغ — قاب مشخص (درخواست کاربر) ═══
+   کادر سفید با حاشیه رنگ دسته؛ عنوان و واحد ارز در نوار بالای کادر */
+.tx-amount-box {
+  margin-top: 12px;
+  padding: 10px 14px 14px;
+  border-radius: var(--r-lg);
+  border: 1.5px solid
+    color-mix(in srgb, var(--cat-color, var(--accent)) 38%, var(--border));
+  background: var(--card);
+  box-shadow: var(--shadow);
+  transition: border-color var(--dur-med) ease;
+}
+.tx-amount-top {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 2px;
-  margin-top: 10px;
+  justify-content: space-between;
+  gap: 8px;
 }
 .tx-amount-cap {
   font-size: 11.5px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-3);
 }
 .tx-amount {
   max-width: 100%;
-  font-size: 56px;
+  margin-top: 2px;
+  font-size: 44px;
   font-weight: 800;
   letter-spacing: -1px;
-  line-height: 1.15;
+  line-height: 1.2;
+  text-align: center;
   color: var(--text);
   font-variant-numeric: tabular-nums;
   overflow-x: auto;
@@ -575,10 +617,11 @@ button:active {
 }
 .tx-amount-zero {
   color: var(--text-3);
-  opacity: 0.55;
+  opacity: 0.5;
 }
 .tx-amount-expr {
-  font-size: 14px;
+  text-align: center;
+  font-size: 13.5px;
   font-weight: 700;
   color: var(--text-2);
   font-variant-numeric: tabular-nums;
@@ -587,11 +630,10 @@ button:active {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-top: 4px;
-  padding: 4px 14px;
+  padding: 4px 12px;
   border-radius: var(--r-pill);
-  border: none;
-  background: color-mix(in srgb, var(--card) 65%, transparent);
+  border: 1px solid var(--border);
+  background: var(--card-2);
   color: var(--text-2);
   font: inherit;
   font-size: 12px;
@@ -604,16 +646,40 @@ button:active {
   opacity: 0.6;
 }
 
-/* کارت توضیحات — متن + دوربین + تگ‌های سریع */
+/* یادآوری مبلغ در گام ۱ (وقتی کاربر از گام ۲ برگشته) */
+.tx-amount-mini {
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 7px 12px;
+  border-radius: var(--r-pill);
+  background: var(--card);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+.tx-amount-mini b {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* کارت توضیحات — فقط در گام ۲ رندر می‌شود (پس از انتخاب دسته) */
 .tx-desc-card {
-  margin-top: 14px;
-  border-radius: 28px;
-  padding: 12px 14px;
-  background: color-mix(in srgb, var(--card) 85%, transparent);
+  margin-top: 12px;
+  border-radius: var(--r-lg);
+  padding: 10px 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  box-shadow: 0 4px 18px rgba(13, 27, 42, 0.07);
+  gap: 8px;
+  box-shadow: var(--shadow);
 }
 .tx-desc-input {
   width: 100%;
@@ -776,13 +842,21 @@ button:active {
   height: 11px;
 }
 
-/* فاز ۱ — گرید انتخاب دسته (۴ ستونه) */
-.tx-grid-title {
+/* گام ۱ — گرید انتخاب دسته (۴ ستونه) */
+.tx-sec-title {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   text-align: center;
-  font-size: 14px;
+  margin: 18px 0 12px;
+  font-size: 14.5px;
   font-weight: 800;
   color: var(--text);
-  margin: 16px 0 10px;
+}
+.tx-sec-title small {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-3);
 }
 .tx-cat-grid {
   display: grid;
@@ -842,7 +916,84 @@ button:active {
   padding: 12px 20px;
 }
 
-/* فاز ۲ — ردیف چیپ حساب/تاریخ/تکرار */
+/* راه دوم ثبت — «یا» + ردیف پیامک بانکی (پیش‌تر روی صفحه خانه بود)
+   margin-top:auto آن را به کف شیت می‌چسباند تا مزاحم گرید دسته‌ها نشود */
+.tx-alt {
+  margin-top: auto;
+  padding-top: 22px;
+}
+.tx-alt-sep {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+.tx-alt-sep i {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.tx-sms-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: var(--shadow);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: transform var(--dur-fast) ease;
+}
+.tx-sms-btn:active {
+  transform: scale(0.985);
+}
+.tx-sms-ico {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--card-soft);
+  color: var(--accent-strong);
+}
+.tx-sms-ico svg {
+  width: 18px;
+  height: 18px;
+}
+.tx-sms-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.tx-sms-text b {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text);
+}
+.tx-sms-text small {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--text-3);
+}
+.tx-sms-go {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  color: var(--text-3);
+}
+
+/* گام ۲ — ردیف چیپ حساب/تاریخ/تکرار */
 .tx-chips {
   display: flex;
   align-items: center;
@@ -913,35 +1064,30 @@ button:active {
 .tx-scan-btn {
   width: 100%;
   margin-top: 10px;
-  padding: 14px;
-  border: none;
+  padding: 13px;
+  border: 1px solid var(--border);
   border-radius: var(--r-pill);
-  background: linear-gradient(
-    90deg,
-    #fdba74,
-    #fcd34d,
-    #6ee7b7,
-    #93c5fd,
-    #c4b5fd
-  );
-  color: #0d1b2a;
+  /* گرادیان رنگین‌کمانی v8 کنار گذاشته شد — با «روشن و آرام» ناسازگار بود */
+  background: var(--card);
+  color: var(--text-2);
   font: inherit;
-  font-size: 14px;
-  font-weight: 800;
+  font-size: 13.5px;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   cursor: pointer;
-  box-shadow: 0 6px 18px rgba(109, 168, 129, 0.35);
+  box-shadow: var(--shadow);
   transition: transform var(--dur-fast) ease;
 }
 .tx-scan-btn:active {
   transform: scale(0.98);
 }
 .tx-scan-btn svg {
-  width: 18px;
-  height: 18px;
+  width: 17px;
+  height: 17px;
+  color: var(--text-3);
 }
 
 /* ─────────── کارت مالی اصلی (بازطراحی v7) ─────────── */
@@ -1063,7 +1209,7 @@ button:active {
 .chart-kind-btn.active {
   background: var(--card);
   color: var(--text);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--shadow);
 }
 [data-theme="light"] .chart-kind-btn.active {
   background: #fff;
@@ -1835,72 +1981,12 @@ button:active {
   margin-top: 2px;
 }
 
-/* ─────────── کارت جریان نقدی هفتگی ─────────── */
-.flow-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
-}
-.flow-net {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.flow-net span {
-  font-size: 11px;
-  color: var(--text-3);
-}
-.flow-net b {
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: -0.3px;
-}
-.flow-net b i {
-  font-style: normal;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-3);
-  margin-inline-start: 4px;
-}
-.flow-net b.income {
-  color: var(--income);
-}
-.flow-net b.expense {
-  color: var(--expense);
-}
-.flow-io {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.flow-io span {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11.5px;
-}
-.flow-io svg {
-  width: 15px;
-  height: 15px;
-}
-.flow-io .in {
-  color: var(--income);
-}
-.flow-io .out {
-  color: var(--expense);
-}
-.flow-io b {
-  font-weight: 800;
-}
-
 /* ─────────── دایره‌های بودجه دسته‌ها ─────────── */
 .budget-circles {
   display: flex;
-  gap: 12px;
+  gap: 14px;
   overflow-x: auto;
-  padding: 4px 2px 8px;
+  padding: 2px 2px 4px;
   scrollbar-width: none;
 }
 .budget-circles::-webkit-scrollbar {
@@ -1908,11 +1994,11 @@ button:active {
 }
 .budget-circle {
   flex-shrink: 0;
-  width: 92px;
+  width: 88px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -1920,20 +2006,21 @@ button:active {
   cursor: pointer;
 }
 .budget-circle .ring {
-  width: 64px;
-  height: 64px;
+  width: 58px;
+  height: 58px;
 }
 .ring-track {
   fill: none;
-  stroke: var(--card-2);
-  stroke-width: 6;
+  stroke: color-mix(in srgb, var(--text) 8%, transparent);
+  stroke-width: 4.5;
 }
 .ring-fill {
   fill: none;
-  stroke-width: 6;
+  stroke-width: 4.5;
   stroke-linecap: round;
   transform: rotate(-90deg);
   transform-origin: 50% 50%;
+  transition: stroke-dasharray var(--dur-med) var(--ease-out);
 }
 .ring-pct {
   font-size: 12px;
@@ -1944,7 +2031,7 @@ button:active {
 }
 .budget-circle b {
   font-size: 11.5px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
   max-width: 100%;
   white-space: nowrap;
@@ -1957,8 +2044,8 @@ button:active {
   white-space: nowrap;
 }
 .budget-circle.add .budget-add-plus {
-  width: 64px;
-  height: 64px;
+  width: 58px;
+  height: 58px;
   border-radius: var(--r-pill);
   border: 1.5px dashed var(--border-strong);
   display: grid;
@@ -1966,8 +2053,8 @@ button:active {
   color: var(--accent-strong);
 }
 .budget-circle.add .budget-add-plus svg {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
 }
 .budget-circles-hint {
   font-size: 11px;
@@ -3167,11 +3254,14 @@ button:active {
     font-size: 29px;
   }
   .tx-amount {
-    font-size: 46px;
+    font-size: 38px;
   }
-  .tx-icon-circle {
-    width: 100px;
-    height: 100px;
+  .tx-catbar-ico {
+    width: 38px;
+    height: 38px;
+  }
+  .tx-catbar-name {
+    font-size: 14px;
   }
 }
 
@@ -4323,52 +4413,329 @@ button:active {
   flex: 1;
 }
 
-/* ─────────── ردیف‌های ناوبری تنظیمات ─────────── */
-.settings-nav-row {
+/* ─────────── تنظیمات — الگوی گروه‌بندی‌شده (Grouped Settings) ───────────
+   کارت‌های سفید مجزا روی پس‌زمینه کاغذی، بدون خط جداکننده داخل کارت.
+   گوشه ۲۲px عمداً از قاعده «کارت ۱۲px» برند جدا شده — بریف این صفحه
+   شکل squircle نرم می‌خواهد. اگر روزی برند یکدست شد، فقط همین‌جا
+   .set-card را به var(--r-lg) برگردانید. */
+
+/* عنوان بزرگ صفحه — برخلاف بقیه صفحه‌ها چسبان نیست و با اسکرول می‌رود */
+.app-header.set-hero {
+  position: static;
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-bottom: 0;
+  padding-bottom: var(--sp-2);
+}
+.set-hero .header-title h1 {
+  font-size: 29px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+}
+
+.set-page {
+  gap: 18px;
+}
+
+.set-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.set-group-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-3);
+  padding-inline-start: 6px;
+}
+
+.set-card {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0;
+  border-radius: 22px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+/* ردیف — ارتفاع لمسی ۵۸px، جدایی از ردیف بعد فقط با فضای خالی */
+.set-row {
   display: flex;
   align-items: center;
-  gap: var(--sp-3);
+  gap: 14px;
   width: 100%;
+  min-height: 58px;
+  padding: 10px var(--sp-4);
   background: none;
-  border: none;
+  border: 0;
   font-family: inherit;
-  padding: var(--sp-3) 0;
   text-align: right;
+  color: var(--text);
+  transition: background var(--dur-fast) ease;
+}
+button.set-row {
   cursor: pointer;
 }
-.settings-nav-row + .settings-nav-row {
-  border-top: 1px solid var(--border);
+button.set-row:active {
+  background: var(--card-2);
 }
-.settings-nav-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--r-md);
-  background: var(--accent-soft);
-  color: var(--accent);
+
+/* آیکون تک‌رنگ و خطی — بدون مربع رنگی */
+.set-row-ico {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
   display: grid;
   place-items: center;
-  flex-shrink: 0;
+  color: var(--text-2);
 }
-.settings-nav-icon svg {
-  width: 20px;
-  height: 20px;
+.set-row-ico svg {
+  width: 22px;
+  height: 22px;
 }
-.settings-nav-row h4 {
-  font-size: 14px;
-  font-weight: 700;
+
+.set-row-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: right;
+}
+.set-row-label {
+  font-size: 14.5px;
+  font-weight: 600;
   color: var(--text);
 }
-.settings-nav-row p {
+.set-row-sub {
   font-size: 11.5px;
+  line-height: 1.6;
   color: var(--text-3);
-  margin-top: 2px;
 }
-.settings-nav-arrow {
-  width: 18px;
-  height: 18px;
-  color: var(--text-3);
-  margin-right: auto;
+
+.set-row-trail {
   flex-shrink: 0;
+  max-width: 54%;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+/* RTL: حرکت رو به جلو به سمت چپ است — فلش همیشه چپ */
+.set-chev {
+  flex-shrink: 0;
+  width: 17px;
+  height: 17px;
+  color: var(--text-3);
+  opacity: 0.72;
+}
+
+.set-count,
+.set-value {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.set-count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* واژه پررنگ به‌جای فلش — وقتی چیزی هنوز تنظیم نشده */
+.set-action {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--accent-strong);
+}
+
+/* ردیف تشویقی ارتقا — تنها آیکون رنگی این صفحه */
+.set-row.gold .set-row-ico {
+  color: var(--c3);
+}
+
+/* ردیف هشدار */
+.set-row.danger .set-row-ico,
+.set-row.danger .set-row-label {
+  color: var(--danger);
+}
+.set-row.danger .set-chev {
+  color: var(--danger);
+  opacity: 0.6;
+}
+
+/* کلید روشن/خاموش — RTL: خاموش سمت راست، روشن به چپ می‌لغزد */
+.set-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 46px;
+  height: 28px;
+  border-radius: var(--r-pill);
+  background: var(--card-2);
+  border: 1px solid var(--border-strong);
+  transition:
+    background var(--dur-med) ease,
+    border-color var(--dur-med) ease;
+}
+.set-switch.on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.set-switch-knob {
+  position: absolute;
+  top: 3px;
+  inset-inline-start: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(13, 27, 42, 0.28);
+  transition: transform var(--dur-med) var(--ease-out);
+}
+.set-switch.on .set-switch-knob {
+  transform: translateX(-18px);
+}
+
+/* استپر بالا/پایین — انتخاب‌های محدود و ترتیبی (ظاهر) */
+.set-stepper {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.set-step-btn {
+  width: 27px;
+  height: 20px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  cursor: pointer;
+  border-radius: var(--r-sm) var(--r-sm) 2px 2px;
+}
+.set-step-btn.down {
+  border-radius: 2px 2px var(--r-sm) var(--r-sm);
+}
+.set-step-btn svg {
+  width: 12px;
+  height: 12px;
+  transform: rotate(90deg);
+}
+.set-step-btn.down svg {
+  transform: rotate(-90deg);
+}
+.set-step-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* کارت ویژه بالا — پروفایل کاربر */
+.set-row-profile {
+  min-height: 76px;
+}
+.set-avatar {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--accent);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+}
+.set-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.set-profile-name {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+}
+.set-profile-sub {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.set-version {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-3);
+  padding: 2px 0 var(--sp-4);
+}
+
+/* ─────────── دسته‌ها و برچسب‌ها (زیرصفحه تنظیمات) ─────────── */
+.label-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.label-group h5 {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-3);
+  margin-bottom: var(--sp-2);
+}
+.label-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.label-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border-radius: var(--r-pill);
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.label-chip svg {
+  width: 13px;
+  height: 13px;
+  color: var(--text-3);
+}
+.label-chip i {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-3);
+  padding-inline-start: 4px;
+  border-inline-start: 1px solid var(--border);
+}
+.label-chip.removable button {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.label-chip.removable button:active {
+  color: var(--danger);
+}
+.label-chip.removable button svg {
+  width: 11px;
+  height: 11px;
+  color: inherit;
 }
 
 /* ─────────── کارت پروفایل ─────────── */
@@ -4546,5 +4913,501 @@ button:active {
   cursor: pointer;
   padding: 4px 8px;
   margin-right: auto;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   صفحه خانه — بازطراحی «روشن و آرام»
+   سلسله‌مراتب: یک پنل شاخص → چیپ‌های میان‌بُر → دو کارت → سه نوار مویی
+   ═══════════════════════════════════════════════════════════ */
+
+.home-content {
+  gap: var(--sp-3);
+}
+
+/* ─────────── پنل خلاصه: نوار نعنایی موجودی + دفتر ماه + متر خرج ─────────── */
+.home-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--card);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.hp-top {
+  background: var(--card-soft);
+  border-bottom: 1px solid var(--border);
+  padding: 18px var(--sp-5) 16px;
+}
+.hp-label {
+  font-size: 12px;
+  color: var(--text-2);
+}
+.hp-balance {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+  font-size: 33px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+.hp-cur {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--text-3);
+}
+
+/* ─────────── دفتر ماه: سه ستون با جداکننده مویی ─────────── */
+.hp-ledger {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 14px var(--sp-3) 12px;
+}
+.hp-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding-inline: 6px;
+  text-align: center;
+  min-width: 0;
+}
+.hp-metric + .hp-metric {
+  border-inline-start: 1px solid var(--border);
+}
+.hp-metric-label {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.hp-metric-value {
+  font-size: 15.5px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.hp-metric-value.income {
+  color: var(--income);
+}
+.hp-metric-value.expense {
+  color: var(--expense);
+}
+
+/* چیپ درصد تغییر نسبت به ماه گذشته — رنگ بر پایه «خوب بودنِ» جهت */
+.hp-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 1px 7px 1px 5px;
+  border-radius: var(--r-pill);
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.hp-delta svg {
+  width: 11px;
+  height: 11px;
+}
+.hp-delta.good {
+  color: var(--income);
+  background: var(--income-soft);
+}
+.hp-delta.bad {
+  color: var(--expense);
+  background: var(--expense-soft);
+}
+.hp-delta.flat {
+  color: var(--text-3);
+  background: var(--card-2);
+}
+
+.hp-note {
+  padding: 0 var(--sp-4) 12px;
+  font-size: 10.5px;
+  color: var(--text-3);
+  text-align: center;
+}
+
+/* ─────────── متر «قابل خرج تا پایان ماه» ─────────── */
+.hp-cap {
+  border-top: 1px solid var(--border);
+  padding: 14px var(--sp-5) 16px;
+}
+.hp-cap-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+.hp-cap-days {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: var(--card-2);
+  font-size: 10.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.hp-cap-value {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  margin: 2px 0 10px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  color: var(--accent-strong);
+  font-variant-numeric: tabular-nums;
+}
+.hp-cap-value.over {
+  color: var(--danger);
+}
+.hp-bar {
+  height: 7px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  overflow: hidden;
+}
+.hp-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--r-pill);
+  /* تنها لحظه حرکت صفحه خانه: پر شدن متر از راست به چپ */
+  transform-origin: 100% 50%;
+  animation: capGrow 0.9s var(--ease-out) both;
+  transition: width var(--dur-med) var(--ease-out);
+}
+.hp-bar-fill.ok {
+  background: var(--accent);
+}
+.hp-bar-fill.warn {
+  background: var(--warn);
+}
+.hp-bar-fill.over {
+  background: var(--danger);
+}
+
+@keyframes capGrow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hp-bar-fill {
+    animation: none;
+  }
+}
+
+.hp-cap-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin-top: 7px;
+  font-size: 10.5px;
+  color: var(--text-3);
+}
+.hp-cap-foot b {
+  font-weight: 700;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+/* حالت خالی — هنوز بودجه‌ای تعیین نشده */
+.hp-cap.empty {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.hp-cap.empty p {
+  flex: 1;
+  font-size: 11.5px;
+  line-height: 1.75;
+  color: var(--text-3);
+}
+.hp-cta {
+  flex-shrink: 0;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ─────────── چیپ‌های میان‌بُر ثبت ─────────── */
+.qa-row {
+  display: flex;
+  gap: var(--sp-2);
+}
+.qa-chip {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding-inline: 8px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: var(--shadow);
+  transition: border-color var(--dur-fast) ease;
+}
+.qa-ico {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: var(--r-pill);
+  display: grid;
+  place-items: center;
+}
+.qa-ico svg {
+  width: 14px;
+  height: 14px;
+}
+.qa-chip.expense .qa-ico {
+  background: var(--expense-soft);
+  color: var(--expense);
+}
+.qa-chip.income .qa-ico {
+  background: var(--income-soft);
+  color: var(--income);
+}
+.qa-chip.sms .qa-ico {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+.qa-chip.expense:active {
+  border-color: var(--expense);
+}
+.qa-chip.income:active {
+  border-color: var(--income);
+}
+.qa-chip.sms:active {
+  border-color: var(--accent);
+}
+
+/* ─────────── نوارهای مویی (هفته / اعضا / بودجه) ─────────── */
+.strip {
+  padding: var(--sp-4) var(--sp-4) 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: transparent;
+}
+.strip-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin-bottom: 12px;
+}
+.strip-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.strip-hint {
+  font-size: 10.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.strip-net {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.strip-net.income {
+  color: var(--income);
+}
+.strip-net.expense {
+  color: var(--expense);
+}
+.strip-net i {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3);
+  margin-inline-start: 3px;
+}
+.strip-foot {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+.strip-foot span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.strip-foot b {
+  font-weight: 700;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ستون‌های هفت روز — دو میله باریک (ورودی/خروجی) برای هر روز */
+.week-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+.wb-day {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+.wb-col {
+  width: 100%;
+  height: 48px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+}
+.wb-in,
+.wb-out {
+  display: block;
+  width: 5px;
+  min-height: 2px;
+  border-radius: var(--r-pill);
+  transition: height var(--dur-med) var(--ease-out);
+}
+.wb-in {
+  background: var(--income);
+}
+.wb-out {
+  background: var(--expense);
+}
+.wb-label {
+  font-size: 9.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+/* سهم اعضا از هزینه ماه */
+.mspend {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.mspend-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.mspend-av {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 800;
+}
+.mspend-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.mspend-av svg {
+  width: 14px;
+  height: 14px;
+}
+.mspend-name {
+  width: 66px;
+  flex-shrink: 0;
+  font-size: 11.5px;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mspend-bar {
+  flex: 1;
+  min-width: 0;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  overflow: hidden;
+}
+.mspend-bar i {
+  display: block;
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  transition: width var(--dur-med) var(--ease-out);
+}
+.mspend-bar i.rest {
+  background: var(--text-3);
+}
+.mspend-amt {
+  min-width: 58px;
+  text-align: end;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─────────── هم‌ترازی تم تیره ─────────── */
+[data-theme="dark"] .strip {
+  background: color-mix(in srgb, var(--card) 55%, transparent);
+}
+[data-theme="dark"] .qa-chip {
+  background: var(--card);
+}
+[data-theme="dark"] .hp-cap-days,
+[data-theme="dark"] .hp-delta.flat {
+  background: color-mix(in srgb, var(--card-2) 70%, transparent);
+}
+
+/* موبایل باریک — سه ستون دفتر ماه جا نمی‌شود */
+@media (max-width: 340px) {
+  .hp-balance {
+    font-size: 28px;
+  }
+  .hp-metric-value {
+    font-size: 13.5px;
+  }
+  .qa-chip {
+    font-size: 11.5px;
+    gap: 4px;
+  }
+  .mspend-name {
+    width: 52px;
+  }
 }
 

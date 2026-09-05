@@ -110,3 +110,17 @@ export function txsInJalaliMonth(
     return y === jy && m === jm;
   });
 }
+
+/* تراکنش‌های یک ماه جلالی تا روز مشخص (شامل خودش)
+   برای مقایسه منصفانه ماه جاری با «همین بازه» از ماه گذشته */
+export function txsInJalaliMonthUpToDay(
+  list: Transaction[],
+  jy: number,
+  jm: number,
+  day: number,
+): Transaction[] {
+  return list.filter((t) => {
+    const [y, m, d] = isoToJalali(t.date);
+    return y === jy && m === jm && d <= day;
+  });
+}

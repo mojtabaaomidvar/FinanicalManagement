@@ -10,8 +10,11 @@ import { toDisplay } from "@/shared/lib/currency";
 
 export function SmsImportFeature({
   onImported,
+  variant = "icon",
 }: {
   onImported: () => void | Promise<void>;
+  /** icon = دکمه گرد هدر · chip = میان‌بُر متنی (بازنشسته) · row = ردیف داخل شیت تراکنش */
+  variant?: "icon" | "chip" | "row";
 }) {
   const { useCases, family } = useApp();
   const cur = family?.currency ?? "تومان";
@@ -20,15 +23,49 @@ export function SmsImportFeature({
 
   return (
     <>
-      <button
-        className="icon-btn"
-        aria-label="ورود پیامک"
-        onClick={() => m.setOpen(true)}
-      >
-        <svg>
-          <use href="#i-sms" />
-        </svg>
-      </button>
+      {variant === "row" ? (
+        <button
+          type="button"
+          className="tx-sms-btn"
+          onClick={() => m.setOpen(true)}
+        >
+          <span className="tx-sms-ico">
+            <svg>
+              <use href="#i-sms" />
+            </svg>
+          </span>
+          <span className="tx-sms-text">
+            <b>ثبت از پیامک بانکی</b>
+            <small>متن پیامک را بچسبانید تا خودکار ثبت شود</small>
+          </span>
+          <svg className="tx-sms-go">
+            <use href="#i-arrow-r" />
+          </svg>
+        </button>
+      ) : variant === "chip" ? (
+        <button
+          type="button"
+          className="qa-chip sms"
+          onClick={() => m.setOpen(true)}
+        >
+          <span className="qa-ico">
+            <svg>
+              <use href="#i-sms" />
+            </svg>
+          </span>
+          پیامک بانکی
+        </button>
+      ) : (
+        <button
+          className="icon-btn"
+          aria-label="ورود پیامک"
+          onClick={() => m.setOpen(true)}
+        >
+          <svg>
+            <use href="#i-sms" />
+          </svg>
+        </button>
+      )}
 
       <Modal
         open={m.open}

@@ -33,6 +33,15 @@ export function monthTotals(list: Transaction[]): MonthTotals {
   return { income: sumByType(list, "income"), expense: sumByType(list, "expense") };
 }
 
+/* درصد تغییر نسبت به بازه قبل — مبنای صفر قابل مقایسه نیست (null)
+   گرد کردن روی «اندازه» انجام می‌شود تا کاهش و افزایشِ هم‌اندازه، عدد یکسان بدهند
+   (Math.round(-62.5) در جاوااسکریپت −۶۲ می‌شود، نه −۶۳) */
+export function deltaPercent(current: number, previous: number): number | null {
+  if (!previous) return null;
+  const raw = ((current - previous) / previous) * 100;
+  return Math.sign(raw) * Math.round(Math.abs(raw));
+}
+
 /* تجزیه هزینه به تفکیک دسته — نزولی بر اساس مبلغ
    resolve اختیاری برای پشتیبانی دسته‌های سفارشی خانواده */
 export function categoryBreakdown(

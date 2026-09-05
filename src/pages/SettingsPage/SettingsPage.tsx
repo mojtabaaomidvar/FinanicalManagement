@@ -1,15 +1,28 @@
-/* صفحه تنظیمات — دو شاخه اصلی: مالی | برنامه + پروفایل/خانواده/رویدادها */
+/* صفحه «تنظیمات / بیشتر» — الگوی گروه‌بندی‌شده (Grouped Settings)
+   ═══════════════════════════════════════════════════════════════
+   پس‌زمینه خاکستری روشن، عنوان بزرگ، و چند کارت سفید جدا از هم که
+   هرکدام یک گروه منطقی‌اند (۲ تا ۴ ردیف). داخل کارت خط جداکننده
+   نداریم؛ جدایی فقط با فاصله. ردیف‌ها از SettingsCard/SettingsRow
+   می‌آیند و حالت انتهایی‌شان (فلش/شمارنده/مقدار/کلید/واژه/استپر)
+   با prop انتخاب می‌شود.
+
+   ناوبری همان الگوی hub-and-spoke قبلی است: هر ردیف یک زیرصفحه باز
+   می‌کند. زیرصفحه «تنظیمات مالی» قبلی به چهار زیرصفحه ریز شد تا هر
+   ردیف یک مقصد روشن داشته باشد. */
 
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
-import { Card, Segmented } from "@/shared/ui";
+import { Card } from "@/shared/ui";
 import { CheckBudgetStatus } from "./CheckBudgetStatus";
 import { ProfileCard } from "./ProfileCard";
 import { EventsCard } from "./EventsCard";
 import { MembersCard } from "./MembersCard";
 import { AccountsCard } from "./AccountsCard";
+import { LabelsCard } from "./LabelsCard";
+import { SmsBridgeCard } from "./SmsBridgeCard";
 import { SettingsSubPage } from "./SettingsSubPage";
+import { SettingsCard, SettingsRow, type RowTrailing } from "./SettingsCard";
 import { useTheme } from "@/app/providers/useTheme";
 import { usePwaUpdateState } from "@/app/pwaUpdate.tsx";
 import { APP_VERSION } from "@/shared/config/version";
@@ -28,13 +41,27 @@ import {
 import { sortTxDesc } from "@/domain/transaction/transaction.rules";
 import { CATEGORIES } from "@/domain/category/category.catalog";
 import { isoToJalali, formatISO } from "@/shared/lib/jalali";
+import type { ThemeMode } from "@/domain/family/family.types";
 
 type SettingsSection =
-  | "family"
   | "profile"
+  | "premium"
+  | "family"
   | "events"
-  | "finance"
-  | "app";
+  | "budget"
+  | "accounts"
+  | "scheduled"
+  | "labels"
+  | "export"
+  | "sms"
+  | "about";
+
+/* ترتیب استپر «ظاهر» — روشن → خودکار → تیره */
+const THEMES: { value: ThemeMode; label: string }[] = [
+  { value: "light", label: "روشن" },
+  { value: "auto", label: "خودکار" },
+  { value: "dark", label: "تیره" },
+];
 
 export function SettingsPage() {
   const {
@@ -43,13 +70,16 @@ export function SettingsPage() {
     members,
     txs,
     accounts,
+    events,
     member,
     customCategories,
+    subcategories,
     refreshData,
     onLoggedOut,
   } = useApp();
   const { show } = useToast();
   const { themeMode, changeTheme } = useTheme(member, useCases);
+  const { updateReady, applyUpdate } = usePwaUpdateState();
 
   const [section, setSection] = useState<SettingsSection | null>(null);
 
@@ -57,6 +87,11 @@ export function SettingsPage() {
   const [currency, setCurrency] = useState("تومان");
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  /* کلید پل پیامک ساخته شده یا نه — تعیین‌کننده حالت ردیف (واژه «ساخت کلید») */
+  const [bridgeOn, setBridgeOn] = useState<boolean | null>(null);
+  /* مقدار خوش‌بینانه کلید «ریال» تا وقتی پاسخ سرور برسد — وگرنه کلید
+     تا پایان رفت‌وبرگشت شبکه تکان نمی‌خورد و کاربر دوباره می‌زند */
+  const [pendingRial, setPendingRial] = useState<boolean | null>(null);
 
   useEffect(() => {
     setBudget(
@@ -67,6 +102,24 @@ export function SettingsPage() {
     setCurrency(family?.currency ?? "تومان");
     setDirty(false);
   }, [family?.budget, family?.currency]);
+
+  /* وضعیت پل پیامک — هربار که به فهرست اصلی برمی‌گردیم تازه می‌شود،
+     چون ممکن است کاربر همین الان در زیرصفحه کلید ساخته باشد */
+  useEffect(() => {
+    if (section !== null || !useCases) return;
+    let alive = true;
+    useCases.getBridge
+      .execute()
+      .then((b) => {
+        if (alive) setBridgeOn(!!b?.token);
+      })
+      .catch(() => {
+        if (alive) setBridgeOn(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [useCases, section]);
 
   /** اعمال تغییرات مالی — ذخیره در سرور + ری‌فرش فوری کل داده */
   async function applyFinanceSettings() {
@@ -88,24 +141,102 @@ export function SettingsPage() {
     }
   }
 
+  /** کلید «نمایش به ریال» — فقط واحد نمایش عوض می‌شود؛
+      بودجه در سرور همیشه به تومان (ارز پایه) ذخیره است */
+  async function toggleRial(toRial: boolean) {
+    if (!family || pendingRial !== null) return;
+    setPendingRial(toRial);
+    try {
+      await useCases!.updateFamilySettings.execute({
+        budget: family.budget,
+        currency: toRial ? "ریال" : "تومان",
+        dark: family.dark,
+      });
+      await refreshData();
+      show(
+        toRial
+          ? "مبالغ به ریال نمایش داده می‌شوند"
+          : "مبالغ به تومان نمایش داده می‌شوند",
+      );
+    } catch (e) {
+      show((e as Error).message || "خطا در تغییر واحد پول");
+    } finally {
+      setPendingRial(null);
+    }
+  }
+
   async function logout() {
-    await useCases!.logout.execute();
+    try {
+      await useCases!.logout.execute();
+    } catch {
+      /* حتی اگر سرور پاسخ نداد، نشست محلی باید بسته شود */
+    }
+    onLoggedOut();
+    location.reload();
+  }
+
+  /** ناحیه خطر — خروج + پاک‌کردن حافظه محلی/آفلاین این دستگاه.
+      داده روی سرور دست‌نخورده می‌ماند؛ فقط این دستگاه تمیز می‌شود. */
+  async function wipeDevice() {
+    if (
+      !confirm(
+        "از حساب خارج می‌شوید و حافظه موقت و نسخه آفلاین روی این دستگاه پاک می‌شود.\nداده‌های شما روی سرور دست‌نخورده می‌ماند. ادامه؟",
+      )
+    ) {
+      return;
+    }
+    try {
+      await useCases!.logout.execute();
+    } catch {
+      /* بی‌صدا — پاک‌سازی محلی مهم‌تر است */
+    }
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch {
+      /* حالت خصوصی مرورگر */
+    }
+    try {
+      if ("caches" in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+      const regs = await navigator.serviceWorker?.getRegistrations?.();
+      await Promise.all((regs ?? []).map((r) => r.unregister()));
+    } catch {
+      /* بی‌صدا */
+    }
     onLoggedOut();
     location.reload();
   }
 
   const budgetStatus = useMemo(
-    () => (useCases && family ? useCases.checkBudgetStatus.execute(family.budget, txs) : null),
+    () =>
+      useCases && family
+        ? useCases.checkBudgetStatus.execute(family.budget, txs)
+        : null,
     [useCases, family, txs],
+  );
+
+  const scheduledCount = useMemo(
+    () => txs.filter((t) => t.repeat && t.repeat !== "none").length,
+    [txs],
   );
 
   const back = () => setSection(null);
 
-  /* ── زیرصفحه‌ها ── */
+  /* ─────────────── زیرصفحه‌ها ─────────────── */
   if (section === "profile") {
     return (
       <SettingsSubPage title="پروفایل من" onBack={back}>
         <ProfileCard />
+      </SettingsSubPage>
+    );
+  }
+
+  if (section === "premium") {
+    return (
+      <SettingsSubPage title="نسخه ویژه" onBack={back}>
         <PremiumCard />
       </SettingsSubPage>
     );
@@ -127,11 +258,43 @@ export function SettingsPage() {
     );
   }
 
-  /* ── تنظیمات مالی ── */
-  if (section === "finance") {
+  if (section === "accounts") {
+    return (
+      <SettingsSubPage title="کارت‌ها و حساب‌ها" onBack={back}>
+        <AccountsCard />
+      </SettingsSubPage>
+    );
+  }
+
+  if (section === "scheduled") {
+    return (
+      <SettingsSubPage title="تراکنش‌های تکرارشونده" onBack={back}>
+        <ScheduledTxsCard />
+      </SettingsSubPage>
+    );
+  }
+
+  if (section === "labels") {
+    return (
+      <SettingsSubPage title="دسته‌ها و برچسب‌ها" onBack={back}>
+        <LabelsCard />
+      </SettingsSubPage>
+    );
+  }
+
+  if (section === "sms") {
+    return (
+      <SettingsSubPage title="پیامک خودکار" onBack={back}>
+        <SmsBridgeCard />
+      </SettingsSubPage>
+    );
+  }
+
+  /* ── بودجه ماهانه و واحد پول ── */
+  if (section === "budget") {
     const isOwner = member?.role === "owner";
     return (
-      <SettingsSubPage title="تنظیمات مالی" onBack={back}>
+      <SettingsSubPage title="بودجه و واحد پول" onBack={back}>
         <Card>
           <div className="form-grid">
             <div className="form-row">
@@ -157,6 +320,7 @@ export function SettingsPage() {
               <select
                 className="select-input"
                 value={currency}
+                disabled={!isOwner}
                 onChange={(e) => {
                   const next = e.target.value;
                   /* بودجه نمایشی به واحد جدید تبدیل می‌شود (پایه: تومان) */
@@ -176,13 +340,7 @@ export function SettingsPage() {
             </div>
           </div>
           {!isOwner ? (
-            <p
-              style={{
-                fontSize: 11.5,
-                color: "var(--text-3)",
-                marginTop: 4,
-              }}
-            >
+            <p style={{ fontSize: 11.5, color: "var(--text-3)", marginTop: 4 }}>
               تغییر بودجه ماهانه فقط توسط مدیر خانواده امکان‌پذیر است
             </p>
           ) : null}
@@ -190,19 +348,21 @@ export function SettingsPage() {
           <button
             className="btn-primary btn-block"
             style={{ marginTop: 12 }}
-            disabled={!dirty || saving}
+            disabled={!dirty || saving || !isOwner}
             onClick={applyFinanceSettings}
           >
             {saving ? "…" : dirty ? "اعمال تغییرات" : "ذخیره شد"}
           </button>
         </Card>
+      </SettingsSubPage>
+    );
+  }
 
-        <AccountsCard />
-
-        {/* تراکنش‌های زمان‌بندی‌شده (تکرارشونده) */}
-        <ScheduledTxsCard />
-
-        <Card title="خروجی داده‌ها">
+  /* ── خروجی گرفتن از داده‌ها ── */
+  if (section === "export") {
+    return (
+      <SettingsSubPage title="خروجی داده‌ها" onBack={back}>
+        <Card title="فرمت خروجی">
           <div className="export-grid">
             <button
               className="btn-secondary"
@@ -287,24 +447,11 @@ export function SettingsPage() {
     );
   }
 
-  /* ── تنظیمات برنامه ── */
-  if (section === "app") {
+  /* ── درباره و به‌روزرسانی ── */
+  if (section === "about") {
     return (
-      <SettingsSubPage title="تنظیمات برنامه" onBack={back}>
-        <Card title="تم">
-          <Segmented
-            value={themeMode}
-            onChange={(v) => void changeTheme(v)}
-            options={[
-              { value: "light", label: "روشن" },
-              { value: "dark", label: "تیره" },
-              { value: "auto", label: "خودکار" },
-            ]}
-          />
-        </Card>
-
+      <SettingsSubPage title="درباره و به‌روزرسانی" onBack={back}>
         <VersionCard />
-
         <Card title="درباره">
           <div style={{ textAlign: "center", padding: "12px 0" }}>
             <div className="auth-art" style={{ margin: "0 auto 12px" }}>
@@ -325,99 +472,212 @@ export function SettingsPage() {
     );
   }
 
-  /* ── فهرست اصلی ── */
+  /* ─────────────── فهرست اصلی ─────────────── */
+  const cur = family?.currency ?? "تومان";
+  const isOwner = member?.role === "owner";
+  const themeIdx = Math.max(
+    0,
+    THEMES.findIndex((t) => t.value === themeMode),
+  );
+  const labelCount = customCategories.length + subcategories.length;
+
+  /* بودجه: مقدار، یا واژه «تعیین» وقتی هنوز صفر است */
+  const budgetTrailing: RowTrailing = family?.budget
+    ? {
+        type: "value",
+        value: `${formatAmount(toDisplay(family.budget, cur))} ${cur}`,
+      }
+    : { type: "action", label: "تعیین" };
+
+  /* کارت‌ها: شمارنده، یا واژه «افزودن» وقتی هیچ کارتی ثبت نشده */
+  const accountsTrailing: RowTrailing = accounts.length
+    ? { type: "counter", count: accounts.length }
+    : { type: "action", label: "افزودن" };
+
+  /* پیامک: تا وقتی وضعیت نیامده، ردیف ساده؛ بعد «فعال» یا «ساخت کلید» */
+  const smsTrailing: RowTrailing =
+    bridgeOn === null
+      ? { type: "chevron" }
+      : bridgeOn
+        ? { type: "value", value: "فعال" }
+        : { type: "action", label: "ساخت کلید" };
+
   return (
     <section className="page active">
-      <header className="app-header">
+      <header className="app-header set-hero">
         <div className="header-title">
           <h1>تنظیمات</h1>
-          <p>شخصی‌سازی اپلیکیشن</p>
         </div>
       </header>
 
-      <div className="content">
-        <Card>
-          <button className="settings-nav-row" onClick={() => setSection("profile")}>
-            <span className="settings-nav-icon">
-              <svg>
-                <use href="#i-users" />
+      <div className="content set-page">
+        {/* ── کارت ویژه بالا: پروفایل + ارتقا ── */}
+        <SettingsCard>
+          <button
+            type="button"
+            className="set-row set-row-profile"
+            onClick={() => setSection("profile")}
+          >
+            <span className="set-avatar">
+              {member?.avatarUrl ? (
+                <img src={member.avatarUrl} alt={member.name} />
+              ) : (
+                (member?.name?.trim()?.[0] ?? "؟")
+              )}
+            </span>
+            <span className="set-row-body">
+              <span className="set-profile-name">{member?.name ?? "کاربر"}</span>
+              <span className="set-profile-sub">
+                {member?.phone ??
+                  (member?.role === "owner" ? "مدیر خانواده" : "عضو خانواده")}
+              </span>
+            </span>
+            <span className="set-row-trail">
+              <svg className="set-chev">
+                <use href="#i-arrow-l" />
               </svg>
             </span>
-            <div>
-              <h4>پروفایل من</h4>
-              <p>عکس، نام، تاریخ تولد و کد ملی</p>
-            </div>
-            <svg className="settings-nav-arrow">
-              <use href="#i-arrow-l" />
-            </svg>
           </button>
 
-          <button className="settings-nav-row" onClick={() => setSection("finance")}>
-            <span className="settings-nav-icon">
-              <svg>
-                <use href="#i-wallet" />
-              </svg>
-            </span>
-            <div>
-              <h4>تنظیمات مالی</h4>
-              <p>بودجه، واحد پول و خروجی داده</p>
-            </div>
-            <svg className="settings-nav-arrow">
-              <use href="#i-arrow-l" />
-            </svg>
-          </button>
+          <SettingsRow
+            icon="crown"
+            label="ارتقا به نسخه ویژه!"
+            sub="قابلیت‌های بیشتر برای مدیریت مالی خانواده"
+            tone="gold"
+            trailing={{ type: "chevron" }}
+            onClick={() => setSection("premium")}
+          />
+        </SettingsCard>
 
-          <button className="settings-nav-row" onClick={() => setSection("family")}>
-            <span className="settings-nav-icon">
-              <svg>
-                <use href="#i-home" />
-              </svg>
-            </span>
-            <div>
-              <h4>خانواده</h4>
-              <p>اعضا، نسبت‌ها و دعوت</p>
-            </div>
-            <svg className="settings-nav-arrow">
-              <use href="#i-arrow-l" />
-            </svg>
-          </button>
+        {/* ── خانواده ── */}
+        <SettingsCard title="خانواده">
+          <SettingsRow
+            icon="users"
+            label="اعضای خانواده"
+            trailing={{ type: "counter", count: members.length }}
+            onClick={() => setSection("family")}
+          />
+          <SettingsRow
+            icon="bell"
+            label="رویدادهای مهم"
+            trailing={{ type: "counter", count: events.length }}
+            onClick={() => setSection("events")}
+          />
+        </SettingsCard>
 
-          <button className="settings-nav-row" onClick={() => setSection("events")}>
-            <span className="settings-nav-icon">
-              <svg>
-                <use href="#i-bell" />
-              </svg>
-            </span>
-            <div>
-              <h4>رویدادهای مهم</h4>
-              <p>تولدها و مناسبت‌ها</p>
-            </div>
-            <svg className="settings-nav-arrow">
-              <use href="#i-arrow-l" />
-            </svg>
-          </button>
+        {/* ── پول و بودجه ── */}
+        <SettingsCard title="پول و بودجه">
+          <SettingsRow
+            icon="piggy"
+            label="بودجه ماهانه"
+            trailing={budgetTrailing}
+            onClick={() => setSection("budget")}
+          />
+          {isOwner ? (
+            <SettingsRow
+              icon="swap"
+              label="نمایش مبالغ به ریال"
+              sub="واحد پایه همیشه تومان می‌ماند"
+              trailing={{
+                type: "toggle",
+                on: pendingRial ?? cur === "ریال",
+                onChange: (next) => void toggleRial(next),
+              }}
+            />
+          ) : (
+            <SettingsRow
+              icon="swap"
+              label="واحد نمایش مبالغ"
+              trailing={{ type: "value", value: cur }}
+            />
+          )}
+          <SettingsRow
+            icon="card"
+            label="کارت‌ها و حساب‌ها"
+            trailing={accountsTrailing}
+            onClick={() => setSection("accounts")}
+          />
+        </SettingsCard>
 
-          <button className="settings-nav-row" onClick={() => setSection("app")}>
-            <span className="settings-nav-icon">
-              <svg>
-                <use href="#i-gear" />
-              </svg>
-            </span>
-            <div>
-              <h4>تنظیمات برنامه</h4>
-              <p>تم، به‌روزرسانی و درباره</p>
-            </div>
-            <svg className="settings-nav-arrow">
-              <use href="#i-arrow-l" />
-            </svg>
-          </button>
-        </Card>
+        {/* ── تراکنش‌ها و داده‌ها ── */}
+        <SettingsCard title="تراکنش‌ها و داده‌ها">
+          <SettingsRow
+            icon="repeat"
+            label="تراکنش‌های تکرارشونده"
+            trailing={{ type: "counter", count: scheduledCount }}
+            onClick={() => setSection("scheduled")}
+          />
+          <SettingsRow
+            icon="tag"
+            label="دسته‌ها و برچسب‌ها"
+            trailing={{ type: "counter", count: labelCount }}
+            onClick={() => setSection("labels")}
+          />
+          <SettingsRow
+            icon="download"
+            label="خروجی گرفتن از داده‌ها"
+            trailing={{ type: "chevron" }}
+            onClick={() => setSection("export")}
+          />
+        </SettingsCard>
 
-        <button className="btn-danger-block" onClick={logout}>
-          خروج از حساب
-        </button>
+        {/* ── برنامه ── */}
+        <SettingsCard title="برنامه">
+          <SettingsRow
+            icon="image"
+            label="ظاهر"
+            trailing={{
+              type: "stepper",
+              value: THEMES[themeIdx].label,
+              canDown: themeIdx > 0,
+              canUp: themeIdx < THEMES.length - 1,
+              onStep: (dir) => {
+                const next = THEMES[themeIdx + dir];
+                if (next) void changeTheme(next.value);
+              },
+            }}
+          />
+          <SettingsRow
+            icon="sms"
+            label="پیامک خودکار (اندروید)"
+            sub="ثبت خودکار پیامک‌های بانکی"
+            trailing={smsTrailing}
+            onClick={() => setSection("sms")}
+          />
+          <SettingsRow
+            icon="gear"
+            label="درباره و به‌روزرسانی"
+            trailing={
+              updateReady
+                ? { type: "action", label: "نصب" }
+                : { type: "value", value: `نسخه ${toFa(APP_VERSION)}` }
+            }
+            onClick={() => (updateReady ? applyUpdate() : setSection("about"))}
+          />
+        </SettingsCard>
 
-        <p className="version-tag">خانه یار · نسخه {toFa(APP_VERSION)}</p>
+        {/* ── ناحیه حساب و خطر — هرکدام کارت تک‌ردیفه جدا ── */}
+        <SettingsCard>
+          <SettingsRow
+            icon="logout"
+            label="خروج از حساب"
+            trailing={{ type: "chevron" }}
+            onClick={() => void logout()}
+          />
+        </SettingsCard>
+
+        <SettingsCard>
+          <SettingsRow
+            icon="trash"
+            label="پاک‌کردن داده‌های این دستگاه"
+            sub="خروج + حذف حافظه موقت و نسخه آفلاین"
+            trailing={{ type: "chevron" }}
+            danger
+            onClick={() => void wipeDevice()}
+          />
+        </SettingsCard>
+
+        <p className="set-version">نسخه {toFa(APP_VERSION)}</p>
       </div>
     </section>
   );

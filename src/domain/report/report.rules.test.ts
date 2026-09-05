@@ -11,6 +11,7 @@ import {
   wealthSeries,
   wealthSeriesBetween,
   memberExpenseShare,
+  deltaPercent,
 } from "./report.rules";
 import { isoToJalali } from "@/shared/lib/jalali";
 import type { Transaction } from "../transaction/transaction.types";
@@ -209,5 +210,16 @@ describe("محاسبات مالی گزارش", () => {
     const share = memberExpenseShare(list);
     expect(share[0]).toEqual({ memberId: "m1", amount: 400 });
     expect(share).toHaveLength(2);
+  });
+
+  it("درصد تغییر نسبت به بازه قبل", () => {
+    expect(deltaPercent(150, 100)).toBe(50);
+    expect(deltaPercent(80, 100)).toBe(-20);
+    expect(deltaPercent(100, 100)).toBe(0);
+    /* مبنای صفر قابل مقایسه نیست */
+    expect(deltaPercent(500, 0)).toBeNull();
+    /* گرد کردن متقارن: کاهش و افزایشِ هم‌اندازه، عدد یکسان می‌دهد */
+    expect(deltaPercent(300, 800)).toBe(-63);
+    expect(deltaPercent(1300, 800)).toBe(63);
   });
 });

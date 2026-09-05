@@ -42,3 +42,49 @@ export function monthCategorySpend(
   }
   return spend;
 }
+
+/** ظرفیت خرج باقیمانده ماه — جمع سقف بودجه‌ها منهای مصرف همان دسته‌ها */
+export interface SpendCapacity {
+  /** حداقل یک بودجه فعال تعیین شده است */
+  active: boolean;
+  /** جمع سقف بودجه‌های فعال */
+  cap: number;
+  /** جمع مصرف دسته‌های بودجه‌دار در این ماه */
+  spent: number;
+  /** cap − spent — منفی یعنی عبور از سقف */
+  remaining: number;
+  /** درصد مصرف — سقف ۹۹۹ */
+  percent: number;
+  level: BudgetLevel;
+  /** روزهای مانده تا پایان ماه (شامل امروز) */
+  daysLeft: number;
+  /** سهم روزانه باقیمانده — عبور از سقف → صفر */
+  perDay: number;
+}
+
+export function spendCapacity(
+  budgets: { category: string; amount: number }[],
+  spend: Map<string, number>,
+  daysLeft: number,
+): SpendCapacity {
+  let cap = 0;
+  let spent = 0;
+  for (const b of budgets) {
+    if (!b.amount || b.amount <= 0) continue;
+    cap += b.amount;
+    spent += spend.get(b.category) ?? 0;
+  }
+  const st = budgetStatus(cap, spent);
+  const remaining = cap - spent;
+  const days = Math.max(1, daysLeft);
+  return {
+    active: st.active,
+    cap,
+    spent,
+    remaining,
+    percent: st.percent,
+    level: st.level,
+    daysLeft: days,
+    perDay: remaining > 0 ? Math.floor(remaining / days) : 0,
+  };
+}

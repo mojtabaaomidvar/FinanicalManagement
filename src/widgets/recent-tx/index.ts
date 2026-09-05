@@ -1,0 +1,1 @@
+export { RecentTxWidget } from "./RecentTxWidget";

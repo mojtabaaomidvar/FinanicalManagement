@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { validateTransaction, sortTxDesc, txsInJalaliMonth } from "./transaction.rules";
+import {
+  validateTransaction,
+  sortTxDesc,
+  txsInJalaliMonth,
+  txsInJalaliMonthUpToDay,
+} from "./transaction.rules";
 import type { Transaction } from "./transaction.types";
 
 const ok = (over: Partial<Parameters<typeof validateTransaction>[0]> = {}) =>
@@ -146,5 +151,25 @@ describe("txsInJalaliMonth", () => {
     const list = [tx("a", "2025-09-06", "x"), tx("b", "2025-09-23", "y")];
     expect(txsInJalaliMonth(list, 1404, 6).map((t) => t.id)).toEqual(["a"]);
     expect(txsInJalaliMonth(list, 1404, 7).map((t) => t.id)).toEqual(["b"]);
+  });
+});
+
+describe("txsInJalaliMonthUpToDay", () => {
+  it("تا روز مشخص — شامل خودِ روز", () => {
+    /* 2025-08-23 = 1404/06/01 ؛ 2025-09-06 = 1404/06/15 ؛ 2025-09-11 = 1404/06/20 */
+    const list = [
+      tx("a", "2025-08-23", "x"),
+      tx("b", "2025-09-06", "y"),
+      tx("c", "2025-09-11", "z"),
+    ];
+    expect(txsInJalaliMonthUpToDay(list, 1404, 6, 15).map((t) => t.id)).toEqual([
+      "a",
+      "b",
+    ]);
+    expect(txsInJalaliMonthUpToDay(list, 1404, 6, 31).map((t) => t.id)).toEqual([
+      "a",
+      "b",
+      "c",
+    ]);
   });
 });

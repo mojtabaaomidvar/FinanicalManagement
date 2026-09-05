@@ -25,7 +25,7 @@ export function useTheme(member: Member | null, useCases: UseCases | null) {
       const resolved = resolveTheme(themeMode);
       document.documentElement.dataset.theme = resolved;
       const meta = document.querySelector('meta[name="theme-color"]');
-      if (meta) meta.setAttribute("content", resolved === "dark" ? "#0d1b2a" : "#f9fafb");
+      if (meta) meta.setAttribute("content", resolved === "dark" ? "#0d1b2a" : "#f5f7f4");
     };
     apply();
     if (themeMode !== "auto") return;

@@ -1,8 +1,7 @@
-/* ویجت دایره‌های بودجه — حلقه پیشرفت پاستلی هر دسته + افزودن بودجه */
+/* ویجت بودجه دسته‌ها — نوار افقی حلقه‌های پیشرفت + افزودن بودجه */
 
 import { useMemo } from "react";
 import { useApp } from "@/app/providers/AppProvider";
-import { Card } from "@/shared/ui";
 import { buildCategoryResolver } from "@/domain/category/resolve";
 import { categoryColor } from "@/domain/category/category.colors";
 import { budgetStatus, monthCategorySpend } from "@/domain/budget/budget.rules";
@@ -42,14 +41,14 @@ export function BudgetCirclesWidget({ onManage }: { onManage: () => void }) {
   }, [budgets, txs, jy, jm, resolve]);
 
   return (
-    <Card
-      title="بودجه‌های دسته‌ها"
-      action={
+    <section className="strip">
+      <div className="strip-head">
+        <h3 className="strip-title">بودجه دسته‌ها</h3>
         <button className="link-btn" onClick={onManage}>
           مدیریت
         </button>
-      }
-    >
+      </div>
+
       <div className="budget-circles">
         {items.map((it) => (
           <button
@@ -67,9 +66,6 @@ export function BudgetCirclesWidget({ onManage }: { onManage: () => void }) {
                 r={R}
                 stroke={it.color}
                 strokeDasharray={`${(Math.min(it.st.percent, 100) / 100) * CIRC} ${CIRC}`}
-                style={{
-                  transition: "stroke-dasharray 0.6s var(--ease-out)",
-                }}
               />
               <text x="32" y="37" className="ring-pct">
                 {toFa(Math.min(it.st.percent, 999))}٪
@@ -79,30 +75,25 @@ export function BudgetCirclesWidget({ onManage }: { onManage: () => void }) {
             <span>
               {formatAmount(toDisplay(it.spent, cur))} از{" "}
               {formatAmount(toDisplay(it.cap, cur))}
-              <span className="cur-tag">{cur}</span>
             </span>
           </button>
         ))}
 
-        <button
-          type="button"
-          className="budget-circle add"
-          onClick={onManage}
-        >
+        <button type="button" className="budget-circle add" onClick={onManage}>
           <span className="budget-add-plus">
             <svg>
               <use href="#i-plus" />
             </svg>
           </span>
-          <b>افزودن بودجه جدید</b>
+          <b>افزودن بودجه</b>
         </button>
       </div>
 
       {!items.length ? (
         <p className="budget-circles-hint">
-          برای هر دسته هزینه یک سقف ماهانه تعیین کن تا مصرفش را همین‌جا ببینی
+          برای هر دسته هزینه یک سقف ماهانه تعیین کنید تا مصرفش را همین‌جا ببینید
         </p>
       ) : null}
-    </Card>
+    </section>
   );
 }

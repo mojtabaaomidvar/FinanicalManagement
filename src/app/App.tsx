@@ -176,7 +176,6 @@ function MainShell({
         {route === "dashboard" ? (
           <DashboardPage
             form={form}
-            onImported={bumpRefresh}
             onNavTransactions={() => nav("transactions")}
             onNavBudgets={() => nav("budgets")}
             onOpenFilters={openFilters}
@@ -197,7 +196,7 @@ function MainShell({
         {route === "settings" ? <SettingsPage /> : null}
       </div>
 
-      <TransactionFormFeature form={form} />
+      <TransactionFormFeature form={form} onImported={bumpRefresh} />
       <PendingSmsFeature refreshKey={refreshKey} />
 
       {/* داک پایین — تب‌بار تمام‌عرض + FAB پلاس شناور بالای نوار */}
