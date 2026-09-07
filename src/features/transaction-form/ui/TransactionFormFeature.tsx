@@ -78,6 +78,13 @@ const AMOUNT_CAPS: Record<string, string> = {
   transfer: "مبلغ انتقال",
 };
 
+/* مثالِ توضیح بسته به نوع تراکنش فرق می‌کند — مثال هزینه با درآمد یکی نیست */
+const NOTE_PLACEHOLDERS: Record<string, string> = {
+  expense: "مثلاً: خرید نان و شیر (اختیاری)…",
+  income: "مثلاً: حقوق شهریور (اختیاری)…",
+  transfer: "توضیح انتقال (اختیاری)…",
+};
+
 /** رنگ تم شیت — رنگ دسته؛ خنثی قبل از انتخاب؛ منت برای انتقال */
 function sheetBaseColor(type: string, categoryId: string): string {
   if (type === "transfer") return categoryColor("transfer");
@@ -563,7 +570,9 @@ export function TransactionFormFeature({
               <textarea
                 className="tx-desc-input"
                 rows={2}
-                placeholder="توضیح تراکنش (اختیاری)…"
+                placeholder={
+                  NOTE_PLACEHOLDERS[m.form.type] ?? "توضیح تراکنش (اختیاری)…"
+                }
                 value={m.form.note}
                 onChange={(e) => m.setForm({ ...m.form, note: e.target.value })}
               />

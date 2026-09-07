@@ -31,9 +31,12 @@ export const CATEGORIES: Category[] = [
   { id: "sport", name: "ورزش", icon: "i-dumbbell", type: "expense" },
   { id: "pet", name: "حیوانات خانگی", icon: "i-paw", type: "expense" },
 
-  /* ── درآمد (۵) ── */
+  /* ── درآمد (۸) ── */
   { id: "salary", name: "حقوق", icon: "i-salary", type: "income" },
   { id: "business", name: "کسب‌وکار", icon: "i-briefcase", type: "income" },
+  { id: "rent-home", name: "اجاره مسکن", icon: "i-home-i", type: "income" },
+  { id: "rent-shop", name: "اجاره مغازه", icon: "i-card", type: "income" },
+  { id: "ride", name: "تاکسی اینترنتی", icon: "i-car", type: "income" },
   { id: "invest", name: "سرمایه‌گذاری", icon: "i-piggy", type: "income" },
   { id: "sale", name: "فروش دارایی", icon: "i-tag", type: "income" },
   { id: "gift", name: "هدیه دریافتی", icon: "i-gift", type: "income" },
@@ -47,6 +50,20 @@ export const LEGACY_CATEGORIES: Category[] = [
   { id: "other-e", name: "متفرقه", icon: "i-more", type: "expense" },
   { id: "other-i", name: "متفرقه", icon: "i-more", type: "income" },
 ];
+
+/* دسته‌های سیستمی — خودِ اپ می‌سازدشان، نه کاربر. در فهرست انتخاب دسته
+   دیده نمی‌شوند (categoriesFor برنمی‌گرداندشان) ولی معتبرند و در لیست
+   تراکنش‌ها با همین نام نشان داده می‌شوند. «تغییر دستی موجودی» وقتی ساخته
+   می‌شود که کاربر موجودی کارت/کیف‌پول را دستی اصلاح کند. */
+export const SYSTEM_CATEGORIES: Category[] = [
+  { id: "adjust-i", name: "تغییر دستی موجودی", icon: "i-edit", type: "income" },
+  { id: "adjust-e", name: "تغییر دستی موجودی", icon: "i-edit", type: "expense" },
+];
+
+/** شناسهٔ دستهٔ «تغییر دستی موجودی» بر اساس علامت تغییر */
+export function balanceAdjustCategory(delta: number): string {
+  return delta >= 0 ? "adjust-i" : "adjust-e";
+}
 
 /** دسته پیش‌فرض برای فرم جدید — اولین دسته از نوع (متفرقه حذف شده است) */
 export function defaultCategoryOf(type: TxType): Category {
@@ -62,6 +79,7 @@ export function categoriesFor(type: TxType): Category[] {
 export function categoryById(id: string): Category {
   return (
     CATEGORIES.find((c) => c.id === id) ??
+    SYSTEM_CATEGORIES.find((c) => c.id === id) ??
     LEGACY_CATEGORIES.find((c) => c.id === id) ?? {
       id,
       name: id,
@@ -72,5 +90,8 @@ export function categoryById(id: string): Category {
 }
 
 export function isValidCategory(id: string, type: TxType): boolean {
-  return CATEGORIES.some((c) => c.id === id && c.type === type);
+  return (
+    CATEGORIES.some((c) => c.id === id && c.type === type) ||
+    SYSTEM_CATEGORIES.some((c) => c.id === id && c.type === type)
+  );
 }

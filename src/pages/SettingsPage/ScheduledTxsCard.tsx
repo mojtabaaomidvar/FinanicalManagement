@@ -45,6 +45,12 @@ const REPEAT_FA: Record<string, string> = {
   yearly: "سالانه",
 };
 
+/* مثالِ توضیح بسته به نوع فرق می‌کند — تعهد دوره‌ای هزینه با درآمد یکی نیست */
+const NOTE_HINT: Record<SchedType, string> = {
+  expense: "مثلاً: قسط وام مسکن",
+  income: "مثلاً: حقوق ماهانه یا اجارهٔ مغازه",
+};
+
 export function ScheduledTxsCard() {
   const { useCases, txs, cur, member, customCategories, refreshData } =
     useApp();
@@ -168,10 +174,12 @@ export function ScheduledTxsCard() {
   return (
     <>
       <Card title="تراکنش‌های زمان‌بندی‌شده">
-        <button type="button" className="btn-primary btn-block" onClick={openNew}>
-          <svg>
-            <use href="#i-plus" />
-          </svg>
+        <button type="button" className="sched-add" onClick={openNew}>
+          <span className="sched-add-ico">
+            <svg>
+              <use href="#i-plus" />
+            </svg>
+          </span>
           افزودن تراکنش تکرارشونده
         </button>
 
@@ -235,7 +243,7 @@ export function ScheduledTxsCard() {
               <TextInput
                 value={note}
                 onChange={setNote}
-                placeholder="مثلاً: قسط وام مسکن"
+                placeholder={NOTE_HINT[type]}
                 maxLength={60}
               />
             </Field>

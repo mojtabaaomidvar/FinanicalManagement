@@ -608,10 +608,10 @@ export function SettingsPage() {
               <span className="set-row-label">ظاهر</span>
               <span className="set-row-sub">
                 {themeMode === "auto"
-                  ? "خودکار بر اساس ساعت شبانه‌روز"
+                  ? "خودکار"
                   : themeMode === "dark"
-                    ? "تم تیره همیشه روشن است"
-                    : "تم روشن همیشه فعال است"}
+                    ? "تیره"
+                    : "روشن"}
               </span>
             </span>
             <div
@@ -622,7 +622,9 @@ export function SettingsPage() {
               <span
                 className="set-theme-pill"
                 aria-hidden="true"
-                style={{ insetInlineStart: `calc(${themeIdx} * 33.333% + 3px)` }}
+                style={{
+                  insetInlineStart: `calc(${themeIdx} * 33.333% + 3px)`,
+                }}
               />
               {THEMES.map((t) => (
                 <button

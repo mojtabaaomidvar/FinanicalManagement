@@ -9,8 +9,10 @@ import { bankOfCard, cardMatchesBank } from "@/shared/lib/banks";
 import { digitsOf, formatCardFa } from "@/domain/account/account.rules";
 import type { Account, AccountKind } from "@/domain/account/account.types";
 import { accountBalances } from "@/domain/report/report.rules";
-import { formatAmount, parseAmountInput } from "@/shared/lib/format";
+import { balanceAdjustCategory } from "@/domain/category/category.catalog";
+import { formatAmount, nowTime, parseAmountInput } from "@/shared/lib/format";
 import { fromDisplay, toDisplay } from "@/shared/lib/currency";
+import { jalaliToIso, today } from "@/shared/lib/jalali";
 
 export const WALLET_PRESETS = [
   "کیف پول نقدی",
@@ -180,12 +182,12 @@ export function useAccountsModel() {
     setBusy(true);
     try {
       if (editing) {
-        /* کاربر «موجودی فعلی» را وارد می‌کند، ولی چیزی که ذخیره می‌شود
-           موجودی اولیه است. اثر تراکنش‌ها = موجودی فعلی − موجودی اولیه؛
-           پس موجودی اولیه‌ی جدید = هدف − همان اثر. اگر تراکنش‌ها از هدف
-           بیشتر باشند این عدد منفی می‌شود و سرور هم منفی را می‌پذیرد. */
-        const txEffect = editingBalance - editing.initialBalance;
-        const target = fromDisplay(signedAmount(form), cur);
+        /* فیلدهای متنی حساب ذخیره می‌شوند؛ «موجودی اولیه» دست نمی‌خورد.
+           تغییرِ موجودی دیگر initialBalance را بازنویسی نمی‌کند — به‌جایش
+           یک تراکنش «تغییر دستی موجودی» به تاریخ/ساعتِ همین لحظه ثبت
+           می‌شود تا در فهرست تراکنش‌ها، گزارش‌ها و موجودی دیده شود. چون
+           موجودی = اولیه + اثر تراکنش‌ها، افزودن تراکنشی به‌اندازهٔ تفاوت،
+           موجودی را دقیقاً به عددِ هدف می‌رساند. */
         await useCases!.updateAccount.execute({
           id: editing.id,
           kind: editing.kind,
@@ -193,8 +195,26 @@ export function useAccountsModel() {
           bank: editing.kind === "bank" ? form.bank || null : null,
           cardNumber:
             editing.kind === "bank" ? form.cardNo.trim() || null : null,
-          initialBalance: balanceChanged ? target - txEffect : undefined,
         });
+
+        if (balanceChanged) {
+          /* تفاوت در واحدِ نمایش گرفته می‌شود تا با آنچه کاربر می‌بیند مو
+             نزند، بعد به واحد پایه تبدیل می‌شود. */
+          const currentDisplay = Math.round(toDisplay(editingBalance, cur));
+          const deltaDisplay = signedAmount(form) - currentDisplay;
+          if (deltaDisplay !== 0) {
+            await useCases!.addTransaction.execute({
+              memberId: editing.memberId || member?.id || "",
+              type: deltaDisplay >= 0 ? "income" : "expense",
+              amount: fromDisplay(Math.abs(deltaDisplay), cur),
+              category: balanceAdjustCategory(deltaDisplay),
+              date: jalaliToIso(today()),
+              time: nowTime(),
+              accountId: editing.id,
+              note: null,
+            });
+          }
+        }
         show("ذخیره شد");
       } else {
         await useCases!.addAccount.execute({

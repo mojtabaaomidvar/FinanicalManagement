@@ -2651,6 +2651,47 @@ button:active {
   height: 15px;
 }
 
+/* دکمهٔ افزودن تراکنش تکرارشونده — جایگزین دکمهٔ تمام‌عرضِ تو‌پُر و سنگینِ
+   قبلی: یک ردیفِ افزودنِ سبک با قابِ خط‌چین و آیکونِ دایره‌ای، هم‌سبکِ اپ */
+.sched-add {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border: 1.5px dashed color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--accent-soft) 45%, transparent);
+  color: var(--accent-strong);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+.sched-add:active {
+  background: color-mix(in srgb, var(--accent-soft) 70%, transparent);
+  border-color: var(--accent);
+}
+.sched-add-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: #fff;
+  flex-shrink: 0;
+}
+.sched-add-ico svg {
+  width: 14px;
+  height: 14px;
+}
+
 /* فرم تراکنش تکرارشونده — جمع‌وجور: مبلغ شاخص، جفت‌فیلدها، قابِ زمان‌بندی */
 .sched-form {
   display: flex;
