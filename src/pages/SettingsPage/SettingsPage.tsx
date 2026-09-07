@@ -53,8 +53,7 @@ type SettingsSection =
   | "labels"
   | "export"
   | "sms"
-  | "about"
-  | "update";
+  | "about";
 
 /* ترتیب سگمنت «ظاهر» — روشن → خودکار → تیره */
 const THEMES: { value: ThemeMode; label: string }[] = [
@@ -89,9 +88,12 @@ export function SettingsPage() {
   } = useApp();
   const { show } = useToast();
   const { themeMode, changeTheme } = useTheme(member, useCases);
-  const { updateReady, applyUpdate } = usePwaUpdateState();
+  const { updateReady, applyUpdate, checkForUpdate } = usePwaUpdateState();
 
   const [section, setSection] = useState<SettingsSection | null>(null);
+  /* بررسی به‌روزرسانی درجا انجام می‌شود (بدون زیرصفحه) — این کلید فقط
+     برای نمایش «در حال بررسی…» روی همان ردیف است */
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
 
   const isOwner = member?.role === "owner";
 
@@ -182,6 +184,31 @@ export function SettingsPage() {
     location.reload();
   }
 
+  /** ردیف «به‌روزرسانی» — همه‌چیز درجا انجام می‌شود، بدون باز شدن زیرصفحه.
+      اگر نسخهٔ تازه آماده باشد → نصب؛ وگرنه همان‌جا بررسی می‌کند و نتیجه را
+      با یک پیام (Toast) می‌گوید. وقتی نسخه‌ای پیدا شود، updateReady روشن
+      می‌شود و برچسب ردیف خودبه‌خود به «نصب» تغییر می‌کند. */
+  async function onUpdateRow() {
+    if (updateReady) {
+      applyUpdate();
+      return;
+    }
+    if (checkingUpdate) return;
+    setCheckingUpdate(true);
+    try {
+      const found = await checkForUpdate();
+      show(
+        found
+          ? "نسخهٔ جدید آماده شد — «نصب» را بزنید"
+          : "شما آخرین نسخه را دارید",
+      );
+    } catch {
+      show("بررسی به‌روزرسانی ناموفق بود");
+    } finally {
+      setCheckingUpdate(false);
+    }
+  }
+
   /* §۶.۲ — تابع wipeDevice بازنشسته شد (ردیفش از UI حذف شد چون با «حذف
      حساب» اشتباه گرفته می‌شد). کد بدون حذف نگه داشته می‌شود تا اگر بعداً
      «پاک‌سازی دستگاه» لازم شد، از همین‌جا بازگردد:
@@ -217,6 +244,14 @@ export function SettingsPage() {
     [txs],
   );
 
+  /* تعداد کل دسته‌های قابل‌استفاده = کاتالوگ پیش‌فرض + دسته‌های دلخواه.
+     چون همیشه دسته‌های پیش‌فرض هست، این شمارنده هیچ‌وقت صفر نمی‌ماند و
+     ردیف «دسته‌ها» همیشه یک عدد نشان می‌دهد (نه واژهٔ «افزودن»). */
+  const categoryCount = useMemo(
+    () => CATEGORIES.length + customCategories.length,
+    [customCategories],
+  );
+
   const back = () => setSection(null);
 
   /* بازگشتِ دکمه/سوایپ در زیرصفحهٔ باز = برگشت به فهرست تنظیمات */
@@ -233,7 +268,7 @@ export function SettingsPage() {
 
   if (section === "premium") {
     return (
-      <SettingsSubPage title="نسخه ویژه" onBack={back}>
+      <SettingsSubPage title="نسخه پرمیوم" onBack={back}>
         <PremiumCard />
       </SettingsSubPage>
     );
@@ -390,16 +425,12 @@ export function SettingsPage() {
     );
   }
 
-  /* ── به‌روزرسانی — جدا از «درباره» (طبق بریف §۶.۱) ── */
-  if (section === "update") {
-    return (
-      <SettingsSubPage title="به‌روزرسانی" onBack={back}>
-        <VersionCard />
-      </SettingsSubPage>
-    );
-  }
+  /* ── به‌روزرسانی دیگر زیرصفحه ندارد (به‌خواست کاربر): بررسی و نصب
+     مستقیماً روی ردیفِ «به‌روزرسانی» در فهرست اصلی انجام می‌شود. کارت
+     VersionCard قبلی بازنشسته شد — پایین همین فایل بدون حذف نگه داشته
+     شده تا اگر روزی زیرصفحه دوباره لازم شد، از همان‌جا برگردد. ── */
 
-  /* ── درباره — فقط هویت برنامه؛ به‌روزرسانی زیرصفحهٔ جداست ── */
+  /* ── درباره — فقط هویت برنامه؛ به‌روزرسانی زیرصفحه‌ای ندارد ── */
   if (section === "about") {
     return (
       <SettingsSubPage title="درباره" onBack={back}>
@@ -569,11 +600,12 @@ export function SettingsPage() {
           <SettingsRow
             icon="tag"
             label="دسته‌ها"
-            trailing={
+            sub={
               customCategories.length
-                ? { type: "counter", count: customCategories.length }
-                : { type: "action", label: "افزودن" }
+                ? `${toFa(customCategories.length)} دستهٔ دلخواه شما`
+                : "دستهٔ دلخواه بسازید"
             }
+            trailing={{ type: "counter", count: categoryCount }}
             onClick={() => setSection("categories")}
           />
           <SettingsRow
@@ -651,17 +683,22 @@ export function SettingsPage() {
             trailing={smsTrailing}
             onClick={() => setSection("sms")}
           />
-          {/* به‌روزرسانی و درباره دو ردیفِ جدا شدند (§۶.۱): وقتی نسخهٔ
-              تازه آماده است، ردیف به‌روزرسانی خودش «نصب» را نشان می‌دهد. */}
+          {/* به‌روزرسانی و درباره دو ردیفِ جدا شدند (§۶.۱). بررسی/نصب همه
+              درجا روی همین ردیف انجام می‌شود — دیگر زیرصفحه‌ای باز نمی‌شود.
+              نسخه و شناسهٔ ساخت هم زیرِ همین ردیف نوشته شده تا هنگام OTA
+              بشود نسخهٔ روی دستگاه را همان‌جا تطبیق داد. */}
           <SettingsRow
             icon="download"
             label="به‌روزرسانی"
+            sub={`نسخهٔ ${toFa(APP_VERSION)} · شناسهٔ ساخت ${toFa(buildId())}`}
             trailing={
               updateReady
                 ? { type: "action", label: "نصب" }
-                : { type: "value", value: `نسخه ${toFa(APP_VERSION)}` }
+                : checkingUpdate
+                  ? { type: "value", value: "در حال بررسی…" }
+                  : { type: "action", label: "بررسی" }
             }
-            onClick={() => (updateReady ? applyUpdate() : setSection("update"))}
+            onClick={() => void onUpdateRow()}
           />
           <SettingsRow
             icon="home-i"
@@ -749,7 +786,12 @@ export function SettingsPage() {
   );
 }
 
-/* کارت نسخه و به‌روزرسانی — وضعیت نسخه فعلی + بررسی دستی */
+/* ── بازنشسته (به‌خواست کاربر): «کارت نسخه و به‌روزرسانی» که پیش‌تر در یک
+   زیرصفحهٔ جدا باز می‌شد. حالا بررسی/نصبِ به‌روزرسانی درجا روی ردیفِ
+   «به‌روزرسانی» در فهرست تنظیمات انجام می‌شود و این زیرصفحه/کارت لازم
+   نیست. بدون حذف نگه داشته شده تا اگر روزی زیرصفحه دوباره خواسته شد،
+   از همین‌جا بازگردد:
+
 function VersionCard() {
   const { updateReady, applyUpdate, checkForUpdate } = usePwaUpdateState();
   const { show } = useToast();
@@ -799,13 +841,13 @@ function VersionCard() {
           </button>
         )}
       </div>
-      {/* شناسه ساخت نسخه‌ای که همین حالا روی دستگاه اجرا می‌شود */}
       <p className="modal-sub" style={{ marginTop: 10 }}>
         شناسه ساخت: {toFa(buildId())}
       </p>
     </Card>
   );
 }
+── */
 
 /* ارتقا به نسخه‌ی پرمیوم — ورودی مشخص */
 function PremiumCard() {

@@ -91,7 +91,10 @@ export function CategoriesCard() {
 
   return (
     <>
-      <Card title="دسته‌های خودم">
+      <Card
+        title="دسته‌های خودم"
+        action={<span className="badge">{toFa(mine.length)} دسته</span>}
+      >
         <Segmented value={type} onChange={setType} options={TYPE_TABS} />
 
         <div className="chip-adder">
@@ -151,7 +154,10 @@ export function CategoriesCard() {
         </p>
       </Card>
 
-      <Card title="دسته‌های پیش‌فرض">
+      <Card
+        title="دسته‌های پیش‌فرض"
+        action={<span className="badge">{toFa(builtin.length)} دسته</span>}
+      >
         <div className="label-chips">
           {builtin.map((c) => (
             <span className="label-chip" key={c.id}>
