@@ -66,6 +66,12 @@ export function useTxFormModel(
   const [form, setForm] = useState<TxFormState>(defaults());
   const [photos, setPhotos] = useState<TxPhotoItem[]>([]);
   const [busy, setBusy] = useState(false);
+  /* وقتی فرم برای «تحققِ» یک سررسیدِ تراکنش تکرارشونده باز شده باشد:
+     تراکنش واقعیِ جدید ثبت می‌شود و بعد همان سررسید علامت رسیدگی می‌خورد
+     تا دوباره پرسیده نشود. (بخش ۳.۲) */
+  const [occurrence, setOccurrence] = useState<
+    { recurringId: string; dueDate: string } | null
+  >(null);
   /** ارز ورودی مبلغ — مستقل از ارز اصلی، همان لحظه ثبت */
   const [entryCurrency, setEntryCurrency] = useState<string>(currency);
 
@@ -88,6 +94,7 @@ export function useTxFormModel(
 
   function openNew() {
     setEditing(null);
+    setOccurrence(null);
     setForm(defaults());
     setPhotos([]);
     setEntryCurrency(currency);
@@ -96,6 +103,7 @@ export function useTxFormModel(
 
   function openEdit(tx: Transaction) {
     setEditing(tx);
+    setOccurrence(null);
     setForm({
       type: tx.type,
       amount: formatAmount(toDisplay(tx.amount, currency)),
@@ -118,6 +126,33 @@ export function useTxFormModel(
         caption: p.caption ?? "",
       })),
     );
+    setEntryCurrency(currency);
+    setOpen(true);
+  }
+
+  /** فرم را برای «تحققِ» یک سررسیدِ تراکنش تکرارشونده باز می‌کند (بخش ۳.۲).
+      یک تراکنش واقعیِ تازه ثبت می‌شود (نه ویرایش): مبلغ/دسته/توضیح از الگو
+      پیش‌پر می‌شوند، ولی «تاریخ» عمداً روی امروز است نه سررسید — چون ممکن
+      است پرداخت دیرتر انجام شده باشد و کاربر باید تاریخ/ساعت را خودش نهایی
+      کند. repeat=none چون این رخداد یک تراکنش عادی است، نه تعهدی دوباره. */
+  function openForOccurrence(tx: Transaction, dueDate: string) {
+    setEditing(null);
+    setOccurrence({ recurringId: tx.id, dueDate });
+    setForm({
+      type: tx.type,
+      amount: formatAmount(toDisplay(tx.amount, currency)),
+      categoryId: tx.category,
+      date: formatISO(today()),
+      time: nowTime(),
+      memberId: tx.memberId,
+      note: tx.note ?? "",
+      accountId: tx.accountId ?? "",
+      toAccountId: "",
+      label: subcategories.find((s) => s.id === tx.subcategoryId)?.name ?? "",
+      repeat: "none",
+      repeatEnd: "",
+    });
+    setPhotos([]);
     setEntryCurrency(currency);
     setOpen(true);
   }
@@ -158,8 +193,10 @@ export function useTxFormModel(
       return notify("دسته‌بندی را انتخاب کنید");
     }
 
-    /* حساب الزامی — با پیام دقیق */
-    if (!form.accountId) {
+    /* حساب الزامی — با پیام دقیق. استثنا: تحققِ سررسیدِ تراکنش تکرارشونده
+       (بخش ۳.۱ حساب را برای تعهد دوره‌ای اختیاری کرد؛ اینجا هم بن‌بست
+       «خانواده بدون حساب» پیش نیاید) */
+    if (!form.accountId && !occurrence) {
       if (!accountsCount) {
         return notify(
           "هنوز هیچ کارت/حسابی ثبت نشده — ابتدا از تب «حساب‌ها» یک حساب اضافه کنید",
@@ -227,7 +264,7 @@ export function useTxFormModel(
       date: jalaliToIso(parsedDate),
       time: form.time || null,
       note: form.note.trim() || null,
-      accountId: form.accountId,
+      accountId: form.accountId || null,
       toAccountId: isTransfer ? form.toAccountId : null,
       subcategoryId: isTransfer ? null : subcategoryId,
       repeat,
@@ -244,6 +281,22 @@ export function useTxFormModel(
         const created = await useCases.addTransaction.execute(input);
         txId = created.id;
         notify("تراکنش ثبت شد");
+
+        /* تحققِ سررسید تراکنش تکرارشونده: بعد از ثبتِ موفقِ تراکنش واقعی،
+           همان سررسید علامت رسیدگی می‌خورد تا دوباره پرسیده نشود. تلاشِ
+           بهترین‌کوشش است؛ اگر ناموفق شود تراکنش ثبت‌شده باقی می‌ماند و
+           سررسید دوباره ظاهر می‌شود (کاربر می‌تواند «رد» بزند) — بهتر از
+           گم‌شدنِ بی‌صدای رکورد. */
+        if (occurrence) {
+          try {
+            await useCases.markRecurringOccurrence.execute(
+              occurrence.recurringId,
+              occurrence.dueDate,
+            );
+          } catch {
+            /* بی‌صدا — رکورد ثبت شده؛ سررسید صرفاً ممکن است دوباره پرسیده شود */
+          }
+        }
       }
 
       /* تصاویر: کپن‌های ویرایش‌شده + صف آپلود */
@@ -306,6 +359,7 @@ export function useTxFormModel(
     busy,
     openNew,
     openEdit,
+    openForOccurrence,
     setType,
     save,
     remove,

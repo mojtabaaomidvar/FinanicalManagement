@@ -26,7 +26,6 @@ export class CheckPreRegisteredUseCase {
   ): Promise<{
     preRegistered: boolean;
     familyName: string | null;
-    memberName: string | null;
   }> {
     return this.auth.checkPreRegistered(phone);
   }
@@ -55,8 +54,12 @@ export class CheckPasswordUseCase {
 
 export class LoginWithOtpUseCase {
   constructor(private readonly auth: AuthRepository) {}
-  async execute(phone: string, code: string | null): Promise<AuthResult> {
-    const r = await this.auth.loginWithOtp(phone, code);
+  async execute(
+    phone: string,
+    password: string,
+    code: string | null,
+  ): Promise<AuthResult> {
+    const r = await this.auth.loginWithOtp(phone, password, code);
     return r;
   }
 }
@@ -131,5 +134,37 @@ export class LogoutUseCase {
     const stored = await this.session.load();
     if (stored?.token) await this.auth.logout(stored.token);
     await this.session.clear();
+  }
+}
+
+/** خروج از همه دستگاه‌ها — همه نشست‌های این عضو باطل می‌شوند */
+export class LogoutAllUseCase {
+  constructor(
+    private readonly session: SessionStore,
+    private readonly auth: AuthRepository,
+  ) {}
+  async execute(): Promise<void> {
+    const stored = await this.session.load();
+    if (stored?.token) {
+      try {
+        await this.auth.logoutAll(stored.token);
+      } catch {
+        /* حتی اگر سرور پاسخ ندهد، نشست محلی پاک می‌شود */
+      }
+    }
+    await this.session.clear();
+  }
+}
+
+/** تغییر رمز عبور — نشست فعلی باقی می‌ماند، بقیه باطل می‌شوند */
+export class ChangePasswordUseCase {
+  constructor(
+    private readonly session: SessionStore,
+    private readonly auth: AuthRepository,
+  ) {}
+  async execute(currentPassword: string, newPassword: string): Promise<void> {
+    const stored = await this.session.load();
+    if (!stored?.token) throw new Error("NO_SESSION");
+    await this.auth.changePassword(stored.token, currentPassword, newPassword);
   }
 }

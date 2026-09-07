@@ -1,6 +1,7 @@
 export { Icon } from "./Icon";
 export { Card } from "./Card";
 export { Modal } from "./Modal";
+export { FitText } from "./FitText";
 export {
   Field,
   TextInput,

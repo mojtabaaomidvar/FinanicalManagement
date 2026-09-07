@@ -50,7 +50,7 @@ export function DashboardSummaryWidget({
   form: TxFormModel;
   onNavTransactions: () => void;
 }) {
-  const { txs, members, family, subcategories, customCategories } = useApp();
+  const { txs, members, cur, subcategories, customCategories } = useApp();
   const [jy, jm] = today();
   const [chartKind, setChartKind] = useState<ChartKind>(loadChartKind);
 
@@ -70,7 +70,6 @@ export function DashboardSummaryWidget({
   }, [txs, jy, jm, resolve]);
 
   const palette = themeColors().palette;
-  const cur = family?.currency ?? "تومان";
   const slices = data.cats.slice(0, 8).map((c, i) => ({
     label: c.name,
     value: toDisplay(c.value, cur),
@@ -129,7 +128,6 @@ export function DashboardSummaryWidget({
             <b
               className={`fin-cell-value net ${monthNet >= 0 ? "income" : "expense"}`}
             >
-              {monthNet >= 0 ? "＋" : "−"}
               {formatAmount(toDisplay(Math.abs(monthNet), cur))}
               <span className="cur-tag">{cur}</span>
             </b>
@@ -219,13 +217,14 @@ export function DashboardSummaryWidget({
               <TxRow
                 key={t.id}
                 tx={t}
-                currency={family?.currency ?? ""}
+                currency={cur}
                 memberName={
                   members.find((x) => x.id === t.memberId)?.name ?? "—"
                 }
                 subcategoryName={
                   t.subcategoryId
-                    ? subcategories.find((s) => s.id === t.subcategoryId)?.name ?? null
+                    ? (subcategories.find((s) => s.id === t.subcategoryId)
+                        ?.name ?? null)
                     : null
                 }
                 resolve={resolve}

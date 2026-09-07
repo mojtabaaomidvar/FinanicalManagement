@@ -1,7 +1,7 @@
 -- ═══════════════════════════════════════════════════════════
 -- مالی من — اسکیمای Supabase (PostgreSQL) — نسخه ۳.۵
 -- ورود با شماره موبایل + رمز (کد پیامکی اختیاری) + کارت‌ها/حساب‌ها + پل پیامک + حساب منشا/مقصد تراکنش
--- بدون نیاز به هیچ افزونه‌ای (pgcrypto لازم نیست — توکن‌ها از gen_random_uuid ساخته می‌شوند)
+-- افزونه pgcrypto برای هش bcrypt رمز عبور لازم است (توکن‌ها همچنان از gen_random_uuid)
 --
 -- اجرا در: Supabase Dashboard → SQL Editor → New query → Run
 -- (روی پروژه جدید یا قبلی قابل اجراست — idempotent)
@@ -15,6 +15,11 @@
 --     (پیش‌فرض: خاموش) — در حالت روشن برای ورود/ثبت‌نام/دعوت اجباری است
 --   • قفل ۱۵ دقیقه‌ای پس از ۱۰ تلاش ناموفق (رمز یا کد)
 -- ═══════════════════════════════════════════════════════════
+
+-- ═══════════════════════════════════════════════════════════
+-- افزونه pgcrypto (برای هش bcrypt رمز عبور)
+-- ═══════════════════════════════════════════════════════════
+create extension if not exists pgcrypto;
 
 -- ─────────── جدول خانواده‌ها ───────────
 create table if not exists public.families (
@@ -34,7 +39,7 @@ create table if not exists public.members (
   name          text not null,
   role          text not null default 'member',  -- 'owner' | 'member'
   phone         text unique,                     -- 09xxxxxxxxx
-  password_hash text,                            -- SHA-256(phone:password) هگز
+  password_hash text,                            -- bcrypt ($2a$…) — نسخه‌های قدیمی SHA-256 هگز، هنگام ورود ارتقا می‌یابند
   created_at    timestamptz not null default now()
 );
 
@@ -56,6 +61,19 @@ alter table public.members add column if not exists theme text not null default 
   check (theme in ('light','dark','auto'));
 -- نسبت عضو با مدیر خانواده (v5.7): خودم | همسر | فرزند | پدر/مادر | خواهر/برادر | سایر
 alter table public.members add column if not exists relation text not null default 'خودم';
+-- واحد پول نمایشی شخصی (v5.8): تومان | ریال
+-- عمداً روی عضو است نه خانواده — قبلاً هر تغییری واحد پول همه را عوض می‌کرد.
+-- مبالغ همیشه به تومان ذخیره می‌شوند؛ این ستون فقط نمایش را عوض می‌کند.
+alter table public.members add column if not exists currency text not null default 'تومان'
+  check (currency in ('تومان','ریال'));
+-- مقدار اولیه از خانواده برداشته می‌شود تا کاربران فعلی تغییر ناگهانی نبینند
+update public.members m
+set currency = f.currency
+from public.families f
+where f.id = m.family_id
+  and m.currency = 'تومان'
+  and f.currency in ('تومان','ریال')
+  and f.currency <> 'تومان';
 
 -- ─────────── جدول تراکنش‌ها ───────────
 create table if not exists public.transactions (
@@ -74,10 +92,9 @@ create index if not exists idx_tx_family on public.transactions(family_id);
 create index if not exists idx_tx_member on public.transactions(member_id);
 create index if not exists idx_tx_date   on public.transactions(date);
 
--- مهاجرت نسخه ۳.۵: حساب منشا/مقصد تراکنش (اختیاری)
-alter table public.transactions add column if not exists account_id uuid
-  references public.accounts(id) on delete set null;
-create index if not exists idx_tx_account on public.transactions(account_id);
+-- مهاجرت نسخه ۳.۵: ستون account_id تراکنش — تعریفش پایین‌تر، بعد از ساخت
+-- جدول accounts آمده (کلید خارجی نمی‌تواند به جدولی که هنوز ساخته نشده ارجاع دهد؛
+-- روی دیتابیس تازه کل فایل rollback می‌شد). بخش «کارت‌ها و حساب‌های بانکی» را ببینید.
 
 -- مهاجرت: ساعت ثبت تراکنش (اختیاری — "HH:MM")
 alter table public.transactions add column if not exists time text;
@@ -124,6 +141,9 @@ create table if not exists public.sessions (
 
 create index if not exists idx_sessions_member on public.sessions(member_id);
 
+-- آخرین استفاده از نشست — برای نمایش «دستگاه‌های فعال» به کاربر
+alter table public.sessions add column if not exists last_seen_at timestamptz not null default now();
+
 -- ─────────── جدول تلاش‌های ورود (ضد brute-force) ───────────
 create table if not exists public.auth_attempts (
   id         uuid primary key default gen_random_uuid(),
@@ -133,6 +153,17 @@ create table if not exists public.auth_attempts (
 );
 
 create index if not exists idx_attempts_phone on public.auth_attempts(phone, created_at);
+
+-- ─────────── جدول تلاش‌های جستجوی عمومی (ضد شمارش شماره‌ها) ───────────
+-- توابع بدون احراز هویت (مثل check_pre_registered) در اینجا شمرده می‌شوند
+-- تا نتوان با پیمایش شماره‌ها فهرست کاربران را استخراج کرد
+create table if not exists public.lookup_attempts (
+  id         bigserial primary key,
+  kind       text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_lookup_kind_time on public.lookup_attempts(kind, created_at desc);
 
 -- ─────────── جدول دعوت‌نامه‌های خانواده ───────────
 create table if not exists public.family_invites (
@@ -154,15 +185,16 @@ create index if not exists idx_invites_family on public.family_invites(family_id
 -- otp_enabled = true  → کد پیامکی برای هر سه مسیر اجباری است
 create table if not exists public.app_settings (
   id          integer primary key default 1 check (id = 1),
-  dev_mode    boolean not null default true,
+  dev_mode    boolean not null default false,
   otp_enabled boolean not null default false
 );
 
 -- مهاجرت از نسخه‌های قبلی (افزودن ستون otp_enabled)
 alter table public.app_settings add column if not exists otp_enabled boolean not null default false;
 
-insert into public.app_settings (id, dev_mode) values (1, true)
-on conflict (id) do nothing;
+-- state توسعه‌ی تولید: dev_mode همیشه false (درخواست OTP فقط از مسیر سرورless)
+insert into public.app_settings (id, dev_mode) values (1, false)
+on conflict (id) do update set dev_mode = false;
 
 -- مهاجرت برند خانه یار: تم روشن پیش‌فرض برای خانواده‌های موجود
 update public.families set dark = false where dark = true;
@@ -180,6 +212,7 @@ alter table public.family_invites enable row level security;
 alter table public.app_settings   enable row level security;
 alter table public.sessions       enable row level security;
 alter table public.auth_attempts  enable row level security;
+alter table public.lookup_attempts enable row level security;
 
 -- حذف پالیسی‌های باز نسخه‌های قبلی (اگر وجود داشته باشند)
 drop policy if exists "families_select"     on public.families;
@@ -210,7 +243,11 @@ drop policy if exists "members_delete"      on public.members;
 drop function if exists public.auth_register(text, text, text, text);
 drop function if exists public.auth_register(text, text, text, text, text);
 drop function if exists public.auth_register(text, text, text, text, text, text);
+drop function if exists public.auth_check_password(text, text);
+drop function if exists public.auth_check_password(text);
+drop function if exists public.auth_login(text, text);
 drop function if exists public.accept_invite(text, text, text, text);
+drop function if exists public.accept_invite(text, text, text, text, text);
 drop function if exists public.create_invite(uuid);
 drop function if exists public.auth_check_otp(text, text);
 drop function if exists public.add_member_by_manager(text, text, text);
@@ -249,23 +286,28 @@ end $$;
 
 -- یافتن شناسه عضو از توکن نشست (یا خطا)
 -- نشست لغزان: هر استفاده، ۷ روز دیگر اعتبار می‌دهد — ۷ روز عدم فعالیت = خروج خودکار
+-- سقف مطلق: ۹۰ روز از ساخت نشست، فارغ از میزان فعالیت (توکن لو رفته برای همیشه زنده نمی‌ماند)
 create or replace function public._session_member_id(p_token text)
 returns uuid
 language plpgsql security definer set search_path = public as $$
 declare
   v_member_id uuid;
 begin
-  delete from public.sessions where expires_at < now();
+  delete from public.sessions
+  where expires_at < now() or created_at < now() - interval '90 days';
 
   select member_id into v_member_id from public.sessions
-  where token = p_token and expires_at > now();
+  where token = p_token
+    and expires_at > now()
+    and created_at > now() - interval '90 days';
 
   if v_member_id is null then
     raise exception 'SESSION_EXPIRED';
   end if;
 
   update public.sessions
-  set expires_at = now() + interval '7 days'
+  set expires_at   = now() + interval '7 days',
+      last_seen_at = now()
   where token = p_token;
 
   return v_member_id;
@@ -337,6 +379,102 @@ begin
   delete from public.auth_attempts where phone = p_phone and ok = false;
 end $$;
 
+-- ═══════════════════════════════════════════════════════════
+-- هش رمز عبور (bcrypt) و خروجی امن عضو
+-- ═══════════════════════════════════════════════════════════
+
+-- بررسی رمز عبور خام در برابر هش ذخیره‌شده
+-- پشتیبانی از دو قالب:
+--   • bcrypt    → هش شروع با «$2» — crypt(p_password, hash) = hash
+--   • legacy    → SHA-256(phone:password) هگز (نسخه‌های قدیمی کلاینت)
+-- در صورت مطابقت با قالب قدیمی، همانجا به bcrypt ارتقا داده می‌شود (مهاجرت شفاف)
+create or replace function public._verify_password(p_phone text, p_password text)
+returns boolean
+language plpgsql security definer set search_path = public, extensions as $$
+declare
+  v_hash  text;
+  v_ok    boolean;
+begin
+  select password_hash into v_hash from public.members
+  where phone = p_phone
+  limit 1;
+
+  if v_hash is null or p_password is null or p_password = '' then
+    return false;
+  end if;
+  -- توجه: اینجا حداقل طول اعمال نمی‌شود. کاربران فعلی ممکن است رمز کوتاه
+  -- داشته باشند و نباید از حساب خودشان بیرون بمانند. قانون ۸ کاراکتر فقط
+  -- هنگام «تعیین» رمز (ثبت‌نام، پذیرش دعوت، تغییر رمز) اعمال می‌شود.
+
+  if left(v_hash, 2) = '$2' then
+    -- هش bcrypt
+    v_ok := (crypt(p_password, v_hash) = v_hash);
+  else
+    -- هش قدیمی SHA-256 — در صورت مطابقت، به bcrypt ارتقا می‌دهیم
+    v_ok := (encode(digest(p_phone || ':' || p_password, 'sha256'), 'hex') = v_hash);
+    if v_ok then
+      update public.members
+      set password_hash = crypt(p_password, gen_salt('bf', 12))
+      where phone = p_phone;
+    end if;
+  end if;
+
+  return v_ok;
+end $$;
+
+-- بررسی رمز «با قفل» — تنها مسیری که مصرف‌کننده‌های بیرونی باید از آن رد شوند.
+-- چرا جدا از _verify_password؟ چون قفل باید یک‌جا باشد: قبلاً فقط
+-- auth_check_password قفل داشت و مهاجم با صدا زدن مستقیم auth_login آن را
+-- دور می‌زد (حدس نامحدود + هر حدس یک bcrypt هزینه‌ی سرور).
+-- ورود موفق شمارنده‌ی خطا را صفر می‌کند تا کاربری که چند بار اشتباه تایپ کرده
+-- و بعد درست وارد شده، در پنجره‌ی ۱۵ دقیقه‌ای گیر نیفتد.
+create or replace function public._check_password_gated(p_phone text, p_password text)
+returns boolean
+language plpgsql security definer set search_path = public as $$
+declare
+  v_ok    boolean;
+  v_fails int;
+begin
+  select count(*) into v_fails from public.auth_attempts
+  where phone = p_phone and ok = false and created_at > now() - interval '15 minutes';
+  if v_fails >= 10 then
+    raise exception 'TOO_MANY_ATTEMPTS';
+  end if;
+
+  select public._verify_password(p_phone, p_password) into v_ok;
+
+  insert into public.auth_attempts (phone, ok) values (p_phone, v_ok);
+  if v_ok then
+    delete from public.auth_attempts where phone = p_phone and ok = false;
+  end if;
+  delete from public.auth_attempts where created_at < now() - interval '1 day';
+
+  return v_ok;
+end $$;
+
+
+-- نمای عمومی عضو (بدون password_hash) — برای همه پاسخ‌های JSON
+create or replace function public._member_public(p_member public.members)
+returns json
+language sql security definer set search_path = public as $$
+  select json_build_object(
+    'id',         p_member.id,
+    'family_id',  p_member.family_id,
+    'name',       p_member.name,
+    'role',       p_member.role,
+    'phone',      p_member.phone,
+    'gender',     p_member.gender,
+    'birth_date', to_char(p_member.birth_date, 'YYYY-MM-DD'),
+    'national_id',p_member.national_id,
+    'avatar_url', p_member.avatar_url,
+    'status',     p_member.status,
+    'theme',      p_member.theme,
+    'relation',   p_member.relation,
+    'currency',   p_member.currency,
+    'created_at', p_member.created_at
+  )
+$$;
+
 -- تنظیمات عمومی اپ (بدون نیاز به احراز هویت) — کلاینت از این می‌فهمد OTP فعال است یا نه
 create or replace function public.get_public_config()
 returns json
@@ -352,30 +490,15 @@ $$;
 -- توابع احراز هویت (RPC — security definer)
 -- ═══════════════════════════════════════════════════════════
 
--- بررسی رمز عبور (مرحله ۱ ورود) — با قفل ضد brute-force
+-- بررسی رمز عبور (مرحله ۱ ورود) — برای پیام خطای زودهنگام در فرم ورود.
+-- این تابع دیگر تنها سد نیست: auth_login خودش هم رمز را بررسی می‌کند.
+-- رمز خام از کلاینت می‌آید؛ هش bcrypt و مقایسه سمت سرور انجام می‌شود.
 create or replace function public.auth_check_password(
-  p_phone text, p_password_hash text
+  p_phone text, p_password text
 ) returns boolean
 language plpgsql security definer set search_path = public as $$
-declare
-  v_ok boolean;
-  v_fails int;
 begin
-  select count(*) into v_fails from public.auth_attempts
-  where phone = p_phone and ok = false and created_at > now() - interval '15 minutes';
-  if v_fails >= 10 then
-    raise exception 'TOO_MANY_ATTEMPTS';
-  end if;
-
-  select exists (
-    select 1 from public.members
-    where phone = p_phone and password_hash = p_password_hash
-  ) into v_ok;
-
-  insert into public.auth_attempts (phone, ok) values (p_phone, v_ok);
-  delete from public.auth_attempts where created_at < now() - interval '1 day';
-
-  return v_ok;
+  return public._check_password_gated(p_phone, p_password);
 end $$;
 
 -- درج کد OTP (برای تابع سرورless و حالت توسعه)
@@ -420,9 +543,10 @@ begin
   return v_code;
 end $$;
 
--- ورود نهایی: تأیید OTP + ساخت نشست + بازگرداندن عضو و خانواده
+-- ورود نهایی: بررسی رمز + تأیید OTP + ساخت نشست + بازگرداندن عضو و خانواده
+-- رمز در همین تابع بررسی می‌شود (تکیه بر کلاینت نیست) — شناخت شماره به‌تنهایی نشست نمی‌دهد
 create or replace function public.auth_login(
-  p_phone text, p_code text
+  p_phone text, p_password text, p_code text
 ) returns json
 language plpgsql security definer set search_path = public as $$
 declare
@@ -430,6 +554,10 @@ declare
   v_family public.families;
   v_token  text;
 begin
+  if not public._check_password_gated(p_phone, p_password) then
+    raise exception 'INVALID_CREDENTIALS';
+  end if;
+
   perform public._consume_otp(p_phone, p_code);
 
   select * into v_member from public.members where phone = p_phone;
@@ -441,7 +569,7 @@ begin
   v_token := public._create_session(v_member.id);
 
   return json_build_object(
-    'member', to_jsonb(v_member),
+    'member', public._member_public(v_member),
     'family', to_jsonb(v_family),
     'session_token', v_token
   );
@@ -452,15 +580,19 @@ end $$;
 -- ثبت‌نام همان عضو را کامل می‌کند (خانواده موجود، نقش member)
 create or replace function public.auth_register(
   p_family_name text, p_member_name text,
-  p_phone text, p_password_hash text, p_otp_code text,
+  p_phone text, p_password text, p_otp_code text,
   p_relation text default 'خودم'
 ) returns json
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare
   v_family public.families;
   v_member public.members;
   v_token  text;
 begin
+  if p_password is null or length(p_password) < 8 then
+    raise exception 'WEAK_PASSWORD';
+  end if;
+
   perform public._consume_otp(p_phone, p_otp_code);
 
   if p_relation is null or btrim(p_relation) = '' then
@@ -473,7 +605,7 @@ begin
       -- تکمیل ثبت‌نام عضو معرفی‌شده توسط مدیر
       update public.members
       set name         = coalesce(nullif(btrim(p_member_name), ''), name),
-          password_hash = p_password_hash,
+          password_hash = crypt(p_password, gen_salt('bf', 12)),
           status       = 'active',
           relation     = btrim(p_relation)
       where id = v_member.id
@@ -482,7 +614,7 @@ begin
       select * into v_family from public.families where id = v_member.family_id;
       v_token := public._create_session(v_member.id);
       return json_build_object(
-        'member', to_jsonb(v_member),
+        'member', public._member_public(v_member),
         'family', to_jsonb(v_family),
         'session_token', v_token
       );
@@ -497,13 +629,13 @@ begin
 
   -- عضو اول = مدیر (نسبت همیشه «خودم»)
   insert into public.members (family_id, name, role, phone, password_hash, relation)
-  values (v_family.id, p_member_name, 'owner', p_phone, p_password_hash, 'خودم')
+  values (v_family.id, p_member_name, 'owner', p_phone, crypt(p_password, gen_salt('bf', 12)), 'خودم')
   returning * into v_member;
 
   v_token := public._create_session(v_member.id);
 
   return json_build_object(
-    'member', to_jsonb(v_member),
+    'member', public._member_public(v_member),
     'family', to_jsonb(v_family),
     'session_token', v_token
   );
@@ -512,16 +644,36 @@ end $$;
 -- ─────────── عضو پیش‌ثبت‌شده توسط مدیر ───────────
 
 -- بررسی عمومی: آیا این شماره توسط مدیری به‌عنوان عضو معرفی شده؟
--- (بدون نیاز به احراز هویت — فقط نام خانواده و نام عضو برمی‌گرداند)
+-- بدون احراز هویت است، پس دو محدودیت دارد:
+--   • نام عضو برنمی‌گردد (فقط نام خانواده که در فرم قفل می‌شود)
+--   • سقف سراسری ۳۰ جستجو در دقیقه — شمارش شماره‌ها را غیرعملی می‌کند
 create or replace function public.check_pre_registered(p_phone text)
 returns json
-language sql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public as $$
+declare
+  v_probes int;
+  v_result json;
+begin
+  delete from public.lookup_attempts where created_at < now() - interval '1 hour';
+
+  -- سطل سراسری (نه per-phone): هدف جلوگیری از «شمارش شماره‌ها» است و مهاجم
+  -- برای هر تلاش شماره‌ی متفاوتی می‌زند، پس محدودسازی per-phone بی‌اثر است.
+  -- عمداً شماره را ذخیره نمی‌کنیم تا خود این جدول به فهرست شماره‌های آزموده‌شده
+  -- تبدیل نشود. عارضه‌ی جانبی: یک کلاینت پرسروصدا می‌تواند این lookup را برای
+  -- بقیه از کار بیندازد — پذیرفتنی است، چون کلاینت خطا را بی‌صدا رد می‌کند و
+  -- فقط پیش‌پرکردن فرم را از دست می‌دهد؛ خود ثبت‌نام عضو pending را تشخیص می‌دهد.
+  select count(*) into v_probes from public.lookup_attempts
+  where kind = 'pre_reg' and created_at > now() - interval '1 minute';
+  if v_probes >= 60 then
+    raise exception 'TOO_MANY_ATTEMPTS';
+  end if;
+  insert into public.lookup_attempts (kind) values ('pre_reg');
+
   select coalesce(
     (
       select json_build_object(
         'pre_registered', true,
-        'family_name', f.name,
-        'member_name', m.name
+        'family_name', f.name
       )
       from public.members m
       join public.families f on f.id = m.family_id
@@ -529,8 +681,10 @@ language sql security definer set search_path = public as $$
       limit 1
     ),
     json_build_object('pre_registered', false)
-  )::json
-$$;
+  )::json into v_result;
+
+  return v_result;
+end $$;
 
 -- افزودن عضو توسط مدیر (اسم، شماره و نسبت با مدیر — عضو pending تا خودش ثبت‌نام کند)
 create or replace function public.add_member_by_manager(
@@ -568,7 +722,7 @@ begin
   values (v_family_id, btrim(p_name), 'member', p_phone, 'pending', btrim(p_relation))
   returning * into v_row;
 
-  return to_jsonb(v_row);
+  return public._member_public(v_row);
 end $$;
 
 -- ─────────── دعوت اعضا ───────────
@@ -617,17 +771,30 @@ begin
 end $$;
 
 -- پذیرش دعوت: تأیید OTP + ثبت‌نام عضو جدید در خانواده + نشست
+-- v5.8: p_relation اضافه شد. قبلاً نسبت پرسیده نمی‌شد و همه‌ی اعضای
+-- دعوت‌شده با مقدار پیش‌فرض ستون یعنی «خودم» ثبت می‌شدند.
 create or replace function public.accept_invite(
   p_token text, p_member_name text,
-  p_phone text, p_password_hash text, p_otp_code text
+  p_phone text, p_password text, p_otp_code text,
+  p_relation text default 'سایر'
 ) returns json
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare
-  v_inv     record;
-  v_member  public.members;
-  v_family  public.families;
-  v_session text;
+  v_inv      record;
+  v_member   public.members;
+  v_family   public.families;
+  v_session  text;
+  v_relation text;
 begin
+  if p_password is null or length(p_password) < 8 then
+    raise exception 'WEAK_PASSWORD';
+  end if;
+
+  v_relation := nullif(btrim(coalesce(p_relation, '')), '');
+  if v_relation is null then
+    raise exception 'EMPTY_RELATION';
+  end if;
+
   perform public._consume_otp(p_phone, p_otp_code);
 
   select * into v_inv from public.family_invites
@@ -641,15 +808,16 @@ begin
     raise exception 'PHONE_EXISTS';
   end if;
 
-  insert into public.members (family_id, name, role, phone, password_hash)
-  values (v_inv.family_id, p_member_name, 'member', p_phone, p_password_hash)
+  insert into public.members (family_id, name, role, phone, password_hash, relation)
+  values (v_inv.family_id, p_member_name, 'member', p_phone,
+          crypt(p_password, gen_salt('bf', 12)), v_relation)
   returning * into v_member;
 
   select * into v_family from public.families where id = v_inv.family_id;
   v_session := public._create_session(v_member.id);
 
   return json_build_object(
-    'member', to_jsonb(v_member),
+    'member', public._member_public(v_member),
     'family', to_jsonb(v_family),
     'session_token', v_session
   );
@@ -674,16 +842,14 @@ begin
   select * into v_family from public.families where id = v_member.family_id;
 
   return json_build_object(
-    'member', to_jsonb(v_member),
+    'member', public._member_public(v_member),
     'family', to_jsonb(v_family),
+    /* v5.8: همان نمای عمومی get_members — تا لیست اعضا در بازیابی نشست و
+       در refreshData دقیقاً یک شکل باشد (قبلاً relation نداشت) */
     'members', coalesce((
-      select json_agg(row_to_json(m))
-      from (
-        select id, name, role, phone, created_at
-        from public.members
-        where family_id = v_member.family_id
-        order by created_at asc
-      ) m
+      select json_agg(public._member_public(m) order by m.created_at asc)
+      from public.members m
+      where m.family_id = v_member.family_id
     ), '[]'::json)
   );
 end $$;
@@ -695,6 +861,50 @@ create or replace function public.logout_session(
 language plpgsql security definer set search_path = public as $$
 begin
   delete from public.sessions where token = p_token;
+end $$;
+
+-- خروج از همه دستگاه‌ها — همه نشست‌های این عضو باطل می‌شوند
+create or replace function public.logout_all_sessions(
+  p_token text
+) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_member_id uuid;
+begin
+  v_member_id := public._session_member_id(p_token);
+  delete from public.sessions where member_id = v_member_id;
+end $$;
+
+-- تغییر رمز عبور — رمز فعلی بررسی می‌شود و همه نشست‌های دیگر باطل می‌شوند
+create or replace function public.change_password(
+  p_token text, p_current_password text, p_new_password text
+) returns void
+language plpgsql security definer set search_path = public, extensions as $$
+declare
+  v_member public.members;
+begin
+  select * into v_member from public.members
+  where id = public._session_member_id(p_token);
+
+  if not found then
+    raise exception 'NO_MEMBER';
+  end if;
+
+  if not public._verify_password(v_member.phone, p_current_password) then
+    raise exception 'INVALID_CREDENTIALS';
+  end if;
+
+  if p_new_password is null or length(p_new_password) < 8 then
+    raise exception 'WEAK_PASSWORD';
+  end if;
+
+  update public.members
+  set password_hash = crypt(p_new_password, gen_salt('bf', 12))
+  where id = v_member.id;
+
+  -- همه نشست‌ها به جز نشست فعلی باطل می‌شوند
+  delete from public.sessions
+  where member_id = v_member.id and token <> p_token;
 end $$;
 
 -- ═══════════════════════════════════════════════════════════
@@ -714,6 +924,11 @@ begin
 end $$;
 
 -- اعضای خانواده خود کاربر
+-- تغییر v5.8: از _member_public استفاده می‌شود، نه یک select دستی.
+-- قبلاً فقط id/name/role/phone/created_at برمی‌گشت، پس relation و status و
+-- theme و avatar_url در لیست اعضا همیشه غایب بودند و کلاینت مقدار پیش‌فرض
+-- «خودم» را نشان می‌داد — همان باگ نمایش نسبت. password_hash هم اینجا
+-- بیرون نمی‌رود چون _member_public آن را حمل نمی‌کند.
 create or replace function public.get_members(p_token text)
 returns json
 language plpgsql security definer set search_path = public as $$
@@ -722,13 +937,9 @@ declare
 begin
   v_family_id := public._family_id(p_token);
   return coalesce((
-    select json_agg(row_to_json(m))
-    from (
-      select id, name, role, phone, created_at
-      from public.members
-      where family_id = v_family_id
-      order by created_at asc
-    ) m
+    select json_agg(public._member_public(m) order by m.created_at asc)
+    from public.members m
+    where m.family_id = v_family_id
   ), '[]'::json);
 end $$;
 
@@ -787,15 +998,19 @@ begin
 end $$;
 
 -- افزودن تراکنش (حساب الزامی؛ زیردسته و ساعت اختیاری)
--- مهاجرت: ستون‌های انتقال وجه و تکرار دوره‌ای (v6)
-alter table public.transactions
-  add column if not exists to_account_id uuid references public.accounts(id) on delete set null;
+-- مهاجرت: ستون‌های تکرار دوره‌ای (v6)
+-- (ستون to_account_id به بخش «کارت‌ها و حساب‌های بانکی» منتقل شد — ارجاع به accounts)
 alter table public.transactions
   add column if not exists repeat text not null default 'none'
   check (repeat in ('none','weekly','monthly','yearly'));
 -- مهاجرت: تاریخ پایان تکرار — الزامی برای تراکنش‌های تکرارشونده (v6.1)
 alter table public.transactions
   add column if not exists repeat_end date;
+-- مهاجرت: سررسیدهای رسیدگی‌شده‌ی تراکنش تکرارشونده (v6.2 — بخش ۳.۲)
+-- فهرست تاریخ‌های میلادی («YYYY-MM-DD») که مدیر برای آن سررسید یا «ثبت شد»
+-- زده یا «رد شد»؛ تا همان دوره دوباره در پیام تأیید سررسید پرسیده نشود.
+alter table public.transactions
+  add column if not exists handled_occurrences jsonb not null default '[]'::jsonb;
 
 create or replace function public.add_transaction(
   p_token text, p_member_id uuid, p_type text, p_amount numeric,
@@ -858,21 +1073,21 @@ begin
     raise exception 'INVALID_CATEGORY';
   end if;
 
-  -- حساب منشا/مقصد الزامی است
-  if p_account_id is null then
-    raise exception 'ACCOUNT_REQUIRED';
-  end if;
-  if not exists (select 1 from public.accounts
-                 where id = p_account_id and family_id = v_family_id) then
+  -- حساب منشا برای هزینه/درآمد اختیاری است (تراکنش تکرارشونده ممکن است هنوز
+  -- به کارت خاصی وصل نباشد)؛ ولی اگر داده شد باید متعلق به همین خانواده باشد.
+  if p_account_id is not null and not exists (
+       select 1 from public.accounts
+       where id = p_account_id and family_id = v_family_id) then
     raise exception 'INVALID_ACCOUNT_ID';
   end if;
 
-  -- انتقال وجه: حساب مقصد الزامی، متفاوت از مبدأ و متعلق به همین خانواده
+  -- انتقال وجه: حساب مبدأ و مقصد الزامی، متفاوت از هم و متعلق به همین خانواده
   if p_type = 'transfer' then
     if btrim(p_category) <> 'transfer' then
       raise exception 'INVALID_CATEGORY';
     end if;
-    if p_to_account_id is null or p_to_account_id = p_account_id then
+    if p_account_id is null or p_to_account_id is null
+       or p_to_account_id = p_account_id then
       raise exception 'INVALID_TRANSFER';
     end if;
     if not exists (select 1 from public.accounts
@@ -960,11 +1175,10 @@ begin
     raise exception 'INVALID_CATEGORY';
   end if;
 
-  if p_account_id is null then
-    raise exception 'ACCOUNT_REQUIRED';
-  end if;
-  if not exists (select 1 from public.accounts
-                 where id = p_account_id and family_id = v_family_id) then
+  -- حساب منشا اختیاری (همسو با add_transaction)؛ اگر داده شد باید مال همین خانواده باشد
+  if p_account_id is not null and not exists (
+       select 1 from public.accounts
+       where id = p_account_id and family_id = v_family_id) then
     raise exception 'INVALID_ACCOUNT_ID';
   end if;
 
@@ -972,7 +1186,8 @@ begin
     if btrim(p_category) <> 'transfer' then
       raise exception 'INVALID_CATEGORY';
     end if;
-    if p_to_account_id is null or p_to_account_id = p_account_id then
+    if p_account_id is null or p_to_account_id is null
+       or p_to_account_id = p_account_id then
       raise exception 'INVALID_TRANSFER';
     end if;
     if not exists (select 1 from public.accounts
@@ -1033,6 +1248,53 @@ begin
   if not found then
     raise exception 'NOT_FOUND';
   end if;
+end $$;
+
+-- ثبتِ رسیدگی به یک سررسیدِ تراکنش تکرارشونده (بخش ۳.۲)
+-- مدیر برای هر سررسید یا «ثبت شد» می‌زند (تراکنش واقعیِ جدا از مسیر عادی
+-- add_transaction ساخته می‌شود) یا «رد شد»؛ در هر دو حالت تاریخ سررسید به
+-- handled_occurrences افزوده می‌شود تا همان دوره دوباره پرسیده نشود.
+-- فقط مدیر خانواده — پیام تأیید سررسید هم فقط به او نشان داده می‌شود.
+create or replace function public.mark_recurring_occurrence(
+  p_token text, p_tx_id uuid, p_due_date date
+) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+  v_repeat text;
+  v_key text;
+begin
+  v_family_id := public._family_id(p_token);
+
+  if not exists (
+    select 1 from public.members m
+    where m.id = public._session_member_id(p_token)
+      and m.family_id = v_family_id and m.role = 'owner'
+  ) then
+    raise exception 'FORBIDDEN';
+  end if;
+
+  if p_due_date is null then
+    raise exception 'INVALID_DATE';
+  end if;
+
+  -- باید تراکنشِ تکرارشونده‌ی همین خانواده باشد
+  select repeat into v_repeat
+  from public.transactions
+  where id = p_tx_id and family_id = v_family_id;
+  if v_repeat is null or v_repeat = 'none' then
+    raise exception 'NOT_FOUND';
+  end if;
+
+  v_key := to_char(p_due_date, 'YYYY-MM-DD');
+
+  -- idempotent: کلید تکراری دوباره افزوده نمی‌شود
+  update public.transactions
+  set handled_occurrences =
+        case when handled_occurrences ? v_key
+             then handled_occurrences
+             else handled_occurrences || to_jsonb(v_key) end
+  where id = p_tx_id and family_id = v_family_id;
 end $$;
 
 -- ═══════════════════════════════════════════════════════════
@@ -1221,7 +1483,13 @@ begin
   end if;
 end $$;
 
--- ذخیره تنظیمات خانواده (بودجه فقط مدیر؛ واحد/تم برای همه اعضا)
+-- ذخیره تنظیمات خانواده — فقط سقف بودجه ماهانه، و فقط مدیر خانواده.
+-- تغییر v5.8: واحد پول و تم از این تابع خارج شدند. قبلاً هر عضوی می‌توانست
+-- families.currency و families.dark را عوض کند و واحد پولِ همه‌ی خانواده
+-- با آن جابه‌جا می‌شد. اکنون واحد پول شخصی است (members.currency و
+-- set_member_currency) و تم هم شخصی است (members.theme و set_member_theme).
+-- پارامترهای p_currency و p_dark فقط برای سازگاری امضا مانده‌اند و
+-- عمداً نادیده گرفته می‌شوند؛ ستون‌های خانواده هم دست‌نخورده باقی می‌مانند.
 create or replace function public.update_family_settings(
   p_token text, p_budget numeric, p_currency text, p_dark boolean
 ) returns void
@@ -1233,18 +1501,13 @@ begin
   v_member := public._session_member_id(p_token);
   select role into v_role from public.members where id = v_member;
 
-  if v_role = 'owner' then
-    update public.families
-    set budget   = greatest(coalesce(p_budget, 0), 0),
-        currency = coalesce(nullif(btrim(coalesce(p_currency, '')), ''), 'تومان'),
-        dark     = coalesce(p_dark, true)
-    where id = public._family_id(p_token);
-  else
-    update public.families
-    set currency = coalesce(nullif(btrim(coalesce(p_currency, '')), ''), 'تومان'),
-        dark     = coalesce(p_dark, true)
-    where id = public._family_id(p_token);
+  if v_role <> 'owner' then
+    raise exception 'FORBIDDEN';
   end if;
+
+  update public.families
+  set budget = greatest(coalesce(p_budget, 0), 0)
+  where id = public._family_id(p_token);
 
   if not found then
     raise exception 'NOT_FOUND';
@@ -1275,6 +1538,18 @@ alter table public.accounts
 -- مهاجرت: موجودی اولیه حساب/کیف‌پول (v0.4) — تراکنش‌ها روی این مبنا جمع می‌شوند
 alter table public.accounts
   add column if not exists initial_balance numeric(18,0) not null default 0;
+
+-- ─────────── ستون‌های تراکنش که به accounts ارجاع می‌دهند ───────────
+-- این دو از بالای فایل به اینجا منتقل شدند: کلید خارجی باید بعد از ساخت
+-- جدول مقصد اجرا شود، وگرنه روی یک دیتابیس تازه کل اسکریپت rollback می‌شود.
+-- مهاجرت نسخه ۳.۵: حساب منشا تراکنش
+alter table public.transactions
+  add column if not exists account_id uuid references public.accounts(id) on delete set null;
+create index if not exists idx_tx_account on public.transactions(account_id);
+
+-- مهاجرت: حساب مقصد برای انتقال وجه (v6)
+alter table public.transactions
+  add column if not exists to_account_id uuid references public.accounts(id) on delete set null;
 
 -- مهاجرت (v0.4): حذف شبا و شماره حساب — حساب بانکی فقط با شماره کارت
 alter table public.accounts drop column if exists account_number;
@@ -1318,6 +1593,7 @@ drop function if exists public.add_account(text, uuid, text, text, text, text, t
 drop function if exists public.add_account(text, uuid, text, text, text, text, text, text);
 drop function if exists public.add_account(text, uuid, text, text, text, text, text, text, numeric);
 drop function if exists public.delete_account(text, uuid);
+drop function if exists public.update_account(text, uuid, text, text, text, numeric);
 
 -- همه کارت‌های خانواده
 create or replace function public.list_accounts(p_token text)
@@ -1407,6 +1683,92 @@ begin
     (v_family_id, p_member_id, btrim(p_title),
      nullif(btrim(coalesce(p_bank, '')), ''),
      v_card, v_kind, v_initial)
+  returning * into v_row;
+
+  return to_jsonb(v_row);
+end $$;
+
+-- ویرایش کارت/حساب: مدیر = هر کارت خانواده؛ عضو = فقط کارت خودش
+-- (همان قاعده‌ی delete_account — عمداً تکرار شده تا مجوز در خود تابع باشد)
+--
+-- p_kind عمداً پارامتر نیست: تبدیل حساب بانکی به کیف‌پول شماره کارت را
+-- بی‌معنا می‌کند و برعکسش کارت الزامی می‌شود؛ کاربر برای این کار حساب را
+-- حذف و از نو می‌سازد.
+--
+-- p_initial_balance اینجا منفی هم می‌پذیرد (در add_account نمی‌پذیرد):
+-- کاربر «موجودی فعلی» را ویرایش می‌کند و کلاینت موجودی اولیه را از آن
+-- منهای اثر تراکنش‌ها حساب می‌کند — اگر تراکنش‌های ثبت‌شده بیش از موجودی
+-- واقعی باشند، این عدد لزوماً منفی می‌شود.
+create or replace function public.update_account(
+  p_token text, p_account_id uuid, p_title text, p_bank text,
+  p_card_number text,
+  p_initial_balance numeric
+) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+  v_member    uuid;
+  v_role      text;
+  v_row       public.accounts;
+  v_old       public.accounts;
+  v_card      text;
+  v_initial   numeric;
+begin
+  v_family_id := public._family_id(p_token);
+  v_member    := public._session_member_id(p_token);
+  select role into v_role from public.members where id = v_member;
+
+  -- ردیف فعلی + بررسی مجوز در یک مرحله
+  select * into v_old from public.accounts
+  where id = p_account_id
+    and family_id = v_family_id
+    and (v_role = 'owner' or member_id = v_member);
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+
+  if p_title is null or btrim(p_title) = '' then
+    raise exception 'INVALID_TITLE';
+  end if;
+  if length(btrim(p_title)) > 40 then
+    raise exception 'INVALID_TITLE';
+  end if;
+
+  v_initial := coalesce(p_initial_balance, v_old.initial_balance);
+  if v_initial < -999999999999999 or v_initial > 999999999999999 then
+    raise exception 'INVALID_INITIAL_BALANCE';
+  end if;
+
+  v_card := nullif(regexp_replace(coalesce(p_card_number, ''), '[^0-9]', '', 'g'), '');
+
+  if v_card is not null and v_card !~ '^\d{16}$' then
+    raise exception 'INVALID_CARD';
+  end if;
+  -- حساب بانکی بدون شماره کارت نمی‌ماند (کیف‌پول آزاد است)
+  if v_old.kind = 'bank' and v_card is null then
+    raise exception 'EMPTY_ACCOUNT';
+  end if;
+
+  -- هم‌خوانی ۶ رقم اول کارت با بانک انتخاب‌شده — عیناً مثل add_account
+  if v_card is not null and nullif(btrim(coalesce(p_bank, '')), '') is not null then
+    if exists (
+      select 1 from public.card_bins
+      where bin = left(v_card, 6) and bank <> btrim(p_bank)
+    ) then
+      raise exception 'BANK_MISMATCH';
+    end if;
+    if not exists (select 1 from public.card_bins where bank = btrim(p_bank))
+      and exists (select 1 from public.card_bins where bin = left(v_card, 6)) then
+      raise exception 'BANK_MISMATCH';
+    end if;
+  end if;
+
+  update public.accounts set
+    title           = btrim(p_title),
+    bank            = nullif(btrim(coalesce(p_bank, '')), ''),
+    card_number     = v_card,
+    initial_balance = v_initial
+  where id = p_account_id
   returning * into v_row;
 
   return to_jsonb(v_row);
@@ -1588,6 +1950,45 @@ begin
   return to_jsonb(v_row);
 end $$;
 
+-- حذف دسته سفارشی (v6.4)
+-- فقط دستهٔ همین خانواده، و فقط وقتی هیچ تراکنشی به id آن ارجاع ندارد؛
+-- در غیر این صورت تراکنش‌های قدیمی نام دسته را از دست می‌دادند.
+-- برچسب‌ها و بودجهٔ همان دسته با حذف آن پاک می‌شوند تا بی‌صاحب نمانند.
+create or replace function public.delete_custom_category(
+  p_token text, p_category_id uuid
+) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+  v_used int;
+begin
+  v_family_id := public._family_id(p_token);
+
+  if not exists (
+    select 1 from public.custom_categories
+    where id = p_category_id and family_id = v_family_id
+  ) then
+    raise exception 'NOT_FOUND';
+  end if;
+
+  select count(*) into v_used
+  from public.transactions
+  where family_id = v_family_id and category = p_category_id::text;
+
+  if v_used > 0 then
+    raise exception 'CATEGORY_IN_USE';
+  end if;
+
+  delete from public.subcategories
+  where family_id = v_family_id and category = p_category_id::text;
+
+  delete from public.category_budgets
+  where family_id = v_family_id and category = p_category_id::text;
+
+  delete from public.custom_categories
+  where id = p_category_id and family_id = v_family_id;
+end $$;
+
 -- زیردسته‌ها دیگر به‌صورت پیش‌فرض seed نمی‌شوند (v6.1):
 -- زیردسته = لیبل آزاد اختیاری که هر خانواده خودش تایپ می‌کند
 drop function if exists public.ensure_default_subcategories(text);
@@ -1697,7 +2098,7 @@ begin
   where id = v_member_id
   returning * into v_row;
 
-  return to_jsonb(v_row);
+  return public._member_public(v_row);
 end $$;
 
 -- تغییر سریع تم شخصی (بدون لمس بقیه پروفایل)
@@ -1713,6 +2114,75 @@ begin
   update public.members
   set theme = p_theme
   where id = public._session_member_id(p_token);
+end $$;
+
+-- واحد پول نمایشی شخصی (v5.8)
+-- برخلاف تم، ردیف عمومی عضو را برمی‌گرداند تا کلاینت بتواند بدون
+-- refreshData کامل، همان‌جا member را به‌روز کند (خواندنِ واحد پول در
+-- ده‌ها ویجت است و باید بی‌درنگ عوض شود).
+create or replace function public.set_member_currency(
+  p_token text, p_currency text
+) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_row public.members;
+begin
+  if p_currency not in ('تومان','ریال') then
+    raise exception 'INVALID_CURRENCY';
+  end if;
+
+  update public.members
+  set currency = p_currency
+  where id = public._session_member_id(p_token)
+  returning * into v_row;
+
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+
+  return public._member_public(v_row);
+end $$;
+
+-- نسبت یک عضو با مدیر خانواده (v5.8)
+-- مدیر می‌تواند نسبت هر عضو را اصلاح کند، عضو عادی فقط نسبت خودش را.
+-- نسبتِ خود مدیر همیشه «خودم» است و قابل تغییر نیست — چون نسبت نسبت به
+-- مدیر تعریف می‌شود و «نسبت مدیر به خودش» معنایی جز خودم ندارد.
+create or replace function public.set_member_relation(
+  p_token text, p_member_id uuid, p_relation text
+) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_actor    public.members;
+  v_target   public.members;
+  v_relation text;
+begin
+  v_relation := nullif(btrim(coalesce(p_relation, '')), '');
+  if v_relation is null then
+    raise exception 'EMPTY_RELATION';
+  end if;
+
+  select * into v_actor from public.members
+  where id = public._session_member_id(p_token);
+
+  select * into v_target from public.members where id = p_member_id;
+  if not found or v_target.family_id <> v_actor.family_id then
+    raise exception 'NOT_FOUND';
+  end if;
+
+  if v_actor.role <> 'owner' and v_target.id <> v_actor.id then
+    raise exception 'FORBIDDEN';
+  end if;
+
+  if v_target.role = 'owner' then
+    raise exception 'OWNER_RELATION_FIXED';
+  end if;
+
+  update public.members
+  set relation = v_relation
+  where id = v_target.id
+  returning * into v_target;
+
+  return public._member_public(v_target);
 end $$;
 
 -- ═══════════════════════════════════════════════════════════
@@ -2010,3 +2480,62 @@ begin
              for select using (bucket_id = ''tx-photos'')';
   end if;
 end $$;
+
+-- ═══════════════════════════════════════════════════════════
+-- کنترل دسترسی اجرای توابع (باید آخرین بخش فایل باشد)
+-- ═══════════════════════════════════════════════════════════
+-- پستگرس به‌طور پیش‌فرض EXECUTE هر تابع را به PUBLIC می‌دهد. چون همه توابع
+-- اینجا security definer هستند، این یعنی نقش anon می‌تواند توابع داخلی مثل
+-- _create_session را مستقیماً صدا بزند و بدون رمز نشست بسازد.
+-- بنابراین: اول همه‌چیز revoke می‌شود، بعد فقط توابع عمومی دوباره grant می‌شوند.
+--
+-- قاعده: هر تابعی که نامش با «_» شروع شود داخلی است و از بیرون قابل صدا زدن نیست.
+-- توابع فهرست v_denied هم فقط با کلید service_role (توابع سرورless) اجرا می‌شوند.
+
+do $$
+declare
+  r record;
+  v_denied text[] := array[
+    'insert_otp',            -- فقط /api/send-otp با کلید سرویس
+    'request_otp_dev',       -- ابزار توسعه — در تولید نباید از بیرون در دسترس باشد
+    'generate_family_code'   -- کمکی داخلی
+  ];
+begin
+  -- ۱) قطع کامل دسترسی اجرا از نقش‌های عمومی
+  execute 'revoke execute on all functions in schema public from public';
+  execute 'revoke execute on all functions in schema public from anon';
+  execute 'revoke execute on all functions in schema public from authenticated';
+
+  -- ۲) کلید سرویس (توابع سرورless) به همه‌چیز دسترسی دارد
+  execute 'grant execute on all functions in schema public to service_role';
+
+  -- ۳) اعطای مجدد فقط به توابع عمومی پروژه
+  --    (توابع افزونه‌ها مثل pgcrypto عمداً کنار گذاشته می‌شوند)
+  for r in
+    select p.oid::regprocedure as sig, p.proname
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.prokind = 'f'
+      and not exists (
+        select 1 from pg_depend d
+        where d.objid = p.oid and d.deptype = 'e'
+      )
+  loop
+    if left(r.proname, 1) <> '_' and not (r.proname = any(v_denied)) then
+      execute format('grant execute on function %s to anon, authenticated', r.sig);
+    end if;
+  end loop;
+
+  -- ۴) پیش‌فرض آینده: هر تابعی که بعداً ساخته شود، خودبه‌خود EXECUTE به PUBLIC
+  --    نگیرد. بدون این خط، بلوک بالا فقط یک اصلاح لحظه‌ای است و اولین مهاجرت
+  --    بعدی دوباره در را باز می‌کند. (اگر نقش سازنده‌ی توابع عوض شود باید
+  --    این خط برای آن نقش هم اجرا شود.)
+  execute 'alter default privileges in schema public revoke execute on functions from public';
+end $$;
+
+-- بررسی سریع بعد از اجرا: این کوئری باید فقط توابع عمومی را نشان دهد
+--   select p.proname, has_function_privilege('anon', p.oid, 'execute') as anon_can_run
+--   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+--   where n.nspname = 'public' order by 2 desc, 1;
+

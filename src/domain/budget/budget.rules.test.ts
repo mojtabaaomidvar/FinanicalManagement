@@ -18,6 +18,7 @@ function tx(partial: Partial<Transaction>): Transaction {
     subcategoryId: null,
     repeat: "none",
     repeatEnd: null,
+    handledOccurrences: [],
     photos: [],
     createdAt: "2026-06-01T10:00:00Z",
     ...partial,

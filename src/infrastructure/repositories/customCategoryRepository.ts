@@ -54,4 +54,11 @@ export class SupabaseCustomCategoryRepository
     });
     return mapCustomCategory(row);
   }
+
+  async remove(id: string): Promise<void> {
+    await rpc("delete_custom_category", {
+      p_token: await this.tok(),
+      p_category_id: id,
+    });
+  }
 }

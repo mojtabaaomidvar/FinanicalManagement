@@ -129,11 +129,14 @@ export function Select(props: {
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
   className?: string;
+  /** برای حالت «در حال ذخیره» — از انتخاب دوباره جلوگیری می‌کند */
+  disabled?: boolean;
 }) {
   return (
     <select
       className={props.className ?? "select-input"}
       value={props.value}
+      disabled={props.disabled}
       onChange={(e) => props.onChange(e.target.value)}
     >
       {props.options.map((o) => (

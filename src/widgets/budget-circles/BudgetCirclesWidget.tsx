@@ -9,13 +9,13 @@ import { today } from "@/shared/lib/jalali";
 import { formatAmount } from "@/shared/lib/format";
 import { toDisplay } from "@/shared/lib/currency";
 import { toFa } from "@/shared/lib/digits";
+import { FitText } from "@/shared/ui";
 
 const R = 26;
 const CIRC = 2 * Math.PI * R;
 
 export function BudgetCirclesWidget({ onManage }: { onManage: () => void }) {
-  const { family, txs, budgets, customCategories } = useApp();
-  const cur = family?.currency ?? "تومان";
+  const { cur, txs, budgets, customCategories } = useApp();
   const [jy, jm] = today();
 
   const resolve = useMemo(
@@ -43,7 +43,7 @@ export function BudgetCirclesWidget({ onManage }: { onManage: () => void }) {
   return (
     <section className="strip">
       <div className="strip-head">
-        <h3 className="strip-title">بودجه دسته‌ها</h3>
+        <h3 className="strip-title">دسته بندی بودجه</h3>
         <button className="link-btn" onClick={onManage}>
           مدیریت
         </button>
@@ -73,8 +73,10 @@ export function BudgetCirclesWidget({ onManage }: { onManage: () => void }) {
             </svg>
             <b>{it.name}</b>
             <span>
-              {formatAmount(toDisplay(it.spent, cur))} از{" "}
-              {formatAmount(toDisplay(it.cap, cur))}
+              <FitText>
+                {formatAmount(toDisplay(it.spent, cur))} از{" "}
+                {formatAmount(toDisplay(it.cap, cur))}
+              </FitText>
             </span>
           </button>
         ))}

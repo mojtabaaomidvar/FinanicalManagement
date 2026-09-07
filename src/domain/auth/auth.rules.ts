@@ -14,7 +14,11 @@ export function normalizePhone(input: string): string {
   return /^09\d{9}$/.test(s) ? s : "";
 }
 
-export const MIN_PASSWORD_LENGTH = 4;
+/* حداقل طول رمز — باید با بررسی سرور (WEAK_PASSWORD در schema.sql) یکی باشد.
+   از ۴ به ۸ رسید: رمز ۴ کاراکتری حتی با bcrypt در چند دقیقه شکسته می‌شود.
+   کاربران فعلی با رمز کوتاه‌تر همچنان می‌توانند وارد شوند (ورود این قانون را
+   اعمال نمی‌کند) — فقط ثبت‌نام و تغییر رمز مشمول‌اند. */
+export const MIN_PASSWORD_LENGTH = 8;
 
 export function isValidPassword(password: string): boolean {
   return password.length >= MIN_PASSWORD_LENGTH;

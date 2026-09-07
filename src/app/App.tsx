@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "./providers/AppProvider";
+import { useBackGuard } from "@/shared/lib/useBackGuard";
 import { useTheme } from "./providers/useTheme";
 import type { Route } from "./router";
 import { PwaUpdateProvider, usePwaUpdateState } from "./pwaUpdate.tsx";
@@ -132,14 +133,14 @@ function MainShell({
   filterSignal: number;
   bumpFilterSignal: () => void;
 }) {
-  const { useCases, members, family, subcategories } = useApp();
+  const { useCases, members, cur, subcategories } = useApp();
   const { show } = useToast();
   const form = useTxFormModel(
     useCases!,
     members,
     currentMemberId,
     show,
-    family?.currency ?? "تومان",
+    cur,
     subcategories,
   );
 
@@ -155,6 +156,9 @@ function MainShell({
     },
     [setRoute],
   );
+
+  /* بازگشتِ دکمه/سوایپ در تبِ غیرخانه = برگشت به خانه (نه خروج از اپ) */
+  useBackGuard(route !== "dashboard", () => nav("dashboard"));
 
   /* جستجو از هدر خانه: انتقال به تراکنش‌ها با متن جستجو */
   const searchFromHome = useCallback(
@@ -190,7 +194,7 @@ function MainShell({
             filterSignal={filterSignal}
           />
         ) : null}
-        {route === "reports" ? <ReportsPage form={form} /> : null}
+        {route === "reports" ? <ReportsPage /> : null}
         {route === "accounts" ? <AccountsPage /> : null}
         {route === "budgets" ? <BudgetsPage /> : null}
         {route === "settings" ? <SettingsPage /> : null}

@@ -242,7 +242,7 @@ export function AuthFeature() {
               type="password"
               dir="ltr"
               autoComplete="new-password"
-              placeholder="رمز عبور (حداقل ۴ کاراکتر)"
+              placeholder="رمز عبور (حداقل ۸ کاراکتر)"
               value={m.regPassword}
               onChange={(e) => m.setRegPassword(e.target.value)}
             />

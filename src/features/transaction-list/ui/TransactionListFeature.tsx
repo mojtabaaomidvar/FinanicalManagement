@@ -27,7 +27,7 @@ export function TransactionListFeature({
   const {
     txs,
     members,
-    family,
+    cur,
     accounts,
     subcategories,
     customCategories,
@@ -36,7 +36,6 @@ export function TransactionListFeature({
     () => buildCategoryResolver(customCategories),
     [customCategories],
   );
-  const cur = family?.currency ?? "تومان";
   const m = useTxListModel(txs, members, resolve, initialSearch);
   const [filterOpen, setFilterOpen] = useState(false);
 
@@ -134,7 +133,7 @@ export function TransactionListFeature({
                   <TxRow
                     key={t.id}
                     tx={t}
-                    currency={family?.currency ?? ""}
+                    currency={cur}
                     memberName={m.memberNameOf(t.memberId)}
                     subcategoryName={subNameOf(t.subcategoryId)}
                     fromAccountName={accountNameOf(t.accountId)}

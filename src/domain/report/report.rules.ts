@@ -4,7 +4,17 @@ import { categoryById } from "../category/category.catalog";
 import type { CategoryResolver } from "../category/resolve";
 import { sortTxDesc } from "../transaction/transaction.rules";
 import type { Transaction } from "../transaction/transaction.types";
-import { isoToJalali, prevMonth, MONTHS, formatISO, addDays, shortWeekday, jalaliToIso, cmp, type JDate } from "@/shared/lib/jalali";
+import {
+  isoToJalali,
+  prevMonth,
+  MONTHS,
+  formatISO,
+  addDays,
+  shortWeekday,
+  jalaliToIso,
+  cmp,
+  type JDate,
+} from "@/shared/lib/jalali";
 import { formatAmount } from "@/shared/lib/format";
 import type {
   CategorySlice,
@@ -15,11 +25,14 @@ import type {
 } from "./report.types";
 
 /* جمع مبالغ یک نوع (درآمد/هزینه) */
-export function sumByType(list: Transaction[], type: Transaction["type"]): number {
+export function sumByType(
+  list: Transaction[],
+  type: Transaction["type"],
+): number {
   return list.filter((t) => t.type === type).reduce((s, t) => s + t.amount, 0);
 }
 
-/* موجودی کل = جمع درآمد − جمع هزینه (انتقال جابه‌جایی است، نه تغییر ثروت) */
+/* موجودی کل = جمع درآمد − جمع هزینه (انتقال جابه‌جایی است، نه تغییر دارایی) */
 export function totalBalance(list: Transaction[]): number {
   return list.reduce((s, t) => {
     if (t.type === "income") return s + t.amount;
@@ -30,7 +43,10 @@ export function totalBalance(list: Transaction[]): number {
 
 /* جمع ماه: درآمد + هزینه */
 export function monthTotals(list: Transaction[]): MonthTotals {
-  return { income: sumByType(list, "income"), expense: sumByType(list, "expense") };
+  return {
+    income: sumByType(list, "income"),
+    expense: sumByType(list, "expense"),
+  };
 }
 
 /* درصد تغییر نسبت به بازه قبل — مبنای صفر قابل مقایسه نیست (null)
@@ -92,7 +108,10 @@ export function sixMonthSeries(
 }
 
 /* n تراکنش اخیر */
-export function recentTransactions(list: Transaction[], n: number): Transaction[] {
+export function recentTransactions(
+  list: Transaction[],
+  n: number,
+): Transaction[] {
   return sortTxDesc(list).slice(0, n);
 }
 
@@ -115,7 +134,14 @@ export function weekFlow(list: Transaction[], end: JDate): WeekFlow {
   }
   const totalIn = income.reduce((s, v) => s + v, 0);
   const totalOut = expense.reduce((s, v) => s + v, 0);
-  return { labels, income, expense, totalIn, totalOut, net: totalIn - totalOut };
+  return {
+    labels,
+    income,
+    expense,
+    totalIn,
+    totalOut,
+    net: totalIn - totalOut,
+  };
 }
 
 /* موجودی هر حساب = موجودی اولیه + درآمد مستقیم − هزینه مستقیم + ورودی انتقال − خروجی انتقال */
@@ -141,8 +167,8 @@ export function accountBalances(
   return accounts.map((a) => ({ account: a, balance: map.get(a.id) ?? 0 }));
 }
 
-/* سری زمانی ثروت کل خانواده — یک نقطه در پایان هر روزِ بازه
-   ثروت روز d = مبنای اولیه + جمع درآمد−هزینه همه تراکنش‌های تاریخ ≤ d */
+/* سری زمانی دارایی کل خانواده — یک نقطه در پایان هر روزِ بازه
+   دارایی روز d = مبنای اولیه + جمع درآمد−هزینه همه تراکنش‌های تاریخ ≤ d */
 export function wealthSeries(
   list: Transaction[],
   range: import("./report.types").WealthRange,
@@ -150,7 +176,9 @@ export function wealthSeries(
   initial = 0,
 ): import("./report.types").WealthPoint[] {
   /* مرتب‌سازی صعودی بر اساس تاریخ */
-  const sorted = [...list].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const sorted = [...list].sort((a, b) =>
+    a.date < b.date ? -1 : a.date > b.date ? 1 : 0,
+  );
 
   /* طول بازه به روز */
   let days: number;
@@ -170,14 +198,16 @@ export function wealthSeries(
   return wealthSeriesDays(sorted, days, end, initial);
 }
 
-/* سری ثروت در بازه دلخواه — از تاریخ «from» تا تاریخ «to» (شامل هر دو) */
+/* سری دارایی در بازه دلخواه — از تاریخ «from» تا تاریخ «to» (شامل هر دو) */
 export function wealthSeriesBetween(
   list: Transaction[],
   from: JDate,
   to: JDate,
   initial = 0,
 ): import("./report.types").WealthPoint[] {
-  const sorted = [...list].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const sorted = [...list].sort((a, b) =>
+    a.date < b.date ? -1 : a.date > b.date ? 1 : 0,
+  );
   let days = 1;
   let cur = from;
   while (cmp(cur, to) < 0 && days < 3650) {

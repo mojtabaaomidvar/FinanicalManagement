@@ -37,6 +37,7 @@ const tx = (
   subcategoryId: null,
   repeat: "none",
   repeatEnd: null,
+  handledOccurrences: [],
   photos: [],
   createdAt: "2025-01-01T00:00:00Z",
 });
@@ -109,8 +110,20 @@ describe("محاسبات مالی گزارش", () => {
     const list = [
       tx("1", "income", 500_000, "salary", "2025-09-06"),
       tx("2", "expense", 200_000, "food", "2025-09-06"),
-      tx("3", "expense", 100_000, "food", "2025-09-01"), /* ۰۶/۱۰ — داخل پنجره */
-      tx("4", "expense", 999_000, "transport", "2025-08-30"), /* خارج از پنجره */
+      tx(
+        "3",
+        "expense",
+        100_000,
+        "food",
+        "2025-09-01",
+      ) /* ۰۶/۱۰ — داخل پنجره */,
+      tx(
+        "4",
+        "expense",
+        999_000,
+        "transport",
+        "2025-08-30",
+      ) /* خارج از پنجره */,
     ];
     const w = weekFlow(list, end);
     expect(w.labels).toHaveLength(7);
@@ -132,16 +145,23 @@ describe("محاسبات مالی گزارش", () => {
     const acc = { id: "a1" } as never;
     const acc2 = { id: "a2" } as never;
     const list = [
-      { ...tx("1", "income", 1_000_000, "salary", "2025-09-01"), accountId: "a1" },
+      {
+        ...tx("1", "income", 1_000_000, "salary", "2025-09-01"),
+        accountId: "a1",
+      },
       { ...tx("2", "expense", 200_000, "food", "2025-09-02"), accountId: "a1" },
-      { ...tx("3", "transfer", 300_000, "transfer", "2025-09-03"), accountId: "a1", toAccountId: "a2" },
+      {
+        ...tx("3", "transfer", 300_000, "transfer", "2025-09-03"),
+        accountId: "a1",
+        toAccountId: "a2",
+      },
     ];
     const bals = accountBalances(list, [acc, acc2]);
     expect(bals[0].balance).toBe(500_000);
     expect(bals[1].balance).toBe(300_000);
   });
 
-  it("سری ثروت — تجمعی روزانه، انتقال بی‌اثر", () => {
+  it("سری دارایی — تجمعی روزانه، انتقال بی‌اثر", () => {
     const list = [
       tx("1", "income", 100_000, "salary", "2025-09-01"),
       tx("2", "expense", 30_000, "food", "2025-09-02"),
@@ -154,7 +174,7 @@ describe("محاسبات مالی گزارش", () => {
     expect(pts[5].value).toBe(70_000);
   });
 
-  it("سری ثروت بازه دلخواه — از/تای مشخص، تجمعی از قبلِ بازه هم حساب است", () => {
+  it("سری دارایی بازه دلخواه — از/تای مشخص، تجمعی از قبلِ بازه هم حساب است", () => {
     const list = [
       tx("1", "income", 100_000, "salary", "2025-09-01"),
       tx("2", "expense", 30_000, "food", "2025-09-10"),
@@ -167,12 +187,12 @@ describe("محاسبات مالی گزارش", () => {
     expect(pts).toHaveLength(4);
     expect(pts[0].date).toBe("2025-09-05");
     expect(pts[3].date).toBe("2025-09-08");
-    /* درآمد ۱م قبل از بازه است و در ثروت هست؛ هزینه ۱۰م هنوز نه */
+    /* درآمد ۱م قبل از بازه است و در دارایی هست؛ هزینه ۱۰م هنوز نه */
     expect(pts[0].value).toBe(100_000);
     expect(pts[3].value).toBe(100_000);
   });
 
-  it("سری ثروت بازه دلخواه — تک‌روز = یک نقطه", () => {
+  it("سری دارایی بازه دلخواه — تک‌روز = یک نقطه", () => {
     const pts = wealthSeriesBetween(
       [tx("1", "income", 50_000, "salary", "2025-09-01")],
       isoToJalali("2025-09-03"),
@@ -194,7 +214,7 @@ describe("محاسبات مالی گزارش", () => {
     expect(bals[0].balance).toBe(400_000);
   });
 
-  it("سری ثروت — مبنای اولیه در همه نقاط هست", () => {
+  it("سری دارایی — مبنای اولیه در همه نقاط هست", () => {
     const list = [tx("1", "income", 100_000, "salary", "2025-09-01")];
     const pts = wealthSeries(list, "7d", isoToJalali("2025-09-03"), 250_000);
     expect(pts[0].value).toBe(250_000);

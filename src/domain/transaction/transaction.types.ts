@@ -41,6 +41,9 @@ export interface Transaction {
   repeat: TxRepeat;
   /** تاریخ پایان تکرار (میلادی ISO) — الزامی وقتی repeat ≠ none */
   repeatEnd: string | null;
+  /** سررسیدهایی از این تراکنش تکرارشونده که مدیر رسیدگی کرده (ثبت یا رد) —
+      فهرست تاریخ‌های میلادی ISO. برای تراکنش عادی خالی است. */
+  handledOccurrences: string[];
   photos: TransactionPhoto[];
   createdAt: string;
 }

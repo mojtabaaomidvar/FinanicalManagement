@@ -4,7 +4,8 @@ import { useEffect } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
 import { useAuthModel } from "../model/useAuthModel";
-import { Field, TextInput } from "@/shared/ui";
+import { Field, Select, TextInput } from "@/shared/ui";
+import { MEMBER_RELATIONS } from "@/domain/family/family.types";
 import { toFa } from "@/shared/lib/digits";
 
 export function InviteAcceptFeature({ token }: { token: string }) {
@@ -53,6 +54,21 @@ export function InviteAcceptFeature({ token }: { token: string }) {
               placeholder="نام"
             />
           </Field>
+          {/* نسبت با مدیر خانواده — بدون آن سرور «سایر» ثبت می‌کرد و
+              نسبت همه‌ی اعضای دعوت‌شده اشتباه نمایش داده می‌شد */}
+          <Field label="نسبت شما با مدیر خانواده">
+            <Select
+              value={m.invRelation}
+              onChange={m.setInvRelation}
+              options={[
+                { value: "", label: "انتخاب کنید" },
+                ...MEMBER_RELATIONS.filter((r) => r !== "خودم").map((r) => ({
+                  value: r,
+                  label: r,
+                })),
+              ]}
+            />
+          </Field>
           <Field label="شماره موبایل">
             <TextInput
               value={m.invPhone}
@@ -68,7 +84,7 @@ export function InviteAcceptFeature({ token }: { token: string }) {
               type="password"
               value={m.invPassword}
               onChange={m.setInvPassword}
-              placeholder="حداقل ۴ کاراکتر"
+              placeholder="حداقل ۸ کاراکتر"
               dir="ltr"
               autoComplete="new-password"
             />

@@ -15,7 +15,7 @@ export function RecentTxWidget({
   form: TxFormModel;
   onNavTransactions: () => void;
 }) {
-  const { txs, members, family, accounts, subcategories, customCategories } =
+  const { txs, members, cur, accounts, subcategories, customCategories } =
     useApp();
 
   const resolve = useMemo(
@@ -24,7 +24,7 @@ export function RecentTxWidget({
   );
   const recent = useMemo(() => recentTransactions(txs, 3), [txs]);
   const accountName = (id: string | null) =>
-    id ? accounts.find((a) => a.id === id)?.title ?? null : null;
+    id ? (accounts.find((a) => a.id === id)?.title ?? null) : null;
 
   return (
     <Card
@@ -41,12 +41,12 @@ export function RecentTxWidget({
             <TxRow
               key={t.id}
               tx={t}
-              currency={family?.currency ?? ""}
+              currency={cur}
               memberName={members.find((x) => x.id === t.memberId)?.name ?? "—"}
               subcategoryName={
                 t.subcategoryId
-                  ? subcategories.find((s) => s.id === t.subcategoryId)?.name ??
-                    null
+                  ? (subcategories.find((s) => s.id === t.subcategoryId)
+                      ?.name ?? null)
                   : null
               }
               fromAccountName={accountName(t.accountId)}
@@ -58,9 +58,6 @@ export function RecentTxWidget({
         ) : (
           <div className="empty-state" style={{ padding: "24px 8px" }}>
             <p>هنوز تراکنشی ثبت نشده</p>
-            <p style={{ fontSize: 11.5, marginTop: 4 }}>
-              از میان‌بُرهای بالا شروع کنید
-            </p>
           </div>
         )}
       </div>

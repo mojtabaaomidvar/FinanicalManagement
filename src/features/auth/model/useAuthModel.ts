@@ -16,6 +16,8 @@ export interface OtpFlow {
   familyName?: string;
   memberName?: string;
   inviteToken?: string;
+  /** نسبت با مدیر خانواده — در جریان دعوت لازم است */
+  relation?: string;
 }
 
 export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
@@ -45,15 +47,14 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
   const [invName, setInvName] = useState("");
   const [invPhone, setInvPhone] = useState("");
   const [invPassword, setInvPassword] = useState("");
+  const [invRelation, setInvRelation] = useState("");
 
   /* وضعیت OTP از تنظیمات سرور — null = هنوز نامشخص */
   const [otpEnabled, setOtpEnabled] = useState<boolean | null>(null);
 
-  /* عضو پیش‌ثبت‌شده توسط مدیر — خانواده در فرم قفل می‌شود */
-  const [preReg, setPreReg] = useState<{
-    familyName: string;
-    memberName: string;
-  } | null>(null);
+  /* عضو پیش‌ثبت‌شده توسط مدیر — خانواده در فرم قفل می‌شود
+     (سرور نام عضو را برنمی‌گرداند تا با پیمایش شماره‌ها قابل استخراج نباشد) */
+  const [preReg, setPreReg] = useState<{ familyName: string } | null>(null);
 
   /** بررسی شماره در فرم ثبت‌نام — اگر عضو pending بود اطلاعات خانواده قفل می‌شود */
   async function checkPreRegistered(rawPhone: string) {
@@ -63,13 +64,12 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
     try {
       const r = await useCases.checkPreRegistered.execute(phone);
       if (r.preRegistered && r.familyName) {
-        setPreReg({ familyName: r.familyName, memberName: r.memberName ?? "" });
-        if (r.memberName && !regName.trim()) setRegName(r.memberName);
+        setPreReg({ familyName: r.familyName });
       } else {
         setPreReg(null);
       }
     } catch {
-      /* بی‌صدا */
+      /* بی‌صدا — سرور خودش هنگام ثبت‌نام عضو pending را تشخیص می‌دهد */
     }
   }
   const preRegCheckRef = useRef<string | null>(null);
@@ -136,7 +136,7 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
          (اگر OTP روی سرور روشن باشد، INVALID_OTP برمی‌گردد و جریان کد ادامه می‌یابد) */
       if (otpEnabled !== true) {
         try {
-          const r = await useCases.loginWithOtp.execute(phone, null);
+          const r = await useCases.loginWithOtp.execute(phone, loginPassword, null);
           await useCases.saveSession.execute(r);
           await onDone();
           return;
@@ -163,7 +163,7 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
     if (!regName.trim()) return notify("نام شما را وارد کنید");
     if (!phone) return notify("شماره موبایل معتبر نیست (مثل ۰۹۱۲۳۴۵۶۷۸۹)");
     if (!isValidPassword(regPassword))
-      return notify("رمز عبور حداقل ۴ کاراکتر باشد");
+      return notify("رمز عبور حداقل ۸ کاراکتر باشد");
     if (preReg && !regRelation) {
       return notify("نسبت شما با مدیر خانواده را انتخاب کنید");
     }
@@ -210,13 +210,15 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
     if (!invName.trim()) return notify("نام خود را وارد کنید");
     if (!phone) return notify("شماره موبایل معتبر نیست (مثل ۰۹۱۲۳۴۵۶۷۸۹)");
     if (!isValidPassword(invPassword))
-      return notify("رمز عبور حداقل ۴ کاراکتر باشد");
+      return notify("رمز عبور حداقل ۸ کاراکتر باشد");
+    if (!invRelation) return notify("نسبت خود با مدیر خانواده را انتخاب کنید");
 
     const input = {
       inviteToken: inviteToken ?? "",
       memberName: invName.trim(),
       phone,
       password: invPassword,
+      relation: invRelation,
     };
 
     /* OTP غیرفعال یا نامشخص → عضویت مستقیم */
@@ -245,6 +247,7 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
       password: invPassword,
       memberName: input.memberName,
       inviteToken: input.inviteToken,
+      relation: input.relation,
     });
   }
 
@@ -257,7 +260,7 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
     try {
       let result = null;
       if (flow.mode === "login") {
-        result = await useCases.loginWithOtp.execute(flow.phone, code);
+        result = await useCases.loginWithOtp.execute(flow.phone, flow.password, code);
       } else if (flow.mode === "register") {
         result = await useCases.register.execute(
           {
@@ -276,6 +279,7 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
             memberName: flow.memberName!,
             phone: flow.phone,
             password: flow.password,
+            relation: flow.relation,
           },
           code,
         );
@@ -337,6 +341,8 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
     setInvPhone,
     invPassword,
     setInvPassword,
+    invRelation,
+    setInvRelation,
     resetOtp,
     submitLogin,
     submitRegister,

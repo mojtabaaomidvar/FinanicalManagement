@@ -13,25 +13,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
-import { Card } from "@/shared/ui";
+import { AmountInput, Card, Field, Modal } from "@/shared/ui";
 import { CheckBudgetStatus } from "./CheckBudgetStatus";
 import { ProfileCard } from "./ProfileCard";
 import { EventsCard } from "./EventsCard";
 import { MembersCard } from "./MembersCard";
 import { AccountsCard } from "./AccountsCard";
+import { CategoriesCard } from "./CategoriesCard";
 import { LabelsCard } from "./LabelsCard";
+import { ScheduledTxsCard } from "./ScheduledTxsCard";
 import { SmsBridgeCard } from "./SmsBridgeCard";
 import { SettingsSubPage } from "./SettingsSubPage";
 import { SettingsCard, SettingsRow, type RowTrailing } from "./SettingsCard";
 import { useTheme } from "@/app/providers/useTheme";
 import { usePwaUpdateState } from "@/app/pwaUpdate.tsx";
-import { APP_VERSION } from "@/shared/config/version";
+import { APP_VERSION, buildId } from "@/shared/config/version";
 import { toFa } from "@/shared/lib/digits";
-import {
-  formatAmount,
-  liveFormatAmount,
-  parseAmountInput,
-} from "@/shared/lib/format";
+import { useBackGuard } from "@/shared/lib/useBackGuard";
+import { formatAmount, parseAmountInput } from "@/shared/lib/format";
 import { fromDisplay, toDisplay } from "@/shared/lib/currency";
 import {
   transactionsToCsv,
@@ -40,28 +39,36 @@ import {
 } from "@/shared/lib/csv";
 import { sortTxDesc } from "@/domain/transaction/transaction.rules";
 import { CATEGORIES } from "@/domain/category/category.catalog";
-import { isoToJalali, formatISO } from "@/shared/lib/jalali";
 import type { ThemeMode } from "@/domain/family/family.types";
+import { relationLabel } from "@/domain/family/family.rules";
 
 type SettingsSection =
   | "profile"
   | "premium"
   | "family"
   | "events"
-  | "budget"
   | "accounts"
   | "scheduled"
+  | "categories"
   | "labels"
   | "export"
   | "sms"
-  | "about";
+  | "about"
+  | "update";
 
-/* ترتیب استپر «ظاهر» — روشن → خودکار → تیره */
+/* ترتیب سگمنت «ظاهر» — روشن → خودکار → تیره */
 const THEMES: { value: ThemeMode; label: string }[] = [
   { value: "light", label: "روشن" },
   { value: "auto", label: "خودکار" },
   { value: "dark", label: "تیره" },
 ];
+
+/* آیکون هر حالت ظاهر — خورشید/نیمه/ماه */
+const THEME_ICON: Record<ThemeMode, string> = {
+  light: "sun",
+  auto: "auto-theme",
+  dark: "moon",
+};
 
 export function SettingsPage() {
   const {
@@ -72,9 +79,12 @@ export function SettingsPage() {
     accounts,
     events,
     member,
+    budgets,
     customCategories,
     subcategories,
+    cur,
     refreshData,
+    updateMember,
     onLoggedOut,
   } = useApp();
   const { show } = useToast();
@@ -83,10 +93,12 @@ export function SettingsPage() {
 
   const [section, setSection] = useState<SettingsSection | null>(null);
 
+  const isOwner = member?.role === "owner";
+
+  /* بودجه ماهانه دیگر زیرصفحه ندارد — فقط همین مودال ورود/ویرایش مبلغ */
+  const [budgetOpen, setBudgetOpen] = useState(false);
   const [budget, setBudget] = useState("");
-  const [currency, setCurrency] = useState("تومان");
   const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
   /* کلید پل پیامک ساخته شده یا نه — تعیین‌کننده حالت ردیف (واژه «ساخت کلید») */
   const [bridgeOn, setBridgeOn] = useState<boolean | null>(null);
   /* مقدار خوش‌بینانه کلید «ریال» تا وقتی پاسخ سرور برسد — وگرنه کلید
@@ -95,13 +107,9 @@ export function SettingsPage() {
 
   useEffect(() => {
     setBudget(
-      family?.budget
-        ? formatAmount(toDisplay(family.budget, family?.currency ?? "تومان"))
-        : "",
+      family?.budget ? formatAmount(toDisplay(family.budget, cur)) : "",
     );
-    setCurrency(family?.currency ?? "تومان");
-    setDirty(false);
-  }, [family?.budget, family?.currency]);
+  }, [family?.budget, cur]);
 
   /* وضعیت پل پیامک — هربار که به فهرست اصلی برمی‌گردیم تازه می‌شود،
      چون ممکن است کاربر همین الان در زیرصفحه کلید ساخته باشد */
@@ -121,19 +129,23 @@ export function SettingsPage() {
     };
   }, [useCases, section]);
 
-  /** اعمال تغییرات مالی — ذخیره در سرور + ری‌فرش فوری کل داده */
-  async function applyFinanceSettings() {
+  /* مجموع بودجهٔ دسته‌ها (پایه: تومان) — سقف ماهانه نباید از آن کمتر بماند */
+  const categoryBudgetSum = useMemo(
+    () => budgets.reduce((s, b) => s + b.amount, 0),
+    [budgets],
+  );
+
+  /** ذخیره سقف بودجه ماهانه — فقط مبلغ؛ واحد پول از کلید همین صفحه می‌آید */
+  async function saveBudget() {
     if (!family) return;
     setSaving(true);
     try {
-      await useCases!.updateFamilySettings.execute({
-        budget: fromDisplay(parseAmountInput(budget), currency),
-        currency,
-        dark: family.dark,
-      });
+      await useCases!.setMonthlyBudget.execute(
+        fromDisplay(parseAmountInput(budget), cur),
+      );
       await refreshData();
-      setDirty(false);
-      show("تغییرات اعمال شد");
+      setBudgetOpen(false);
+      show("بودجه ماهانه ذخیره شد");
     } catch (e) {
       show((e as Error).message || "خطا در ذخیره");
     } finally {
@@ -141,23 +153,18 @@ export function SettingsPage() {
     }
   }
 
-  /** کلید «نمایش به ریال» — فقط واحد نمایش عوض می‌شود؛
-      بودجه در سرور همیشه به تومان (ارز پایه) ذخیره است */
+  /** کلید «نمایش به ریال» — واحد نمایشِ خودِ همین کاربر (v5.8).
+      مبالغ در سرور همیشه به تومان (ارز پایه) ذخیره می‌مانند و این کلید
+      روی بقیه اعضای خانواده اثری ندارد. عضو به‌روزشده مستقیم در
+      updateMember نشسته می‌شود چون refreshData هرگز member را تازه نمی‌کند. */
   async function toggleRial(toRial: boolean) {
-    if (!family || pendingRial !== null) return;
+    if (pendingRial !== null) return;
     setPendingRial(toRial);
     try {
-      await useCases!.updateFamilySettings.execute({
-        budget: family.budget,
-        currency: toRial ? "ریال" : "تومان",
-        dark: family.dark,
-      });
-      await refreshData();
-      show(
-        toRial
-          ? "مبالغ به ریال نمایش داده می‌شوند"
-          : "مبالغ به تومان نمایش داده می‌شوند",
+      const updated = await useCases!.setCurrency.execute(
+        toRial ? "ریال" : "تومان",
       );
+      updateMember(updated);
     } catch (e) {
       show((e as Error).message || "خطا در تغییر واحد پول");
     } finally {
@@ -175,40 +182,27 @@ export function SettingsPage() {
     location.reload();
   }
 
-  /** ناحیه خطر — خروج + پاک‌کردن حافظه محلی/آفلاین این دستگاه.
-      داده روی سرور دست‌نخورده می‌ماند؛ فقط این دستگاه تمیز می‌شود. */
-  async function wipeDevice() {
-    if (
-      !confirm(
-        "از حساب خارج می‌شوید و حافظه موقت و نسخه آفلاین روی این دستگاه پاک می‌شود.\nداده‌های شما روی سرور دست‌نخورده می‌ماند. ادامه؟",
-      )
-    ) {
-      return;
-    }
-    try {
-      await useCases!.logout.execute();
-    } catch {
-      /* بی‌صدا — پاک‌سازی محلی مهم‌تر است */
-    }
-    try {
-      localStorage.clear();
-      sessionStorage.clear();
-    } catch {
-      /* حالت خصوصی مرورگر */
-    }
-    try {
-      if ("caches" in window) {
-        const keys = await caches.keys();
-        await Promise.all(keys.map((k) => caches.delete(k)));
-      }
-      const regs = await navigator.serviceWorker?.getRegistrations?.();
-      await Promise.all((regs ?? []).map((r) => r.unregister()));
-    } catch {
-      /* بی‌صدا */
-    }
-    onLoggedOut();
-    location.reload();
-  }
+  /* §۶.۲ — تابع wipeDevice بازنشسته شد (ردیفش از UI حذف شد چون با «حذف
+     حساب» اشتباه گرفته می‌شد). کد بدون حذف نگه داشته می‌شود تا اگر بعداً
+     «پاک‌سازی دستگاه» لازم شد، از همین‌جا بازگردد:
+
+     async function wipeDevice() {
+       if (!confirm("خروج + پاک‌کردن حافظه موقت و نسخه آفلاین این دستگاه؛
+         داده روی سرور دست‌نخورده می‌ماند. ادامه؟")) return;
+       try { await useCases!.logout.execute(); } catch { بی‌صدا }
+       try { localStorage.clear(); sessionStorage.clear(); } catch { خصوصی }
+       try {
+         if ("caches" in window) {
+           const keys = await caches.keys();
+           await Promise.all(keys.map((k) => caches.delete(k)));
+         }
+         const regs = await navigator.serviceWorker?.getRegistrations?.();
+         await Promise.all((regs ?? []).map((r) => r.unregister()));
+       } catch { بی‌صدا }
+       onLoggedOut();
+       location.reload();
+     }
+  */
 
   const budgetStatus = useMemo(
     () =>
@@ -224,6 +218,9 @@ export function SettingsPage() {
   );
 
   const back = () => setSection(null);
+
+  /* بازگشتِ دکمه/سوایپ در زیرصفحهٔ باز = برگشت به فهرست تنظیمات */
+  useBackGuard(section !== null, back);
 
   /* ─────────────── زیرصفحه‌ها ─────────────── */
   if (section === "profile") {
@@ -274,9 +271,17 @@ export function SettingsPage() {
     );
   }
 
+  if (section === "categories") {
+    return (
+      <SettingsSubPage title="دسته‌ها" onBack={back}>
+        <CategoriesCard />
+      </SettingsSubPage>
+    );
+  }
+
   if (section === "labels") {
     return (
-      <SettingsSubPage title="دسته‌ها و برچسب‌ها" onBack={back}>
+      <SettingsSubPage title="برچسب‌ها" onBack={back}>
         <LabelsCard />
       </SettingsSubPage>
     );
@@ -286,74 +291,6 @@ export function SettingsPage() {
     return (
       <SettingsSubPage title="پیامک خودکار" onBack={back}>
         <SmsBridgeCard />
-      </SettingsSubPage>
-    );
-  }
-
-  /* ── بودجه ماهانه و واحد پول ── */
-  if (section === "budget") {
-    const isOwner = member?.role === "owner";
-    return (
-      <SettingsSubPage title="بودجه و واحد پول" onBack={back}>
-        <Card>
-          <div className="form-grid">
-            <div className="form-row">
-              <label className="form-label">بودجه ماهانه</label>
-              <div className="amt-field">
-                <input
-                  type="text"
-                  className="num-input"
-                  inputMode="numeric"
-                  placeholder="۰"
-                  value={budget}
-                  disabled={!isOwner}
-                  onChange={(e) => {
-                    setBudget(liveFormatAmount(e.target.value));
-                    setDirty(true);
-                  }}
-                />
-                <span className="cur-suffix">{currency}</span>
-              </div>
-            </div>
-            <div className="form-row">
-              <label className="form-label">واحد پول</label>
-              <select
-                className="select-input"
-                value={currency}
-                disabled={!isOwner}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  /* بودجه نمایشی به واحد جدید تبدیل می‌شود (پایه: تومان) */
-                  const cur = parseAmountInput(budget);
-                  if (cur) {
-                    setBudget(
-                      formatAmount(toDisplay(fromDisplay(cur, currency), next)),
-                    );
-                  }
-                  setCurrency(next);
-                  setDirty(true);
-                }}
-              >
-                <option value="تومان">تومان</option>
-                <option value="ریال">ریال</option>
-              </select>
-            </div>
-          </div>
-          {!isOwner ? (
-            <p style={{ fontSize: 11.5, color: "var(--text-3)", marginTop: 4 }}>
-              تغییر بودجه ماهانه فقط توسط مدیر خانواده امکان‌پذیر است
-            </p>
-          ) : null}
-          <CheckBudgetStatus status={budgetStatus} currency={currency} />
-          <button
-            className="btn-primary btn-block"
-            style={{ marginTop: 12 }}
-            disabled={!dirty || saving || !isOwner}
-            onClick={applyFinanceSettings}
-          >
-            {saving ? "…" : dirty ? "اعمال تغییرات" : "ذخیره شد"}
-          </button>
-        </Card>
       </SettingsSubPage>
     );
   }
@@ -400,7 +337,10 @@ export function SettingsPage() {
                   members.map((m) => ({ id: m.id, name: m.name })),
                   [
                     ...CATEGORIES.map((c) => ({ id: c.id, name: c.name })),
-                    ...customCategories.map((c) => ({ id: c.id, name: c.name })),
+                    ...customCategories.map((c) => ({
+                      id: c.id,
+                      name: c.name,
+                    })),
                   ],
                   (id) => accounts.find((a) => a.id === id)?.title ?? "",
                 );
@@ -421,7 +361,10 @@ export function SettingsPage() {
                   members.map((m) => ({ id: m.id, name: m.name })),
                   [
                     ...CATEGORIES.map((c) => ({ id: c.id, name: c.name })),
-                    ...customCategories.map((c) => ({ id: c.id, name: c.name })),
+                    ...customCategories.map((c) => ({
+                      id: c.id,
+                      name: c.name,
+                    })),
                   ],
                   (id) => accounts.find((a) => a.id === id)?.title ?? "",
                 );
@@ -447,11 +390,19 @@ export function SettingsPage() {
     );
   }
 
-  /* ── درباره و به‌روزرسانی ── */
+  /* ── به‌روزرسانی — جدا از «درباره» (طبق بریف §۶.۱) ── */
+  if (section === "update") {
+    return (
+      <SettingsSubPage title="به‌روزرسانی" onBack={back}>
+        <VersionCard />
+      </SettingsSubPage>
+    );
+  }
+
+  /* ── درباره — فقط هویت برنامه؛ به‌روزرسانی زیرصفحهٔ جداست ── */
   if (section === "about") {
     return (
-      <SettingsSubPage title="درباره و به‌روزرسانی" onBack={back}>
-        <VersionCard />
+      <SettingsSubPage title="درباره" onBack={back}>
         <Card title="درباره">
           <div style={{ textAlign: "center", padding: "12px 0" }}>
             <div className="auth-art" style={{ margin: "0 auto 12px" }}>
@@ -466,6 +417,11 @@ export function SettingsPage() {
             <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: 10 }}>
               نسخه {toFa(APP_VERSION)}
             </p>
+            {/* شناسه ساخت — با این می‌شود مطمئن شد نسخه روی دستگاه همان
+                نسخه‌ای است که تازه منتشر کرده‌اید */}
+            <p style={{ fontSize: 10, color: "var(--text-3)", marginTop: 4 }}>
+              شناسه ساخت: {toFa(buildId())}
+            </p>
           </div>
         </Card>
       </SettingsSubPage>
@@ -473,13 +429,19 @@ export function SettingsPage() {
   }
 
   /* ─────────────── فهرست اصلی ─────────────── */
-  const cur = family?.currency ?? "تومان";
-  const isOwner = member?.role === "owner";
   const themeIdx = Math.max(
     0,
     THEMES.findIndex((t) => t.value === themeMode),
   );
-  const labelCount = customCategories.length + subcategories.length;
+
+  /* واحدی که همین حالا زیر کلید نوشته می‌شود — تا پاسخ سرور برسد،
+     مقدار خوش‌بینانه کلید ملاک است تا متن با کلید همگام بماند */
+  const shownCur = pendingRial === null ? cur : pendingRial ? "ریال" : "تومان";
+
+  /* سقفی که کاربر همین حالا در مودال تایپ کرده، از مجموع دسته‌ها کمتر است؟ */
+  const budgetBelowSum =
+    categoryBudgetSum > 0 &&
+    fromDisplay(parseAmountInput(budget), cur) < categoryBudgetSum;
 
   /* بودجه: مقدار، یا واژه «تعیین» وقتی هنوز صفر است */
   const budgetTrailing: RowTrailing = family?.budget
@@ -526,10 +488,13 @@ export function SettingsPage() {
               )}
             </span>
             <span className="set-row-body">
-              <span className="set-profile-name">{member?.name ?? "کاربر"}</span>
+              <span className="set-profile-name">
+                {member?.name ?? "کاربر"}
+              </span>
               <span className="set-profile-sub">
-                {member?.phone ??
-                  (member?.role === "owner" ? "مدیر خانواده" : "عضو خانواده")}
+                {/* نسبت با مدیر خانواده — همان برچسبی که در پنل پروفایل و
+                    فهرست اعضا دیده می‌شود، تا همه‌جا یکسان باشد */}
+                {member ? relationLabel(member) : "کاربر"}
               </span>
             </span>
             <span className="set-row-trail">
@@ -541,7 +506,7 @@ export function SettingsPage() {
 
           <SettingsRow
             icon="crown"
-            label="ارتقا به نسخه ویژه!"
+            label="نسخه پرمیوم"
             sub="قابلیت‌های بیشتر برای مدیریت مالی خانواده"
             tone="gold"
             trailing={{ type: "chevron" }}
@@ -559,7 +524,7 @@ export function SettingsPage() {
           />
           <SettingsRow
             icon="bell"
-            label="رویدادهای مهم"
+            label="رویدادهای مهم خانواده"
             trailing={{ type: "counter", count: events.length }}
             onClick={() => setSection("events")}
           />
@@ -571,26 +536,20 @@ export function SettingsPage() {
             icon="piggy"
             label="بودجه ماهانه"
             trailing={budgetTrailing}
-            onClick={() => setSection("budget")}
+            onClick={() => setBudgetOpen(true)}
           />
-          {isOwner ? (
-            <SettingsRow
-              icon="swap"
-              label="نمایش مبالغ به ریال"
-              sub="واحد پایه همیشه تومان می‌ماند"
-              trailing={{
-                type: "toggle",
-                on: pendingRial ?? cur === "ریال",
-                onChange: (next) => void toggleRial(next),
-              }}
-            />
-          ) : (
-            <SettingsRow
-              icon="swap"
-              label="واحد نمایش مبالغ"
-              trailing={{ type: "value", value: cur }}
-            />
-          )}
+          {/* واحد پول شخصی است (v5.8) — هر عضو، از جمله اعضای عادی،
+              واحد نمایش خودش را عوض می‌کند و روی بقیه اثری ندارد */}
+          <SettingsRow
+            icon="swap"
+            label="واحد پول"
+            sub={`${shownCur}`}
+            trailing={{
+              type: "toggle",
+              on: pendingRial ?? cur === "ریال",
+              onChange: (next) => void toggleRial(next),
+            }}
+          />
           <SettingsRow
             icon="card"
             label="کارت‌ها و حساب‌ها"
@@ -609,8 +568,22 @@ export function SettingsPage() {
           />
           <SettingsRow
             icon="tag"
-            label="دسته‌ها و برچسب‌ها"
-            trailing={{ type: "counter", count: labelCount }}
+            label="دسته‌ها"
+            trailing={
+              customCategories.length
+                ? { type: "counter", count: customCategories.length }
+                : { type: "action", label: "افزودن" }
+            }
+            onClick={() => setSection("categories")}
+          />
+          <SettingsRow
+            icon="tag"
+            label="برچسب‌ها"
+            trailing={
+              subcategories.length
+                ? { type: "counter", count: subcategories.length }
+                : { type: "action", label: "افزودن" }
+            }
             onClick={() => setSection("labels")}
           />
           <SettingsRow
@@ -623,20 +596,52 @@ export function SettingsPage() {
 
         {/* ── برنامه ── */}
         <SettingsCard title="برنامه">
-          <SettingsRow
-            icon="image"
-            label="ظاهر"
-            trailing={{
-              type: "stepper",
-              value: THEMES[themeIdx].label,
-              canDown: themeIdx > 0,
-              canUp: themeIdx < THEMES.length - 1,
-              onStep: (dir) => {
-                const next = THEMES[themeIdx + dir];
-                if (next) void changeTheme(next.value);
-              },
-            }}
-          />
+          {/* ظاهر — سه‌گزینه‌ای با آیکون؛ گزینهٔ فعال کپسول لغزنده دارد.
+             استپر بالا/پایین قبلی جای زیادی می‌گرفت و ترتیبش گنگ بود. */}
+          <div className="set-row set-theme-row">
+            <span className="set-row-ico">
+              <svg>
+                <use href="#i-image" />
+              </svg>
+            </span>
+            <span className="set-row-body">
+              <span className="set-row-label">ظاهر</span>
+              <span className="set-row-sub">
+                {themeMode === "auto"
+                  ? "خودکار بر اساس ساعت شبانه‌روز"
+                  : themeMode === "dark"
+                    ? "تم تیره همیشه روشن است"
+                    : "تم روشن همیشه فعال است"}
+              </span>
+            </span>
+            <div
+              className="set-theme-seg"
+              role="radiogroup"
+              aria-label="انتخاب ظاهر"
+            >
+              <span
+                className="set-theme-pill"
+                aria-hidden="true"
+                style={{ insetInlineStart: `calc(${themeIdx} * 33.333% + 3px)` }}
+              />
+              {THEMES.map((t) => (
+                <button
+                  key={t.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={themeMode === t.value}
+                  className={`set-theme-opt ${themeMode === t.value ? "active" : ""}`}
+                  aria-label={t.label}
+                  title={t.label}
+                  onClick={() => void changeTheme(t.value)}
+                >
+                  <svg>
+                    <use href={`#i-${THEME_ICON[t.value]}`} />
+                  </svg>
+                </button>
+              ))}
+            </div>
+          </div>
           <SettingsRow
             icon="sms"
             label="پیامک خودکار (اندروید)"
@@ -644,15 +649,23 @@ export function SettingsPage() {
             trailing={smsTrailing}
             onClick={() => setSection("sms")}
           />
+          {/* به‌روزرسانی و درباره دو ردیفِ جدا شدند (§۶.۱): وقتی نسخهٔ
+              تازه آماده است، ردیف به‌روزرسانی خودش «نصب» را نشان می‌دهد. */}
           <SettingsRow
-            icon="gear"
-            label="درباره و به‌روزرسانی"
+            icon="download"
+            label="به‌روزرسانی"
             trailing={
               updateReady
                 ? { type: "action", label: "نصب" }
                 : { type: "value", value: `نسخه ${toFa(APP_VERSION)}` }
             }
-            onClick={() => (updateReady ? applyUpdate() : setSection("about"))}
+            onClick={() => (updateReady ? applyUpdate() : setSection("update"))}
+          />
+          <SettingsRow
+            icon="home-i"
+            label="درباره"
+            trailing={{ type: "chevron" }}
+            onClick={() => setSection("about")}
           />
         </SettingsCard>
 
@@ -666,19 +679,70 @@ export function SettingsPage() {
           />
         </SettingsCard>
 
-        <SettingsCard>
-          <SettingsRow
-            icon="trash"
-            label="پاک‌کردن داده‌های این دستگاه"
-            sub="خروج + حذف حافظه موقت و نسخه آفلاین"
-            trailing={{ type: "chevron" }}
-            danger
-            onClick={() => void wipeDevice()}
-          />
-        </SettingsCard>
+        {/* §۶.۲ — ردیف «پاک‌کردن داده‌های این دستگاه» حذف شد: کاربران آن
+            را با «حذف حساب» اشتباه می‌گرفتند و بی‌دلیل نگران می‌شدند.
+            «خروج از حساب» بالا برای پایان نشست کافی است. تابع wipeDevice
+            بازنشسته شد (بدون حذف کد — رجوع به تعریفش). */}
 
         <p className="set-version">نسخه {toFa(APP_VERSION)}</p>
       </div>
+
+      {/* بودجه ماهانه — مودال ورود/ویرایش مبلغ (زیرصفحه‌ای در کار نیست) */}
+      <Modal
+        open={budgetOpen}
+        onClose={() => setBudgetOpen(false)}
+        title="بودجه ماهانه"
+      >
+        <div className="form-grid" style={{ marginTop: 8 }}>
+          <div className="form-row full">
+            <Field label={`سقف ماهانه (${cur})`}>
+              <AmountInput value={budget} onChange={setBudget} currency={cur} />
+            </Field>
+          </div>
+        </div>
+
+        {/* مجموع بودجهٔ دسته‌ها هرگز نباید از سقف ماهانه بیشتر باشد */}
+        {categoryBudgetSum > 0 ? (
+          <p
+            className={`modal-sub${budgetBelowSum ? " danger-text" : ""}`}
+            style={{ marginTop: 6 }}
+          >
+            مجموع بودجه‌بندی دسته‌ها:{" "}
+            {formatAmount(toDisplay(categoryBudgetSum, cur))} {cur}
+            {budgetBelowSum
+              ? " — سقف واردشده از این مجموع کمتر است؛ در تب بودجه‌ها هشدار می‌گیرید."
+              : ""}
+          </p>
+        ) : null}
+
+        {budgetStatus ? (
+          <div style={{ marginTop: 10 }}>
+            <CheckBudgetStatus status={budgetStatus} currency={cur} />
+          </div>
+        ) : null}
+
+        {isOwner ? (
+          <div className="modal-actions">
+            <button
+              className="btn-secondary"
+              onClick={() => setBudgetOpen(false)}
+            >
+              انصراف
+            </button>
+            <button
+              className="btn-primary"
+              disabled={saving}
+              onClick={() => void saveBudget()}
+            >
+              {saving ? "…" : "ذخیره"}
+            </button>
+          </div>
+        ) : (
+          <p className="modal-sub" style={{ marginTop: 10 }}>
+            فقط مدیر خانواده می‌تواند سقف بودجه را تغییر دهد.
+          </p>
+        )}
+      </Modal>
     </section>
   );
 }
@@ -733,6 +797,10 @@ function VersionCard() {
           </button>
         )}
       </div>
+      {/* شناسه ساخت نسخه‌ای که همین حالا روی دستگاه اجرا می‌شود */}
+      <p className="modal-sub" style={{ marginTop: 10 }}>
+        شناسه ساخت: {toFa(buildId())}
+      </p>
     </Card>
   );
 }
@@ -768,60 +836,6 @@ function PremiumCard() {
   );
 }
 
-/* فهرست تراکنش‌های زمان‌بندی‌شده — تکرارشونده‌ها */
-function ScheduledTxsCard() {
-  const { txs, family, customCategories, members } = useApp();
-  const cur = family?.currency ?? "تومان";
-
-  const scheduled = useMemo(
-    () => sortTxDesc(txs.filter((t) => t.repeat && t.repeat !== "none")),
-    [txs],
-  );
-
-  const repeatFa: Record<string, string> = {
-    weekly: "هفتگی",
-    monthly: "ماهانه",
-    yearly: "سالانه",
-  };
-
-  const resolveName = (id: string) =>
-    CATEGORIES.find((c) => c.id === id)?.name ??
-    customCategories.find((c) => c.id === id)?.name ??
-    id;
-
-  return (
-    <Card title="تراکنش‌های زمان‌بندی‌شده">
-      {scheduled.length ? (
-        <div className="scheduled-list">
-          {scheduled.map((t) => (
-            <div className="scheduled-row" key={t.id}>
-              <span className="scheduled-repeat">
-                <svg>
-                  <use href="#i-repeat" />
-                </svg>
-                {repeatFa[t.repeat] ?? t.repeat}
-                {t.repeatEnd
-                  ? ` تا ${formatISO(isoToJalali(t.repeatEnd))}`
-                  : ""}
-              </span>
-              <b className="scheduled-title">
-                {t.note || resolveName(t.category)}
-              </b>
-              <span className="scheduled-amount">
-                {formatAmount(toDisplay(t.amount, cur))} {cur}
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="modal-sub">
-          تراکنش تکرارشونده‌ای ندارید — موقع ثبت تراکنش، «تکرار» را روی
-          دوره‌ای بگذارید (قسط، حقوق، اجاره…).
-        </p>
-      )}
-      <p className="modal-sub" style={{ marginTop: 8 }}>
-        {members.length} عضو · {scheduled.length} تراکنش زمان‌بندی‌شده
-      </p>
-    </Card>
-  );
-}
+/* فهرست تراکنش‌های زمان‌بندی‌شده به فایل جداگانه ./ScheduledTxsCard منتقل
+   شد؛ آنجا علاوه بر فهرست، فرم افزودن با «پریود» و «تاریخ پایان» اجباری
+   هم دارد. نسخهٔ محلی قبلی عمداً حذف شد تا دو منبع حقیقت نداشته باشیم. */

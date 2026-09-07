@@ -14,4 +14,6 @@ export interface CustomCategoryRepository {
   list(): Promise<CustomCategory[]>;
   /** افزودن (تکراری → همان موجود) */
   add(type: TxType, name: string): Promise<CustomCategory>;
+  /** حذف — فقط وقتی هیچ تراکنشی به این دسته ارجاع ندارد (سرور چک می‌کند) */
+  remove(id: string): Promise<void>;
 }

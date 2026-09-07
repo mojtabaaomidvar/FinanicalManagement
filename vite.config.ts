@@ -5,7 +5,15 @@ import { VitePWA } from "vite-plugin-pwa";
 import { fileURLToPath, URL } from "node:url";
 import { devApiPlugin } from "./scripts/dev-api";
 
+/* شناسه ساخت — هر بار که build اجرا شود عوض می‌شود، پس هر انتشار
+   خودبه‌خود یکتاست و لازم نیست یادتان باشد عدد نسخه را دستی جلو ببرید.
+   زمان به UTC ذخیره می‌شود و موقع نمایش به وقت محلی کاربر درمی‌آید. */
+const BUILD_TIME = new Date().toISOString();
+
 export default defineConfig({
+  define: {
+    __BUILD_TIME__: JSON.stringify(BUILD_TIME),
+  },
   plugins: [
     react(),
     devApiPlugin(),

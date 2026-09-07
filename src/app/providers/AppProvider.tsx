@@ -31,6 +31,9 @@ interface AppState {
   customCategories: CustomCategory[];
   events: FamilyEvent[];
   budgets: CategoryBudget[];
+  /** واحد پول نمایشی کاربر فعلی (v5.8) — شخصی است، نه خانوادگی.
+      تنها منبع مجاز برای toDisplay/fromDisplay در سراسر UI. */
+  cur: string;
   useCases: UseCases | null;
   refreshData: () => Promise<void>;
   /** به‌روزرسانی عضو فعلی پس از ذخیره پروفایل */
@@ -134,10 +137,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       customCategories,
       events,
       budgets,
+      cur: member?.currency === "ریال" ? "ریال" : "تومان",
       useCases,
       refreshData,
+      /* هر عضو به‌روزشده‌ای را می‌پذیرد؛ member فعلی فقط وقتی جابه‌جا
+         می‌شود که همان عضو باشد — وگرنه ویرایش عضو دیگر توسط مدیر،
+         هویت کاربر جاری را عوض می‌کرد */
       updateMember: (m: Member) => {
-        setMember(m);
+        setMember((prev) => (prev?.id === m.id ? m : prev));
         setMembers((prev) => prev.map((x) => (x.id === m.id ? m : x)));
       },
       onAuthenticated: (r) => {

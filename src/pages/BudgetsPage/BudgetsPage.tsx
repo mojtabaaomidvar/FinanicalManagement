@@ -1,9 +1,13 @@
-/* صفحه بودجه‌بندی — بودجه ماهانه هر دسته هزینه + مصرف ماه جاری */
+/* صفحه بودجه‌بندی — بودجه ماهانه هر دسته هزینه + مصرف ماه جاری
+   ───────────────────────────────────────────────────────────
+   یک قاعده مهم: مجموع بودجهٔ دسته‌ها نباید از «سقف بودجهٔ ماهانه»‌ای که
+   در تنظیمات تعیین شده بیشتر شود. اگر شد، به‌جای رد کردن خشک، همان‌جا
+   پیشنهاد می‌دهیم سقف ماهانه را روی مجموع تازهٔ دسته‌ها بگذاریم. */
 
 import { useMemo, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
-import { Card, Field, Modal, AmountInput } from "@/shared/ui";
+import { Card, Field, Modal, AmountInput, FitText } from "@/shared/ui";
 import {
   CATEGORIES,
   CUSTOM_CATEGORY_ICON,
@@ -19,6 +23,7 @@ export function BudgetsPage() {
   const {
     useCases,
     family,
+    cur: currency,
     member,
     txs,
     budgets,
@@ -26,15 +31,19 @@ export function BudgetsPage() {
     refreshData,
   } = useApp();
   const { show } = useToast();
-  const currency = family?.currency ?? "تومان";
   const isOwner = member?.role === "owner";
 
   const [jy, jm] = today();
   const [editing, setEditing] = useState<Category | null>(null);
   const [amountStr, setAmountStr] = useState("");
   const [busy, setBusy] = useState(false);
+  /* مجموعی که با مبلغ تازه به‌دست می‌آید و از سقف ماهانه رد شده — تا وقتی
+     پر است، به‌جای ذخیره، پیشنهاد بالا بردن سقف نشان داده می‌شود */
+  const [overflow, setOverflow] = useState<number | null>(null);
 
-  const monthLabel = `${formatMonth(jy, jm)} ${toFa(jy)}`;
+  const monthLabel = `${formatMonth(jy, jm)}`;
+  /* سقف ماهانهٔ خانواده (پایه: تومان). صفر یعنی هنوز تعیین نشده */
+  const monthlyCap = family?.budget ?? 0;
 
   /** دسته‌های هزینه: ثابت + سفارشی */
   const expenseCats = useMemo(() => {
@@ -64,13 +73,39 @@ export function BudgetsPage() {
     return { budgetSum, spentSum, remaining: budgetSum - spentSum };
   }, [budgets, spend]);
 
+  /* از سقف رد شده‌ایم؟ (مثلاً سقف را در تنظیمات پایین آورده‌اند) */
+  const overCap = monthlyCap > 0 && totals.budgetSum > monthlyCap;
+
   function openEdit(cat: Category) {
     if (!isOwner) return;
     const b = budgetMap.get(cat.id);
-    setAmountStr(
-      b ? formatAmount(toDisplay(b.amount, currency)) : "",
-    );
+    setAmountStr(b ? formatAmount(toDisplay(b.amount, currency)) : "");
+    setOverflow(null);
     setEditing(cat);
+  }
+
+  function closeEdit() {
+    setEditing(null);
+    setOverflow(null);
+  }
+
+  /** ذخیره واقعی بودجهٔ دسته — بعد از عبور از بررسی سقف */
+  async function persist(amount: number) {
+    if (!editing) return;
+    setBusy(true);
+    try {
+      await useCases!.setCategoryBudget.execute({
+        category: editing.id,
+        amount,
+      });
+      show("بودجه ذخیره شد");
+      closeEdit();
+      await refreshData();
+    } catch (e) {
+      show((e as Error).message || "خطا در ذخیره");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function save() {
@@ -80,17 +115,45 @@ export function BudgetsPage() {
       show("مبلغ بودجه را وارد کنید");
       return;
     }
+
+    /* مجموع تازه = مجموع فعلی، منهای بودجهٔ قبلی همین دسته، به‌علاوهٔ مبلغ تازه */
+    const previous = budgetMap.get(editing.id)?.amount ?? 0;
+    const projected = totals.budgetSum - previous + amount;
+    if (monthlyCap > 0 && projected > monthlyCap) {
+      setOverflow(projected);
+      return;
+    }
+
+    setOverflow(null);
+    await persist(amount);
+  }
+
+  /** «سقف را زیاد کن» داخل مودال — سقف ماهانه دقیقاً برابر مجموع تازه
+      می‌شود و بعد بودجهٔ دسته ذخیره می‌شود */
+  async function raiseCapAndSave() {
+    if (!editing || overflow === null) return;
+    const amount = fromDisplay(parseAmountInput(amountStr), currency);
     setBusy(true);
     try {
-      await useCases!.setCategoryBudget.execute({
-        category: editing.id,
-        amount,
-      });
-      show("بودجه ذخیره شد");
-      setEditing(null);
+      await useCases!.setMonthlyBudget.execute(overflow);
+    } catch (e) {
+      show((e as Error).message || "خطا در تغییر سقف ماهانه");
+      setBusy(false);
+      return;
+    }
+    setBusy(false);
+    await persist(amount);
+  }
+
+  /** «سقف را زیاد کن» از کارت خلاصه — وقتی از قبل رد شده‌ایم */
+  async function syncCapToSum() {
+    setBusy(true);
+    try {
+      await useCases!.setMonthlyBudget.execute(totals.budgetSum);
+      show("سقف بودجه ماهانه با مجموع دسته‌ها هماهنگ شد");
       await refreshData();
     } catch (e) {
-      show((e as Error).message || "خطا در ذخیره");
+      show((e as Error).message || "خطا در تغییر سقف ماهانه");
     } finally {
       setBusy(false);
     }
@@ -102,7 +165,7 @@ export function BudgetsPage() {
     try {
       await useCases!.deleteCategoryBudget.execute(editing.id);
       show("بودجه حذف شد");
-      setEditing(null);
+      closeEdit();
       await refreshData();
     } catch (e) {
       show((e as Error).message || "خطا در حذف");
@@ -116,7 +179,7 @@ export function BudgetsPage() {
       <header className="app-header">
         <div className="header-title">
           <h1>بودجه‌بندی</h1>
-          <p>بودجه ماهانه دسته‌های هزینه</p>
+          <p>دسته بندی ماهیانه بودجه</p>
         </div>
       </header>
 
@@ -129,35 +192,85 @@ export function BudgetsPage() {
               <div>
                 <span>مجموع بودجه</span>
                 <b>
-                  {totals.budgetSum
-                    ? formatAmount(toDisplay(totals.budgetSum, currency))
-                    : "—"}
-                  {totals.budgetSum ? (
-                    <span className="cur-tag">{currency}</span>
-                  ) : null}
+                  <FitText>
+                    {totals.budgetSum
+                      ? formatAmount(toDisplay(totals.budgetSum, currency))
+                      : "—"}
+                    {totals.budgetSum ? (
+                      <span className="cur-tag">{currency}</span>
+                    ) : null}
+                  </FitText>
                 </b>
               </div>
               <div>
                 <span>مصرف این ماه</span>
                 <b className="expense">
-                  {formatAmount(toDisplay(totals.spentSum, currency))}
-                  <span className="cur-tag">{currency}</span>
+                  <FitText>
+                    {formatAmount(toDisplay(totals.spentSum, currency))}
+                    <span className="cur-tag">{currency}</span>
+                  </FitText>
                 </b>
               </div>
               <div>
-                <span>{totals.remaining >= 0 ? "باقی‌مانده" : "فاتور"}</span>
+                <span>
+                  {totals.remaining >= 0 ? "باقی‌مانده" : "مصرف بیش از بودجه"}
+                </span>
                 <b className={totals.remaining >= 0 ? "income" : "expense"}>
-                  {formatAmount(toDisplay(Math.abs(totals.remaining), currency))}
-                  <span className="cur-tag">{currency}</span>
+                  <FitText>
+                    {formatAmount(
+                      toDisplay(Math.abs(totals.remaining), currency),
+                    )}
+                    <span className="cur-tag">{currency}</span>
+                  </FitText>
                 </b>
               </div>
             </div>
             <p className="budget-reset-hint">
-              مصرف هر دسته فقط در همان ماه تقویمی حساب می‌شود — با شروع ماه
-              جدید از صفر شروع می‌شود
+              مصرف هر دسته فقط در همان ماه تقویمی حساب می‌شود
             </p>
           </div>
         </Card>
+
+        {/* رابطه با سقف ماهانهٔ تنظیمات */}
+        {monthlyCap > 0 ? (
+          overCap ? (
+            <div className="budget-cap over">
+              <p>
+                مجموع بودجه‌بندی دسته‌ها (
+                {formatAmount(toDisplay(totals.budgetSum, currency))} {currency}
+                ) از سقف بودجه ماهانه‌تان (
+                {formatAmount(toDisplay(monthlyCap, currency))} {currency})
+                بیشتر شده است.
+              </p>
+              {isOwner ? (
+                <button
+                  type="button"
+                  className="btn-primary btn-block"
+                  disabled={busy}
+                  onClick={() => void syncCapToSum()}
+                >
+                  سقف ماهانه را برابر مجموع دسته‌ها کن
+                </button>
+              ) : (
+                <p className="budget-perm">
+                  تغییر سقف ماهانه فقط توسط مدیر خانواده انجام میشود
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="budget-cap">
+              بودجه ماهانه: {formatAmount(toDisplay(monthlyCap, currency))}{" "}
+              {currency} —{" "}
+              {formatAmount(toDisplay(monthlyCap - totals.budgetSum, currency))}{" "}
+              {currency} از آن هنوز دسته بندی نشده است.
+            </p>
+          )
+        ) : (
+          <p className="budget-cap">
+            هنوز سقف بودجه ماهانه‌ای تعیین نکرده‌اید — از تنظیمات، «بودجه
+            ماهانه» را مشخص کنید تا مجموع دسته‌ها با آن سنجیده شود.
+          </p>
+        )}
 
         <Card title="دسته‌های هزینه">
           {expenseCats.map((cat) => {
@@ -183,13 +296,17 @@ export function BudgetsPage() {
                   </span>
                   <span className="budget-nums">
                     <span className="spent">
-                      {formatAmount(toDisplay(spent, currency))}
-                      <span className="cur-tag">{currency}</span>
+                      <FitText>
+                        {formatAmount(toDisplay(spent, currency))}
+                        <span className="cur-tag">{currency}</span>
+                      </FitText>
                     </span>
                     {b ? (
                       <span className="cap">
-                        از {formatAmount(toDisplay(b.amount, currency))}
-                        <span className="cur-tag">{currency}</span>
+                        <FitText>
+                          از {formatAmount(toDisplay(b.amount, currency))}
+                          <span className="cur-tag">{currency}</span>
+                        </FitText>
                       </span>
                     ) : (
                       <span className="cap none">بدون بودجه</span>
@@ -207,9 +324,7 @@ export function BudgetsPage() {
                     </div>
                     <div className="budget-row-foot">
                       <span>{toFa(st.percent)}٪ مصرف‌شده</span>
-                      <span
-                        className={remaining >= 0 ? "income" : "expense"}
-                      >
+                      <span className={remaining >= 0 ? "income" : "expense"}>
                         {remaining >= 0
                           ? `${formatAmount(toDisplay(remaining, currency))} ${currency} باقی‌مانده`
                           : `${formatAmount(toDisplay(-remaining, currency))} ${currency} بیشتر از بودجه`}
@@ -231,7 +346,7 @@ export function BudgetsPage() {
 
       <Modal
         open={!!editing}
-        onClose={() => setEditing(null)}
+        onClose={closeEdit}
         title={`بودجه ${editing?.name ?? ""}`}
       >
         <div className="form-grid" style={{ marginTop: 8 }}>
@@ -239,16 +354,41 @@ export function BudgetsPage() {
             <Field label="مبلغ بودجه ماهانه">
               <AmountInput
                 value={amountStr}
-                onChange={setAmountStr}
+                onChange={(v) => {
+                  setAmountStr(v);
+                  /* مبلغ عوض شد یعنی هشدار قبلی دیگر معتبر نیست */
+                  setOverflow(null);
+                }}
                 currency={currency}
               />
             </Field>
             <p className="modal-sub">
-              این بودجه برای هر ماه تقویمی تکرار می‌شود و مصرف هر ماه جداگانه
-              از صفر محاسبه می‌گردد
+              این بودجه برای هر ماه تقویمی تکرار می‌شود و مصرف هر ماه جداگانه از
+              صفر محاسبه می‌گردد
             </p>
           </div>
         </div>
+
+        {/* رد شدن از سقف ماهانه — پیشنهاد بالا بردن سقف به‌جای رد کردن */}
+        {overflow !== null ? (
+          <div className="budget-cap over" style={{ marginTop: 10 }}>
+            <p>
+              با این مبلغ، مجموع بودجه‌بندی دسته‌ها به{" "}
+              {formatAmount(toDisplay(overflow, currency))} {currency} می‌رسد و
+              از سقف بودجه ماهانه‌تان (
+              {formatAmount(toDisplay(monthlyCap, currency))} {currency}) بیشتر
+              می‌شود. اگر می‌خواهید، سقف را روی همین مجموع می‌گذاریم.
+            </p>
+            <button
+              type="button"
+              className="btn-primary btn-block"
+              disabled={busy}
+              onClick={() => void raiseCapAndSave()}
+            >
+              سقف ماهانه را زیاد کن و ذخیره کن
+            </button>
+          </div>
+        ) : null}
 
         <div className="modal-actions">
           {budgetMap.get(editing?.id ?? "") ? (
@@ -260,10 +400,14 @@ export function BudgetsPage() {
               حذف
             </button>
           ) : null}
-          <button className="btn-secondary" onClick={() => setEditing(null)}>
+          <button className="btn-secondary" onClick={closeEdit}>
             انصراف
           </button>
-          <button className="btn-primary" disabled={busy} onClick={() => void save()}>
+          <button
+            className="btn-primary"
+            disabled={busy}
+            onClick={() => void save()}
+          >
             ذخیره
           </button>
         </div>

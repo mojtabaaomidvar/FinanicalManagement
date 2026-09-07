@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
-import { BarChart, Card, DonutChart, themeColors } from "@/shared/ui";
+import { BarChart, Card, DonutChart, FitText, themeColors } from "@/shared/ui";
 import { txsInJalaliMonth } from "@/domain/transaction/transaction.rules";
 import { categoryBreakdown, monthTotals } from "@/domain/report/report.rules";
 import { buildCategoryResolver } from "@/domain/category/resolve";
@@ -34,8 +34,7 @@ function loadChartKind(): ChartKind {
 }
 
 export function MonthExpensesWidget() {
-  const { txs, family, customCategories } = useApp();
-  const cur = family?.currency ?? "تومان";
+  const { txs, cur, customCategories } = useApp();
   const [jy, jm] = today();
   const [chartKind, setChartKind] = useState<ChartKind>(loadChartKind);
 
@@ -97,8 +96,10 @@ export function MonthExpensesWidget() {
           <DonutChart data={slices} size={230} />
           <div className="donut-center">
             <b>
-              {formatAmount(totalExpense)}
-              <span className="cur-tag">{cur}</span>
+              <FitText>
+                {formatAmount(totalExpense)}
+                <span className="cur-tag">{cur}</span>
+              </FitText>
             </b>
             <span>جمع هزینه</span>
           </div>
@@ -119,7 +120,9 @@ export function MonthExpensesWidget() {
             <div className="legend-item" key={d.label}>
               <span className="mini-dot" style={{ background: d.color }} />
               <span>{d.label}</span>
-              <b>{formatAmount(d.value)}</b>
+              <b>
+                <FitText>{formatAmount(d.value)}</FitText>
+              </b>
               <span className="pct">
                 {toFa(
                   totalExpense ? Math.round((d.value / totalExpense) * 100) : 0,

@@ -1,7 +1,11 @@
 /* مخزن کارت‌ها/حساب‌های بانکی */
 
 import type { AccountRepository } from "@/domain/account/account.repository";
-import type { Account, AccountInput } from "@/domain/account/account.types";
+import type {
+  Account,
+  AccountInput,
+  AccountPatch,
+} from "@/domain/account/account.types";
 import { rpc } from "@/infrastructure/api/httpClient";
 import { mapAccount, type AccountRow } from "./mappers";
 import type { TokenProvider } from "./sessionRepository";
@@ -31,6 +35,19 @@ export class SupabaseAccountRepository implements AccountRepository {
       p_card_number: input.cardNumber ?? null,
       p_kind: input.kind ?? "bank",
       p_initial_balance: input.initialBalance ?? 0,
+    });
+    return mapAccount(row);
+  }
+
+  async update(patch: AccountPatch): Promise<Account> {
+    const row = await rpc<AccountRow>("update_account", {
+      p_token: await this.tok(),
+      p_account_id: patch.id,
+      p_title: patch.title,
+      p_bank: patch.bank ?? null,
+      p_card_number: patch.cardNumber ?? null,
+      /* null = دست‌نزن؛ سرور مقدار فعلی را نگه می‌دارد */
+      p_initial_balance: patch.initialBalance ?? null,
     });
     return mapAccount(row);
   }

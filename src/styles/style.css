@@ -303,7 +303,7 @@ button:active {
   border-radius: var(--r-sm);
 }
 
-/* ─────────── Balance card (حساب‌ها: ثروت کل) ─────────── */
+/* ─────────── Balance card (حساب‌ها: دارایی کل) ─────────── */
 .balance-card {
   position: relative;
   overflow: hidden;
@@ -331,6 +331,19 @@ button:active {
 .balance-sub {
   font-size: 12px;
   color: var(--text-3);
+}
+
+/* ─────────── متن خودتنظیم (اعداد در نمایشگرهای کوچک) ─────────── */
+/* FitText: بیرونی حداکثر به عرض ظرف می‌رسد؛ درونی نو‌رپ (بدون شکست) و
+   فونت به نسبت جا شدن کوچک می‌شود (منطق در src/shared/ui/FitText.tsx) */
+.fit-text {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: bottom;
+}
+.fit-text-inner {
+  display: inline-block;
+  white-space: nowrap;
 }
 
 /* ─────────── واحد پول کنار مبالغ ─────────── */
@@ -762,7 +775,11 @@ button:active {
   transform: scale(1.05);
 }
 .tx-tag.on {
-  background: color-mix(in srgb, var(--cat-color, var(--accent)) 30%, var(--card));
+  background: color-mix(
+    in srgb,
+    var(--cat-color, var(--accent)) 30%,
+    var(--card)
+  );
   color: var(--text);
   font-weight: 800;
 }
@@ -1431,6 +1448,8 @@ button:active {
 
 .donut-center {
   position: absolute;
+  /* به سوراخ حلقه محدود — تا FitText عدد را در همان محدوده جا دهد */
+  width: 58%;
   text-align: center;
   pointer-events: none;
 }
@@ -1458,12 +1477,14 @@ button:active {
   gap: var(--sp-2);
   font-size: 13px;
   color: var(--text-2);
+  min-width: 0;
 }
 .legend-item b {
   margin-right: auto;
   color: var(--text);
   font-variant-numeric: tabular-nums;
   font-size: 12.5px;
+  min-width: 0;
 }
 .legend-item .pct {
   font-size: 11px;
@@ -1754,6 +1775,32 @@ button:active {
   color: var(--text-3);
   line-height: 1.7;
 }
+/* رابطهٔ مجموع دسته‌ها با سقف ماهانه — حالت عادی فقط یک جملهٔ کم‌رنگ،
+   حالت «over» کارت هشدار با دکمهٔ هم‌ترازکردن سقف */
+.budget-cap {
+  font-size: 11.5px;
+  line-height: 1.9;
+  color: var(--text-3);
+  padding: 2px var(--sp-1) var(--sp-2);
+}
+.budget-cap.over {
+  padding: var(--sp-4);
+  border-radius: var(--r-xl);
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.22);
+  color: var(--text);
+}
+.budget-cap.over p {
+  font-size: 12.5px;
+  line-height: 1.9;
+  color: var(--text);
+}
+.budget-cap.over .btn-block {
+  margin-top: var(--sp-3);
+}
+.budget-cap.over .budget-perm {
+  margin-top: var(--sp-2);
+}
 .budget-row {
   display: flex;
   flex-direction: column;
@@ -1810,16 +1857,19 @@ button:active {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
   font-size: 12px;
 }
 .budget-nums .spent {
   font-weight: 800;
   color: var(--text);
+  min-width: 0;
 }
 .budget-nums .cap {
   color: var(--text-3);
   font-size: 11px;
+  min-width: 0;
 }
 .budget-nums .cap.none {
   color: var(--text-3);
@@ -2042,6 +2092,10 @@ button:active {
   font-size: 9.5px;
   color: var(--text-3);
   white-space: nowrap;
+  /* ظرف واقعی برای FitText — بدون این، flex آیتم را به عرض محتوا می‌برد */
+  width: 100%;
+  min-width: 0;
+  text-align: center;
 }
 .budget-circle.add .budget-add-plus {
   width: 58px;
@@ -2087,8 +2141,16 @@ button:active {
   background: var(--card);
 }
 .calc-key.op {
-  background: color-mix(in srgb, var(--cat-color, var(--accent)) 20%, transparent);
-  color: color-mix(in srgb, var(--cat-color, var(--accent-strong)) 85%, var(--text));
+  background: color-mix(
+    in srgb,
+    var(--cat-color, var(--accent)) 20%,
+    transparent
+  );
+  color: color-mix(
+    in srgb,
+    var(--cat-color, var(--accent-strong)) 85%,
+    var(--text)
+  );
   font-weight: 800;
 }
 .calc-key.back {
@@ -2186,7 +2248,7 @@ button:active {
   color: var(--c2);
 }
 
-/* ─────────── صفحه حساب‌ها: ثروت کل (فشرده) + کیف‌پول ─────────── */
+/* ─────────── صفحه حساب‌ها: دارایی کل (فشرده) + کیف‌پول ─────────── */
 .wealth-card {
   padding: 14px 16px 12px;
 }
@@ -2205,6 +2267,7 @@ button:active {
   letter-spacing: -0.3px;
   font-variant-numeric: tabular-nums;
   color: var(--text);
+  min-width: 0;
 }
 .wealth-total span {
   font-size: 11px;
@@ -2318,10 +2381,35 @@ button:active {
   font-size: 10px;
   color: var(--text-3);
 }
-.account-del {
+/* حذف — گوشه‌ی پایین کارت حساب بانکی (ویرایش با کلیک روی خود کارت) */
+.account-actions {
   position: absolute;
   bottom: 8px;
   inset-inline-end: 0;
+  display: flex;
+  gap: 4px;
+}
+
+/* کارت حساب/کیف‌پول به‌عنوان دکمه‌ی ویرایش — کل سطح کارت کلیک‌پذیر است */
+.tappable {
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) ease,
+    border-color var(--dur-fast) ease,
+    transform var(--dur-fast) ease;
+}
+.tappable:active {
+  transform: scale(0.99);
+}
+.account-card.flat.tappable:active {
+  background: var(--card-soft);
+}
+.wallet-card.tappable:active {
+  border-color: var(--accent);
+}
+.tappable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .accounts-empty {
   font-size: 12px;
@@ -2393,14 +2481,18 @@ button:active {
   font-size: 10px;
   color: var(--text-3);
 }
-.wallet-card .icon-btn.danger {
+/* در کیف‌پول دکمه‌ها بالا-گوشه می‌نشینند (کارت کوچک‌تر است) */
+.wallet-card .account-actions {
   position: absolute;
   top: 8px;
+  bottom: auto;
   inset-inline-end: 8px;
+}
+.wallet-card .account-actions .icon-btn {
   width: 26px;
   height: 26px;
 }
-.wallet-card .icon-btn.danger svg {
+.wallet-card .account-actions .icon-btn svg {
   width: 13px;
   height: 13px;
 }
@@ -2534,6 +2626,74 @@ button:active {
   font-size: 11.5px;
   font-weight: 700;
   color: var(--text-2);
+}
+/* حذف تراکنش تکرارشونده — دکمه آیکونی کوچک انتهای ردیف */
+.scheduled-del {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.scheduled-del:active {
+  background: var(--card-2);
+  color: var(--danger);
+}
+.scheduled-del svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* فرم تراکنش تکرارشونده — جمع‌وجور: مبلغ شاخص، جفت‌فیلدها، قابِ زمان‌بندی */
+.sched-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 8px;
+}
+.sched-form .form-row {
+  margin-bottom: 0;
+}
+.sched-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  min-width: 0;
+}
+.sched-grid .form-row {
+  min-width: 0;
+}
+/* قابِ نرمِ زمان‌بندی — سه فیلد تکرار را یک‌جا جمع می‌کند */
+.sched-when {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--accent-soft) 40%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sched-when-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--accent-strong);
+}
+.sched-when-head svg {
+  width: 13px;
+  height: 13px;
+}
+[data-theme="dark"] .sched-when {
+  background: color-mix(in srgb, var(--accent-soft) 55%, var(--card));
 }
 
 /* سهم اعضا از هزینه‌ها (نمای‌کلی) */
@@ -2830,6 +2990,10 @@ button:active {
   color: var(--text-2);
   font-size: 14.5px;
   font-weight: 600;
+}
+/* دکمهٔ ثانویه با معنای خطرناک (حذف) — قبلاً کلاسش بی‌قانون مانده بود */
+.danger-text {
+  color: var(--danger);
 }
 .btn-primary {
   padding: 13px;
@@ -3165,6 +3329,76 @@ button:active {
 .account-row-actions {
   display: flex;
   gap: 4px;
+  flex-shrink: 0;
+}
+/* شماره کارت با دکمه‌ی حذفِ گوشه‌ی کارت تلاقی نکند
+   (یک دکمه است، نه دو — ویرایش با کلیک روی خود کارت انجام می‌شود) */
+.account-card.flat .account-row {
+  padding-inline-end: 40px;
+}
+
+/* ─────────── هشدار ویرایش دستی موجودی ─────────── */
+/* عمداً پرزرق‌وبرق: کاربر باید بفهمد این تغییر در گزارش‌ها دیده نمی‌شود */
+.bal-warn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  border: 1px solid color-mix(in srgb, var(--expense) 45%, transparent);
+  background: color-mix(in srgb, var(--expense) 8%, transparent);
+}
+.bal-warn-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--expense);
+}
+.bal-warn-head svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.bal-warn-head b {
+  font-size: 12.5px;
+  font-weight: 800;
+}
+.bal-warn p {
+  font-size: 11.5px;
+  line-height: 1.9;
+  color: var(--text-2);
+}
+.bal-warn-ack {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  padding-top: 2px;
+}
+.bal-warn-ack input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--expense);
+  flex-shrink: 0;
+}
+
+/* علامت منفی موجودی — زیر فیلد مبلغ در فرم ویرایش حساب */
+.bal-sign {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.bal-sign input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
   flex-shrink: 0;
 }
 
@@ -3652,11 +3886,38 @@ button:active {
 .settings-member h5 {
   font-size: 13.5px;
   font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .settings-member p {
   font-size: 11px;
   color: var(--text-3);
   margin-top: 1px;
+}
+/* ردیف قابل لمس = ویرایش نسبت (بدون دکمه‌ی جداگانه) */
+.settings-member.tappable {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+.settings-member.tappable:active {
+  background: var(--accent-soft);
+  transform: scale(0.995);
+}
+.settings-member.tappable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.member-you {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 /* ─────────── SMS modal ─────────── */
@@ -4636,6 +4897,55 @@ button.set-row:active {
   cursor: default;
 }
 
+/* سگمنت سه‌گزینه‌ای «ظاهر» — خورشید/خودکار/ماه با کپسول لغزنده
+   جای استپر بالا/پایین را گرفت: انتخاب مستقیم، بدون فلش گنگ. */
+.set-theme-row {
+  align-items: center;
+}
+.set-theme-seg {
+  position: relative;
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 34px);
+  gap: 0;
+  padding: 3px;
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+}
+/* کپسول محوِ پشت گزینهٔ فعال — یک‌سومِ عرض، با لغزش نرم */
+.set-theme-pill {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  width: calc(33.333% - 4px);
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 45%, transparent);
+  transition: inset-inline-start var(--dur-med) var(--ease-out);
+  z-index: 0;
+}
+.set-theme-opt {
+  position: relative;
+  z-index: 1;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-3);
+  transition: color var(--dur-fast) ease;
+}
+.set-theme-opt svg {
+  width: 17px;
+  height: 17px;
+}
+.set-theme-opt.active {
+  color: #fff;
+}
+
 /* کارت ویژه بالا — پروفایل کاربر */
 .set-row-profile {
   min-height: 76px;
@@ -4736,6 +5046,25 @@ button.set-row:active {
   width: 11px;
   height: 11px;
   color: inherit;
+}
+
+/* ردیف «افزودن» دکمه‌ای: ورودی + دکمه، کنار هم.
+   stretch عمدی است تا ارتفاع دکمه دقیقاً قد ورودی شود */
+.chip-adder {
+  display: flex;
+  align-items: stretch;
+  gap: var(--sp-2);
+  margin-block: var(--sp-3);
+}
+.chip-adder > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.chip-adder .btn-primary {
+  flex-shrink: 0;
+  padding-block: 0;
+  padding-inline: var(--sp-4);
+  font-size: 13.5px;
 }
 
 /* ─────────── کارت پروفایل ─────────── */
@@ -4988,6 +5317,8 @@ button.set-row:active {
   font-weight: 800;
   letter-spacing: -0.2px;
   white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
   font-variant-numeric: tabular-nums;
 }
 .hp-metric-value.income {
@@ -5382,9 +5713,104 @@ button.set-row:active {
   font-variant-numeric: tabular-nums;
 }
 
+/* سررسید تراکنش‌های تکرارشونده (فقط مدیر) — نوار روی همان الگوی strip */
+.due-rec {
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 45%, transparent);
+}
+.due-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.due-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.due-ico {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: var(--r-pill);
+  display: grid;
+  place-items: center;
+  background: var(--card);
+  color: var(--text-2);
+  border: 1px solid var(--border);
+}
+.due-ico svg {
+  width: 15px;
+  height: 15px;
+}
+.due-ico.income {
+  color: var(--income);
+}
+.due-ico.expense {
+  color: var(--expense);
+}
+.due-info {
+  flex: 1;
+  min-width: 0;
+}
+.due-info b {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.due-info p {
+  font-size: 10.5px;
+  color: var(--text-3);
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.due-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.due-yes,
+.due-no {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--r-md);
+  font-size: 11.5px;
+  font-weight: 700;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out);
+}
+.due-yes {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
+}
+.due-no {
+  background: var(--card);
+  color: var(--text-2);
+}
+.due-yes:disabled,
+.due-no:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* ─────────── هم‌ترازی تم تیره ─────────── */
 [data-theme="dark"] .strip {
   background: color-mix(in srgb, var(--card) 55%, transparent);
+}
+[data-theme="dark"] .due-rec {
+  background: color-mix(in srgb, var(--accent-soft) 60%, var(--card));
+}
+[data-theme="dark"] .due-ico,
+[data-theme="dark"] .due-no {
+  background: var(--card-2);
 }
 [data-theme="dark"] .qa-chip {
   background: var(--card);
@@ -5410,4 +5836,3 @@ button.set-row:active {
     width: 52px;
   }
 }
-

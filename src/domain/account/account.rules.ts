@@ -1,6 +1,6 @@
 /* قوانین کارت/حساب — اعتبارسنجی و ماسک (خالص، قابل تست) */
 
-import type { AccountInput } from "./account.types";
+import type { AccountInput, AccountPatch } from "./account.types";
 import { toEn, toFa } from "@/shared/lib/digits";
 
 export type AccountValidationCode =
@@ -45,6 +45,34 @@ export function validateAccountInput(
 
   const initial = input.initialBalance ?? 0;
   if (!Number.isFinite(initial) || initial < 0) {
+    return { ok: false, error: "INVALID_INITIAL_BALANCE" };
+  }
+  return { ok: true };
+}
+
+/**
+ * اعتبارسنجی ویرایش — مثل افزودن، با دو تفاوت:
+ * مالک و نوع حساب تغییر نمی‌کنند، و موجودی اولیه منفی مجاز است
+ * (توضیح در AccountPatch.initialBalance).
+ */
+export function validateAccountPatch(
+  patch: AccountPatch,
+): AccountValidationResult {
+  const title = patch.title.trim();
+  if (!title || title.length > MAX_TITLE_LENGTH) {
+    return { ok: false, error: "INVALID_TITLE" };
+  }
+
+  const card = (patch.cardNumber ?? "").trim();
+  if (card && !/^\d{16}$/.test(digitsOf(card))) {
+    return { ok: false, error: "INVALID_CARD" };
+  }
+  if (patch.kind !== "wallet" && !card) {
+    return { ok: false, error: "EMPTY_ACCOUNT" };
+  }
+
+  const initial = patch.initialBalance;
+  if (initial != null && !Number.isFinite(initial)) {
     return { ok: false, error: "INVALID_INITIAL_BALANCE" };
   }
   return { ok: true };

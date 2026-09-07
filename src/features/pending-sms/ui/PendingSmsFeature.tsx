@@ -9,14 +9,14 @@ import { categoriesFor } from "@/domain/category/category.catalog";
 import { toFa } from "@/shared/lib/digits";
 
 export function PendingSmsFeature({ refreshKey }: { refreshKey: number }) {
-  const { useCases, member, family, accounts, subcategories, refreshData } =
+  const { useCases, member, cur, accounts, subcategories, refreshData } =
     useApp();
   const { show } = useToast();
   const m = usePendingSmsModel(
     useCases!,
     member?.id ?? "",
     show,
-    family?.currency ?? "تومان",
+    cur,
   );
 
   const subsOfCategory = subcategories.filter(
@@ -62,7 +62,7 @@ export function PendingSmsFeature({ refreshKey }: { refreshKey: number }) {
               <AmountInput
                 value={m.amount}
                 onChange={m.setAmount}
-                currency={family?.currency ?? "تومان"}
+                currency={cur}
               />
             </Field>
             <Field label="دسته‌بندی">

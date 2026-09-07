@@ -43,6 +43,10 @@ export interface Member {
   theme: ThemeMode;
   /** نسبت با مدیر خانواده */
   relation: string;
+  /** واحد پول نمایشی شخصی (v5.8) — تومان | ریال.
+      مبالغ همیشه به تومان ذخیره می‌شوند؛ این فقط نمایش را عوض می‌کند
+      و برخلاف گذشته روی سایر اعضای خانواده اثر ندارد. */
+  currency: string;
 }
 
 export interface ProfileInput {
@@ -56,8 +60,6 @@ export interface ProfileInput {
   theme?: ThemeMode | null;
 }
 
-export interface FamilySettings {
-  budget: number;
-  currency: string;
-  dark: boolean;
-}
+/* FamilySettings بازنشسته شد (v5.8): واحد پول و تم شخصی شدند
+   (Member.currency و Member.theme) و تنها تنظیم خانوادگی باقی‌مانده
+   سقف بودجه ماهانه است — FamilyRepository.setMonthlyBudget. */

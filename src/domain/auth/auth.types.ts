@@ -40,6 +40,8 @@ export interface InviteAcceptInput {
   memberName: string;
   phone: string;
   password: string;
+  /** نسبت با مدیر خانواده — بدون آن سرور «سایر» ثبت می‌کند */
+  relation?: string;
 }
 
 export interface StoredSession {

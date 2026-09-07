@@ -16,8 +16,7 @@ export function SmsImportFeature({
   /** icon = دکمه گرد هدر · chip = میان‌بُر متنی (بازنشسته) · row = ردیف داخل شیت تراکنش */
   variant?: "icon" | "chip" | "row";
 }) {
-  const { useCases, family } = useApp();
-  const cur = family?.currency ?? "تومان";
+  const { useCases, cur } = useApp();
   const { show } = useToast();
   const m = useSmsImportModel(useCases!, show);
 

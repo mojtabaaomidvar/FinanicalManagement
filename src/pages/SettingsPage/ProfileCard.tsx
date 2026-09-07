@@ -1,4 +1,7 @@
-/* کارت پروفایل کاربر — آواتار (پیشنهادی/آپلود) + اطلاعات */
+/* کارت پروفایل کاربر — آواتار (پیشنهادی/آپلود) + اطلاعات
+   ────────────────────────────────────────────────────
+   نسبت کاربر با مدیر خانواده هم اینجا دیده می‌شود؛ چه مدیر باشد چه عضو
+   عادی. عضو عادی می‌تواند نسبت خودش را اصلاح کند، نسبت مدیر ثابت است. */
 
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
@@ -10,6 +13,8 @@ import {
   Select,
   TextInput,
 } from "@/shared/ui";
+import { MEMBER_RELATIONS } from "@/domain/family/family.types";
+import { canEditRelation, relationLabel } from "@/domain/family/family.rules";
 import { isoToJalali, jalaliToIso, parse, formatISO } from "@/shared/lib/jalali";
 import { toEn } from "@/shared/lib/digits";
 import { compressImage } from "@/shared/lib/image";
@@ -23,7 +28,9 @@ export function ProfileCard() {
   const [birthDate, setBirthDate] = useState("");
   const [nationalId, setNationalId] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [relation, setRelation] = useState("");
   const [busy, setBusy] = useState(false);
+  const [savingRelation, setSavingRelation] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -34,7 +41,30 @@ export function ProfileCard() {
     setBirthDate(member.birthDate ? formatISO(isoToJalali(member.birthDate)) : "");
     setNationalId(member.nationalId ?? "");
     setAvatarUrl(member.avatarUrl);
+    setRelation(member.relation === "خودم" ? "" : (member.relation ?? ""));
   }, [member]);
+
+  /** نسبت جدا از بقیه‌ی پروفایل ذخیره می‌شود چون RPC و مجوز جداگانه دارد
+      (update_own_profile نسبت را دست نمی‌زند) */
+  async function saveRelation(next: string) {
+    if (!member || !next || next === member.relation) return;
+    setRelation(next);
+    setSavingRelation(true);
+    try {
+      const updated = await useCases!.setMemberRelation.execute(
+        member.id,
+        next,
+      );
+      updateMember(updated);
+      show("نسبت ذخیره شد");
+    } catch (e) {
+      /* برگرداندن به مقدار سرور تا نمایش با واقعیت نخواند */
+      setRelation(member.relation === "خودم" ? "" : (member.relation ?? ""));
+      show((e as Error).message || "خطا در ذخیره نسبت");
+    } finally {
+      setSavingRelation(false);
+    }
+  }
 
   async function save(overrides?: { avatarUrl?: string }) {
     setBusy(true);
@@ -99,7 +129,8 @@ export function ProfileCard() {
         <div>
           <h4>{member.name}</h4>
           <p>
-            {member.role === "owner" ? "مدیر خانواده" : "عضو"}
+            {/* نسبت خود کاربر با مدیر خانواده — برای مدیر «مدیر خانواده» */}
+            {relationLabel(member)}
             {member.phone ? ` · ${member.phone}` : ""}
           </p>
         </div>
@@ -162,6 +193,26 @@ export function ProfileCard() {
             />
           </Field>
         </div>
+        {/* نسبت با مدیر خانواده — برای مدیر معنا ندارد و نشان داده نمی‌شود.
+            بی‌درنگ ذخیره می‌شود، چون RPC جدا از ذخیره پروفایل است */}
+        {canEditRelation(member, member) ? (
+          <div className="form-row full">
+            <Field label="نسبت من با مدیر خانواده">
+              <Select
+                value={relation}
+                onChange={(v) => void saveRelation(v)}
+                disabled={savingRelation}
+                options={[
+                  { value: "", label: "انتخاب کنید" },
+                  ...MEMBER_RELATIONS.filter((r) => r !== "خودم").map((r) => ({
+                    value: r,
+                    label: r,
+                  })),
+                ]}
+              />
+            </Field>
+          </div>
+        ) : null}
       </div>
 
       <button

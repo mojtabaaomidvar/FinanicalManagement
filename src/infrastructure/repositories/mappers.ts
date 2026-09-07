@@ -1,7 +1,7 @@
 /* پیاده‌سازی مخازن — مپ کردن ردیف‌های snake_case به انواع دامنه */
 
 import type { BankSms, NewBankSms, SmsStatus } from "@/domain/sms/sms.types";
-import type { Family, FamilySettings, Member } from "@/domain/family/family.types";
+import type { Family, Member } from "@/domain/family/family.types";
 import type { Transaction } from "@/domain/transaction/transaction.types";
 
 /* ── ردیف‌های خام PostgREST ── */
@@ -19,6 +19,7 @@ export interface MemberRow {
   status: "pending" | "active";
   theme: "light" | "dark" | "auto";
   relation: string;
+  currency: string | null;
   created_at: string;
 }
 
@@ -47,6 +48,7 @@ export interface TransactionRow {
   subcategory_id: string | null;
   repeat?: "none" | "weekly" | "monthly" | "yearly" | null;
   repeat_end?: string | null;
+  handled_occurrences?: string[] | null;
   photos?: { id: string; url: string; caption: string | null }[] | null;
   created_at: string;
 }
@@ -81,6 +83,8 @@ export function mapMember(r: MemberRow): Member {
     status: r.status === "pending" ? "pending" : "active",
     theme: r.theme === "light" || r.theme === "dark" ? r.theme : "auto",
     relation: r.relation ?? "خودم",
+    /* اگر سرور قدیمی باشد و ستون را نفرستد، تومان پیش‌فرض است */
+    currency: r.currency === "ریال" ? "ریال" : "تومان",
     createdAt: r.created_at,
   };
 }
@@ -115,6 +119,9 @@ export function mapTransaction(r: TransactionRow): Transaction {
         ? r.repeat
         : "none",
     repeatEnd: r.repeat_end ?? null,
+    handledOccurrences: Array.isArray(r.handled_occurrences)
+      ? r.handled_occurrences
+      : [],
     photos: (r.photos ?? []).map((p) => ({
       id: p.id,
       url: p.url,
@@ -151,9 +158,8 @@ export function toSmsItems(items: NewBankSms[]): Record<string, unknown>[] {
   }));
 }
 
-export function familySettingsOf(f: Family): FamilySettings {
-  return { budget: f.budget, currency: f.currency, dark: f.dark };
-}
+/* familySettingsOf بازنشسته شد (v5.8) — واحد پول و تم شخصی شدند و
+   تنها تنظیم خانوادگی باقی‌مانده سقف بودجه است که مستقیم فرستاده می‌شود. */
 
 /* ── کارت‌ها/حساب‌ها ── */
 

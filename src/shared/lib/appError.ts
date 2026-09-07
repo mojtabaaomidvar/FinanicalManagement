@@ -16,6 +16,7 @@ export type AppErrorCode =
   | "INVALID_ACCOUNT"
   | "NOT_FOUND"
   | "FORBIDDEN"
+  | "CATEGORY_IN_USE"
   | "CANNOT_REMOVE_OWNER"
   | "NOT_CONFIGURED"
   | "UNKNOWN";

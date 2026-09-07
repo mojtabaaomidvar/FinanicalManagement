@@ -17,6 +17,7 @@ import {
 } from "@/shared/lib/jalali";
 import { toFa } from "@/shared/lib/digits";
 import { nowTime } from "@/shared/lib/format";
+import { useBackGuard } from "@/shared/lib/useBackGuard";
 import { WheelColumn } from "./Wheel";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -45,6 +46,10 @@ export function JalaliDatePicker({
 }) {
   const withTime = !!onTimeChange;
 
+  /* این کامپوننت فقط وقتی والد بازش می‌کند mount می‌شود؛ پس همیشه «باز»
+     است. بازگشتِ دکمه/سوایپ = بستن (LIFO؛ روی مودالِ زیرش می‌نشیند). */
+  useBackGuard(true, onClose);
+
   const [view, setView] = useState<DpView>("date");
   const [jy, setJy] = useState(() => {
     const p = parse(value);
@@ -64,7 +69,9 @@ export function JalaliDatePicker({
   const selected = useMemo(() => parse(value), [value]);
   const [ty, tm, td] = today();
   const min = minYear ?? 1300;
-  const max = maxYear ?? ty + 1;
+  /* پیش‌فرض ۱۰ سال آینده — تاریخ پایان تکرار، قسط‌های بلندمدت و
+     رویدادهای دور باید قابل انتخاب باشند (قبلاً فقط تا سال بعد بود) */
+  const max = maxYear ?? ty + 10;
 
   /* کلیک بیرون → بستن */
   const boxRef = useRef<HTMLDivElement>(null);

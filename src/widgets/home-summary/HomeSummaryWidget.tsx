@@ -20,6 +20,7 @@ import { MONTHS, daysLeftInMonth, prevMonth, today } from "@/shared/lib/jalali";
 import { formatAmount } from "@/shared/lib/format";
 import { toDisplay } from "@/shared/lib/currency";
 import { toFa } from "@/shared/lib/digits";
+import { FitText } from "@/shared/ui";
 
 /* چیپ درصد تغییر — رنگ بر اساس «خوب بودنِ» جهت تغییر، نه علامت عدد
    (هزینه کمتر = سبز، درآمد کمتر = قرمز) */
@@ -52,8 +53,7 @@ export function HomeSummaryWidget({
 }: {
   onNavBudgets: () => void;
 }) {
-  const { txs, family, budgets } = useApp();
-  const cur = family?.currency ?? "تومان";
+  const { txs, cur, budgets } = useApp();
   const [jy, jm, jd] = today();
 
   const d = useMemo(() => {
@@ -88,8 +88,10 @@ export function HomeSummaryWidget({
           className="hp-balance"
           style={d.balance < 0 ? { color: "var(--danger)" } : undefined}
         >
-          {formatAmount(toDisplay(d.balance, cur))}
-          <span className="hp-cur">{cur}</span>
+          <FitText>
+            {formatAmount(toDisplay(d.balance, cur))}
+            <span className="hp-cur">{cur}</span>
+          </FitText>
         </h2>
       </div>
 
@@ -98,22 +100,21 @@ export function HomeSummaryWidget({
         <div className="hp-metric">
           <span className="hp-metric-label">درآمد ماه</span>
           <b className="hp-metric-value income">
-            {formatAmount(toDisplay(d.totals.income, cur))}
+            <FitText>{formatAmount(toDisplay(d.totals.income, cur))}</FitText>
           </b>
           <DeltaChip value={d.dIncome} goodWhen="up" />
         </div>
         <div className="hp-metric">
           <span className="hp-metric-label">هزینه ماه</span>
           <b className="hp-metric-value expense">
-            {formatAmount(toDisplay(d.totals.expense, cur))}
+            <FitText>{formatAmount(toDisplay(d.totals.expense, cur))}</FitText>
           </b>
           <DeltaChip value={d.dExpense} goodWhen="down" />
         </div>
         <div className="hp-metric">
           <span className="hp-metric-label">مانده ماه</span>
           <b className={`hp-metric-value ${net >= 0 ? "income" : "expense"}`}>
-            {net >= 0 ? "＋" : "−"}
-            {formatAmount(toDisplay(net, cur))}
+            <FitText>{formatAmount(toDisplay(Math.abs(net), cur))}</FitText>
           </b>
         </div>
       </div>
@@ -129,14 +130,20 @@ export function HomeSummaryWidget({
         <div className="hp-cap">
           <div className="hp-cap-head">
             <span>
-              {over ? "از سقف بودجه گذشته‌اید" : `قابل خرج تا پایان ${MONTHS[jm - 1]}`}
+              {over
+                ? "از سقف بودجه گذشته‌اید"
+                : ` بودجه باقیمانده تا پایان ${MONTHS[jm - 1]}`}
             </span>
-            <span className="hp-cap-days">{toFa(d.cap.daysLeft)} روز مانده</span>
+            <span className="hp-cap-days">
+              {toFa(d.cap.daysLeft)} روز مانده
+            </span>
           </div>
           <b className={`hp-cap-value ${over ? "over" : ""}`}>
-            {over ? "−" : ""}
-            {formatAmount(toDisplay(d.cap.remaining, cur))}
-            <span className="hp-cur">{cur}</span>
+            <FitText>
+              {over ? "−" : ""}
+              {formatAmount(toDisplay(d.cap.remaining, cur))}
+              <span className="hp-cur">{cur}</span>
+            </FitText>
           </b>
           <div
             className="hp-bar"
@@ -153,19 +160,22 @@ export function HomeSummaryWidget({
           </div>
           <div className="hp-cap-foot">
             <span>
-              {over ? "سقف ماه" : "سهم هر روز"}{" "}
-              <b>{formatAmount(toDisplay(over ? d.cap.cap : d.cap.perDay, cur))}</b>
+              {over ? "بودجه ماه" : "سهم هر روز"}{" "}
+              <b>
+                {formatAmount(toDisplay(over ? d.cap.cap : d.cap.perDay, cur))}
+              </b>
             </span>
             <span>
-              <b>{toFa(Math.min(d.cap.percent, 999))}٪</b> از سقف خرج شده
+              <b>{toFa(Math.min(d.cap.percent, 999))}٪</b> از بودجه ماهیانه خرج
+              شده
             </span>
           </div>
         </div>
       ) : (
         <div className="hp-cap empty">
           <p>
-            برای دسته‌های هزینه سقف ماهانه تعیین کنید تا همین‌جا ببینید تا پایان ماه
-            چقدر می‌توانید خرج کنید.
+            برای دسته‌های هزینه سقف ماهانه تعیین کنید تا همین‌جا ببینید تا پایان
+            ماه چقدر می‌توانید خرج کنید.
           </p>
           <button type="button" className="hp-cta" onClick={onNavBudgets}>
             تعیین بودجه

@@ -13,7 +13,6 @@ import type {
 import { rpc } from "@/infrastructure/api/httpClient";
 import { sendOtpViaServerless } from "@/infrastructure/api/otpApi";
 import { API_BASE } from "@/shared/config/apiBase";
-import { hashPassword } from "@/infrastructure/api/hash";
 import type { TokenProvider } from "./sessionRepository";
 import {
   mapFamily,
@@ -47,17 +46,14 @@ export class SupabaseAuthRepository implements AuthRepository {
   async checkPreRegistered(phone: string): Promise<{
     preRegistered: boolean;
     familyName: string | null;
-    memberName: string | null;
   }> {
     const r = await rpc<{
       pre_registered?: boolean;
       family_name?: string | null;
-      member_name?: string | null;
     }>("check_pre_registered", { p_phone: phone });
     return {
       preRegistered: !!r?.pre_registered,
       familyName: r?.family_name ?? null,
-      memberName: r?.member_name ?? null,
     };
   }
 
@@ -108,38 +104,40 @@ export class SupabaseAuthRepository implements AuthRepository {
   }
 
   async requestOtp(phone: string): Promise<OtpRequestResult> {
-    /* ۱) تابع سرورless */
+    /* فقط مسیر سرورless — تابع request_otp_dev در نسخه تولید
+       نه در فهرست سفید پروکسی است و نه دسترسی اجرا دارد */
     const r = await sendOtpViaServerless(phone);
-    if (r.ok) return { sent: true, devCode: r.devCode };
-
-    /* ۲) fallback: RPC حالت توسعه (dev_mode) */
-    const devCode = await rpc<string>("request_otp_dev", { p_phone: phone });
-    return { sent: true, devCode: devCode ?? null };
+    if (!r.ok) throw new Error("ارسال کد پیامکی ممکن نشد — بعداً تلاش کنید");
+    return { sent: true, devCode: r.devCode };
   }
 
   async checkPassword(phone: string, password: string): Promise<boolean> {
-    const hash = await hashPassword(phone, password);
+    /* رمز خام روی HTTPS می‌رود؛ هش bcrypt سمت سرور ساخته و مقایسه می‌شود */
     return rpc<boolean>("auth_check_password", {
       p_phone: phone,
-      p_password_hash: hash,
+      p_password: password,
     });
   }
 
-  async loginWithOtp(phone: string, code: string | null): Promise<AuthResult> {
+  async loginWithOtp(
+    phone: string,
+    password: string,
+    code: string | null,
+  ): Promise<AuthResult> {
     const r = await rpc<AuthResultRow>("auth_login", {
       p_phone: phone,
+      p_password: password,
       p_code: code,
     });
     return this.mapAuth(r);
   }
 
   async register(input: RegisterInput, otpCode: string | null): Promise<AuthResult> {
-    const hash = await hashPassword(input.phone, input.password);
     const r = await rpc<AuthResultRow>("auth_register", {
       p_family_name: input.familyName,
       p_member_name: input.memberName,
       p_phone: input.phone,
-      p_password_hash: hash,
+      p_password: input.password,
       p_otp_code: otpCode,
       p_relation: input.relation ?? "خودم",
     });
@@ -150,13 +148,13 @@ export class SupabaseAuthRepository implements AuthRepository {
     input: InviteAcceptInput,
     otpCode: string | null,
   ): Promise<AuthResult> {
-    const hash = await hashPassword(input.phone, input.password);
     const r = await rpc<AuthResultRow>("accept_invite", {
       p_token: input.inviteToken,
       p_member_name: input.memberName,
       p_phone: input.phone,
-      p_password_hash: hash,
+      p_password: input.password,
       p_otp_code: otpCode,
+      p_relation: input.relation ?? "سایر",
     });
     return this.mapAuth(r);
   }
@@ -193,5 +191,21 @@ export class SupabaseAuthRepository implements AuthRepository {
     } catch {
       /* بی‌صدا — نشست سمت سرور خودش منقضی می‌شود */
     }
+  }
+
+  async logoutAll(token: string): Promise<void> {
+    await rpc("logout_all_sessions", { p_token: token });
+  }
+
+  async changePassword(
+    token: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    await rpc("change_password", {
+      p_token: token,
+      p_current_password: currentPassword,
+      p_new_password: newPassword,
+    });
   }
 }

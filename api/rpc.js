@@ -8,17 +8,83 @@
    درخواست را به Supabase می‌برد — همان الگوی api/send-otp.
 
    امنیت: کلید publishable/anon عمومی است و همه‌ی کنترل دسترسی
-   در خود RPCها با p_token انجام می‌شود (RLS بسته) — پس این پروکسی
-   چیزی از سطح امنیت مستقیم را پایین نمی‌آورد. نام تابع اعتبارسنجی
-   می‌شود تا پروکسیِ باز به مسیرهای دلخواه نباشد.
+   در خود RPCها با p_token انجام می‌شود (RLS بسته). علاوه بر آن این
+   پروکسی فقط توابع فهرست ALLOWED را عبور می‌دهد — الگوی regex کافی
+   نبود چون هر تابع موجود در پروژه (از جمله توابع داخلی «_») را مجاز
+   می‌کرد. لایه‌ی دوم در خود دیتابیس است (revoke execute در انتهای schema.sql).
 
    متغیرهای محیطی (Vercel):
      SUPABASE_URL         آدرس پروژه
      SUPABASE_ANON_KEY    کلید publishable (یا SERVICE_KEY به‌عنوان جایگزین)
+     ALLOWED_ORIGIN       دامنه‌ی مجاز CORS (اختیاری — پیش‌فرض: همه)
    ═══════════════════════════════════════════════ */
 
+/* فهرست سفید توابع RPC — فقط این نام‌ها به Supabase می‌روند.
+   هر تابع جدیدی که کلاینت صدا می‌زند باید اینجا هم اضافه شود. */
+const ALLOWED = new Set([
+  /* احراز هویت و نشست */
+  "get_public_config",
+  "check_pre_registered",
+  "auth_check_password",
+  "auth_login",
+  "auth_register",
+  "accept_invite",
+  "get_invite",
+  "create_invite",
+  "validate_session",
+  "logout_session",
+  "logout_all_sessions",
+  "change_password",
+  /* خانواده و اعضا */
+  "get_family",
+  "get_members",
+  "update_family_settings",
+  "remove_member",
+  "update_member_profile",
+  "add_member_by_manager",
+  "set_member_theme",
+  "set_member_currency",
+  "set_member_relation",
+  /* تراکنش‌ها */
+  "list_transactions",
+  "add_transaction",
+  "update_transaction",
+  "delete_transaction",
+  "mark_recurring_occurrence",
+  "add_tx_photo",
+  "update_tx_photo_caption",
+  "delete_tx_photo",
+  /* حساب‌ها */
+  "list_accounts",
+  "add_account",
+  "update_account",
+  "delete_account",
+  /* دسته‌ها و زیردسته‌ها */
+  "list_custom_categories",
+  "add_custom_category",
+  "delete_custom_category",
+  "list_subcategories",
+  "add_subcategory",
+  "delete_subcategory",
+  /* بودجه دسته‌ها */
+  "list_category_budgets",
+  "set_category_budget",
+  "delete_category_budget",
+  /* رویدادها */
+  "list_events",
+  "add_event",
+  "delete_event",
+  "sync_birthday_events",
+  /* پیامک */
+  "list_sms",
+  "add_sms_messages",
+  "set_sms_status",
+  "get_bridge",
+  "create_bridge",
+]);
+
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": process.env.ALLOWED_ORIGIN || "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
@@ -34,7 +100,7 @@ export default async (req, res) => {
 
   const body = await readBody(req);
   const fn = String(body.fn ?? "");
-  if (!/^[a-z_][a-z0-9_]{0,63}$/i.test(fn)) {
+  if (!ALLOWED.has(fn)) {
     return json(res, 400, { error: "INVALID_FN" });
   }
 

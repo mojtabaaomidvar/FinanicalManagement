@@ -7,6 +7,7 @@
 import { useMemo, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { HomeSummaryWidget } from "@/widgets/home-summary";
+import { DueRecurringWidget } from "@/widgets/due-recurring";
 import { MonthExpensesWidget } from "@/widgets/month-expenses";
 import { RecentTxWidget } from "@/widgets/recent-tx";
 import { WeeklyFlowWidget } from "@/widgets/weekly-flow";
@@ -134,6 +135,7 @@ export function DashboardPage({
 
       <div className="content home-content">
         <HomeSummaryWidget onNavBudgets={onNavBudgets} />
+        <DueRecurringWidget form={form} />
         <MonthExpensesWidget />
         <RecentTxWidget form={form} onNavTransactions={onNavTransactions} />
         <WeeklyFlowWidget />

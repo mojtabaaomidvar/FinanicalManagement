@@ -13,6 +13,7 @@ import {
   type TouchEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import { useBackGuard } from "@/shared/lib/useBackGuard";
 
 /* پشتهٔ مودال‌های باز — چون مودال می‌تواند روی مودال باز شود
    (مثل «ورود پیامک» روی شیت ثبت تراکنش):
@@ -42,6 +43,9 @@ export function Modal(props: {
      مودال را از پشته برداشته و دوباره بالا می‌گذارد */
   const closeRef = useRef(props.onClose);
   closeRef.current = props.onClose;
+
+  /* بازگشتِ فیزیکی/نرم‌افزاری و سوایپ لبه = بستن این مودال (LIFO) */
+  useBackGuard(props.open, props.onClose);
 
   useEffect(() => {
     if (!props.open) return;

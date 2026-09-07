@@ -77,6 +77,14 @@ export class SupabaseTransactionRepository implements TransactionRepository {
     });
   }
 
+  async markOccurrence(id: string, dueDate: string): Promise<void> {
+    await rpc("mark_recurring_occurrence", {
+      p_token: await this.tok(),
+      p_tx_id: id,
+      p_due_date: dueDate,
+    });
+  }
+
   async uploadPhoto(dataUrl: string): Promise<string> {
     const token = await this.tok();
     let res: Response;

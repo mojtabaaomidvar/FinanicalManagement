@@ -1,44 +1,44 @@
 @echo off
 chcp 65001 >nul
 setlocal EnableDelayedExpansion
-title مالی من — GitHub + Vercel
+title KhanehYar - GitHub + Vercel
 
 cd /d "%~dp0"
 
 echo.
 echo  ==============================================
-echo    مالی من — ارسال به GitHub + انتشار Vercel
+echo    KhanehYar - Push to GitHub + Deploy to Vercel
 echo  ==============================================
 echo.
 
-REM ── بررسی ابزارهای لازم ──
+REM -- Check required tools --
 where git >nul 2>nul <nul
 if errorlevel 1 (
-    echo  [خطا] git نصب نیست — از git-scm.com نصب کنید.
+    echo  [ERROR] git is not installed - install it from git-scm.com
     goto :fail
 )
 where node >nul 2>nul <nul
 if errorlevel 1 (
-    echo  [خطا] Node.js نصب نیست — از nodejs.org نصب کنید.
+    echo  [ERROR] Node.js is not installed - install it from nodejs.org
     goto :fail
 )
 
-REM ── آدرس مخزن به‌صورت آرگومان: deploy.bat https://github.com/mojtabaaomidvar/FinanicalManagement.git ──
+REM -- Repo URL can be passed as an argument: deploy.bat https://github.com/USER/REPO.git --
 set "REPO_URL_ARG=%~1"
 
-echo  چه کاری انجام شود؟
-echo    [1] ارسال به GitHub + انتشار روی Vercel
-echo    [2] فقط ارسال به GitHub
-echo    [3] فقط انتشار روی Vercel
+echo  What do you want to do?
+echo    [1] Push to GitHub + deploy to Vercel
+echo    [2] Push to GitHub only
+echo    [3] Deploy to Vercel only
 echo.
 set "CHOICE="
-set /p CHOICE= انتخاب شما - پیش‌فرض 1 : 
+set /p CHOICE= Your choice - default 1 :
 if "!CHOICE!"=="" set "CHOICE=1"
 
 if "!CHOICE!"=="1" goto :run_both
 if "!CHOICE!"=="2" goto :run_github
 if "!CHOICE!"=="3" goto :run_vercel
-echo  انتخاب نامعتبر — گزینه 1 اجرا می‌شود.
+echo  Invalid choice - running option 1.
 goto :run_both
 
 :run_both
@@ -54,7 +54,7 @@ goto :done
 call :do_vercel || goto :fail
 goto :done
 
-REM ═══════════════ GitHub ═══════════════
+REM =============== GitHub ===============
 :do_github
 echo.
 echo  ===== GitHub =====
@@ -62,34 +62,38 @@ echo.
 
 if not exist ".git" (
     git init >nul 2>nul
-    echo  مخزن git ساخته شد.
+    echo  git repository created.
 )
 
 if not exist ".gitignore" (
     >.gitignore echo node_modules/
     >>.gitignore echo .vercel/
+    >>.gitignore echo dist/
+    >>.gitignore echo .env
+    >>.gitignore echo .env.local
+    >>.gitignore echo .env.*.local
     >>.gitignore echo .DS_Store
     >>.gitignore echo Thumbs.db
-    echo  فایل gitignore ساخته شد.
+    echo  .gitignore created.
 )
 
-REM ── هویت git اگر تنظیم نشده باشد ──
+REM -- Set git identity if not configured --
 git config user.name >nul 2>nul <nul
 if not errorlevel 1 goto :git_id_ok
-echo  تنظیمات هویت git کامل نیست.
+echo  git identity is not configured.
 set "GIT_NAME="
-set /p GIT_NAME= نام کاربری GitHub : 
+set /p GIT_NAME= GitHub username :
 set "GIT_EMAIL="
-set /p GIT_EMAIL= ایمیل GitHub : 
+set /p GIT_EMAIL= GitHub email :
 git config user.name "!GIT_NAME!"
 git config user.email "!GIT_EMAIL!"
 
 :git_id_ok
 git add -A
-git commit -m "Mali-Man v3.0 - phone auth + OTP + QR invite" >nul 2>nul
+git commit -m "KhanehYar v3.0 - phone auth + OTP + QR invite" >nul 2>nul
 git branch -M main
 
-REM ── اتصال به مخزن راه دور ──
+REM -- Connect to remote repository --
 git remote get-url origin >nul 2>nul <nul
 if not errorlevel 1 goto :has_remote
 
@@ -98,13 +102,13 @@ if not "!REPO_URL_ARG!"=="" (
     goto :set_remote
 )
 echo.
-echo  آدرس مخزن GitHub را وارد کنید.
-echo  مثال: https://github.com/USERNAME/REPO.git
-echo  نکته: مخزن را در github.com بسازید — خالی و بدون README.
+echo  Enter your GitHub repository URL.
+echo  Example: https://github.com/USERNAME/REPO.git
+echo  Tip: create the repository on github.com - empty, without a README.
 set "REPO_URL="
-set /p REPO_URL= آدرس مخزن : 
+set /p REPO_URL= Repository URL :
 if "!REPO_URL!"=="" (
-    echo  [خطا] آدرس مخزن خالی است.
+    echo  [ERROR] Repository URL is empty.
     exit /b 1
 )
 
@@ -113,18 +117,18 @@ git remote add origin "!REPO_URL!"
 
 :has_remote
 echo.
-echo  در حال ارسال به GitHub...
+echo  Pushing to GitHub...
 git push -u origin main
 if errorlevel 1 (
-    echo  [خطا] ارسال ناموفق — اینترنت، دسترسی و آدرس را چک کنید.
-    echo  اگر مخزن از قبل فایل دارد، آن را خالی کنید و دوباره تلاش کنید.
+    echo  [ERROR] Push failed - check your internet, access rights and URL.
+    echo  If the repository already contains files, empty it and try again.
     exit /b 1
 )
 echo.
-echo  ارسال به GitHub با موفقیت انجام شد.
+echo  Successfully pushed to GitHub.
 exit /b 0
 
-REM ═══════════════ Vercel ═══════════════
+REM =============== Vercel ===============
 :do_vercel
 echo.
 echo  ===== Vercel =====
@@ -132,33 +136,33 @@ echo.
 
 where vercel >nul 2>nul <nul
 if not errorlevel 1 goto :vercel_run
-echo  Vercel CLI نصب نیست — در حال نصب...
+echo  Vercel CLI is not installed - installing...
 call npm install -g vercel
 if errorlevel 1 (
-    echo  [خطا] نصب Vercel CLI ناموفق بود.
+    echo  [ERROR] Failed to install the Vercel CLI.
     exit /b 1
 )
 
 :vercel_run
 echo.
-echo  نکته: اگر اولین بار است و وارد نشده‌اید، مرورگر برای ورود باز می‌شود.
-echo  در حال انتشار روی Vercel...
+echo  Note: if this is the first time and you are not logged in, a browser window will open for login.
+echo  Deploying to Vercel...
 call vercel --prod --yes
 if errorlevel 1 (
-    echo  [خطا] انتشار ناموفق — دستور vercel login را دستی اجرا کنید و دوباره تلاش کنید.
+    echo  [ERROR] Deploy failed - run "vercel login" manually and try again.
     exit /b 1
 )
 echo.
-echo  انتشار روی Vercel با موفقیت انجام شد.
+echo  Successfully deployed to Vercel.
 exit /b 0
 
 :done
 echo.
 echo  ==============================================
-echo  تمام شد!
-echo  آدرس اپ: https://NAME-OF-PROJECT.vercel.app
-echo  نصب روی آیفون: آدرس را در Safari باز کنید،
-echo  سپس Share و بعد Add to Home Screen
+echo  Done!
+echo  App URL: https://NAME-OF-PROJECT.vercel.app
+echo  Install on iPhone: open the URL in Safari,
+echo  then Share and Add to Home Screen
 echo  ==============================================
 echo.
 pause
@@ -166,6 +170,6 @@ exit /b 0
 
 :fail
 echo.
-echo  عملیات با خطا متوقف شد.
+echo  The operation stopped with an error.
 pause
 exit /b 1

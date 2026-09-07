@@ -17,8 +17,7 @@ import { toDisplay } from "@/shared/lib/currency";
 import { formatAmount, formatPercent } from "@/shared/lib/format";
 
 export function MonthlyReportPanelWidget() {
-  const { txs, family, members } = useApp();
-  const cur = family?.currency ?? "تومان";
+  const { txs, cur, members } = useApp();
   const [jy, setJy] = useState(() => today()[0]);
   const [jm, setJm] = useState(() => today()[1]);
 
@@ -73,7 +72,7 @@ export function MonthlyReportPanelWidget() {
 
       <Card
         title="روند روزانه"
-        action={<span className="badge">{family?.currency ?? "تومان"}</span>}
+        action={<span className="badge">{cur}</span>}
       >
         <div className="chart-box">
           <BarChart

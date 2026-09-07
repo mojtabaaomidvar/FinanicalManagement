@@ -21,13 +21,13 @@ export const MONTHS = [
 ] as const;
 
 export const WEEKDAYS = [
+  "شنبه",
   "یکشنبه",
   "دوشنبه",
   "سه‌شنبه",
   "چهارشنبه",
   "پنجشنبه",
   "جمعه",
-  "شنبه",
 ] as const;
 
 /* ── تبدیل میلادی → جلالی ── */
@@ -52,13 +52,18 @@ export function toJalali(gy: number, gm: number, gd: number): JDate {
     jy += Math.floor((days - 1) / 365);
     days = (days - 1) % 365;
   }
-  const jm = days < 186 ? 1 + Math.floor(days / 31) : 7 + Math.floor((days - 186) / 30);
+  const jm =
+    days < 186 ? 1 + Math.floor(days / 31) : 7 + Math.floor((days - 186) / 30);
   const jd = 1 + (days < 186 ? days % 31 : (days - 186) % 30);
   return [jy, jm, jd];
 }
 
 /* ── تبدیل جلالی → میلادی ── */
-export function toGregorian(jy: number, jm: number, jd: number): [number, number, number] {
+export function toGregorian(
+  jy: number,
+  jm: number,
+  jd: number,
+): [number, number, number] {
   let gy = jy <= 979 ? 621 : 1600;
   jy -= jy <= 979 ? 0 : 979;
   let days =
@@ -205,7 +210,7 @@ export function addDays(d: JDate, n: number): JDate {
 }
 
 /* ── حرف روز هفته (getDay: ۰=یکشنبه … ۶=شنبه) ── */
-export const WEEKDAYS_SHORT = ["ی", "د", "س", "چ", "پ", "ج", "ش"] as const;
+export const WEEKDAYS_SHORT = ["ش", "ی", "د", "س", "چ", "پ", "ج"] as const;
 
 export function shortWeekday(d: JDate): string {
   const [gy, gm, gd] = toGregorian(d[0], d[1], d[2]);

@@ -25,16 +25,16 @@ export interface AuthRepository {
   checkPreRegistered(phone: string): Promise<{
     preRegistered: boolean;
     familyName: string | null;
-    memberName: string | null;
   }>;
   /** آپلود عکس پروفایل (سرورless) → URL عمومی */
   uploadAvatar(dataUrl: string): Promise<string>;
   /** درخواست کد OTP (سرورless، با fallback حالت توسعه) */
   requestOtp(phone: string): Promise<OtpRequestResult>;
-  /** مرحله ۱ ورود: بررسی شماره + رمز */
+  /** مرحله ۱ ورود: بررسی شماره + رمز (رمز خام روی HTTPS — هش سمت سرور) */
   checkPassword(phone: string, password: string): Promise<boolean>;
-  /** مرحله ۲ ورود: تأیید OTP → نشست (code=null وقتی OTP غیرفعال است) */
-  loginWithOtp(phone: string, code: string | null): Promise<AuthResult>;
+  /** مرحله ۲ ورود: رمز + OTP → نشست (code=null وقتی OTP غیرفعال است)
+      رمز دوباره فرستاده می‌شود چون سرور آن را در auth_login هم بررسی می‌کند */
+  loginWithOtp(phone: string, password: string, code: string | null): Promise<AuthResult>;
   /** ثبت‌نام — OTP سمت سرور اعتبارسنجی می‌شود (null = OTP غیرفعال) */
   register(input: RegisterInput, otpCode: string | null): Promise<AuthResult>;
   /** پذیرش دعوت — OTP سمت سرور اعتبارسنجی می‌شود (null = OTP غیرفعال) */
@@ -47,4 +47,12 @@ export interface AuthRepository {
   validateSession(token: string): Promise<ValidatedSession>;
   /** خروج — حذف نشست سمت سرور */
   logout(token: string): Promise<void>;
+  /** خروج از همه دستگاه‌ها — ابطال همه نشست‌های این عضو */
+  logoutAll(token: string): Promise<void>;
+  /** تغییر رمز عبور — نشست‌های دیگر باطل می‌شوند */
+  changePassword(
+    token: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void>;
 }

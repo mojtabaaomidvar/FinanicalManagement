@@ -120,6 +120,7 @@ const tx = (
   subcategoryId: null,
   repeat: "none",
   repeatEnd: null,
+  handledOccurrences: [],
   photos: [],
   createdAt,
 });

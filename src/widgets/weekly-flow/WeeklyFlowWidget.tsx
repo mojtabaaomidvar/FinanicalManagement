@@ -8,8 +8,7 @@ import { formatAmount } from "@/shared/lib/format";
 import { toDisplay } from "@/shared/lib/currency";
 
 export function WeeklyFlowWidget() {
-  const { txs, family } = useApp();
-  const cur = family?.currency ?? "تومان";
+  const { txs, cur } = useApp();
 
   const flow = useMemo(() => weekFlow(txs, today()), [txs]);
 
@@ -22,7 +21,6 @@ export function WeeklyFlowWidget() {
       <div className="strip-head">
         <h3 className="strip-title">جریان هفت روز گذشته</h3>
         <span className={`strip-net ${flow.net >= 0 ? "income" : "expense"}`}>
-          {flow.net >= 0 ? "＋" : "−"}
           {formatAmount(toDisplay(flow.net, cur))}
           <i>{cur}</i>
         </span>

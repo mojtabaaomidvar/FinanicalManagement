@@ -21,8 +21,7 @@ interface Row {
 }
 
 export function MemberSpendWidget() {
-  const { txs, members, family } = useApp();
-  const cur = family?.currency ?? "تومان";
+  const { txs, members, cur } = useApp();
   const [jy, jm] = today();
 
   const { rows, count } = useMemo(() => {

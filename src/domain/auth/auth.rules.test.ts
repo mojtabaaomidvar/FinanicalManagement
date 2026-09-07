@@ -18,9 +18,10 @@ describe("normalizePhone", () => {
 });
 
 describe("رمز و OTP", () => {
-  it("رمز حداقل ۴ کاراکتر", () => {
-    expect(isValidPassword("1234")).toBe(true);
-    expect(isValidPassword("123")).toBe(false);
+  it("رمز حداقل ۸ کاراکتر", () => {
+    expect(isValidPassword("12345678")).toBe(true);
+    expect(isValidPassword("1234567")).toBe(false);
+    expect(isValidPassword("1234")).toBe(false);
   });
 
   it("کد OTP دقیقاً ۶ رقم", () => {

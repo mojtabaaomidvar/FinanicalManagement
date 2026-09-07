@@ -24,28 +24,23 @@ export function InviteFeature() {
       <div className="invite-box">
         <p className="invite-title">دعوت عضو جدید</p>
         <p className="invite-sub">
-          لینک یا QR را برای عضو خانواده بفرستید تا ثبت‌نام کند
+          لینک دعوت زیر را برای عضو خانوادتون بفرتسین تا به جمع خانواده شما تو
+          نرم افزار اضافه بشه
         </p>
         <div className="invite-actions">
           <button className="action-btn" disabled={m.busy} onClick={m.create}>
-            <svg style={{ width: 16, height: 16 }}>
-              <use href="#i-share" />
-            </svg>
-            ساخت لینک
-          </button>
-          <button className="action-btn" disabled={m.busy} onClick={m.create}>
-            <svg style={{ width: 16, height: 16 }}>
-              <use href="#i-qr" />
-            </svg>
-            نمایش QR
+            لینک دعوت
           </button>
         </div>
       </div>
 
-      <Modal open={m.open} onClose={() => m.setOpen(false)} sheetClassName="invite-sheet">
+      <Modal
+        open={m.open}
+        onClose={() => m.setOpen(false)}
+        sheetClassName="invite-sheet"
+      >
         <div className="pending-head">
           <h3>دعوت عضو جدید</h3>
-          <span className="badge">{family?.name ?? "—"}</span>
         </div>
 
         <div className="invite-qr-wrap">
@@ -54,10 +49,13 @@ export function InviteFeature() {
 
         <p className="invite-link-label">لینک دعوت:</p>
         <div className="invite-link-row">
-          <input type="text" className="text-input" readOnly dir="ltr" value={m.link} />
-          <button className="action-btn" onClick={m.copy}>
-            کپی
-          </button>
+          <input
+            type="text"
+            className="text-input"
+            readOnly
+            dir="ltr"
+            value={m.link}
+          />
         </div>
         <button
           className="btn-ghost btn-block"
@@ -65,12 +63,6 @@ export function InviteFeature() {
         >
           اشتراک‌گذاری لینک
         </button>
-
-        <div className="modal-actions">
-          <button className="btn-secondary" onClick={() => m.setOpen(false)}>
-            بستن
-          </button>
-        </div>
       </Modal>
     </>
   );

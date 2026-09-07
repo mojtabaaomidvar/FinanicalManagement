@@ -3,7 +3,6 @@
 import type { FamilyRepository } from "@/domain/family/family.repository";
 import type {
   Family,
-  FamilySettings,
   Member,
   ProfileInput,
 } from "@/domain/family/family.types";
@@ -50,6 +49,29 @@ export class SetThemeUseCase {
   }
 }
 
+/** تغییر واحد پول نمایشی شخصی (v5.8) — پیش‌تر روی کل خانواده بود */
+export class SetCurrencyUseCase {
+  constructor(private readonly repo: FamilyRepository) {}
+  execute(currency: string): Promise<Member> {
+    if (currency !== "تومان" && currency !== "ریال") {
+      throw new AppError("INVALID_TX", "واحد پول باید تومان یا ریال باشد");
+    }
+    return this.repo.setCurrency(currency);
+  }
+}
+
+/** تغییر نسبت یک عضو با مدیر خانواده */
+export class SetMemberRelationUseCase {
+  constructor(private readonly repo: FamilyRepository) {}
+  execute(memberId: string, relation: string): Promise<Member> {
+    const r = relation.trim();
+    if (!r) {
+      throw new AppError("INVALID_TX", "نسبت را انتخاب کنید");
+    }
+    return this.repo.setMemberRelation(memberId, r);
+  }
+}
+
 export class AddMemberByManagerUseCase {
   constructor(private readonly repo: FamilyRepository) {}
   async execute(
@@ -71,10 +93,11 @@ export class AddMemberByManagerUseCase {
   }
 }
 
-export class UpdateFamilySettingsUseCase {
+/** سقف بودجه ماهانه خانواده — از v5.8 فقط بودجه (واحد پول و تم شخصی شدند) */
+export class SetMonthlyBudgetUseCase {
   constructor(private readonly repo: FamilyRepository) {}
-  execute(settings: FamilySettings): Promise<void> {
-    return this.repo.updateSettings(settings);
+  execute(budget: number): Promise<void> {
+    return this.repo.setMonthlyBudget(Math.max(0, Math.round(budget)));
   }
 }
 

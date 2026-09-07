@@ -3,12 +3,14 @@
 import type { Container } from "@/infrastructure/repositories/container";
 import {
   AcceptInviteUseCase,
+  ChangePasswordUseCase,
   CheckPasswordUseCase,
   CheckPreRegisteredUseCase,
   CreateInviteUseCase,
   GetInviteUseCase,
   GetPublicConfigUseCase,
   LoginWithOtpUseCase,
+  LogoutAllUseCase,
   LogoutUseCase,
   RegisterUseCase,
   RequestOtpUseCase,
@@ -28,6 +30,7 @@ import {
   DeleteTxPhotoUseCase,
   AddTxPhotoUseCase,
   ListTransactionsUseCase,
+  MarkRecurringOccurrenceUseCase,
   UpdateTransactionUseCase,
   UpdateTxPhotoCaptionUseCase,
   UploadTxPhotoUseCase,
@@ -50,15 +53,18 @@ import {
   GetFamilyUseCase,
   GetMembersUseCase,
   RemoveMemberUseCase,
-  UpdateFamilySettingsUseCase,
+  SetMonthlyBudgetUseCase,
   AddMemberByManagerUseCase,
   UpdateOwnProfileUseCase,
   SetThemeUseCase,
+  SetCurrencyUseCase,
+  SetMemberRelationUseCase,
 } from "./family/family.usecases";
 import {
   AddAccountUseCase,
   DeleteAccountUseCase,
   ListAccountsUseCase,
+  UpdateAccountUseCase,
 } from "./account/account.usecases";
 import {
   AddSubcategoryUseCase,
@@ -67,6 +73,7 @@ import {
 } from "./category/subcategory.usecases";
 import {
   AddCustomCategoryUseCase,
+  DeleteCustomCategoryUseCase,
   ListCustomCategoriesUseCase,
 } from "./category/custom-category.usecases";
 import {
@@ -89,11 +96,14 @@ export interface UseCases {
   saveSession: SaveSessionUseCase;
   restoreSession: RestoreSessionUseCase;
   logout: LogoutUseCase;
+  logoutAll: LogoutAllUseCase;
+  changePassword: ChangePasswordUseCase;
 
   listTransactions: ListTransactionsUseCase;
   addTransaction: AddTransactionUseCase;
   updateTransaction: UpdateTransactionUseCase;
   deleteTransaction: DeleteTransactionUseCase;
+  markRecurringOccurrence: MarkRecurringOccurrenceUseCase;
 
   uploadTxPhoto: UploadTxPhotoUseCase;
   addTxPhoto: AddTxPhotoUseCase;
@@ -111,11 +121,13 @@ export interface UseCases {
 
   getFamily: GetFamilyUseCase;
   getMembers: GetMembersUseCase;
-  updateFamilySettings: UpdateFamilySettingsUseCase;
+  setMonthlyBudget: SetMonthlyBudgetUseCase;
   removeMember: RemoveMemberUseCase;
   updateOwnProfile: UpdateOwnProfileUseCase;
   addMemberByManager: AddMemberByManagerUseCase;
   setTheme: SetThemeUseCase;
+  setCurrency: SetCurrencyUseCase;
+  setMemberRelation: SetMemberRelationUseCase;
   checkBudgetStatus: CheckBudgetStatusUseCase;
   buildBackupJson: BuildBackupJsonUseCase;
 
@@ -126,6 +138,7 @@ export interface UseCases {
 
   listAccounts: ListAccountsUseCase;
   addAccount: AddAccountUseCase;
+  updateAccount: UpdateAccountUseCase;
   deleteAccount: DeleteAccountUseCase;
 
   getBridge: GetBridgeUseCase;
@@ -137,6 +150,7 @@ export interface UseCases {
 
   listCustomCategories: ListCustomCategoriesUseCase;
   addCustomCategory: AddCustomCategoryUseCase;
+  deleteCustomCategory: DeleteCustomCategoryUseCase;
 
   listCategoryBudgets: ListCategoryBudgetsUseCase;
   setCategoryBudget: SetCategoryBudgetUseCase;
@@ -158,11 +172,16 @@ export function createUseCases(c: Container): UseCases {
     saveSession: new SaveSessionUseCase(c.session),
     restoreSession: new RestoreSessionUseCase(c.session, c.repos.auth),
     logout: new LogoutUseCase(c.session, c.repos.auth),
+    logoutAll: new LogoutAllUseCase(c.session, c.repos.auth),
+    changePassword: new ChangePasswordUseCase(c.session, c.repos.auth),
 
     listTransactions: new ListTransactionsUseCase(c.repos.transactions),
     addTransaction: new AddTransactionUseCase(c.repos.transactions),
     updateTransaction: new UpdateTransactionUseCase(c.repos.transactions),
     deleteTransaction: new DeleteTransactionUseCase(c.repos.transactions),
+    markRecurringOccurrence: new MarkRecurringOccurrenceUseCase(
+      c.repos.transactions,
+    ),
 
     uploadTxPhoto: new UploadTxPhotoUseCase(c.repos.transactions),
     addTxPhoto: new AddTxPhotoUseCase(c.repos.transactions),
@@ -183,11 +202,13 @@ export function createUseCases(c: Container): UseCases {
 
     getFamily: new GetFamilyUseCase(c.repos.family),
     getMembers: new GetMembersUseCase(c.repos.family),
-    updateFamilySettings: new UpdateFamilySettingsUseCase(c.repos.family),
+    setMonthlyBudget: new SetMonthlyBudgetUseCase(c.repos.family),
     removeMember: new RemoveMemberUseCase(c.repos.family),
     updateOwnProfile: new UpdateOwnProfileUseCase(c.repos.family),
     addMemberByManager: new AddMemberByManagerUseCase(c.repos.family),
     setTheme: new SetThemeUseCase(c.repos.family),
+    setCurrency: new SetCurrencyUseCase(c.repos.family),
+    setMemberRelation: new SetMemberRelationUseCase(c.repos.family),
     checkBudgetStatus: new CheckBudgetStatusUseCase(),
     buildBackupJson: new BuildBackupJsonUseCase(),
 
@@ -198,6 +219,7 @@ export function createUseCases(c: Container): UseCases {
 
     listAccounts: new ListAccountsUseCase(c.repos.accounts),
     addAccount: new AddAccountUseCase(c.repos.accounts),
+    updateAccount: new UpdateAccountUseCase(c.repos.accounts),
     deleteAccount: new DeleteAccountUseCase(c.repos.accounts),
 
     getBridge: new GetBridgeUseCase(c.repos.bridges),
@@ -211,6 +233,9 @@ export function createUseCases(c: Container): UseCases {
       c.repos.customCategories,
     ),
     addCustomCategory: new AddCustomCategoryUseCase(c.repos.customCategories),
+    deleteCustomCategory: new DeleteCustomCategoryUseCase(
+      c.repos.customCategories,
+    ),
 
     listCategoryBudgets: new ListCategoryBudgetsUseCase(
       c.repos.categoryBudgets,

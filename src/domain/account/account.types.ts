@@ -26,3 +26,19 @@ export interface AccountInput {
   /** موجودی اولیه (پایه) — پیش‌فرض ۰؛ منفی مجاز نیست */
   initialBalance?: number;
 }
+
+/** ورودی ویرایش — نوع حساب و مالک تغییر نمی‌کنند */
+export interface AccountPatch {
+  id: string;
+  title: string;
+  bank?: string | null;
+  cardNumber?: string | null;
+  /**
+   * موجودی اولیه (پایه). برخلاف افزودن، اینجا منفی هم مجاز است: کاربر
+   * «موجودی فعلی» را ویرایش می‌کند و موجودی اولیه = هدف منهای اثر
+   * تراکنش‌ها؛ اگر تراکنش‌ها از موجودی واقعی بیشتر باشند، منفی می‌شود.
+   */
+  initialBalance?: number;
+  /** برای اعتبارسنجی الزامی‌بودن شماره کارت — از حساب موجود می‌آید */
+  kind: AccountKind;
+}

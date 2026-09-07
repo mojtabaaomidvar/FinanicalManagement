@@ -22,3 +22,15 @@ export class AddCustomCategoryUseCase {
     return this.repo.add(type, trimmed);
   }
 }
+
+/** حذف دسته سفارشی — سرور اجازه نمی‌دهد دسته‌ای که در تراکنشی به‌کار
+    رفته حذف شود (CATEGORY_IN_USE) */
+export class DeleteCustomCategoryUseCase {
+  constructor(private readonly repo: CustomCategoryRepository) {}
+  execute(id: string): Promise<void> {
+    if (!id) {
+      throw new AppError("NOT_FOUND", "دسته یافت نشد");
+    }
+    return this.repo.remove(id);
+  }
+}

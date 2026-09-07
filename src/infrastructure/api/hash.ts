@@ -1,13 +1,17 @@
-/* هش رمز عبور: SHA-256(phone:password) — هگز
-   همان الگوریتم نسخه‌های قبلی (سازگار با داده‌های موجود) */
+/* ⚠️ بازنشسته (deprecated) — دیگر در هیچ مسیری استفاده نمی‌شود.
 
-export async function hashPassword(
-  phone: string,
-  password: string,
-): Promise<string> {
-  const data = new TextEncoder().encode(phone + ":" + password);
-  const buf = await crypto.subtle.digest("SHA-256", data);
-  return [...new Uint8Array(buf)]
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
+   تا نسخه ۵.۸ رمز عبور سمت کلاینت با SHA-256(phone:password) هش می‌شد و
+   همان مقدار در members.password_hash می‌نشست. سه ایراد داشت:
+     • SHA-256 عمداً سریع است — با GPU میلیاردها ترکیب در ثانیه تست می‌شود
+     • شماره موبایل نقش salt را داشت ولی قابل حدس است
+     • چون هش سمت کلاینت ساخته می‌شد، خودِ هش عملاً «رمز» بود
+       (هر کس هش را می‌دید می‌توانست لاگین کند)
+
+   از نسخه ۵.۹ کلاینت رمز خام را روی HTTPS می‌فرستد و هش با
+   bcrypt (pgcrypto، cost=12) در دیتابیس ساخته می‌شود. هش‌های قدیمی
+   در اولین ورود موفق به‌صورت شفاف به bcrypt ارتقا می‌یابند
+   (تابع public._verify_password در supabase/schema.sql).
+
+   این فایل فقط برای تاریخچه نگه داشته شده — از آن import نکنید. */
+
+export {};

@@ -33,7 +33,7 @@ export interface WeekFlow {
   net: number;
 }
 
-/** بازه نمودار ثروت */
+/** بازه نمودار دارایی */
 export type WealthRange = "7d" | "1m" | "1y" | "max";
 
 export interface WealthPoint {
