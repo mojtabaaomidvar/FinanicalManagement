@@ -1,13 +1,13 @@
-/* تنظیمات اتصال به Supabase — از متغیرهای محیطی Vite */
+/* بازنشسته در فاز ۹ (سوییچِ کامل و تمیز).
+   ────────────────────────────────────────────────────────────────────────
+   این ماژول «supabaseConfig» (url + anonKey از VITE_SUPABASE_*) و
+   «isSupabaseConfigured()» را برای seamِ قدیمیِ rpc فراهم می‌کرد. با مهاجرت به
+   بک‌اندِ اختصاصی دیگر به کلاینتِ سوپابیس نیازی نیست؛ احراز هویت و داده از طریقِ
+   RestClient و توکنِ Bearer انجام می‌شود. تنها مصرف‌کننده httpClient (بازنشسته) بود؛
+   دیگر هیچ importی باقی نیست. طبق قاعدهٔ «حذف نکن، بازنشسته کن»، بدنهٔ قبلی در تاریخچهٔ
+   گیت می‌ماند و این فایل عمداً خالی نگه داشته می‌شود.
 
-export const supabaseConfig = {
-  url: import.meta.env.VITE_SUPABASE_URL ?? "",
-  anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY ?? "",
-};
+   یادآوریِ امنیتی: متغیرهای VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY پس از تکمیلِ
+   مهاجرت باید از محیط حذف و کلیدها چرخانده شوند (فاز ۱ — سمتِ کاربر). */
 
-export function isSupabaseConfigured(): boolean {
-  return (
-    /^https:\/\/.+/.test(supabaseConfig.url) &&
-    supabaseConfig.anonKey.length > 20
-  );
-}
+export {};

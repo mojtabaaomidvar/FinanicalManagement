@@ -34,6 +34,17 @@ export class AddSmsBatchUseCase {
   }
 }
 
+/** ثبتِ یک متنِ خامِ پیامک — در فاز ۹ به «POST /sms/ingest»ِ سرور منتقل شد: پارس و
+   تشخیصِ بانکی‌بودن اکنون سمتِ سرور انجام می‌شود (پارسِ سمتِ کلاینت فقط برای واردکردنِ
+   دستیِ متن باقی می‌ماند). تعدادِ رکوردِ افزوده را برمی‌گرداند (۰ = پیامکِ بانکی نبود).
+   فرستنده (در خواندنِ نیتیو موجود است) برای کمک به تشخیصِ بانک فوروارد می‌شود. */
+export class IngestRawSmsUseCase {
+  constructor(private readonly repo: SmsRepository) {}
+  execute(rawText: string, sender?: string | null): Promise<number> {
+    return this.repo.ingestRaw(rawText, sender ?? null);
+  }
+}
+
 export class ListPendingSmsUseCase {
   constructor(private readonly repo: SmsRepository) {}
   execute(): Promise<BankSms[]> {

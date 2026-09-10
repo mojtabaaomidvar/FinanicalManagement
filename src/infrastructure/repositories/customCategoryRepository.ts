@@ -1,11 +1,12 @@
-/* مخزن دسته‌های سفارشی */
+/* مخزن دسته‌های سفارشی — اندپوینت‌های REST بک‌اندِ اختصاصی (/custom-categories).
+   پیشوندِ «Supabase» در نامِ کلاس میراثی است؛ مخزن اکنون REST-محور است و از
+   RestClient استفاده می‌کند (توکن خودکار از هدر). */
 
 import type {
   CustomCategory,
   CustomCategoryRepository,
 } from "@/domain/category/custom-category.types";
-import { rpc } from "@/infrastructure/api/httpClient";
-import type { TokenProvider } from "./sessionRepository";
+import type { RestClient } from "@/infrastructure/api/restClient";
 
 interface CustomCategoryRow {
   id: string;
@@ -28,18 +29,12 @@ function mapCustomCategory(r: CustomCategoryRow): CustomCategory {
 export class SupabaseCustomCategoryRepository
   implements CustomCategoryRepository
 {
-  constructor(private readonly tokenProvider: TokenProvider) {}
-
-  private async tok(): Promise<string> {
-    const t = await this.tokenProvider.getToken();
-    if (!t) throw new Error("NO_SESSION");
-    return t;
-  }
+  constructor(private readonly client: RestClient) {}
 
   async list(): Promise<CustomCategory[]> {
-    const rows = await rpc<CustomCategoryRow[]>("list_custom_categories", {
-      p_token: await this.tok(),
-    });
+    const rows = await this.client.get<CustomCategoryRow[]>(
+      "/custom-categories",
+    );
     return (rows ?? []).map(mapCustomCategory);
   }
 
@@ -47,18 +42,14 @@ export class SupabaseCustomCategoryRepository
     type: "expense" | "income",
     name: string,
   ): Promise<CustomCategory> {
-    const row = await rpc<CustomCategoryRow>("add_custom_category", {
-      p_token: await this.tok(),
-      p_type: type,
-      p_name: name,
+    const row = await this.client.post<CustomCategoryRow>("/custom-categories", {
+      type,
+      name,
     });
     return mapCustomCategory(row);
   }
 
   async remove(id: string): Promise<void> {
-    await rpc("delete_custom_category", {
-      p_token: await this.tok(),
-      p_category_id: id,
-    });
+    await this.client.del<void>(`/custom-categories/${encodeURIComponent(id)}`);
   }
 }

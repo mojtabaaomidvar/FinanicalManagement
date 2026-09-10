@@ -35,7 +35,7 @@ export interface Member {
   gender: "male" | "female" | null;
   /** "YYYY-MM-DD" میلادی */
   birthDate: string | null;
-  nationalId: string | null;
+  /* nationalId حذف شد (۲۰۲۶-۰۹-۰۸): کدملی از کل برنامه حذف شد */
   avatarUrl: string | null;
   /** pending = معرفی‌شده توسط مدیر، منتظر ثبت‌نام خودش */
   status: MemberStatus;
@@ -54,7 +54,7 @@ export interface ProfileInput {
   gender: "male" | "female" | null;
   /** "YYYY-MM-DD" میلادی */
   birthDate: string | null;
-  nationalId: string | null;
+  /* nationalId حذف شد (۲۰۲۶-۰۹-۰۸) */
   avatarUrl: string | null;
   /** تغییر اختیاری — null = بدون تغییر */
   theme?: ThemeMode | null;

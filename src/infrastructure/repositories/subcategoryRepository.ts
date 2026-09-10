@@ -1,11 +1,12 @@
-/* مخزن زیردسته‌ها */
+/* مخزن زیردسته‌ها — اندپوینت‌های REST بک‌اندِ اختصاصی (/subcategories).
+   پیشوندِ «Supabase» در نامِ کلاس میراثی است؛ مخزن اکنون REST-محور است و از
+   RestClient استفاده می‌کند (توکن خودکار از هدر). */
 
 import type {
   Subcategory,
   SubcategoryRepository,
 } from "@/domain/category/subcategory.types";
-import { rpc } from "@/infrastructure/api/httpClient";
-import type { TokenProvider } from "./sessionRepository";
+import type { RestClient } from "@/infrastructure/api/restClient";
 
 interface SubcategoryRow {
   id: string;
@@ -26,34 +27,22 @@ function mapSubcategory(r: SubcategoryRow): Subcategory {
 }
 
 export class SupabaseSubcategoryRepository implements SubcategoryRepository {
-  constructor(private readonly tokenProvider: TokenProvider) {}
-
-  private async tok(): Promise<string> {
-    const t = await this.tokenProvider.getToken();
-    if (!t) throw new Error("NO_SESSION");
-    return t;
-  }
+  constructor(private readonly client: RestClient) {}
 
   async list(): Promise<Subcategory[]> {
-    const rows = await rpc<SubcategoryRow[]>("list_subcategories", {
-      p_token: await this.tok(),
-    });
+    const rows = await this.client.get<SubcategoryRow[]>("/subcategories");
     return (rows ?? []).map(mapSubcategory);
   }
 
   async add(category: string, name: string): Promise<Subcategory> {
-    const row = await rpc<SubcategoryRow>("add_subcategory", {
-      p_token: await this.tok(),
-      p_category: category,
-      p_name: name,
+    const row = await this.client.post<SubcategoryRow>("/subcategories", {
+      category,
+      name,
     });
     return mapSubcategory(row);
   }
 
   async remove(id: string): Promise<void> {
-    await rpc("delete_subcategory", {
-      p_token: await this.tok(),
-      p_subcategory_id: id,
-    });
+    await this.client.del<void>(`/subcategories/${encodeURIComponent(id)}`);
   }
 }

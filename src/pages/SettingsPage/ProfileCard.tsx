@@ -16,7 +16,6 @@ import {
 import { MEMBER_RELATIONS } from "@/domain/family/family.types";
 import { canEditRelation, relationLabel } from "@/domain/family/family.rules";
 import { isoToJalali, jalaliToIso, parse, formatISO } from "@/shared/lib/jalali";
-import { toEn } from "@/shared/lib/digits";
 import { compressImage } from "@/shared/lib/image";
 
 export function ProfileCard() {
@@ -26,7 +25,6 @@ export function ProfileCard() {
   const [name, setName] = useState("");
   const [gender, setGender] = useState("");
   const [birthDate, setBirthDate] = useState("");
-  const [nationalId, setNationalId] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [relation, setRelation] = useState("");
   const [busy, setBusy] = useState(false);
@@ -39,7 +37,6 @@ export function ProfileCard() {
     setName(member.name);
     setGender(member.gender ?? "");
     setBirthDate(member.birthDate ? formatISO(isoToJalali(member.birthDate)) : "");
-    setNationalId(member.nationalId ?? "");
     setAvatarUrl(member.avatarUrl);
     setRelation(member.relation === "خودم" ? "" : (member.relation ?? ""));
   }, [member]);
@@ -74,7 +71,6 @@ export function ProfileCard() {
         name: name.trim(),
         gender: gender ? (gender as "male" | "female") : null,
         birthDate: parsedBirth,
-        nationalId: nationalId ? toEn(nationalId).replace(/\D/g, "") : null,
         avatarUrl: overrides?.avatarUrl ?? avatarUrl ?? null,
       });
       updateMember(updated);
@@ -179,17 +175,6 @@ export function ProfileCard() {
               onChange={setBirthDate}
               minYear={1300}
               maxYear={new Date().getFullYear() - 621}
-            />
-          </Field>
-        </div>
-        <div className="form-row full">
-          <Field label="کد ملی (اختیاری)">
-            <TextInput
-              value={nationalId}
-              onChange={(v) => setNationalId(toEn(v).replace(/\D/g, "").slice(0, 10))}
-              placeholder="۱۰ رقم"
-              dir="ltr"
-              inputMode="numeric"
             />
           </Field>
         </div>

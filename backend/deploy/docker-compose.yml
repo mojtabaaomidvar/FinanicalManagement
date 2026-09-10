@@ -1,0 +1,53 @@
+# docker-compose برای استقرارِ خانه‌یار روی «سرور ابری» (VPS) — اپ + Postgres
+#
+# اجرا از داخلِ همین پوشه (backend/deploy):
+#     docker compose up -d --build
+#
+# متغیرها از فایلِ .env همین پوشه خوانده می‌شوند — آن را روی سرور می‌سازی و
+# هرگز داخلِ git نمی‌گذاری (نام‌ها در README-VPS.md).
+#
+# نکتهٔ حیاتی: مهاجرت‌های Alembic اینجا اجرا نمی‌شوند. طبقِ ترتیبِ فاز ۱۰ دستی اجرا
+# می‌شوند (0001 → بار داده → head) — بخشِ «مهاجرت» در README-VPS.md.
+
+name: khaneyar
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    # فقط روی لوکالِ هاست (نه اینترنت). برای مهاجرت از لپ‌تاپ، تونلِ SSH به این پورت می‌زنی.
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ..            # ریشهٔ backend/ (جایی که Dockerfile هست)
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env                 # همهٔ متغیرهای اپ (DATABASE_URL با هاستِ «db»، رازها و…)
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # حالتِ ذخیره‌سازیِ «دیسک»: فایل‌های آپلودی روی هاست (bind mount) تا بکاپ‌شان ساده باشد.
+      # این پوشه باید متعلق به کاربرِ کانتینر (uid 10001) باشد — README-VPS.md.
+      # اگر حالتِ S3 را انتخاب کنی، این خط بی‌اثر است (می‌توانی نگه داری).
+      - ./uploads:/app/var/uploads
+    # فقط روی لوکالِ هاست؛ nginxِ جلویی SSL و دامنه (api.khaanehyar.ir) را می‌دهد.
+    ports:
+      - "127.0.0.1:8000:8000"
+
+volumes:
+  db-data:

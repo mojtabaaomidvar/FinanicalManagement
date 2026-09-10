@@ -34,9 +34,7 @@ export class UpdateOwnProfileUseCase {
     if (!name || name.length > 40) {
       throw new AppError("INVALID_TX", "نام باید ۱ تا ۴۰ کاراکتر باشد");
     }
-    if (input.nationalId && !/^\d{10}$/.test(input.nationalId)) {
-      throw new AppError("INVALID_TX", "کد ملی باید ۱۰ رقم باشد");
-    }
+    /* اعتبارسنجیِ کد ملی حذف شد (۲۰۲۶-۰۹-۰۸): کدملی از برنامه حذف شد */
     return this.repo.updateOwnProfile({ ...input, name });
   }
 }

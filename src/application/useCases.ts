@@ -42,6 +42,7 @@ import {
 import {
   AddSmsBatchUseCase,
   IgnoreSmsUseCase,
+  IngestRawSmsUseCase,
   ListPendingSmsUseCase,
   ParseSmsImportUseCase,
   RecordSmsUseCase,
@@ -115,6 +116,7 @@ export interface UseCases {
 
   parseSmsImport: ParseSmsImportUseCase;
   addSmsBatch: AddSmsBatchUseCase;
+  ingestRawSms: IngestRawSmsUseCase;
   listPendingSms: ListPendingSmsUseCase;
   ignoreSms: IgnoreSmsUseCase;
   recordSms: RecordSmsUseCase;
@@ -193,6 +195,7 @@ export function createUseCases(c: Container): UseCases {
 
     parseSmsImport: new ParseSmsImportUseCase(),
     addSmsBatch: new AddSmsBatchUseCase(c.repos.sms),
+    ingestRawSms: new IngestRawSmsUseCase(c.repos.sms),
     listPendingSms: new ListPendingSmsUseCase(c.repos.sms),
     ignoreSms: new IgnoreSmsUseCase(c.repos.sms),
     recordSms: new RecordSmsUseCase(

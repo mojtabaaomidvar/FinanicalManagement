@@ -1,44 +1,37 @@
-/* مخزن بودجه دسته‌های هزینه */
+/* مخزن بودجه دسته‌های هزینه — اندپوینت‌های REST بک‌اندِ اختصاصی (/category-budgets).
+   پیشوندِ «Supabase» در نامِ کلاس میراثی است؛ مخزن اکنون REST-محور است و از
+   RestClient استفاده می‌کند (توکن خودکار از هدر). دستهٔ بودجه در مسیرِ حذف می‌آید و
+   چون ممکن است فارسی باشد encode می‌شود. */
 
 import type {
   CategoryBudget,
   CategoryBudgetRepository,
 } from "@/domain/category/category-budget.types";
-import { rpc } from "@/infrastructure/api/httpClient";
+import type { RestClient } from "@/infrastructure/api/restClient";
 import { mapCategoryBudget, type CategoryBudgetRow } from "./mappers";
-import type { TokenProvider } from "./sessionRepository";
 
 export class SupabaseCategoryBudgetRepository
   implements CategoryBudgetRepository
 {
-  constructor(private readonly tokenProvider: TokenProvider) {}
-
-  private async tok(): Promise<string> {
-    const t = await this.tokenProvider.getToken();
-    if (!t) throw new Error("NO_SESSION");
-    return t;
-  }
+  constructor(private readonly client: RestClient) {}
 
   async list(): Promise<CategoryBudget[]> {
-    const rows = await rpc<CategoryBudgetRow[]>("list_category_budgets", {
-      p_token: await this.tok(),
-    });
+    const rows =
+      await this.client.get<CategoryBudgetRow[]>("/category-budgets");
     return (rows ?? []).map(mapCategoryBudget);
   }
 
   async set(category: string, amount: number): Promise<CategoryBudget> {
-    const row = await rpc<CategoryBudgetRow>("set_category_budget", {
-      p_token: await this.tok(),
-      p_category: category,
-      p_amount: amount,
+    const row = await this.client.post<CategoryBudgetRow>("/category-budgets", {
+      category,
+      amount,
     });
     return mapCategoryBudget(row);
   }
 
   async remove(category: string): Promise<void> {
-    await rpc("delete_category_budget", {
-      p_token: await this.tok(),
-      p_category: category,
-    });
+    await this.client.del<void>(
+      `/category-budgets/${encodeURIComponent(category)}`,
+    );
   }
 }

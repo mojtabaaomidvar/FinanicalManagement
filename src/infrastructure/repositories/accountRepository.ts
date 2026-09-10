@@ -1,4 +1,6 @@
-/* مخزن کارت‌ها/حساب‌های بانکی */
+/* مخزن کارت‌ها/حساب‌های بانکی — اندپوینت‌های REST بک‌اندِ اختصاصی (/accounts).
+   پیشوندِ «Supabase» در نامِ کلاس میراثی است؛ مخزن اکنون REST-محور است و از
+   RestClient استفاده می‌کند (توکن خودکار از هدر). */
 
 import type { AccountRepository } from "@/domain/account/account.repository";
 import type {
@@ -6,56 +8,44 @@ import type {
   AccountInput,
   AccountPatch,
 } from "@/domain/account/account.types";
-import { rpc } from "@/infrastructure/api/httpClient";
+import type { RestClient } from "@/infrastructure/api/restClient";
 import { mapAccount, type AccountRow } from "./mappers";
-import type { TokenProvider } from "./sessionRepository";
 
 export class SupabaseAccountRepository implements AccountRepository {
-  constructor(private readonly tokenProvider: TokenProvider) {}
-
-  private async tok(): Promise<string> {
-    const t = await this.tokenProvider.getToken();
-    if (!t) throw new Error("NO_SESSION");
-    return t;
-  }
+  constructor(private readonly client: RestClient) {}
 
   async list(): Promise<Account[]> {
-    const rows = await rpc<AccountRow[]>("list_accounts", {
-      p_token: await this.tok(),
-    });
+    const rows = await this.client.get<AccountRow[]>("/accounts");
     return (rows ?? []).map(mapAccount);
   }
 
   async add(input: AccountInput): Promise<Account> {
-    const row = await rpc<AccountRow>("add_account", {
-      p_token: await this.tok(),
-      p_member_id: input.memberId,
-      p_title: input.title,
-      p_bank: input.bank ?? null,
-      p_card_number: input.cardNumber ?? null,
-      p_kind: input.kind ?? "bank",
-      p_initial_balance: input.initialBalance ?? 0,
+    const row = await this.client.post<AccountRow>("/accounts", {
+      member_id: input.memberId,
+      title: input.title,
+      bank: input.bank ?? null,
+      card_number: input.cardNumber ?? null,
+      kind: input.kind ?? "bank",
+      initial_balance: input.initialBalance ?? 0,
     });
     return mapAccount(row);
   }
 
   async update(patch: AccountPatch): Promise<Account> {
-    const row = await rpc<AccountRow>("update_account", {
-      p_token: await this.tok(),
-      p_account_id: patch.id,
-      p_title: patch.title,
-      p_bank: patch.bank ?? null,
-      p_card_number: patch.cardNumber ?? null,
-      /* null = دست‌نزن؛ سرور مقدار فعلی را نگه می‌دارد */
-      p_initial_balance: patch.initialBalance ?? null,
-    });
+    const row = await this.client.patch<AccountRow>(
+      `/accounts/${encodeURIComponent(patch.id)}`,
+      {
+        title: patch.title,
+        bank: patch.bank ?? null,
+        card_number: patch.cardNumber ?? null,
+        /* null = دست‌نزن؛ سرور مقدار فعلی را نگه می‌دارد */
+        initial_balance: patch.initialBalance ?? null,
+      },
+    );
     return mapAccount(row);
   }
 
   async remove(id: string): Promise<void> {
-    await rpc("delete_account", {
-      p_token: await this.tok(),
-      p_account_id: id,
-    });
+    await this.client.del<void>(`/accounts/${encodeURIComponent(id)}`);
   }
 }

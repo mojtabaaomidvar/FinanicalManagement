@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "./providers/AppProvider";
 import { useBackGuard } from "@/shared/lib/useBackGuard";
+import { useNativeSmsReader } from "./useNativeSmsReader";
 import { useTheme } from "./providers/useTheme";
 import type { Route } from "./router";
 import { PwaUpdateProvider, usePwaUpdateState } from "./pwaUpdate.tsx";
@@ -68,6 +69,10 @@ function AppBody() {
     await refreshData();
     setRefreshKey((k) => k + 1);
   }, [refreshData]);
+
+  /* خواندنِ نیتیوِ پیامکِ بانکی روی اندروید (وب/iOS بی‌صدا رد می‌شود).
+     پیامکِ رسیده → تراکنشِ «در انتظار» → رفرشِ فهرست */
+  useNativeSmsReader(phase === "ready", useCases, bumpRefresh);
 
   if (phase === "boot") {
     return (

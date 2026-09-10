@@ -14,7 +14,6 @@ export interface MemberRow {
   phone: string | null;
   gender: "male" | "female" | null;
   birth_date: string | null;
-  national_id: string | null;
   avatar_url: string | null;
   status: "pending" | "active";
   theme: "light" | "dark" | "auto";
@@ -78,7 +77,6 @@ export function mapMember(r: MemberRow): Member {
     phone: r.phone,
     gender: r.gender ?? null,
     birthDate: r.birth_date ?? null,
-    nationalId: r.national_id ?? null,
     avatarUrl: r.avatar_url ?? null,
     status: r.status === "pending" ? "pending" : "active",
     theme: r.theme === "light" || r.theme === "dark" ? r.theme : "auto",

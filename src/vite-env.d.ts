@@ -1,8 +1,11 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_SUPABASE_URL: string;
-  readonly VITE_SUPABASE_ANON_KEY: string;
+  /** مبدأِ بک‌اندِ اختصاصی (بدونِ پیشوندِ /api/v1) — اگر ست نشود، مبدأِ نسبی/پیش‌فرض
+      استفاده می‌شود. تنها متغیرِ محیطیِ فعالِ شبکه پس از فاز ۹. */
+  readonly VITE_API_URL?: string;
+  /* بازنشسته (فاز ۹): VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY دیگر خوانده نمی‌شوند؛
+     پس از تکمیلِ مهاجرت باید از محیط حذف و کلیدها چرخانده شوند (فاز ۱ — سمتِ کاربر). */
 }
 
 interface ImportMeta {

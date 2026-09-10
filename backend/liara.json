@@ -1,0 +1,6 @@
+{
+  "platform": "docker",
+  "app": "khaneyar-api",
+  "port": 8000,
+  "disks": []
+}

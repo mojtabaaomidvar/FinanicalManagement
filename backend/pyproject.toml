@@ -1,0 +1,46 @@
+[project]
+name = "khaneyar-backend"
+version = "0.1.0"
+description = "KhanehYar (خانه یار) — owned FastAPI backend replacing Supabase"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "sqlalchemy>=2.0",
+  "psycopg[binary]>=3.2",
+  "alembic>=1.13",
+  "pydantic>=2.9",
+  "pydantic-settings>=2.5",
+  "argon2-cffi>=23.1",   # Argon2id — هش رمز (تصمیم قفل‌شده)
+  "bcrypt>=4.2",         # فقط برای تأیید هش‌های قدیمی bcrypt هنگام ارتقا
+  "python-multipart>=0.0.12",
+  "httpx>=0.27",         # فراخوانی ارائه‌دهندگان پیامک
+  "boto3>=1.35",         # ذخیره‌سازیِ آبجکتِ S3-compatible (فعال با env؛ فاز ۱۱)
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+  "pytest-asyncio>=0.24",
+  "ruff>=0.7",
+  "mypy>=1.13",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+ignore = ["S101"]  # assert در تست‌ها مجاز است
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]

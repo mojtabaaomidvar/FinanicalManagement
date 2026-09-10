@@ -1,9 +1,11 @@
 ﻿# خانه یار — دستیار مالی خانواده (PWA)
 
 دستیار مالی خانواده — همراه مطمئن خانواده در مسیر آرامش مالی، مختص موبایل (iPhone/Android)، فارسی و راست‌به‌چپ.
-نسخه ۴.۰.۰ — **React + TypeScript + Clean Architecture**، داده‌ها روی **Supabase**، ورود با **شماره موبایل + رمز + کد پیامکی (OTP)**، دعوت اعضا با **لینک/QR**.
+نسخه ۴.۰.۰ — **React + TypeScript + Clean Architecture**، داده‌ها روی **بک‌اندِ اختصاصی (FastAPI + PostgreSQL)**، ورود با **شماره موبایل + رمز + کد پیامکی (OTP)**، دعوت اعضا با **لینک/QR**.
 
 > **نسخه ۴ = بازنویسی معماری‌شده.** اپ نسخه ۳ (JS خالص) در پوشه `legacy/` نگه داشته شده و همچنان قابل اجراست. منطق دامنه (محاسبات مالی، تقویم جلالی، پارسر پیامک) عیناً به TypeScript منتقل و تست‌شده است.
+
+> **🔄 وضعیت مهاجرت (فاز ۹ انجام شد):** فرانت‌اند از Supabase جدا و به بک‌اندِ اختصاصی وصل شده است — همهٔ درخواست‌ها از یک `RestClient` واحد و مبدأِ `VITE_API_URL` (پیشوندِ `/api/v1`) عبور می‌کنند. لایهٔ قدیمیِ Supabase/سرورلس (`httpClient`، `apiBase`، `supabase`) بازنشسته شده (حذف نشده). مستندِ کاملِ بک‌اند و اندپوینت‌ها در [`backend/README.md`](backend/README.md) است. **در حالِ انجام:** دپلویِ بک‌اند و مهاجرتِ داده (فاز ۱۰) و چرخشِ کلیدها (فاز ۱). بخش‌های Supabaseِ زیر تا تکمیلِ آن فازها به‌عنوانِ مرجعِ تاریخی نگه داشته شده‌اند.
 
 ## ✨ امکانات
 
@@ -36,9 +38,9 @@ src/
 │   └── transaction/        # اعتبارسنجی/مرتب‌سازی تراکنش + اینترفیس مخزن
 ├── application/            # Use-caseها — orchestration بدون UI
 ├── infrastructure/         # جزئیات فنی قابل تعویض
-│   ├── api/                # httpClient مرکزی (تنها نقطه fetch) + OTP سرورless + هش رمز
+│   ├── api/                # restClient مرکزی (تنها نقطه fetch به بک‌اندِ اختصاصی) + نگاشت خطا
 │   ├── storage/            # secureStorage (رمزنگاری AES-GCM پیش از ذخیره)
-│   └── repositories/       # پیاده‌سازی مخازن (RPCهای Supabase)
+│   └── repositories/       # پیاده‌سازی مخازن (REST به /api/v1)
 ├── features/               # فیچرهای UI-محور (auth، transaction-form، sms، invite، …)
 ├── pages/                  # صفحات کامل (Dashboard، Transactions، Reports، Settings)
 ├── widgets/                # ترکیب چند فیچر (خلاصه داشبورد، پنل گزارش)
@@ -50,13 +52,13 @@ src/
 1. `domain/` هیچ importی از React/کتابخانه فریم‌ورک ندارد (فقط TS خالص) — آماده استفاده در React Native
 2. هر دسترسی API/storage فقط از طریق Repository (اینترفیس در domain، پیاده‌سازی در infrastructure)
 3. UI هرگز مستقیم `infrastructure` را صدا نمی‌زند
-4. تمام درخواست‌های شبکه فقط از `httpClient.ts` عبور می‌کنند (HTTPS اجباری)
+4. تمام درخواست‌های شبکه فقط از `restClient.ts` عبور می‌کنند (HTTPS اجباری)
 5. داده حساس (توکن نشست) فقط از طریق `secureStorage` (رمزنگاری AES-GCM با کلید غیرقابل استخراج) ذخیره می‌شود
 6. محاسبات مالی در `domain/` متمرکز و با تست واحد پوشش داده شده‌اند
 
 ## 🚀 راه‌اندازی
 
-### ۱) ساخت پروژه Supabase
+### ۱) ساخت پروژه Supabase _(مرجعِ تاریخی — با تکمیلِ مهاجرت جای خود را به بک‌اندِ اختصاصیِ [`backend/`](backend/README.md) می‌دهد)_
 
 1. به [supabase.com](https://supabase.com) بروید → **New Project**
 2. پس از ساخت پروژه، به **SQL Editor** بروید
@@ -65,12 +67,15 @@ src/
 
 ### ۲) تنظیمات اتصال
 
-فایل `.env.local` را در ریشه پروژه بسازید (نمونه: `.env.example`):
+فایل `.env.local` را در ریشه پروژه بسازید و مبدأِ بک‌اندِ اختصاصی را ست کنید (بدونِ پیشوندِ `/api/v1` — خودِ کلاینت آن را اضافه می‌کند):
 
 ```
-VITE_SUPABASE_URL=https://abcd1234.supabase.co
-VITE_SUPABASE_ANON_KEY=sb_publishable_...
+VITE_API_URL=https://api.example.com
 ```
+
+> اگر ست نشود، مبدأِ نسبیِ همان دامنه استفاده می‌شود (برای وبِ هم‌دامنه با بک‌اند کافی است؛ اپِ نیتیو به آدرسِ مطلق نیاز دارد).
+>
+> **بازنشسته (فاز ۹):** `VITE_SUPABASE_URL` و `VITE_SUPABASE_ANON_KEY` دیگر خوانده نمی‌شوند و باید از محیط حذف و کلیدها چرخانده شوند (فاز ۱).
 
 ### ۳) فعال‌سازی ارسال پیامک OTP
 
@@ -141,8 +146,8 @@ npm run cap:android  # باز کردن پروژه در Android Studio
 ```
 
 - **پروژه نیتیو** در پوشه `android/` (appId: `ir.khaneyar.app`، نام: «خانه یار»)
-- **API**: در اپ نیتیو درخواست‌ها به `VITE_API_BASE` (نسخه دپلوی‌شده Vercel) می‌روند — منطق دو-مسیره (مستقیم/پروکسی) عیناً کار می‌کند؛ در مرورگر همان URL نسبی قبلی است
-- **دسترسی پیامک**: `RECEIVE_SMS`/`READ_SMS` در مانیفست تعریف شده برای ماژول خواندن خودکار پیامک بانکی (فاز بعدی)
+- **API**: در اپ نیتیو درخواست‌ها به `VITE_API_URL` (بک‌اندِ اختصاصی) از طریقِ `RestClient` می‌روند؛ در مرورگر اگر ست نشود، مبدأِ نسبیِ همان دامنه. منطقِ دو-مسیره (مستقیم/پروکسیِ سوپابیس) در فاز ۹ بازنشسته شد.
+- **دسترسی پیامک**: `RECEIVE_SMS`/`READ_SMS` در مانیفست تعریف شده؛ پلاگینِ نیتیوِ خواندنِ پیامکِ بانکی (پیش‌زمینه) پیاده شده و متنِ خام را به `POST /sms/ingest` می‌فرستد. وب/iOS بی‌صدا رد می‌شود و پلِ فورواردر فالبک است.
 - **PWA/ServiceWorker** در اپ نیتیو غیرفعال است (به‌روزرسانی از استور/APK)
 
 ### ساخت APK (یک‌بار برای همیشه)
@@ -206,8 +211,8 @@ node legacy/tools/check-ids.js             # بررسی IDهای legacy
 
 - **React 18 + TypeScript + Vite** — بدون فریم‌ورک UI اضافه (HTML/CSS موجود)
 - Clean Architecture (domain / application / infrastructure / features)
-- Supabase PostgREST (fetch خالص، بدون SDK) + توابع Postgres امن
-- Vercel Serverless (Node.js) برای ارسال پیامک OTP
+- بک‌اندِ اختصاصی: **FastAPI + PostgreSQL** (احراز با توکنِ Bearer، RLS خانواده، پارسر پیامک و آپلودِ فایل سمت سرور) — کلاینت با `fetch` خالص از `RestClient` وصل می‌شود
+- ارسالِ پیامکِ OTP و وب‌هوکِ پلِ پیامک روی همان بک‌اند (بخشِ Vercel Serverless بازنشسته شد)
 - qrcode-generator (vendored) + Canvas 2D با پشتیبانی Retina
 - Vazirmatn (فونت فارسی) + iOS HIG الگوهای طراحی
 - vitest برای تست محاسبات مالی

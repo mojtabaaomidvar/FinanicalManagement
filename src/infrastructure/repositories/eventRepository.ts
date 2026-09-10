@@ -1,49 +1,37 @@
-/* مخزن رویدادهای مهم خانواده */
+/* مخزن رویدادهای مهم خانواده — اندپوینت‌های REST بک‌اندِ اختصاصی (/events).
+   پیشوندِ «Supabase» در نامِ کلاس میراثی است؛ مخزن اکنون REST-محور است و از
+   RestClient استفاده می‌کند (توکن خودکار از هدر). */
 
 import type { EventRepository } from "@/domain/event/event.types";
 import type { EventInput, FamilyEvent } from "@/domain/event/event.types";
-import { rpc } from "@/infrastructure/api/httpClient";
+import type { RestClient } from "@/infrastructure/api/restClient";
 import { mapEvent, type EventRow } from "./mappers";
-import type { TokenProvider } from "./sessionRepository";
 
 export class SupabaseEventRepository implements EventRepository {
-  constructor(private readonly tokenProvider: TokenProvider) {}
-
-  private async tok(): Promise<string> {
-    const t = await this.tokenProvider.getToken();
-    if (!t) throw new Error("NO_SESSION");
-    return t;
-  }
+  constructor(private readonly client: RestClient) {}
 
   async list(): Promise<FamilyEvent[]> {
-    const rows = await rpc<EventRow[]>("list_events", {
-      p_token: await this.tok(),
-    });
+    const rows = await this.client.get<EventRow[]>("/events");
     return (rows ?? []).map(mapEvent);
   }
 
   async add(input: EventInput): Promise<FamilyEvent> {
-    const row = await rpc<EventRow>("add_event", {
-      p_token: await this.tok(),
-      p_title: input.title,
-      p_date: input.date,
-      p_note: input.note ?? null,
-      p_member_id: input.memberId ?? null,
-      p_for_member_id: input.forMemberId ?? null,
+    const row = await this.client.post<EventRow>("/events", {
+      title: input.title,
+      date: input.date,
+      note: input.note ?? null,
+      member_id: input.memberId ?? null,
+      for_member_id: input.forMemberId ?? null,
     });
     return mapEvent(row);
   }
 
   async remove(id: string): Promise<void> {
-    await rpc("delete_event", {
-      p_token: await this.tok(),
-      p_event_id: id,
-    });
+    await this.client.del<void>(`/events/${encodeURIComponent(id)}`);
   }
 
   async syncBirthdays(): Promise<number> {
-    return rpc<number>("sync_birthday_events", {
-      p_token: await this.tok(),
-    });
+    const n = await this.client.post<number>("/events/sync-birthdays");
+    return n ?? 0;
   }
 }

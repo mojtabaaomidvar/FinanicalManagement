@@ -7,4 +7,8 @@ export interface SmsRepository {
   /** افزودن دسته‌ای — تعداد افزوده‌شده را برمی‌گرداند */
   addBatch(items: NewBankSms[]): Promise<number>;
   setStatus(id: string, status: SmsStatus): Promise<void>;
+  /** ثبتِ خامِ سمتِ سرور: یک متنِ پیامک را به /sms/ingest می‌فرستد و سرور خودش
+      پارس و تشخیص می‌دهد بانکی هست یا نه. تعدادِ رکوردِ ساخته‌شده را برمی‌گرداند
+      (۰ = پیامکِ بانکی نبود). فرستنده اختیاری است و برای تشخیصِ بانک کمک می‌کند. */
+  ingestRaw(rawText: string, sender?: string | null): Promise<number>;
 }

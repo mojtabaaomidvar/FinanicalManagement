@@ -2,6 +2,7 @@
    UI فقط از طریق این container به مخازن دسترسی دارد. */
 
 import { createSecureStorage } from "@/infrastructure/storage/secureStorage.adapter";
+import { RestClient } from "@/infrastructure/api/restClient";
 import { SessionRepository } from "./sessionRepository";
 import { SupabaseAuthRepository } from "./authRepository";
 import { SupabaseFamilyRepository } from "./familyRepository";
@@ -42,20 +43,23 @@ export function getContainer(): Promise<Container> {
       const storage = await createSecureStorage();
       const session = new SessionRepository(storage);
       const tokenProvider = session;
+      /* یک نمونهٔ واحدِ RestClient که به همهٔ مخازن تزریق می‌شود؛ توکن را از
+         SessionRepository (به‌عنوان TokenProvider) به‌صورت خودکار در هدر می‌گذارد. */
+      const client = new RestClient(tokenProvider);
       return {
         storage,
         session,
         repos: {
-          auth: new SupabaseAuthRepository(tokenProvider),
-          family: new SupabaseFamilyRepository(tokenProvider),
-          transactions: new SupabaseTransactionRepository(tokenProvider),
-          sms: new SupabaseSmsRepository(tokenProvider),
-          accounts: new SupabaseAccountRepository(tokenProvider),
-          bridges: new SupabaseBridgeRepository(tokenProvider),
-          subcategories: new SupabaseSubcategoryRepository(tokenProvider),
-          customCategories: new SupabaseCustomCategoryRepository(tokenProvider),
-          events: new SupabaseEventRepository(tokenProvider),
-          categoryBudgets: new SupabaseCategoryBudgetRepository(tokenProvider),
+          auth: new SupabaseAuthRepository(client),
+          family: new SupabaseFamilyRepository(client),
+          transactions: new SupabaseTransactionRepository(client),
+          sms: new SupabaseSmsRepository(client),
+          accounts: new SupabaseAccountRepository(client),
+          bridges: new SupabaseBridgeRepository(client),
+          subcategories: new SupabaseSubcategoryRepository(client),
+          customCategories: new SupabaseCustomCategoryRepository(client),
+          events: new SupabaseEventRepository(client),
+          categoryBudgets: new SupabaseCategoryBudgetRepository(client),
         },
       };
     })();
