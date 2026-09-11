@@ -5883,11 +5883,99 @@ button.set-row:active {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   Onboarding — فلوی خوش‌آمدِ اولین اجرا (بعد از ورود، پیش از داشبورد)
+   Onboarding — قیفِ اولین اجرا (پیش از ورود، پیش از هر فرمی)
    تمام‌صفحه و مستقل (کلاس .page را عمداً استفاده نمی‌کند تا نه مخفی
    شود و نه فضای تب‌بار را رزرو کند). فقط توکن‌های برند، فلت و آرام.
    ═══════════════════════════════════════════════════════════ */
+
+/* ── پس‌زمینه‌ی شناورِ گامِ خوش‌آمد ─────────────────────────────
+   ثابت (fixed) تا روی همه‌ی ارتفاعِ ویوپورت بنشیند، ولی با max-width
+   نزدیکِ عرضِ ستونِ محتوا می‌ماند تا خوشه دقیقاً پشتِ نوشته‌ها بیفتد.
+   pointer-events: none → هیچ‌وقت جلوی کلیک را نمی‌گیرد.
+   ماسک ندارد: آیکون‌ها عمداً پشتِ متن‌اند و خوانایی را کم‌رنگ بودنشان
+   تأمین می‌کند، نه خالی‌گذاشتنِ مرکز. */
+.onb-bg {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  inset-inline: 0;
+  max-width: 620px;
+  margin-inline: auto;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  animation: onbBgIn 900ms ease-out both;
+}
+@keyframes onbBgIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* هر آیکون: جای تصادفی + شناوریِ آرام (رفت‌وبرگشت، بدونِ پرش).
+   نکته: مرکزِ آیکون باید روی مختصات بنشیند نه گوشه‌اش، و چون انیمیشن
+   خودش transform می‌گیرد، آن ‎-۵۰٪ داخلِ keyframes تا شده — وگرنه
+   انیمیشن آن را بازنویسی می‌کرد. */
+.onb-bg-it {
+  position: absolute;
+  inset-inline-start: var(--x);
+  top: var(--y);
+  width: var(--sz);
+  height: var(--sz);
+  animation: onbDrift var(--dur) ease-in-out var(--delay) infinite alternate;
+}
+/* چرخش روی لایه‌ی درونی تا با جابه‌جاییِ لایه‌ی بیرونی تداخل نکند */
+.onb-bg-spin {
+  display: block;
+  width: 100%;
+  height: 100%;
+  animation: onbRock calc(var(--dur) * 0.72) ease-in-out var(--delay) infinite
+    alternate;
+}
+/* پشتِ متن‌اند، پس عمداً بسیار کم‌رنگ: چند آیکونِ روی‌هم‌افتاده هم نباید
+   جمعاً آن‌قدر پررنگ شوند که خواندنِ عنوان سخت شود */
+.onb-bg-accent {
+  color: var(--accent);
+  opacity: 0.09;
+}
+.onb-bg-ink {
+  color: var(--text);
+  opacity: 0.065;
+}
+/* روی زمینه‌ی تیره، سطح‌های بزرگ نشانه‌های محو را می‌بلعند → کمی پررنگ‌تر */
+[data-theme="dark"] .onb-bg-accent {
+  opacity: 0.12;
+}
+[data-theme="dark"] .onb-bg-ink {
+  opacity: 0.09;
+}
+@keyframes onbDrift {
+  from {
+    transform: translate3d(-50%, -50%, 0);
+  }
+  to {
+    transform: translate3d(
+      calc(-50% + var(--dx)),
+      calc(-50% + var(--dy)),
+      0
+    );
+  }
+}
+@keyframes onbRock {
+  from {
+    transform: rotate(calc(var(--tilt) * -1));
+  }
+  to {
+    transform: rotate(var(--tilt));
+  }
+}
+
 .onb-page {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
@@ -6228,22 +6316,36 @@ button.set-row:active {
   padding-inline: var(--sp-5);
 }
 
-/* «قبلاً حساب دارم؟ ورود» — راهِ فرارِ کاربرِ قدیمی، در همه‌ی گام‌ها دیده می‌شود */
+/* «ورود» — جعبه‌ی توخالیِ تمام‌عرض، در همه‌ی گام‌ها.
+   عرض از کشِ ستونِ فلکسِ ‎.onb-page می‌آید (align-self ندارد)، پس دقیقاً
+   هم‌عرضِ ردیفِ دکمه‌های بالایش می‌ماند. عمداً از دکمه‌ی اصلی کم‌رنگ‌تر
+   است تا سلسله‌مراتب حفظ شود — هم‌عرض هست، هم‌وزن نیست. */
 .onb-login {
+  width: 100%;
   margin-top: var(--sp-3);
-  padding: var(--sp-3);
+  padding: 13px;
   background: none;
-  border: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
   font: inherit;
-  font-size: 0.92rem;
+  font-size: 14.5px;
+  font-weight: 600;
   color: var(--text-2);
   text-align: center;
   cursor: pointer;
+  transition:
+    background var(--dur-fast) ease,
+    border-color var(--dur-fast) ease,
+    color var(--dur-fast) ease;
 }
-.onb-login b {
-  color: var(--accent);
-  font-weight: 700;
+.onb-login:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
 }
+.onb-login:active {
+  background: var(--card-2);
+}
+/* .onb-login b بازنشسته شد — دکمه حالا فقط «ورود» است، بدونِ متنِ مقدمه */
 
 @media (prefers-reduced-motion: reduce) {
   .onb-screen {
@@ -6251,6 +6353,17 @@ button.set-row:active {
   }
   .onb-dot {
     transition: none;
+  }
+  /* پس‌زمینه سرِ جایش می‌ماند، فقط حرکت نمی‌کند */
+  .onb-bg,
+  .onb-bg-it,
+  .onb-bg-spin {
+    animation: none;
+  }
+  /* چون وسط‌چین‌کردنِ آیکون داخلِ keyframes است، با خاموش‌شدنِ انیمیشن
+     از بین می‌رفت و آیکون به‌اندازه‌ی نصفِ خودش جابه‌جا می‌شد */
+  .onb-bg-it {
+    transform: translate3d(-50%, -50%, 0);
   }
 }
 
@@ -6666,11 +6779,19 @@ button.set-row:active {
   cursor: default;
 }
 
+/* بخش‌های صفحه‌ی بازار — ستونی با فاصله‌ی ثابت.
+   بدون این قاعده، فرزندها بلاکِ ساده بودند و margin منفیِ .market-h2
+   کارت را روی عنوان می‌کشید (زیرِ حروفِ فارسی بریده می‌شد). */
+.market-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
 .market-h2 {
   font-size: 13.5px;
   font-weight: 800;
   color: var(--text-2);
-  margin-bottom: calc(var(--sp-2) * -1);
 }
 
 .market-list {
@@ -6787,6 +6908,143 @@ button.set-row:active {
 .market-bourse-meta {
   font-size: 11px;
   color: var(--text-3);
+}
+
+/* جست‌وجوی تک‌سهم — جعبه‌ی جست‌وجو + ردیفِ بازشو */
+.market-search {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 0 10px;
+  transition: border-color var(--dur-fast);
+}
+.market-search:focus-within {
+  border-color: var(--accent);
+}
+.market-search-icon {
+  display: flex;
+  color: var(--text-3);
+  flex: none;
+}
+/* عمداً appearance:none — ضربدرِ پیش‌فرضِ input[type=search] با دکمه‌ی خودمان دوتا می‌شد */
+.market-search-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  padding: 11px 0;
+  appearance: none;
+}
+.market-search-input::-webkit-search-cancel-button {
+  display: none;
+}
+.market-search-input::placeholder {
+  color: var(--text-3);
+}
+.market-search-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--card-2);
+  color: var(--text-2);
+  cursor: pointer;
+}
+.market-search-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-3);
+  padding: 2px 2px 0;
+}
+.market-search-hint.is-error {
+  color: var(--danger);
+}
+.market-search-meta {
+  font-size: 11px;
+  color: var(--text-3);
+  padding: 2px 2px 0;
+}
+
+.market-stock {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.market-stock.is-open {
+  border-color: var(--border-strong);
+}
+/* کلِ سرِ ردیف دکمه است (قرارِ «لمسِ ردیف = باز/بسته»)، پس استایلِ دکمه صفر می‌شود */
+.market-stock-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  width: 100%;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+.market-stock-id {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.market-stock-symbol {
+  font-size: 13.5px;
+  font-weight: 800;
+}
+.market-stock-name {
+  font-size: 10.5px;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.market-stock-detail {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-2);
+  padding: 0 12px 12px;
+}
+.market-stock-detail > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--card-2);
+  border-radius: 10px;
+  padding: 7px 9px;
+}
+.market-stock-detail span {
+  font-size: 10px;
+  color: var(--text-3);
+  font-weight: 600;
+}
+.market-stock-detail b {
+  font-size: 12.5px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.market-stock-detail small {
+  font-size: 10px;
 }
 
 /* ═══════════════════════════════════════════════════════════

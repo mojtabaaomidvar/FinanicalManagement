@@ -1,4 +1,4 @@
-"""سرویس بازار — پروکسیِ کش‌شدهٔ BrsApi (قیمت طلا/ارز + شاخص بورس).
+"""سرویس بازار — پروکسیِ کش‌شدهٔ BrsApi (قیمت طلا/ارز + شاخص بورس + جست‌وجوی سهم).
 
 چرا از بک‌اند و نه مستقیم از کلاینت: کلیدِ API نباید در باندلِ PWA لو برود و
 محدودیتِ CORS هم پیش نمی‌آید. کشِ سرور-سمتی با TTL (پیش‌فرض ۵ دقیقه) سقفِ
@@ -11,6 +11,12 @@ AppError پرتاب می‌شود.
 
 دقتِ داده: خروجیِ مستندات‌شدهٔ BrsApi اعداد را گاه رشته می‌فرستد و منفی را
 پسوند می‌کند («33000.22-»)؛ _parse_num همهٔ این حالت‌ها را تحمل می‌کند.
+
+جست‌وجوی تک‌سهم: فهرستِ کاملِ نمادهای بورس/فرابورس یک‌جا از AllSymbols.php
+گرفته و روی سرور کش می‌شود، بعد همان‌جا فیلتر می‌شود. پس جست‌وجوی کاربر
+هیچ درخواستِ تازه‌ای به بالادست نمی‌زند (سهمیه‌ی رایگان با تایپِ کاربر
+نمی‌سوزد) و قیمتْ همان لحظه‌ای است که سرور آخرین بار گرفته — زمانش هم در
+fetched_at برگردانده می‌شود تا UI صریح نشانش دهد.
 """
 
 from __future__ import annotations
@@ -23,10 +29,20 @@ import httpx
 
 from app.core.config import Settings, get_settings
 from app.core.errors import AppError
-from app.schemas.market import BourseOut, MarketItemOut, MarketSnapshotOut
+from app.schemas.market import (
+    BourseOut,
+    MarketItemOut,
+    MarketSnapshotOut,
+    StockOut,
+    StockSearchOut,
+)
 
 _BASE = "https://api.brsapi.ir"
-_TIMEOUT = httpx.Timeout(10.0)
+
+# مهلتِ هر فراخوانیِ بالادست. عمداً ۶ ثانیه و نه ۱۰: اسنپ‌شات در بدترین حالت
+# دو فراخوانیِ پشت‌سرهم دارد و کلاینت (restClient.ts) در ۱۵ ثانیه می‌بُرد؛
+# ۲×۶ + سرباری < ۱۵ می‌ماند، پس کاربر «خطای شبکه» نمی‌بیند.
+_TIMEOUT = httpx.Timeout(6.0)
 
 # نام‌های رمزارز از فهرستِ رسمیِ BrsApi — خروجیِ رایگانِ Gold_Currency آن‌ها را هم
 # برمی‌گرداند؛ خواستهٔ محصول فقط ارز/طلا/بورس است، پس کنار گذاشته می‌شوند.
@@ -38,10 +54,41 @@ _CRYPTO_NAMES = {
 
 _FA_DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٫،٬", "0123456789..,")
 
+# یکسان‌سازیِ حرف‌های هم‌شکلِ عربی/فارسی + حذفِ اعراب — فقط برای جست‌وجو.
+_FA_LETTERS = str.maketrans(
+    {
+        "ي": "ی",
+        "ك": "ک",
+        "ؤ": "و",
+        "إ": "ا",
+        "أ": "ا",
+        "آ": "ا",
+        "ة": "ه",
+        "ۀ": "ه",
+        "ـ": "",
+    }
+)
+
 
 def _norm(name: str) -> str:
     """نام فارسی نرمال‌شده برای مقایسه (بدون فاصله/نیم‌فاصله)."""
     return (name or "").replace(" ", "").replace("\u200c", "")
+
+
+def _norm_search(s: str) -> str:
+    """نرمال‌سازیِ جست‌وجو: حرف‌های هم‌شکلِ عربی/فارسی، ارقام، فاصله و نیم‌فاصله.
+
+    بی‌این، جست‌وجوی «پالایش» با نمادی که «ي»/«ك» عربی دارد جور نمی‌شود و
+    کاربر خیال می‌کند سهم پیدا نشد.
+    """
+    return (
+        (s or "")
+        .translate(_FA_LETTERS)
+        .translate(_FA_DIGITS)
+        .replace(" ", "")
+        .replace("‌", "")
+        .lower()
+    )
 
 
 def _is_crypto(name: str) -> bool:
@@ -50,8 +97,9 @@ def _is_crypto(name: str) -> bool:
 
 
 def _is_gold(name: str) -> bool:
+    """فلزِ گران‌بها (طلا/سکه/نقره/پلاتین/انس) — وگرنه در فهرستِ «ارز» می‌افتد."""
     n = _norm(name)
-    return "طلا" in n or "سکه" in n
+    return any(k in n for k in ("طلا", "سکه", "نقره", "پلاتین", "پالادیوم", "انس"))
 
 
 def _parse_num(v: object) -> float:
@@ -137,6 +185,33 @@ def _map_bourse(payload: object) -> BourseOut | None:
     )
 
 
+def _map_stock(row: dict) -> StockOut:
+    """یک ردیفِ AllSymbols.php → StockOut.
+
+    نامِ پارامترها همان متغیرهای فیلترِ tsetmc است (l18 نماد، l30 نامِ کامل،
+    pl آخرین معامله، pc قیمتِ پایانی، tno/tvol/tval آمارِ معاملات). چون
+    بالادست گاهی نام‌های خواناتر هم می‌فرستد، هر دو شکل خوانده می‌شود.
+    """
+    return StockOut(
+        symbol=str(row.get("l18") or row.get("symbol") or ""),
+        name=str(row.get("l30") or row.get("name") or ""),
+        price=_parse_num(row.get("pl") if row.get("pl") is not None else row.get("price")),
+        change_percent=_parse_num(
+            row.get("plp") if row.get("plp") is not None else row.get("change_percent")
+        ),
+        close_price=_parse_num(row.get("pc") if row.get("pc") is not None else row.get("close")),
+        close_change_percent=_parse_num(row.get("pcp")),
+        volume=_parse_num(row.get("tvol") if row.get("tvol") is not None else row.get("volume")),
+        value=_parse_num(row.get("tval") if row.get("tval") is not None else row.get("value")),
+        trades_count=_parse_num(row.get("tno")),
+        low=_parse_num(row.get("pmin") if row.get("pmin") is not None else row.get("low")),
+        high=_parse_num(row.get("pmax") if row.get("pmax") is not None else row.get("high")),
+        yesterday=_parse_num(row.get("py") if row.get("py") is not None else row.get("yesterday")),
+        event_time=str(row.get("hEven") or row.get("time") or ""),
+        market=str(row.get("market") or row.get("flow_title") or ""),
+    )
+
+
 def _fetch(url: str, key: str, extra: dict | None = None) -> object:
     params = {"key": key}
     if extra:
@@ -163,7 +238,19 @@ class _Entry:
 
 _prices_cache: _Entry | None = None   # (gold, currency)
 _bourse_cache: _Entry | None = None
+_symbols_cache: _Entry | None = None  # list[StockOut] — فهرستِ کاملِ نمادها
+
+# قفلِ نوشتنِ کش. عمداً قفلِ جدا برای هر بخش نداریم: نوشتن‌ها کوتاه‌اند.
 _lock = threading.Lock()
+
+# قفلِ «یک نفر برود بیاورد» — جلوی هجومِ هم‌زمان به بالادست را می‌گیرد.
+# بدونِ این، چند درخواستِ هم‌زمان روی کشِ سرد هرکدام یک فراخوانیِ BrsApi
+# می‌زدند و سهمیهٔ رایگان چند برابر می‌سوخت.
+_fetch_locks: dict[str, threading.Lock] = {
+    "prices": threading.Lock(),
+    "bourse": threading.Lock(),
+    "symbols": threading.Lock(),
+}
 
 
 def _fresh(entry: _Entry | None, ttl: float) -> bool:
@@ -194,64 +281,197 @@ def get_market_snapshot(settings: Settings | None = None) -> MarketSnapshotOut:
     if _fresh(_prices_cache, ttl):
         gold, currency = _prices_cache.data  # type: ignore[assignment,misc]
     else:
-        try:
-            payload = _upstream_payload(
-                _fetch(f"{_BASE}/Market/Gold_Currency.php", cfg.brsapi_key)
-            )
-            rows = payload if isinstance(payload, list) else []
-            for r in rows:
-                if not isinstance(r, dict):
-                    continue
-                name = str(r.get("name") or "")
-                if _is_crypto(name):
-                    continue
-                item = _map_item(r)
-                (gold if _is_gold(name) else currency).append(item)
-            with _lock:
-                _prices_cache = _Entry((gold, currency))
-        except AppError:
-            if _prices_cache is not None:
+        # فقط یک thread می‌رود بالادست؛ بقیه پشتِ قفل می‌مانند و بعد از آزاد شدن
+        # کشِ تازه‌ای که همان نفر نوشته را برمی‌دارند (دوباره _fresh را می‌سنجیم).
+        with _fetch_locks["prices"]:
+            if _fresh(_prices_cache, ttl):
                 gold, currency = _prices_cache.data  # type: ignore[assignment,misc]
-                stale = True
+            else:
+                try:
+                    payload = _upstream_payload(
+                        _fetch(f"{_BASE}/Market/Gold_Currency.php", cfg.brsapi_key)
+                    )
+                    rows = payload if isinstance(payload, list) else []
+                    for r in rows:
+                        if not isinstance(r, dict):
+                            continue
+                        name = str(r.get("name") or "")
+                        if _is_crypto(name):
+                            continue
+                        item = _map_item(r)
+                        (gold if _is_gold(name) else currency).append(item)
+                    with _lock:
+                        _prices_cache = _Entry((gold, currency))
+                except AppError:
+                    if _prices_cache is not None:
+                        gold, currency = _prices_cache.data  # type: ignore[assignment,misc]
+                        stale = True
 
     # ── شاخص بورس ──
     bourse: BourseOut | None = None
     if _fresh(_bourse_cache, ttl):
         bourse = _bourse_cache.data  # type: ignore[assignment]
     else:
-        try:
-            payload = _upstream_payload(
-                _fetch(f"{_BASE}/Tsetmc/Index.php", cfg.brsapi_key, {"type": "1"})
-            )
-            mapped = _map_bourse(payload)
-            if mapped is not None:
-                bourse = mapped
-                with _lock:
-                    _bourse_cache = _Entry(bourse)
-            elif _bourse_cache is not None:
+        with _fetch_locks["bourse"]:
+            if _fresh(_bourse_cache, ttl):
                 bourse = _bourse_cache.data  # type: ignore[assignment]
-                stale = True
             else:
-                stale = True
-        except AppError:
-            if _bourse_cache is not None:
-                bourse = _bourse_cache.data  # type: ignore[assignment]
-                stale = True
-            else:
-                stale = True
+                try:
+                    payload = _upstream_payload(
+                        _fetch(f"{_BASE}/Tsetmc/Index.php", cfg.brsapi_key, {"type": "1"})
+                    )
+                    mapped = _map_bourse(payload)
+                    if mapped is not None:
+                        bourse = mapped
+                        with _lock:
+                            _bourse_cache = _Entry(bourse)
+                    elif _bourse_cache is not None:
+                        bourse = _bourse_cache.data  # type: ignore[assignment]
+                        stale = True
+                    else:
+                        stale = True
+                except AppError:
+                    if _bourse_cache is not None:
+                        bourse = _bourse_cache.data  # type: ignore[assignment]
+                        stale = True
+                    else:
+                        stale = True
 
     if not gold and not currency and bourse is None:
         raise AppError("SERVER", "داده‌ای از بازار در دسترس نیست — بعداً دوباره تلاش کنید.", 502)
 
+    # زمانِ نمایشی = *قدیمی‌ترین* بخشِ موجود، نه تازه‌ترین.
+    # با max() اگر قیمت‌ها تازه ولی شاخص کهنه بود، کاربر «الان» می‌دید و
+    # کهنگیِ شاخص پنهان می‌ماند؛ min() صادق‌تر است.
     with _lock:
-        newest = max(
-            (e.at for e in (_prices_cache, _bourse_cache) if e is not None),
-            default=time.time(),
-        )
+        entries = [e for e in (_prices_cache, _bourse_cache) if e is not None]
+        oldest = min((e.at for e in entries), default=time.time())
     return MarketSnapshotOut(
-        updated_at=datetime.fromtimestamp(newest, tz=timezone.utc).isoformat(),
+        updated_at=datetime.fromtimestamp(oldest, tz=timezone.utc).isoformat(),
         stale=stale,
         gold=gold,
         currency=currency,
         bourse=bourse,
+    )
+
+
+# ── جست‌وجوی تک‌سهم ──────────────────────────────────────────
+# فهرستِ کاملِ نمادها یک‌جا گرفته و کش می‌شود، بعد روی سرور فیلتر می‌شود.
+# TTL کوتاه‌تر از اسنپ‌شات است چون قیمتِ سهم در ساعتِ بازار تندتر عوض می‌شود،
+# ولی همچنان کش است تا تایپ‌کردنِ کاربر سهمیهٔ رایگان را نسوزاند.
+_SYMBOLS_PATH = "/Tsetmc/AllSymbols.php"
+_SYMBOLS_TYPE = "1"
+_SEARCH_LIMIT = 25
+
+
+def _symbols_ttl(cfg: Settings) -> float:
+    """نصفِ TTLِ اسنپ‌شات، با کفِ ۶۰ و سقفِ ۳۰۰ ثانیه."""
+    return min(300.0, max(60.0, float(cfg.market_cache_seconds) / 2))
+
+
+def _load_symbols(cfg: Settings) -> tuple[list[StockOut], float, bool]:
+    """فهرستِ نمادها از کش یا بالادست → (فهرست، زمانِ گرفتن، کهنه‌بودن)."""
+    global _symbols_cache
+    ttl = _symbols_ttl(cfg)
+
+    if _fresh(_symbols_cache, ttl):
+        return _symbols_cache.data, _symbols_cache.at, False  # type: ignore[return-value,union-attr]
+
+    with _fetch_locks["symbols"]:
+        if _fresh(_symbols_cache, ttl):
+            return _symbols_cache.data, _symbols_cache.at, False  # type: ignore[return-value,union-attr]
+        try:
+            payload = _upstream_payload(
+                _fetch(f"{_BASE}{_SYMBOLS_PATH}", cfg.brsapi_key, {"type": _SYMBOLS_TYPE})
+            )
+            rows = payload if isinstance(payload, list) else []
+            stocks = [_map_stock(r) for r in rows if isinstance(r, dict)]
+            stocks = [s for s in stocks if s.symbol]
+            if not stocks:
+                raise AppError("SERVER", "فهرستِ نمادها خالی برگشت.", 502)
+            entry = _Entry(stocks)
+            with _lock:
+                _symbols_cache = entry
+            return stocks, entry.at, False
+        except AppError:
+            # کشِ منقضی بهتر از خطا است — قیمت کمی قدیمی، ولی قابل استفاده.
+            if _symbols_cache is not None:
+                return _symbols_cache.data, _symbols_cache.at, True  # type: ignore[return-value]
+            raise
+
+
+def _score(stock: StockOut, q: str) -> int | None:
+    """رتبهٔ تطبیق؛ None = بی‌ربط. کمتر = مرتبط‌تر.
+
+    ترتیب عمدی است: نمادِ دقیق → نمادی که با q شروع می‌شود → نمادِ شامل →
+    نامِ شرکت. وگرنه جست‌وجوی «فولاد» اول شرکت‌هایی را می‌آورد که «فولاد»
+    جایی در وسطِ نامشان است و خودِ نمادِ «فولاد» گم می‌شود.
+    """
+    sym = _norm_search(stock.symbol)
+    name = _norm_search(stock.name)
+    if sym == q:
+        return 0
+    if sym.startswith(q):
+        return 1
+    if q in sym:
+        return 2
+    if name.startswith(q):
+        return 3
+    if q in name:
+        return 4
+    return None
+
+
+def search_stocks(
+    query: str,
+    limit: int = _SEARCH_LIMIT,
+    settings: Settings | None = None,
+) -> StockSearchOut:
+    """جست‌وجوی نمادِ بورس/فرابورس روی فهرستِ کشِ‌شدهٔ سرور.
+
+    فیلتر سمتِ سرور است: کلاینت فقط q را می‌فرستد و چند ردیفِ مرتبط می‌گیرد،
+    نه چند هزار نماد. قیمتِ برگشتی همان لحظه‌ای است که سرور فهرست را گرفته و
+    fetched_at آن لحظه را صریح اعلام می‌کند.
+    """
+    cfg = settings or get_settings()
+    if not cfg.brsapi_key:
+        raise AppError(
+            "SERVER_NOT_CONFIGURED",
+            "قیمت بازار پیکربندی نشده است — BRSAPI_KEY را در تنظیمات سرور بگذارید.",
+            503,
+        )
+
+    q = _norm_search(query)
+    # عمداً خطا نمی‌دهیم: UI همان‌طور که کاربر تایپ می‌کند صدا می‌زند و یک
+    # حرفی‌بودنِ لحظه‌ای «خطا» نیست. ضمناً این‌جا اصلاً سراغِ بالادست نمی‌رویم.
+    if len(q) < 2:
+        with _lock:
+            at = _symbols_cache.at if _symbols_cache is not None else time.time()
+        return StockSearchOut(
+            query=query.strip(),
+            fetched_at=datetime.fromtimestamp(at, tz=timezone.utc).isoformat(),
+            stale=False,
+            total=0,
+            results=[],
+        )
+
+    stocks, fetched_at, stale = _load_symbols(cfg)
+
+    scored: list[tuple[int, StockOut]] = []
+    for s in stocks:
+        rank = _score(s, q)
+        if rank is not None:
+            scored.append((rank, s))
+
+    # رتبه اول، بعد حجمِ معاملات نزولی: بینِ هم‌رتبه‌ها سهمِ پرمعامله‌تر
+    # همان چیزی است که کاربر معمولاً دنبالش است.
+    scored.sort(key=lambda p: (p[0], -p[1].volume))
+    top = max(1, min(int(limit), 50))
+
+    return StockSearchOut(
+        query=query.strip(),
+        fetched_at=datetime.fromtimestamp(fetched_at, tz=timezone.utc).isoformat(),
+        stale=stale,
+        total=len(scored),
+        results=[s for _, s in scored[:top]],
     )

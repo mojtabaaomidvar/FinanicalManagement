@@ -2,6 +2,9 @@
 node_modules/
 dist/
 *.tsbuildinfo
+# بستهٔ موقتِ انتقالِ فرانت به سرور (deploy.bat آن را می‌سازد و پاک می‌کند؛
+# اگر اجرا نیمه‌کاره بماند، نباید با git add -A کامیت شود)
+dist.tgz
 
 # ── Deploy / tooling caches ───────────────────────────────
 .vercel/

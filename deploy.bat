@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 setlocal EnableDelayedExpansion
-title KhanehYar - Full Deploy - GitHub + VPS Backend + Vercel Frontend
+title KhanehYar - Full Deploy - GitHub + VPS Backend + VPS Frontend
 
 cd /d "%~dp0"
 
@@ -10,7 +10,7 @@ echo  ==============================================
 echo    KhanehYar - Full Deploy
 echo    Code     : GitHub  - push
 echo    Backend  : ParsPack VPS  - git pull + docker compose
-echo    Frontend : Vercel  - production
+echo    Frontend : ParsPack VPS  - build + upload dist
 echo  ==============================================
 echo.
 
@@ -44,9 +44,9 @@ if not "!CHOICE!"=="" goto :dispatch
 echo  What do you want to do?
 echo    [1] Deploy all - GitHub + Backend + Frontend
 echo    [2] Backend only - VPS
-echo    [3] Frontend only - Vercel
+echo    [3] Frontend only - VPS
 echo    [4] Push to GitHub only
-echo    [5] Change server settings - SSH address / path
+echo    [5] Change server settings - SSH address / paths
 echo.
 set "CHOICE="
 set /p CHOICE= Your choice - default 1 : 
@@ -84,7 +84,13 @@ REM =============== Config helpers ===============
 :load_config
 set "SSH_TARGET="
 set "SERVER_DIR="
+set "WEB_DIR="
+set "API_URL="
 if exist "deploy-config.bat" call "deploy-config.bat"
+REM Defaults for configs saved before the frontend moved off Vercel,
+REM so an existing deploy-config.bat keeps working without re-running setup.
+if "!WEB_DIR!"=="" set "WEB_DIR=/var/www/khaneyar"
+if "!API_URL!"=="" set "API_URL=https://api.khaanehyar.ir"
 if not "!SSH_TARGET!"=="" if not "!SERVER_DIR!"=="" goto :eof
 echo  First run - server settings are needed. They will be saved
 echo  in deploy-config.bat - which is gitignored and stays on this PC only.
@@ -99,17 +105,25 @@ exit /b 0
 
 :prompt_config
 set "SSH_TARGET="
-set /p SSH_TARGET= SSH address like root@185.x.x.x : 
+set /p SSH_TARGET= SSH address like root@185.x.x.x :
 if "!SSH_TARGET!"=="" (
     echo  [ERROR] SSH address cannot be empty.
     goto :prompt_config
 )
 set "SERVER_DIR="
-set /p SERVER_DIR= Path of backend on server - Enter for /opt/khaneyar/backend : 
+set /p SERVER_DIR= Path of backend on server - Enter for /opt/khaneyar/backend :
 if "!SERVER_DIR!"=="" set "SERVER_DIR=/opt/khaneyar/backend"
+set "WEB_DIR="
+set /p WEB_DIR= Web root for the PWA - Enter for /var/www/khaneyar :
+if "!WEB_DIR!"=="" set "WEB_DIR=/var/www/khaneyar"
+set "API_URL="
+set /p API_URL= Backend URL for the build - Enter for https://api.khaanehyar.ir :
+if "!API_URL!"=="" set "API_URL=https://api.khaanehyar.ir"
 > "deploy-config.bat" echo set "SSH_TARGET=!SSH_TARGET!"
 >>"deploy-config.bat" echo set "SERVER_DIR=!SERVER_DIR!"
-echo  Saved: !SSH_TARGET!  -^>  !SERVER_DIR!
+>>"deploy-config.bat" echo set "WEB_DIR=!WEB_DIR!"
+>>"deploy-config.bat" echo set "API_URL=!API_URL!"
+echo  Saved: !SSH_TARGET!  -^>  !SERVER_DIR!  ^|  web: !WEB_DIR!
 echo.
 goto :eof
 
@@ -142,23 +156,77 @@ if errorlevel 1 (
 )
 exit /b 0
 
-REM =============== Frontend - Vercel ===============
+REM =============== Frontend - build + upload dist to the VPS ===============
+REM Vercel was retired on 2026-09-10 - the live site is served by nginx on the
+REM VPS from !WEB_DIR!, so "vercel --prod" updated nothing users could see.
 :do_frontend
-where vercel >nul 2>nul
+where ssh >nul 2>nul
 if errorlevel 1 (
-    echo  Vercel CLI not installed - installing...
-    call npm install -g vercel
+    echo  [ERROR] ssh not found - enable Windows OpenSSH Client
+    echo  or install it from Settings - Apps - Optional Features.
+    exit /b 1
+)
+where tar >nul 2>nul
+if errorlevel 1 (
+    echo  [ERROR] tar not found - needs Windows 10 build 1803 or newer.
+    exit /b 1
+)
+echo.
+echo  ===== Frontend - build + upload to VPS =====
+echo  Server : !SSH_TARGET!
+echo  Web dir: !WEB_DIR!
+echo  API URL: !API_URL!
+echo.
+
+if not exist "node_modules" (
+    echo  Installing dependencies...
+    call npm install
     if errorlevel 1 (
-        echo  [ERROR] Failed to install the Vercel CLI.
+        echo  [ERROR] npm install failed.
         exit /b 1
     )
 )
-echo.
-echo  ===== Frontend - Vercel =====
-echo.
-call vercel --prod --yes
+
+REM VITE_API_URL must be set at BUILD time - Vite inlines it into the bundle.
+set "VITE_API_URL=!API_URL!"
+echo  Building - this takes a moment...
+call npm run build
 if errorlevel 1 (
-    echo  [ERROR] Frontend deploy failed - run "vercel login" manually and try again.
+    echo  [ERROR] Build failed - fix the errors above and try again.
+    exit /b 1
+)
+if not exist "dist\index.html" (
+    echo  [ERROR] dist\index.html not found - the build produced no output.
+    exit /b 1
+)
+
+echo  Packing dist...
+if exist "dist.tgz" del /q "dist.tgz"
+tar -czf dist.tgz -C dist .
+if errorlevel 1 (
+    echo  [ERROR] Could not pack dist.
+    exit /b 1
+)
+
+echo  Uploading...
+scp dist.tgz !SSH_TARGET!:/tmp/khaneyar-dist.tgz
+if errorlevel 1 (
+    echo  [ERROR] Upload failed - check SSH access.
+    del /q "dist.tgz" >nul 2>nul
+    exit /b 1
+)
+del /q "dist.tgz" >nul 2>nul
+
+REM Unpack next to the live dir and swap - the site is never half-written.
+REM The previous version stays in <dir>.old so a rollback is one mv away.
+echo  Installing on the server...
+ssh !SSH_TARGET! "set -e && rm -rf '!WEB_DIR!.new' && mkdir -p '!WEB_DIR!.new' && tar -xzf /tmp/khaneyar-dist.tgz -C '!WEB_DIR!.new' && rm -f /tmp/khaneyar-dist.tgz && rm -rf '!WEB_DIR!.old' && if [ -d '!WEB_DIR!' ]; then mv '!WEB_DIR!' '!WEB_DIR!.old'; fi && mv '!WEB_DIR!.new' '!WEB_DIR!' && chown -R www-data:www-data '!WEB_DIR!' 2>/dev/null || true && nginx -t && systemctl reload nginx && echo === FRONTEND OK ==="
+if errorlevel 1 (
+    echo.
+    echo  [ERROR] Frontend deploy failed. Common causes:
+    echo   - wrong password - run again
+    echo   - nginx config test failed: run "nginx -t" on the server
+    echo   - !WEB_DIR! not writable by this SSH user
     exit /b 1
 )
 echo  Frontend deployed successfully.
@@ -177,8 +245,8 @@ if not exist ".git" (
 
 if not exist ".gitignore" (
     >.gitignore echo node_modules/
-    >>.gitignore echo .vercel/
     >>.gitignore echo dist/
+    >>.gitignore echo dist.tgz
     >>.gitignore echo .env
     >>.gitignore echo .env.local
     >>.gitignore echo .env.*.local
@@ -254,7 +322,11 @@ echo  ==============================================
 echo  Done!
 echo.
 echo  Backend health: https://api.khaanehyar.ir/api/v1/healthz
-echo  Frontend     : your Vercel production URL
+echo  Frontend     : https://khaanehyar.ir
+echo.
+echo  Frontend looks unchanged? Hard-refresh once - the PWA service
+echo  worker serves the old build until it picks up the new one.
+echo  Rollback: mv !WEB_DIR!.old back over !WEB_DIR! on the server.
 echo.
 echo  Market tile says "not configured"?
 echo  Add BRSAPI_KEY=your-key to the server file:

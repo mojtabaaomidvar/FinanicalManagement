@@ -39,6 +39,16 @@ export function toHemat(rial: number): number {
   return rial / 1e13;
 }
 
+/* ISOِ سرور → ساعتِ محلیِ «HH:MM» فارسی. ورودیِ نامعتبر → "" تا UI
+   به‌جای «NaN:NaN» چیزی نشان ندهد. برایِ اعلامِ «قیمت مالِ چه لحظه‌ای است». */
+export function formatClock(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const hh = d.getHours().toString().padStart(2, "0");
+  const mm = d.getMinutes().toString().padStart(2, "0");
+  return toFa(`${hh}:${mm}`);
+}
+
 /* حجم/تعداد بزرگ → خوانا: 16326463426 → "۱۶٫۳ میلیارد" */
 export function formatCompact(n: number): string {
   const abs = Math.abs(n);
