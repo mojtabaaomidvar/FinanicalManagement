@@ -143,7 +143,10 @@ echo.
 echo  You may be asked for the server password 1 time.
 echo  The build takes a few minutes - keep this window open.
 echo.
-ssh !SSH_TARGET! "cd !SERVER_DIR! && git pull && cd deploy && docker compose up -d --build && docker compose run --rm api alembic upgrade head && echo === HEALTH CHECK === && curl -s http://127.0.0.1:8000/api/v1/healthz && echo. && echo === BACKEND OK ==="
+REM NOTE: use plain "echo", never "echo." inside this string - it runs in bash on
+REM the server, where "echo." is not a command and returns 127, which made the
+REM script report failure even though the deploy and health check had succeeded.
+ssh !SSH_TARGET! "cd !SERVER_DIR! && git pull && cd deploy && docker compose up -d --build && docker compose run --rm api alembic upgrade head && echo === HEALTH CHECK === && curl -s http://127.0.0.1:8000/api/v1/healthz && echo '' && echo === BACKEND OK ==="
 if errorlevel 1 (
     echo.
     echo  [ERROR] Backend deploy failed. Common causes:
