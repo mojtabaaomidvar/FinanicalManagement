@@ -61,6 +61,14 @@
 
 > بقیهٔ تنظیمات (نشست، OTP، Argon2) پیش‌فرضِ امن دارند و لازم نیست ست شوند.
 
+بازار (کاشیِ «ارز و بورس» — BrsApi) — روی VPS در `backend/deploy/.env`:
+
+- `BRSAPI_KEY` = کلیدِ رایگان از `brsapi.ir/tsetmc-exchange-free-bourse-api-key-request/`
+  (این سند مخصوصِ لیاراست؛ روی VPS همان متغیر را در `deploy/.env` سرور بگذار — `deploy/README-VPS.md`)
+  بدونِ این، اندپوینتِ `/api/v1/market/prices` خطای SERVER_NOT_CONFIGURED می‌دهد.
+- `MARKET_CACHE_SECONDS` = اختیاری، پیش‌فرض `300` (کشِ سرور-سمتی؛ سقفِ پلنِ رایگان
+  ۱۵۰۰/۱۰۰۰ درخواست در روز است، با TTL پنج‌دقیقه‌ای خیلی زیرِ سقف می‌مانیم).
+
 ---
 
 ## ۲) استقرارِ کد

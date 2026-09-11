@@ -19,6 +19,7 @@ from app.api.v1.routes import (
     events,
     files,
     health,
+    market,
     members,
     sms,
     transactions,
@@ -37,6 +38,8 @@ api_router.include_router(sms.router)
 api_router.include_router(events.router)
 # ── هویتی (فاز ۷) — بیرون از RLS: get_current_member/require_owner ──
 api_router.include_router(members.router)
+# ── بازار (BrsApi) — هویتی، دادهٔ عمومیِ بازار؛ کش/کلید در سرویسِ market ──
+api_router.include_router(market.router)
 # ── آپلودِ فایل (فاز ۸) — هویتی (Bearer)، بیرون از RLS: استوریج جدولِ DB نیست ──
 api_router.include_router(uploads.router)
 # ── سرو کردنِ فایل (فاز ۸) — بدونِ احراز هویت؛ مجوز در URLِ امضاشدهٔ HMAC است ──

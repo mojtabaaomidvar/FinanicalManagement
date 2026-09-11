@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     sms_api_key: str = ""
     sms_sender: str = ""
 
+    # ── بازار (BrsApi — طلا/ارز و شاخص بورس) ───────────────
+    brsapi_key: str = ""                  # خالی = ماژول بازار غیرفعال
+    market_cache_seconds: int = 300       # TTL کش سرور-سمتی (سقف رایگان: ۱۵۰۰/۱۰۰۰ درخواست در روز)
+
     # ── ذخیره‌سازی آبجکت (S3-compatible) ──────────────────
     # اگر storage_endpoint و storage_bucket هر دو ست شوند → backendِ S3 فعال می‌شود؛
     # وگرنه دیسکِ محلی (storage_dir). غیرمخرب و سازگارِ عقب‌رو.

@@ -22,6 +22,7 @@ import { TransactionsPage } from "@/pages/TransactionsPage";
 import { ReportsPage } from "@/pages/ReportsPage";
 import { AccountsPage } from "@/pages/AccountsPage";
 import { BudgetsPage } from "@/pages/BudgetsPage";
+import { MarketPage } from "@/pages/MarketPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { useToast } from "./providers/ToastProvider";
 import { DevPanel, type DevOverride } from "./dev/DevPanel";
@@ -285,6 +286,7 @@ function MainShell({
         {route === "reports" ? <ReportsPage /> : null}
         {route === "accounts" ? <AccountsPage /> : null}
         {route === "budgets" ? <BudgetsPage /> : null}
+        {route === "market" ? <MarketPage /> : null}
         {route === "settings" ? <SettingsPage /> : null}
       </div>
 

@@ -16,6 +16,8 @@ import { txsInJalaliMonth } from "@/domain/transaction/transaction.rules";
 import { monthTotals, totalBalance } from "@/domain/report/report.rules";
 import { monthCategorySpend, budgetStatus } from "@/domain/budget/budget.rules";
 import { buildCategoryResolver } from "@/domain/category/resolve";
+import { findDollar } from "@/domain/market/market.rules";
+import { useMarket } from "@/features/market";
 import { today } from "@/shared/lib/jalali";
 import type { Route } from "@/app/router";
 import { ACTIVE_MODULES, SOON_MODULES, type HubModule } from "./modules";
@@ -39,6 +41,10 @@ export function HubPage({
 }) {
   const { member, family, members, txs, accounts, budgets, customCategories, cur } =
     useApp();
+
+  /* قیمت لحظه‌ای دلار برای زیرنویسِ کاشیِ بازار — با صفحه‌ی بازار کش مشترک دارد */
+  const market = useMarket();
+  const usd = market.data ? findDollar(market.data.currency) : null;
 
   /* ارقامِ زنده‌ی همین ماه — یک‌بار حساب می‌شوند و بینِ زیرنویس‌ها و بنرها مشترک‌اند */
   const stats = useMemo(() => {
@@ -79,6 +85,11 @@ export function HubPage({
     budgets: budgets.length
       ? `${toFa(budgets.length)} بودجه‌ی فعال`
       : "هنوز بودجه‌ای نداری",
+    market: usd
+      ? `دلار ${formatAmount(usd.price)} ${usd.unit}`
+      : market.loading
+        ? "در حال دریافتِ قیمت‌ها…"
+        : "قیمت‌ها موقتاً در دسترس نیست",
     reports: "نمودار و گزارشِ ماهانه",
   };
 

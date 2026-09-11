@@ -27,6 +27,7 @@ const ROUTE_LABELS: { route: Route; label: string }[] = [
   { route: "reports", label: "نمای کلی" },
   { route: "accounts", label: "کیف پول" },
   { route: "budgets", label: "بودجه‌ها" },
+  { route: "market", label: "ارز و بورس" },
   { route: "settings", label: "تنظیمات" },
 ];
 

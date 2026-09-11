@@ -62,6 +62,13 @@ export const ACTIVE_MODULES: HubModule[] = [
     route: "budgets",
   },
   {
+    id: "market",
+    title: "ارز و بورس",
+    icon: "i-trend",
+    tone: "rose",
+    route: "market",
+  },
+  {
     id: "reports",
     title: "نمای کلی",
     icon: "i-chart",

@@ -82,6 +82,7 @@ import {
   ListCategoryBudgetsUseCase,
   SetCategoryBudgetUseCase,
 } from "./budget/category-budget.usecases";
+import { GetMarketSnapshotUseCase } from "./market/market.usecases";
 
 export interface UseCases {
   getPublicConfig: GetPublicConfigUseCase;
@@ -157,6 +158,8 @@ export interface UseCases {
   listCategoryBudgets: ListCategoryBudgetsUseCase;
   setCategoryBudget: SetCategoryBudgetUseCase;
   deleteCategoryBudget: DeleteCategoryBudgetUseCase;
+
+  getMarketSnapshot: GetMarketSnapshotUseCase;
 }
 
 export function createUseCases(c: Container): UseCases {
@@ -247,5 +250,7 @@ export function createUseCases(c: Container): UseCases {
     deleteCategoryBudget: new DeleteCategoryBudgetUseCase(
       c.repos.categoryBudgets,
     ),
+
+    getMarketSnapshot: new GetMarketSnapshotUseCase(c.repos.market),
   };
 }

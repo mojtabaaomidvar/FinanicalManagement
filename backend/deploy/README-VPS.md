@@ -78,6 +78,12 @@ STORAGE_DIR=/app/var/uploads     # حالتِ دیسک (پیش‌فرض)
 SMS_PROVIDER=
 SMS_API_KEY=
 SMS_SENDER=
+
+# بازار — کلیدِ رایگان BrsApi برای کاشیِ «ارز و بورس»
+# بدونِ این، /api/v1/market/prices خطای SERVER_NOT_CONFIGURED می‌دهد
+BRSAPI_KEY=
+# اختیاری: عمر کش سرور-سمتی به ثانیه — پیش‌فرض 300
+# MARKET_CACHE_SECONDS=300
 ```
 
 نکته‌ها:

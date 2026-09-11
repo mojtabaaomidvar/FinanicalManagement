@@ -6643,6 +6643,153 @@ button.set-row:active {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   بازار — صفحه‌ی ارز و بورس (قیمت طلا/ارز و شاخص BrsApi)
+   ═══════════════════════════════════════════════════════════ */
+
+.market-refresh {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.market-refresh:active {
+  transform: rotate(90deg);
+}
+.market-refresh:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.market-h2 {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text-2);
+  margin-bottom: calc(var(--sp-2) * -1);
+}
+
+.market-list {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+.market-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: 11px var(--sp-3);
+}
+.market-row + .market-row {
+  border-top: 1px solid var(--border);
+}
+.market-row-name {
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.market-row-side {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  direction: ltr; /* قیمت و درصد در بافتِ LTR تا علامت‌ها جابه‌جا نشوند */
+}
+.market-row-price {
+  font-size: 14px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.market-row-price small {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3);
+  margin-left: 4px; /* سمتِ چپِ عدد در LTR */
+}
+
+/* تغییر قیمت — مثبت سبزِ اکسنت، منفی قرمزِ danger */
+.market-change {
+  font-size: 11.5px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.market-change.is-up {
+  color: var(--accent-strong);
+}
+.market-change.is-down {
+  color: var(--danger);
+}
+.market-change.is-flat {
+  color: var(--text-3);
+}
+
+/* کارت شاخص بورس */
+.market-bourse {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.market-bourse-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.market-bourse-label {
+  font-size: 12px;
+  color: var(--text-3);
+  font-weight: 600;
+}
+.market-bourse-index {
+  display: block;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+.market-bourse-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-2) var(--sp-3);
+}
+.market-bourse-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--card-2);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+.market-bourse-grid span {
+  font-size: 10.5px;
+  color: var(--text-3);
+  font-weight: 600;
+}
+.market-bourse-grid b {
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.market-bourse-grid small {
+  font-size: 10.5px;
+}
+.market-bourse-meta {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+/* ═══════════════════════════════════════════════════════════
    پنلِ توسعه‌دهنده — فقط در حالتِ dev رندر می‌شود.
    عمداً «بی‌برند» است (خاکستریِ تیره، بدون توکن‌های روشن و آرام) تا
    هیچ‌وقت با UI واقعیِ اپ اشتباه گرفته نشود.
