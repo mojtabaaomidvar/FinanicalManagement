@@ -99,7 +99,7 @@ sudo chown -R 10001:10001 uploads
 ```bash
 docker compose up -d --build
 docker compose ps
-curl -s http://127.0.0.1:8000/healthz    # باید سالم جواب دهد
+curl -s http://127.0.0.1:8000/api/v1/healthz    # باید سالم جواب دهد
 ```
 
 ---
@@ -167,7 +167,7 @@ sudo certbot --nginx -d api.khaanehyar.ir
 certbot بلاکِ ۴۴۳ و ریدایرکتِ ۸۰→۴۴۳ را می‌سازد و تمدید را خودکار می‌کند. تست:
 
 ```bash
-curl -I https://api.khaanehyar.ir/healthz
+curl -I https://api.khaanehyar.ir/api/v1/healthz
 ```
 
 ---

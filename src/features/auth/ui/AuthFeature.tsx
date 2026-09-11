@@ -3,15 +3,15 @@
 
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
-import { useAuthModel } from "../model/useAuthModel";
+import { useAuthModel, type AuthPrefill } from "../model/useAuthModel";
 import { MEMBER_RELATIONS } from "@/domain/family/family.types";
 import { toFa } from "@/shared/lib/digits";
 import { usePwaUpdateState } from "@/app/pwaUpdate.tsx";
 
-export function AuthFeature() {
+export function AuthFeature({ prefill }: { prefill?: AuthPrefill } = {}) {
   const { useCases, onAuthenticated, refreshData } = useApp();
   const { show } = useToast();
-  const m = useAuthModel(useCases!, show);
+  const m = useAuthModel(useCases!, show, prefill);
   const { updateReady, applyUpdate } = usePwaUpdateState();
 
   const otpStep = m.step === "otp";

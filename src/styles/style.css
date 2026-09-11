@@ -177,8 +177,12 @@ button:active {
 .page {
   display: none;
   min-height: 100dvh;
-  /* داک v7: تب‌بار + FAB شناور بالای نوار (سمت چپ) */
-  padding-bottom: calc(150px + env(safe-area-inset-bottom));
+  /* تب‌بار بازنشسته شد؛ فقط فاصله‌ی تنفسِ انتهای صفحه + ناحیه‌ی امن.
+     صفحه‌هایی که دکمه‌ی شناور دارند کلاس .has-fab می‌گیرند. */
+  padding-bottom: calc(32px + env(safe-area-inset-bottom));
+}
+.page.has-fab {
+  padding-bottom: calc(104px + env(safe-area-inset-bottom));
 }
 .page.active {
   display: block;
@@ -5876,4 +5880,874 @@ button.set-row:active {
   .mspend-name {
     width: 52px;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Onboarding — فلوی خوش‌آمدِ اولین اجرا (بعد از ورود، پیش از داشبورد)
+   تمام‌صفحه و مستقل (کلاس .page را عمداً استفاده نمی‌کند تا نه مخفی
+   شود و نه فضای تب‌بار را رزرو کند). فقط توکن‌های برند، فلت و آرام.
+   ═══════════════════════════════════════════════════════════ */
+.onb-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  max-width: 552px;
+  margin: 0 auto;
+  padding: calc(env(safe-area-inset-top) + var(--sp-4)) var(--sp-5)
+    calc(env(safe-area-inset-bottom) + var(--sp-5));
+}
+
+/* بالا: نقطه‌های پیشرفت + «رد کردن» */
+.onb-top {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  margin-bottom: var(--sp-4);
+}
+.onb-dots {
+  display: flex;
+  gap: 6px;
+}
+.onb-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--r-pill);
+  background: var(--border-strong);
+  transition:
+    width var(--dur-med) var(--ease-out),
+    background var(--dur-med) var(--ease-out),
+    opacity var(--dur-med) var(--ease-out);
+}
+.onb-dot.done {
+  background: var(--accent);
+  opacity: 0.5;
+}
+.onb-dot.active {
+  width: 22px;
+  background: var(--accent);
+}
+.onb-skip {
+  position: absolute;
+  inset-inline-start: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 6px 4px;
+  background: none;
+  border: 0;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.onb-skip:active {
+  color: var(--text-2);
+}
+
+/* صفحه‌ی هر گام — یک لحظه‌ی ورودِ آرام، هم‌سو با اقدامِ کاربر */
+.onb-screen {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--sp-4);
+  padding-block: var(--sp-3);
+  animation: onbIn var(--dur-med) var(--ease-out);
+}
+@keyframes onbIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.onb-head {
+  text-align: center;
+}
+.onb-title {
+  font-size: 21px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.4;
+}
+.onb-sub {
+  font-size: 13.5px;
+  color: var(--text-3);
+  line-height: 1.8;
+  margin-top: var(--sp-2);
+}
+
+/* Hero خوش‌آمد — تنها جای کمی جسورتر (Chanel: بقیه آرام بماند) */
+.onb-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--sp-3);
+}
+.onb-logo {
+  width: 84px;
+  height: 84px;
+  border-radius: 24px;
+  background: var(--accent);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  margin-bottom: var(--sp-2);
+  box-shadow:
+    0 16px 38px rgba(16, 185, 129, 0.34),
+    0 5px 12px rgba(0, 0, 0, 0.18);
+}
+.onb-title-hero {
+  font-size: 26px;
+}
+.onb-sub-hero {
+  max-width: 34ch;
+  margin-inline: auto;
+}
+
+/* فهرستِ قابلیت‌ها */
+.onb-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.onb-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+}
+.onb-item-ic {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: grid;
+  place-items: center;
+}
+.onb-item-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.onb-item-txt b {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+.onb-item-txt span {
+  font-size: 12.5px;
+  color: var(--text-3);
+  line-height: 1.7;
+}
+
+/* پرسش‌ها */
+.onb-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.onb-field + .onb-field {
+  margin-top: var(--sp-4);
+}
+.onb-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.onb-hint {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: -2px;
+}
+.onb-chips {
+  display: flex;
+  gap: var(--sp-2);
+}
+.onb-chips-wrap {
+  flex-wrap: wrap;
+}
+.onb-chip {
+  flex: 1;
+  min-width: 44px;
+  padding: 11px var(--sp-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) ease,
+    background var(--dur-fast) ease,
+    color var(--dur-fast) ease,
+    transform var(--dur-fast) ease;
+}
+.onb-chips-wrap .onb-chip {
+  flex: 1 1 calc(50% - var(--sp-2));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  font-size: 13px;
+}
+.onb-chip.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+.onb-chip:active {
+  transform: scale(0.97);
+}
+
+/* کارتِ پروفایلِ خانه */
+.onb-profile {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.onb-profile-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  background: var(--card-soft);
+  border-bottom: 1px solid var(--border);
+}
+.onb-profile-badge {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--r-md);
+  background: var(--accent);
+  color: #fff;
+  display: grid;
+  place-items: center;
+}
+.onb-profile-id {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.onb-profile-id b {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+}
+.onb-profile-id span {
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.onb-profile-rows {
+  padding: var(--sp-2) var(--sp-4);
+}
+.onb-profile-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3) 0;
+  font-size: 13.5px;
+}
+.onb-profile-row + .onb-profile-row {
+  border-top: 1px solid var(--border);
+}
+.onb-profile-row > span {
+  color: var(--text-3);
+}
+.onb-profile-row b {
+  font-weight: 700;
+  color: var(--text);
+  text-align: end;
+}
+
+/* دعوت داخلِ onboarding — باکسِ موجود را بی‌خط و جمع می‌کنیم */
+.onb-invite .invite-box {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+.onb-invite-hint {
+  text-align: center;
+  margin-top: var(--sp-4);
+}
+
+/* اکشن‌های پایین */
+.onb-actions {
+  display: flex;
+  gap: var(--sp-3);
+  padding-top: var(--sp-4);
+}
+.onb-btn {
+  padding: 14px;
+  border-radius: var(--r-md);
+  border: 0;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform var(--dur-fast) ease,
+    filter var(--dur-fast) ease,
+    opacity var(--dur-fast) ease;
+}
+.onb-btn:active {
+  transform: scale(0.98);
+}
+.onb-btn-primary {
+  flex: 1;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.3);
+}
+.onb-btn-primary:disabled {
+  opacity: 0.6;
+}
+.onb-btn-ghost {
+  background: var(--card-2);
+  color: var(--text-2);
+  padding-inline: var(--sp-5);
+}
+
+/* «قبلاً حساب دارم؟ ورود» — راهِ فرارِ کاربرِ قدیمی، در همه‌ی گام‌ها دیده می‌شود */
+.onb-login {
+  margin-top: var(--sp-3);
+  padding: var(--sp-3);
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: 0.92rem;
+  color: var(--text-2);
+  text-align: center;
+  cursor: pointer;
+}
+.onb-login b {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onb-screen {
+    animation: none;
+  }
+  .onb-dot {
+    transition: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Hub — صفحه‌ی خانه‌ی جدید: شبکه‌ی کاشیِ ماژول‌های خانه.
+   رنگِ هر ماژول از پالتِ ملایمِ خودمان می‌آید (نه رنگ‌های تندِ
+   اپ‌های مرجع) تا «روشن و آرام» حفظ شود. هر tone دو توکن دارد:
+   --t-<name>-fg  رنگِ آیکون   |   --t-<name>-bg  پس‌زمینه‌ی چیپ
+   ═══════════════════════════════════════════════════════════ */
+:root {
+  --t-emerald-fg: #047857;
+  --t-emerald-bg: #d9f0e6;
+  --t-indigo-fg: #3f4a78;
+  --t-indigo-bg: #e0e4f3;
+  --t-amber-fg: #8a6a0f;
+  --t-amber-bg: #f6ecd2;
+  --t-rose-fg: #9f3f52;
+  --t-rose-bg: #f7e2e6;
+  --t-violet-fg: #6b4a91;
+  --t-violet-bg: #ece3f5;
+  --t-teal-fg: #0e6f78;
+  --t-teal-bg: #d7eef0;
+  --t-sky-fg: #1f5f8b;
+  --t-sky-bg: #dceaf5;
+  --t-lime-fg: #5a6f14;
+  --t-lime-bg: #eaf1d4;
+}
+[data-theme="dark"] {
+  --t-emerald-fg: #6ee7b7;
+  --t-emerald-bg: rgba(16, 185, 129, 0.16);
+  --t-indigo-fg: #a5b4e8;
+  --t-indigo-bg: rgba(99, 118, 200, 0.18);
+  --t-amber-fg: #e8c66a;
+  --t-amber-bg: rgba(212, 165, 40, 0.16);
+  --t-rose-fg: #f0a3b1;
+  --t-rose-bg: rgba(216, 96, 120, 0.16);
+  --t-violet-fg: #c4a9e8;
+  --t-violet-bg: rgba(150, 105, 205, 0.18);
+  --t-teal-fg: #7fd4dc;
+  --t-teal-bg: rgba(45, 170, 185, 0.16);
+  --t-sky-fg: #94c4e8;
+  --t-sky-bg: rgba(70, 145, 205, 0.16);
+  --t-lime-fg: #c3d97a;
+  --t-lime-bg: rgba(140, 170, 40, 0.16);
+}
+
+.hub-page {
+  max-width: 552px;
+  margin: 0 auto;
+  padding: 0 var(--sp-4);
+}
+
+/* هدر — نامِ خانه و آواتارِ عضو */
+.hub-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: calc(env(safe-area-inset-top) + var(--sp-5)) 0 var(--sp-4);
+}
+.hub-id {
+  min-width: 0;
+}
+.hub-id h1 {
+  font-size: 23px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hub-id p {
+  font-size: 12.5px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+.hub-avatar {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform var(--dur-fast) ease;
+}
+.hub-avatar:active {
+  transform: scale(0.94);
+}
+
+/* بنرهای زمینه‌ای — نوارِ افقیِ snap با نقطه‌ها */
+.hub-banners {
+  margin-bottom: var(--sp-4);
+}
+.hub-strip {
+  display: flex;
+  gap: var(--sp-3);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.hub-strip::-webkit-scrollbar {
+  display: none;
+}
+.hub-banner {
+  flex: 0 0 100%;
+  scroll-snap-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+.hub-banner-ic {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-md);
+  display: grid;
+  place-items: center;
+  background: var(--t-emerald-bg);
+  color: var(--t-emerald-fg);
+}
+.hub-banner-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.hub-banner-txt b {
+  font-size: 15.5px;
+  font-weight: 800;
+  color: var(--text);
+}
+.hub-banner-txt span {
+  font-size: 12.5px;
+  color: var(--text-3);
+  line-height: 1.8;
+}
+.hub-banner-cta {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px var(--sp-4);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--dur-fast) ease;
+}
+.hub-banner-cta:active {
+  transform: scale(0.97);
+}
+.hub-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: var(--sp-3);
+}
+.hub-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--border-strong);
+  transition:
+    width var(--dur-med) var(--ease-out),
+    background var(--dur-med) var(--ease-out);
+}
+.hub-dot.active {
+  width: 18px;
+  background: var(--accent);
+}
+
+/* دکمه‌ی پهنِ ثبتِ سریع — جایگزینِ FAB در صفحه‌ی هاب */
+.hub-add {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-5);
+  border: 0;
+  border-radius: var(--r-lg);
+  background: var(--accent);
+  color: #fff;
+  text-align: start;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(16, 185, 129, 0.28);
+  transition: transform var(--dur-fast) ease;
+}
+.hub-add:active {
+  transform: scale(0.985);
+}
+.hub-add-ic {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.18);
+}
+.hub-add-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.hub-add-txt b {
+  font-size: 15.5px;
+  font-weight: 800;
+}
+.hub-add-txt > span {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+/* عنوانِ بخش */
+.hub-section {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-3);
+  margin-bottom: var(--sp-3);
+}
+.hub-section-note {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  padding: 3px 8px;
+  border-radius: var(--r-pill);
+  background: var(--card-2);
+}
+
+/* شبکه‌ی کاشی‌ها — دو ستون */
+.hub-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-6);
+}
+.hub-tile {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  min-height: 118px;
+  padding: var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--card);
+  text-align: start;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    transform var(--dur-fast) ease,
+    border-color var(--dur-fast) ease;
+}
+.hub-tile:active {
+  transform: scale(0.975);
+  border-color: var(--border-strong);
+}
+.hub-tile-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.hub-tile-title {
+  font-size: 14.5px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.5;
+}
+.hub-tile-ic {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+  display: grid;
+  place-items: center;
+  background: var(--card-2);
+  color: var(--text-2);
+}
+.hub-tile-sub {
+  font-size: 11.5px;
+  color: var(--text-3);
+  line-height: 1.7;
+}
+
+/* رنگِ ماژول — روی کاشی و بنر یکسان کار می‌کند */
+.tone-emerald .hub-tile-ic,
+.hub-banner.tone-emerald .hub-banner-ic {
+  background: var(--t-emerald-bg);
+  color: var(--t-emerald-fg);
+}
+.tone-indigo .hub-tile-ic,
+.hub-banner.tone-indigo .hub-banner-ic {
+  background: var(--t-indigo-bg);
+  color: var(--t-indigo-fg);
+}
+.tone-amber .hub-tile-ic,
+.hub-banner.tone-amber .hub-banner-ic {
+  background: var(--t-amber-bg);
+  color: var(--t-amber-fg);
+}
+.tone-rose .hub-tile-ic,
+.hub-banner.tone-rose .hub-banner-ic {
+  background: var(--t-rose-bg);
+  color: var(--t-rose-fg);
+}
+.tone-violet .hub-tile-ic,
+.hub-banner.tone-violet .hub-banner-ic {
+  background: var(--t-violet-bg);
+  color: var(--t-violet-fg);
+}
+.tone-teal .hub-tile-ic,
+.hub-banner.tone-teal .hub-banner-ic {
+  background: var(--t-teal-bg);
+  color: var(--t-teal-fg);
+}
+.tone-sky .hub-tile-ic,
+.hub-banner.tone-sky .hub-banner-ic {
+  background: var(--t-sky-bg);
+  color: var(--t-sky-fg);
+}
+.tone-lime .hub-tile-ic,
+.hub-banner.tone-lime .hub-banner-ic {
+  background: var(--t-lime-bg);
+  color: var(--t-lime-fg);
+}
+
+/* کاشیِ «به‌زودی» — دیده می‌شود ولی صراحتاً غیرفعال است */
+.hub-tile.is-soon {
+  cursor: default;
+  background: transparent;
+  border-style: dashed;
+}
+.hub-tile.is-soon:active {
+  transform: none;
+  border-color: var(--border);
+}
+.hub-tile.is-soon .hub-tile-title {
+  color: var(--text-3);
+  font-weight: 700;
+}
+.hub-tile.is-soon .hub-tile-ic {
+  background: var(--card-2);
+  color: var(--text-3);
+  opacity: 0.75;
+}
+.hub-soon-badge {
+  align-self: flex-start;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-3);
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  background: var(--card-2);
+}
+
+@media (max-width: 340px) {
+  .hub-tile {
+    min-height: 106px;
+    padding: var(--sp-3);
+  }
+  .hub-tile-ic {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-dot {
+    transition: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   پنلِ توسعه‌دهنده — فقط در حالتِ dev رندر می‌شود.
+   عمداً «بی‌برند» است (خاکستریِ تیره، بدون توکن‌های روشن و آرام) تا
+   هیچ‌وقت با UI واقعیِ اپ اشتباه گرفته نشود.
+   ═══════════════════════════════════════════════════════════ */
+
+.dev-fab {
+  position: fixed;
+  inset-block-end: calc(12px + env(safe-area-inset-bottom));
+  inset-inline-start: 12px;
+  z-index: 9999;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: #1f2937;
+  color: #9ca3af;
+  font: 700 11px/1 ui-monospace, monospace;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  opacity: 0.55;
+}
+.dev-fab:hover {
+  opacity: 1;
+}
+
+.dev-panel {
+  position: fixed;
+  inset-block-end: calc(12px + env(safe-area-inset-bottom));
+  inset-inline-start: 12px;
+  z-index: 9999;
+  width: min(320px, calc(100vw - 24px));
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 12px;
+  border-radius: 10px;
+  background: #111827;
+  color: #e5e7eb;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  font-size: 12px;
+}
+.dev-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.dev-head b {
+  font-size: 12px;
+}
+.dev-size {
+  margin-inline-start: auto;
+  color: #6b7280;
+  font: 400 11px/1 ui-monospace, monospace;
+}
+.dev-x {
+  border: 0;
+  background: none;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+.dev-group {
+  margin-bottom: 12px;
+}
+.dev-label {
+  display: block;
+  margin-bottom: 6px;
+  color: #6b7280;
+  font-size: 11px;
+}
+.dev-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.dev-chip {
+  padding: 5px 9px;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  background: #1f2937;
+  color: #d1d5db;
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.dev-chip:hover {
+  border-color: #4b5563;
+}
+.dev-chip.active {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.16);
+  color: #6ee7b7;
+}
+.dev-btn {
+  width: 100%;
+  margin-top: 7px;
+  padding: 7px;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  background: #1f2937;
+  color: #d1d5db;
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.dev-btn:hover {
+  border-color: #4b5563;
 }

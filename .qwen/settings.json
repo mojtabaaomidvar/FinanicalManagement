@@ -60,7 +60,19 @@
       "Bash(\"d:\\jdk-21.0.12.1+1\\bin\\jstack.exe\" *)",
       "Bash(/exit)",
       "Bash(\"d:\\jdk-21.0.12.1+1\\bin\\jshell.exe\" *)",
-      "Bash(system.out.println)"
+      "Bash(system.out.println)",
+      "Bash(docker *)",
+      "Bash(docker info *)",
+      "Bash(pip *)",
+      "Bash(wsl *)",
+      "Bash(systeminfo)",
+      "Bash(\"%temp%\\dockerdesktopinstaller.exe\" *)",
+      "Bash(wevtutil *)",
+      "Bash(net *)",
+      "Bash(\"c:\\users\\383\\downloads\\dockerdesktopinstaller.exe\" *)",
+      "Bash(\"c:\\program files\\docker\\docker\\resources\\bin\\docker.exe\" *)",
+      "Bash(\"c:\\program files\\docker\\docker\\docker desktop.exe\")",
+      "Bash(\"c:\\users\\383\\appdata\\roaming\\python\\python314\\scripts\\strix.exe\" *)"
     ]
   },
   "$version": 4

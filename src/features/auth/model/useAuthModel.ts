@@ -20,8 +20,22 @@ export interface OtpFlow {
   relation?: string;
 }
 
-export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
-  const [mode, setMode] = useState<"login" | "register">("login");
+/** مقادیرِ آغازینِ فرم — قیفِ آغازین (onboarding) نامِ خانواده را از پیش
+    جمع کرده و کاربر را مستقیم به حالتِ ثبت‌نام می‌فرستد. فقط «مقدارِ اولیه»
+    است؛ کاربر می‌تواند هر دو را عوض کند. */
+export interface AuthPrefill {
+  mode?: "login" | "register";
+  familyName?: string;
+}
+
+export function useAuthModel(
+  useCases: UseCases,
+  notify: (m: string) => void,
+  prefill?: AuthPrefill,
+) {
+  const [mode, setMode] = useState<"login" | "register">(
+    prefill?.mode ?? "login",
+  );
   const [step, setStep] = useState<"form" | "otp">("form");
 
   /* فرم ورود */
@@ -29,7 +43,7 @@ export function useAuthModel(useCases: UseCases, notify: (m: string) => void) {
   const [loginPassword, setLoginPassword] = useState("");
 
   /* فرم ثبت‌نام */
-  const [regFamily, setRegFamily] = useState("");
+  const [regFamily, setRegFamily] = useState(prefill?.familyName ?? "");
   const [regName, setRegName] = useState("");
   const [regPhone, setRegPhone] = useState("");
   const [regPassword, setRegPassword] = useState("");

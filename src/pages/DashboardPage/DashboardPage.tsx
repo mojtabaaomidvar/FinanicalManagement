@@ -1,7 +1,8 @@
 /* صفحه خانه — سلام و اعلان، جستجو، پنل خلاصه ماه،
    هزینه‌های ماه، آخرین تراکنش‌ها و نوارهای هفته/اعضا/بودجه
 
-   ثبت تراکنش فقط از راه FAB «+» انجام می‌شود؛ ردیف میان‌بُر پیشین
+   پس از بازنشستگیِ تب‌بار و FAB، ثبت تراکنش از دکمه‌ی «+» در هدرِ همین
+   صفحه (یا دکمه‌ی پهنِ هاب) باز می‌شود؛ ردیف میان‌بُر پیشین
    (widgets/quick-actions) حذف شد و «ثبت از پیامک» به شیت تراکنش منتقل شد. */
 
 import { useMemo, useState } from "react";
@@ -87,6 +88,16 @@ export function DashboardPage({
           <p>{headerDate}</p>
         </div>
         <div className="header-actions">
+          {/* افزودن تراکنش — جانشینِ FAB پیشین پس از بازنشستگیِ تب‌بار */}
+          <button
+            className="icon-btn"
+            aria-label="افزودن تراکنش"
+            onClick={() => form.openNew()}
+          >
+            <svg>
+              <use href="#i-plus" />
+            </svg>
+          </button>
           {/* زنگ اعلان */}
           <button
             className="icon-btn notif-btn"

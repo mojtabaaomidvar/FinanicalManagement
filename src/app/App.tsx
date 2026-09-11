@@ -7,16 +7,24 @@ import { useNativeSmsReader } from "./useNativeSmsReader";
 import { useTheme } from "./providers/useTheme";
 import type { Route } from "./router";
 import { PwaUpdateProvider, usePwaUpdateState } from "./pwaUpdate.tsx";
-import { AuthFeature, InviteAcceptFeature } from "@/features/auth";
+import { AuthFeature, InviteAcceptFeature, type AuthPrefill } from "@/features/auth";
+import {
+  OnboardingFeature,
+  isIntroSeen,
+  markIntroSeen,
+  useApplyIntroDraft,
+} from "@/features/onboarding";
 import { TransactionFormFeature, useTxFormModel } from "@/features/transaction-form";
 import { PendingSmsFeature } from "@/features/pending-sms";
 import { DashboardPage } from "@/pages/DashboardPage";
+import { HubPage } from "@/pages/HubPage";
 import { TransactionsPage } from "@/pages/TransactionsPage";
 import { ReportsPage } from "@/pages/ReportsPage";
 import { AccountsPage } from "@/pages/AccountsPage";
 import { BudgetsPage } from "@/pages/BudgetsPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { useToast } from "./providers/ToastProvider";
+import { DevPanel, type DevOverride } from "./dev/DevPanel";
 
 export function App() {
   return (
@@ -28,8 +36,15 @@ export function App() {
 
 function AppBody() {
   const { phase, useCases, member, refreshData } = useApp();
-  const [route, setRoute] = useState<Route>("dashboard");
+  const [route, setRoute] = useState<Route>("hub");
   const [inviteToken, setInviteToken] = useState<string | null>(null);
+  /* قیفِ آغازین — پیش از فرمِ ورود. فلگ «دستگاهی» است نه per-member،
+     چون در این مرحله هنوز عضوی وجود ندارد. */
+  const [introSeen, setIntroSeen] = useState(() => isIntroSeen());
+  /* پاسخ‌های قیف که باید فرمِ ثبت‌نام را از پیش پر کنند */
+  const [authPrefill, setAuthPrefill] = useState<AuthPrefill | undefined>();
+  /* دورزدنِ موقتِ جریان از پنلِ توسعه — فقط در dev معنا دارد */
+  const [devOverride, setDevOverride] = useState<DevOverride>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   /* جستجوی ارسالی از هدر خانه → صفحه تراکنش‌ها */
   const [txSearch, setTxSearch] = useState("");
@@ -39,6 +54,10 @@ function AppBody() {
   const { updateReady, applyUpdate } = usePwaUpdateState();
 
   useTheme(member, useCases);
+
+  /* واحدِ پولِ انتخاب‌شده در قیفِ آغازین را — به‌محضِ آماده‌شدنِ نشست —
+     روی حسابِ تازه می‌نویسد و پیش‌نویس را پاک می‌کند (بی‌صدا). */
+  useApplyIntroDraft();
 
   /* تشخیص لینک دعوت */
   useEffect(() => {
@@ -74,48 +93,114 @@ function AppBody() {
      پیامکِ رسیده → تراکنشِ «در انتظار» → رفرشِ فهرست */
   useNativeSmsReader(phase === "ready", useCases, bumpRefresh);
 
-  if (phase === "boot") {
-    return (
-      <div className="page auth-page">
-        <div className="auth-wrap">
-          <p className="auth-sub">در حال بارگذاری…</p>
+  /* ── محتوای اصلی بر پایه‌ی فاز ──
+     در حالتِ dev، پنلِ توسعه می‌تواند این جریان را موقتاً دور بزند تا
+     صفحه‌هایی که عادتاً سخت در دسترس‌اند (قیفِ آغازین، فرمِ ثبت‌نام،
+     پذیرشِ دعوت) یک‌کلیکه دیده شوند. */
+  function content() {
+    if (import.meta.env.DEV && devOverride) {
+      if (devOverride === "intro") {
+        return (
+          <OnboardingFeature
+            onLogin={() => setDevOverride(null)}
+            onRegister={() => setDevOverride(null)}
+          />
+        );
+      }
+      if (devOverride === "auth-login" || devOverride === "auth-register") {
+        /* key لازم است: prefill فقط مقدارِ اولیه‌ی useState را می‌سازد، پس
+           بدونِ remount جابه‌جاییِ ورود↔ثبت‌نام از پنل بی‌اثر می‌ماند */
+        return useCases ? (
+          <AuthFeature
+            key={devOverride}
+            prefill={{
+              mode: devOverride === "auth-register" ? "register" : "login",
+            }}
+          />
+        ) : null;
+      }
+      if (devOverride === "invite") {
+        /* بدونِ توکنِ واقعی، صفحه حالتِ «دعوت نامعتبر» را نشان می‌دهد —
+           برای وارسیِ ظاهر کافی است */
+        return useCases ? (
+          <InviteAcceptFeature token={inviteToken ?? "dev-preview"} />
+        ) : null;
+      }
+    }
+
+    if (phase === "boot") {
+      return (
+        <div className="page auth-page">
+          <div className="auth-wrap">
+            <p className="auth-sub">در حال بارگذاری…</p>
+          </div>
         </div>
-      </div>
+      );
+    }
+
+    if (phase === "auth" && inviteToken && useCases) {
+      return <InviteAcceptFeature token={inviteToken} />;
+    }
+
+    /* قیفِ آغازین — اولین چیزی که کاربرِ تازه می‌بیند، *پیش از* فرمِ ورود.
+       دو خروجی دارد: «ورود» (کاربرِ قدیمی) و «ساختِ حساب» (که فرمِ ثبت‌نام را
+       از پیش پر می‌کند). صاحبانِ لینکِ دعوت بالاتر رد شده‌اند و قیف را
+       نمی‌بینند، چون خانواده‌شان از قبل معلوم است. */
+    if (phase === "auth" && !introSeen) {
+      return (
+        <OnboardingFeature
+          onLogin={() => {
+            markIntroSeen();
+            setIntroSeen(true);
+          }}
+          onRegister={(draft) => {
+            setAuthPrefill({ mode: "register", familyName: draft.familyName });
+            setIntroSeen(true);
+          }}
+        />
+      );
+    }
+
+    if (phase === "auth") {
+      return useCases ? <AuthFeature prefill={authPrefill} /> : null;
+    }
+
+    return (
+      <MainShell
+        route={route}
+        setRoute={setRoute}
+        bumpRefresh={bumpRefresh}
+        refreshKey={refreshKey}
+        currentMemberId={member?.id ?? ""}
+        txSearch={txSearch}
+        setTxSearch={setTxSearch}
+        filterSignal={filterSignal}
+        bumpFilterSignal={() => setFilterSignal((s) => s + 1)}
+      />
     );
   }
 
-  if (phase === "auth" && inviteToken && useCases) {
-    return <InviteAcceptFeature token={inviteToken} />;
-  }
-
-  if (phase === "auth") {
-    return useCases ? <AuthFeature /> : null;
-  }
-
   return (
-    <MainShell
-      route={route}
-      setRoute={setRoute}
-      bumpRefresh={bumpRefresh}
-      refreshKey={refreshKey}
-      currentMemberId={member?.id ?? ""}
-      txSearch={txSearch}
-      setTxSearch={setTxSearch}
-      filterSignal={filterSignal}
-      bumpFilterSignal={() => setFilterSignal((s) => s + 1)}
-    />
+    <>
+      {content()}
+      {import.meta.env.DEV ? (
+        <DevPanel
+          route={route}
+          onNav={setRoute}
+          override={devOverride}
+          onOverride={setDevOverride}
+        />
+      ) : null}
+    </>
   );
 }
 
-/* آیتم‌های تب‌بار (RTL) — خانه اول؛ FAB پلاس جدا از نوار است
-   تراکنش‌ها از هدر خانه (جستجو) و دکمه «همه» دسترس‌پذیر است */
-const NAV_ITEMS: { r: Route; icon: string; label: string }[] = [
-  { r: "dashboard", icon: "i-home", label: "خانه" },
-  { r: "accounts", icon: "i-wallet", label: "کیف پول" },
-  { r: "reports", icon: "i-chart", label: "نمای‌کلی" },
-  { r: "budgets", icon: "i-piggy", label: "بودجه‌ها" },
-  { r: "settings", icon: "i-gear", label: "بیشتر" },
-];
+/* آیتم‌های تب‌بارِ پیشین — با بازطراحیِ «هابِ خانه» بازنشسته شد.
+   عمداً به‌صورت کامنت نگه داشته شده تا اگر روزی تب‌بار برگشت،
+   ترتیب و برچسب‌های قبلی در دسترس باشد:
+
+   dashboard «خانه» · accounts «کیف پول» · reports «نمای‌کلی»
+   · budgets «بودجه‌ها» · settings «بیشتر»                          */
 
 function MainShell({
   route,
@@ -149,11 +234,6 @@ function MainShell({
     subcategories,
   );
 
-  const activeIdx = Math.max(
-    0,
-    NAV_ITEMS.findIndex((t) => t.r === route),
-  );
-
   const nav = useCallback(
     (r: Route) => {
       setRoute(r);
@@ -162,8 +242,8 @@ function MainShell({
     [setRoute],
   );
 
-  /* بازگشتِ دکمه/سوایپ در تبِ غیرخانه = برگشت به خانه (نه خروج از اپ) */
-  useBackGuard(route !== "dashboard", () => nav("dashboard"));
+  /* بازگشتِ دکمه/سوایپ در هر صفحه‌ای جز هاب = برگشت به هاب (نه خروج از اپ) */
+  useBackGuard(route !== "hub", () => nav("hub"));
 
   /* جستجو از هدر خانه: انتقال به تراکنش‌ها با متن جستجو */
   const searchFromHome = useCallback(
@@ -182,6 +262,9 @@ function MainShell({
   return (
     <>
       <div key={route} className="page-anim">
+        {route === "hub" ? (
+          <HubPage onNav={nav} onAddTransaction={() => form.openNew()} />
+        ) : null}
         {route === "dashboard" ? (
           <DashboardPage
             form={form}
@@ -208,51 +291,12 @@ function MainShell({
       <TransactionFormFeature form={form} onImported={bumpRefresh} />
       <PendingSmsFeature refreshKey={refreshKey} />
 
-      {/* داک پایین — تب‌بار تمام‌عرض + FAB پلاس شناور بالای نوار */}
-      <div className="tabbar-dock">
-        <nav className="tabbar tabbar-5" aria-label="ناوبری اصلی">
-          {/* پیل لغزنده — کپسول محو پشت تب فعال */}
-          <span
-            className="tab-pill"
-            aria-hidden="true"
-            style={{
-              insetInlineStart: `calc(${activeIdx} * 20% + 5px)`,
-              width: "calc(20% - 10px)",
-            }}
-          />
-
-          {/* ترتیب RTL: خانه، حساب‌ها، نمای‌کلی، بودجه‌ها، بیشتر */}
-          {NAV_ITEMS.map((t) => (
-            <button
-              key={t.r}
-              className={`tab-btn ${route === t.r ? "active" : ""}`}
-              aria-current={route === t.r ? "page" : undefined}
-              onClick={() => nav(t.r)}
-            >
-              <span className="tab-ico">
-                <svg>
-                  <use href={`#${t.icon}`} />
-                </svg>
-              </span>
-              <span className="tab-label">{t.label}</span>
-            </button>
-          ))}
-        </nav>
-
-        {/* FAB پلاس — فقط در تب خانه؛ شناور بالای تب‌بار در سمت چپ صفحه */}
-        {route === "dashboard" ? (
-          <button
-            type="button"
-            className="fab-add"
-            aria-label="افزودن تراکنش"
-            onClick={() => form.openNew()}
-          >
-            <svg>
-              <use href="#i-plus" />
-            </svg>
-          </button>
-        ) : null}
-      </div>
+      {/* داکِ پایین (تب‌بارِ ۵تایی + FAB پلاس) از بازطراحیِ «هابِ خانه»
+          بازنشسته شد: ناوبری حالا از راهِ کاشی‌های هاب و بازگشتِ
+          سخت‌افزاری/سوایپ انجام می‌شود و ثبتِ تراکنش از دکمه‌ی پهنِ
+          «ثبت خرج یا درآمد» در هاب باز می‌شود. NAV_ITEMS و کلاس‌های
+          CSS تب‌بار و دکمه‌ی شناور عمداً نگه داشته شده‌اند تا اگر
+          خواستیم دوباره برگردند. */}
     </>
   );
 }
