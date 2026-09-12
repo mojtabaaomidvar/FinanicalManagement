@@ -171,6 +171,80 @@ def _upstream_payload(payload: object) -> object:
     return payload
 
 
+# کلیدهای بخش‌بندیِ خروجیِ Gold_Currency. BrsApi گاهی فهرستِ تخت می‌دهد و گاهی
+# شیءِ بخش‌بندی‌شده؛ مستندِ خودشان هم پارامترِ `section=gold,currency` دارد.
+# املاهای جمع/مفرد و currency/currencies هر دو پوشش داده شده‌اند.
+_SECTION_KEYS: dict[str, tuple[str, ...]] = {
+    "gold": ("gold", "golds", "طلا"),
+    "currency": ("currency", "currencies", "ارز"),
+    "crypto": ("cryptocurrency", "cryptocurrencies", "crypto", "cryptos", "رمزارز"),
+}
+
+
+def _rows_of(v: object) -> list[dict]:
+    """هر مقدار → فهرستی از ردیف‌های dict (هر چیز دیگری دور ریخته می‌شود)."""
+    if isinstance(v, list):
+        return [r for r in v if isinstance(r, dict)]
+    return []
+
+
+def _split_prices(
+    payload: object,
+) -> tuple[list[MarketItemOut], list[MarketItemOut], list[MarketItemOut]]:
+    """خروجیِ Gold_Currency → (طلا، ارز، رمزارز). هر دو شکلِ ممکن را می‌فهمد.
+
+    چرا این تابع لازم شد: پیش‌تر کد فقط `isinstance(payload, list)` را می‌پذیرفت و
+    اگر پاسخ شیءِ بخش‌بندی‌شده بود آن را **بی‌صدا** به [] تبدیل می‌کرد — نه خطا،
+    نه پرچمِ stale. نتیجه‌اش صفحه‌ای بود که بدونِ هیچ توضیحی طلا و ارز را نشان
+    نمی‌داد، در حالی که بورس (از اندپوینتِ دیگری) سالم می‌آمد.
+
+    وقتی پاسخ بخش‌بندی‌شده باشد، خودِ کلیدِ بخش معتبرترین منبعِ دسته‌بندی است و
+    به حدسِ نام/نماد ترجیح داده می‌شود. `_is_crypto` فقط داخلِ بخشِ «ارز» اجرا
+    می‌شود تا اگر بالادست رمزارز را همان‌جا ریخته بود بیرون کشیده شود.
+    """
+    # شکلِ ۱ — فهرستِ تخت: دسته‌بندی از روی نام/نماد
+    if isinstance(payload, list):
+        gold: list[MarketItemOut] = []
+        currency: list[MarketItemOut] = []
+        crypto: list[MarketItemOut] = []
+        for r in _rows_of(payload):
+            item = _map_item(r)
+            if _is_crypto(str(r.get("name") or ""), item.symbol):
+                crypto.append(item)
+            elif _is_gold(str(r.get("name") or "")):
+                gold.append(item)
+            else:
+                currency.append(item)
+        return gold, currency, crypto
+
+    # شکلِ ۲ — شیءِ بخش‌بندی‌شده: کلیدِ بخش حرفِ آخر را می‌زند
+    if isinstance(payload, dict):
+        found: dict[str, list[MarketItemOut]] = {"gold": [], "currency": [], "crypto": []}
+        hit = False
+        for bucket, keys in _SECTION_KEYS.items():
+            for k in keys:
+                if k in payload:
+                    hit = True
+                    found[bucket].extend(_map_item(r) for r in _rows_of(payload[k]))
+                    break
+        if hit:
+            # رمزارزی که بالادست داخلِ «ارز» گذاشته باشد را جدا می‌کنیم
+            keep: list[MarketItemOut] = []
+            for it in found["currency"]:
+                (found["crypto"] if _is_crypto(it.name, it.symbol) else keep).append(it)
+            found["currency"] = keep
+            return found["gold"], found["currency"], found["crypto"]
+
+    # شکلِ ناشناخته — عمداً بلند خطا می‌دهیم. سکوت همان اشکالی بود که ساعت‌ها
+    # وقت برد؛ کلیدهای واقعی در پیام می‌آیند تا تشخیص فوری باشد.
+    shape = (
+        f"کلیدها: {sorted(payload)[:8]}"
+        if isinstance(payload, dict)
+        else f"نوع: {type(payload).__name__}"
+    )
+    raise AppError("SERVER", f"شکلِ پاسخِ طلا/ارزِ BrsApi ناشناخته است — {shape}", 502)
+
+
 def _map_item(row: dict) -> MarketItemOut:
     return MarketItemOut(
         symbol=str(row.get("symbol") or ""),
@@ -355,21 +429,16 @@ def get_market_snapshot(settings: Settings | None = None) -> MarketSnapshotOut:
                     payload = _upstream_payload(
                         _fetch(f"{_BASE}/Market/Gold_Currency.php", cfg.brsapi_key)
                     )
-                    rows = payload if isinstance(payload, list) else []
-                    for r in rows:
-                        if not isinstance(r, dict):
-                            continue
-                        name = str(r.get("name") or "")
-                        item = _map_item(r)
-                        if _is_crypto(name, item.symbol):
-                            crypto.append(item)
-                        elif _is_gold(name):
-                            gold.append(item)
-                        else:
-                            currency.append(item)
+                    gold, currency, crypto = _split_prices(payload)
+                    if not gold and not currency and not crypto:
+                        raise AppError("SERVER", "طلا/ارزِ BrsApi خالی برگشت.", 502)
                     with _lock:
                         _prices_cache = _Entry((gold, currency, crypto))
                 except AppError:
+                    # کشِ قبلی بهتر از هیچ است، ولی باید «قدیمی» علامت بخورد.
+                    # اگر کشی هم نباشد سه فهرست خالی می‌مانند و گاردِ پایین‌تر
+                    # خطا را به کاربر می‌رساند.
+                    gold, currency, crypto = [], [], []
                     if _prices_cache is not None:
                         gold, currency, crypto = _unpack_prices(_prices_cache.data)
                         stale = True
