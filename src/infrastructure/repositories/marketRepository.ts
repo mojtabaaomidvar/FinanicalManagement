@@ -42,6 +42,8 @@ type SnapshotRow = {
   stale: boolean;
   gold: ItemRow[];
   currency: ItemRow[];
+  /** اختیاری: سرورِ قدیمی‌تر این فیلد را نمی‌فرستد */
+  crypto?: ItemRow[];
   bourse: BourseRow | null;
 };
 
@@ -129,6 +131,7 @@ export class RestMarketRepository implements MarketRepository {
       stale: r.stale,
       gold: (r.gold ?? []).map(mapItem),
       currency: (r.currency ?? []).map(mapItem),
+      crypto: (r.crypto ?? []).map(mapItem),
       bourse: r.bourse ? mapBourse(r.bourse) : null,
     };
   }

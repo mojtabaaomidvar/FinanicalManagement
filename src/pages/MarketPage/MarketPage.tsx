@@ -1,8 +1,12 @@
-/* صفحه بازار — شاخص بورس + جست‌وجوی تک‌سهم + قیمت لحظه‌ای طلا و ارز.
+/* صفحه بازار — شاخص بورس + جست‌وجوی تک‌سهم + قیمت لحظه‌ای طلا، ارز و رمزارز.
 
    داده با هوکِ مشترکِ features/market می‌آید (همان که زیرنویسِ کاشیِ هاب را
    می‌سازد)؛ refresh کشِ کلاینت را دور می‌زند، سرور تا ۵ دقیقه کش می‌کند.
    تغییرِ قیمت‌ها با رنگ/علامت نشان داده می‌شود (مثبت = سبزِ اکسنت، منفی = قرمز).
+
+   چیدمان: هر بخش یک کارتِ مستقل با سرِ کارت (آیکون + عنوان + شمارنده) است.
+   پیش‌تر همه‌ی بخش‌ها در یک اسکرولِ پیوسته بودند و مرزشان گم می‌شد؛ کارت‌بندی
+   مرزها را صریح می‌کند و شمارنده پیش از باز کردن می‌گوید داخلش چه‌قدر است.
 
    جست‌وجوی سهم: فیلتر روی سرور انجام می‌شود (چند هزار نماد به گوشی نمی‌آید) و
    قیمتِ برگشتی همان لحظه‌ای است که سرور فهرست را گرفته — ساعتش صریح نمایش
@@ -78,31 +82,80 @@ export function MarketPage() {
           <>
             {data.bourse ? <BourseCard b={data.bourse} /> : null}
 
-            <StockSearchSection />
+            <StockSearchCard />
 
-            {data.currency.length ? (
-              <section className="market-section">
-                <h2 className="market-h2">ارز</h2>
-                <div className="market-list">
-                  {data.currency.map((it) => (
-                    <PriceRow key={it.symbol} it={it} />
-                  ))}
-                </div>
-              </section>
-            ) : null}
-
-            {data.gold.length ? (
-              <section className="market-section">
-                <h2 className="market-h2">طلا و سکه</h2>
-                <div className="market-list">
-                  {data.gold.map((it) => (
-                    <PriceRow key={it.symbol} it={it} />
-                  ))}
-                </div>
-              </section>
-            ) : null}
+            <PriceCard
+              title="ارز"
+              icon="i-swap"
+              tone="sky"
+              items={data.currency}
+            />
+            <PriceCard
+              title="طلا و سکه"
+              icon="i-crown"
+              tone="amber"
+              items={data.gold}
+            />
+            <PriceCard
+              title="رمزارز"
+              icon="i-grid4"
+              tone="violet"
+              items={data.crypto}
+            />
           </>
         ) : null}
+      </div>
+    </section>
+  );
+}
+
+/* سرِ کارت — آیکونِ رنگی + عنوان + شمارنده‌ی اختیاری.
+   مشترکِ همه‌ی بخش‌هاست تا وزنِ بصری‌شان یکی بماند. */
+function CardHead({
+  title,
+  icon,
+  tone,
+  count,
+}: {
+  title: string;
+  icon: string;
+  tone: string;
+  count?: number;
+}) {
+  return (
+    <div className="market-card-head">
+      <span className={`market-card-icon is-${tone}`} aria-hidden="true">
+        <Icon name={icon} size={16} />
+      </span>
+      <h2 className="market-card-title">{title}</h2>
+      {count !== undefined ? (
+        <span className="market-card-count">{toFa(String(count))}</span>
+      ) : null}
+    </div>
+  );
+}
+
+/* کارتِ یک دسته قیمت (ارز / طلا / رمزارز).
+   اگر دسته خالی باشد کارت اصلاً رندر نمی‌شود — کارتِ خالی فقط نویز است. */
+function PriceCard({
+  title,
+  icon,
+  tone,
+  items,
+}: {
+  title: string;
+  icon: string;
+  tone: string;
+  items: MarketItem[];
+}) {
+  if (!items.length) return null;
+  return (
+    <section className="market-card">
+      <CardHead title={title} icon={icon} tone={tone} count={items.length} />
+      <div className="market-list">
+        {items.map((it) => (
+          <PriceRow key={it.symbol} it={it} />
+        ))}
       </div>
     </section>
   );
@@ -112,48 +165,49 @@ export function MarketPage() {
 function BourseCard({ b }: { b: BourseIndex }) {
   const tone = changeTone(b.indexChange);
   return (
-    <div className="market-bourse">
-      <div className="market-bourse-head">
-        <div>
-          <p className="market-bourse-label">شاخص کل بورس تهران</p>
-          <b className="market-bourse-index" dir="ltr">
-            {formatAmount(b.index)}
-          </b>
-        </div>
-        <span
-          className={`market-change is-${tone}`}
-          dir="ltr"
-        >
-          {formatSigned(b.indexChange)} ({formatSignedPercent(b.indexChangePercent)})
-        </span>
-      </div>
+    <section className="market-card">
+      <CardHead title="بورس تهران" icon="i-chart" tone="rose" />
 
-      <div className="market-bourse-grid">
-        <div>
-          <span>شاخص هم‌وزن</span>
-          <b dir="ltr">{formatAmount(b.indexEqualWeight)}</b>
-          <small className={`market-change is-${changeTone(b.indexEqualWeightChange)}`} dir="ltr">
-            {formatSignedPercent(b.indexEqualWeightChange)}
-          </small>
+      <div className="market-bourse">
+        <div className="market-bourse-head">
+          <div>
+            <p className="market-bourse-label">شاخص کل</p>
+            <b className="market-bourse-index" dir="ltr">
+              {formatAmount(b.index)}
+            </b>
+          </div>
+          <span className={`market-change is-${tone}`} dir="ltr">
+            {formatSigned(b.indexChange)} ({formatSignedPercent(b.indexChangePercent)})
+          </span>
         </div>
-        <div>
-          <span>ارزش بازار</span>
-          <b dir="ltr">{formatAmount(toHemat(b.marketValue))} همت</b>
-        </div>
-        <div>
-          <span>ارزش معاملات</span>
-          <b dir="ltr">{formatAmount(toHemat(b.tradesValue))} همت</b>
-        </div>
-        <div>
-          <span>حجم معاملات</span>
-          <b>{formatCompact(b.tradesVolume)} سهم</b>
-        </div>
-      </div>
 
-      <p className="market-bourse-meta">
-        وضعیت بازار: {b.state || "—"} · {toFa(b.date)}
-      </p>
-    </div>
+        <div className="market-bourse-grid">
+          <div>
+            <span>شاخص هم‌وزن</span>
+            <b dir="ltr">{formatAmount(b.indexEqualWeight)}</b>
+            <small className={`market-change is-${changeTone(b.indexEqualWeightChange)}`} dir="ltr">
+              {formatSignedPercent(b.indexEqualWeightChange)}
+            </small>
+          </div>
+          <div>
+            <span>ارزش بازار</span>
+            <b dir="ltr">{formatAmount(toHemat(b.marketValue))} همت</b>
+          </div>
+          <div>
+            <span>ارزش معاملات</span>
+            <b dir="ltr">{formatAmount(toHemat(b.tradesValue))} همت</b>
+          </div>
+          <div>
+            <span>حجم معاملات</span>
+            <b>{formatCompact(b.tradesVolume)} سهم</b>
+          </div>
+        </div>
+
+        <p className="market-bourse-meta">
+          وضعیت بازار: {b.state || "—"} · {toFa(b.date)}
+        </p>
+      </div>
+    </section>
   );
 }
 
@@ -177,15 +231,15 @@ function PriceRow({ it }: { it: MarketItem }) {
 }
 
 /* جست‌وجوی تک‌سهم — تایپ کن، سرور فیلتر می‌کند */
-function StockSearchSection() {
+function StockSearchCard() {
   const { query, setQuery, data, error, loading, clear, minChars } = useStockSearch();
   const [openSymbol, setOpenSymbol] = useState<string | null>(null);
   const typed = query.trim().length;
   const clock = data ? formatClock(data.fetchedAt) : "";
 
   return (
-    <section className="market-section">
-      <h2 className="market-h2">جست‌وجوی سهم</h2>
+    <section className="market-card">
+      <CardHead title="جست‌وجوی سهم" icon="i-search" tone="indigo" />
 
       <div className="market-search">
         <span className="market-search-icon" aria-hidden="true">

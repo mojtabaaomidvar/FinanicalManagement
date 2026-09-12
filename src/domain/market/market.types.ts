@@ -31,6 +31,8 @@ export type MarketSnapshot = {
   stale: boolean;
   gold: MarketItem[];
   currency: MarketItem[];
+  /** رمزارز — از همان فراخوانیِ طلا/ارز می‌آید، سرور تفکیکش می‌کند */
+  crypto: MarketItem[];
   bourse: BourseIndex | null;
 };
 

@@ -6779,34 +6779,115 @@ button.set-row:active {
   cursor: default;
 }
 
-/* بخش‌های صفحه‌ی بازار — ستونی با فاصله‌ی ثابت.
-   بدون این قاعده، فرزندها بلاکِ ساده بودند و margin منفیِ .market-h2
-   کارت را روی عنوان می‌کشید (زیرِ حروفِ فارسی بریده می‌شد). */
-.market-section {
+/* بازنشسته (۲۰۲۶-۰۹-۱۲): .market-section و .market-h2 — چیدمانِ قبلی که عنوان
+   بیرونِ کارت می‌نشست. جایشان .market-card / .market-card-head آمد تا هر بخش
+   یک کاشیِ مستقل باشد. در هیچ JSX استفاده نمی‌شوند؛ نگه داشته شده‌اند فقط برای
+   اینکه اگر جایی از قالبِ قدیمی مانده بود بی‌استایل نشود.
+.market-section { display: flex; flex-direction: column; gap: var(--sp-3); }
+.market-h2 { font-size: 13.5px; font-weight: 800; color: var(--text-2); }
+*/
+
+/* کاشیِ یک بخش — بورس، جست‌وجو، ارز، طلا، رمزارز همه همین قالب را دارند.
+   پدینگ و gap روی خودِ کارت است تا فرزندها (فهرست، جعبه‌ی جست‌وجو، گریدِ بورس)
+   هیچ‌کدام حاشیه‌ی خودشان را نسازند و مرزها دوتا نشود. */
+.market-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--sp-3);
   display: flex;
   flex-direction: column;
   gap: var(--sp-3);
 }
 
-.market-h2 {
+.market-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.market-card-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-md);
+}
+.market-card-title {
+  flex: 1;
+  min-width: 0;
   font-size: 13.5px;
   font-weight: 800;
-  color: var(--text-2);
+}
+/* شمارنده — پیش از اسکرول می‌گوید داخلِ کارت چند قلم است */
+.market-card-count {
+  flex: none;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-3);
+  background: var(--card-2);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-variant-numeric: tabular-nums;
 }
 
+/* آهنگ‌های رنگی آیکون. هر هشت توکن آمده — نه فقط پنج‌تای فعلی — چون کلاسِ
+   تعریف‌نشده در این پروژه بی‌صدا شکست می‌خورد و افزودنِ بخشِ تازه نباید
+   آیکونِ بی‌رنگ بدهد. */
+.market-card-icon.is-amber {
+  background: var(--t-amber-bg);
+  color: var(--t-amber-fg);
+}
+.market-card-icon.is-emerald {
+  background: var(--t-emerald-bg);
+  color: var(--t-emerald-fg);
+}
+.market-card-icon.is-indigo {
+  background: var(--t-indigo-bg);
+  color: var(--t-indigo-fg);
+}
+.market-card-icon.is-lime {
+  background: var(--t-lime-bg);
+  color: var(--t-lime-fg);
+}
+.market-card-icon.is-rose {
+  background: var(--t-rose-bg);
+  color: var(--t-rose-fg);
+}
+.market-card-icon.is-sky {
+  background: var(--t-sky-bg);
+  color: var(--t-sky-fg);
+}
+.market-card-icon.is-teal {
+  background: var(--t-teal-bg);
+  color: var(--t-teal-fg);
+}
+.market-card-icon.is-violet {
+  background: var(--t-violet-bg);
+  color: var(--t-violet-fg);
+}
+
+/* فهرست — همیشه داخلِ .market-card است، پس کارت و بوردر از خودش برداشته شد
+   (وگرنه کادر در کادر می‌شد). جداکننده‌ی ردیف‌ها کارِ .market-row است. */
 .market-list {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
+/* پدینگِ افقی صفر است چون خودِ .market-card پدینگ دارد؛ در نتیجه خطِ
+   جداکننده تا لبه‌ی داخلیِ کارت کشیده می‌شود و متن دوبار تو نمی‌رود. */
 .market-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-3);
-  padding: 11px var(--sp-3);
+  padding: 10px 0;
+}
+.market-row:first-child {
+  padding-top: 0;
+}
+.market-row:last-child {
+  padding-bottom: 0;
 }
 .market-row + .market-row {
   border-top: 1px solid var(--border);
@@ -6850,12 +6931,9 @@ button.set-row:active {
   color: var(--text-3);
 }
 
-/* کارت شاخص بورس */
+/* بدنه‌ی شاخص بورس — داخلِ .market-card می‌نشیند، پس خودش کارت/بوردر/پدینگ
+   ندارد (پیش‌تر داشت، چون بخشِ بی‌سرِ مستقل بود). */
 .market-bourse {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  padding: var(--sp-3);
   display: flex;
   flex-direction: column;
   gap: var(--sp-3);
@@ -6910,12 +6988,14 @@ button.set-row:active {
   color: var(--text-3);
 }
 
-/* جست‌وجوی تک‌سهم — جعبه‌ی جست‌وجو + ردیفِ بازشو */
+/* جست‌وجوی تک‌سهم — جعبه‌ی جست‌وجو + ردیفِ بازشو.
+   پس‌زمینه --card-2 است نه --card: جعبه داخلِ کارتِ سفید می‌نشیند و
+   سفید-روی-سفید دیده نمی‌شد. */
 .market-search {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  background: var(--card);
+  background: var(--card-2);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   padding: 0 10px;
@@ -6957,7 +7037,7 @@ button.set-row:active {
   height: 22px;
   border: 0;
   border-radius: 50%;
-  background: var(--card-2);
+  background: var(--card);
   color: var(--text-2);
   cursor: pointer;
 }
@@ -6967,7 +7047,6 @@ button.set-row:active {
   gap: 6px;
   font-size: 11.5px;
   color: var(--text-3);
-  padding: 2px 2px 0;
 }
 .market-search-hint.is-error {
   color: var(--danger);
@@ -6975,19 +7054,23 @@ button.set-row:active {
 .market-search-meta {
   font-size: 11px;
   color: var(--text-3);
-  padding: 2px 2px 0;
 }
 
+/* ردیفِ نتیجهٔ جست‌وجو — مثلِ .market-row داخلِ کارت است: بی‌کادر، با
+   جداکننده‌ی بالایی. پیش‌تر هرکدام کارتِ مستقل بودند که حالا کادر-در-کادر
+   می‌شد. حالتِ باز با پس‌زمینهٔ ملایم مشخص می‌شود نه با بوردر. */
 .market-stock {
-  background: var(--card);
-  border: 1px solid var(--border);
   border-radius: var(--r-md);
-  overflow: hidden;
+}
+.market-stock + .market-stock {
+  border-top: 1px solid var(--border);
 }
 .market-stock.is-open {
-  border-color: var(--border-strong);
+  background: var(--card-2);
 }
-/* کلِ سرِ ردیف دکمه است (قرارِ «لمسِ ردیف = باز/بسته»)، پس استایلِ دکمه صفر می‌شود */
+/* کلِ سرِ ردیف دکمه است (قرارِ «لمسِ ردیف = باز/بسته»)، پس استایلِ دکمه صفر می‌شود.
+   پدینگِ افقی ۸px است نه ۱۲: کارت خودش پدینگ دارد و پس‌زمینه‌ی حالتِ باز هم
+   باید کمی از لبه فاصله بگیرد. */
 .market-stock-head {
   display: flex;
   align-items: center;
@@ -6999,7 +7082,7 @@ button.set-row:active {
   color: inherit;
   font: inherit;
   text-align: start;
-  padding: 10px 12px;
+  padding: 10px 8px;
   cursor: pointer;
 }
 .market-stock-id {
@@ -7023,13 +7106,13 @@ button.set-row:active {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--sp-2);
-  padding: 0 12px 12px;
+  padding: 0 8px 10px;
 }
 .market-stock-detail > div {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  background: var(--card-2);
+  background: var(--card);
   border-radius: 10px;
   padding: 7px 9px;
 }

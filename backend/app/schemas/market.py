@@ -47,6 +47,10 @@ class MarketSnapshotOut(BaseModel):
     stale: bool                # true = بالادست خطا داد و نسخهٔ کشِ قدیمی برگشت
     gold: list[MarketItemOut]
     currency: list[MarketItemOut]
+    # رمزارز — تا پیش از این از خروجی حذف می‌شد. پیش‌فرضِ [] عمدی است تا
+    # کلاینتِ قدیمی‌تر (که این فیلد را نمی‌شناسد) نشکند و سرورِ قدیمی‌تر هم
+    # بتواند بدونِ آن پاسخ بدهد.
+    crypto: list[MarketItemOut] = []
     bourse: BourseOut | None   # None = شاخص هنوز دریافت نشده/خطا داشت
 
 

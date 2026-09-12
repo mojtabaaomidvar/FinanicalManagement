@@ -1,9 +1,13 @@
-"""سرویس بازار — پروکسیِ کش‌شدهٔ BrsApi (قیمت طلا/ارز + شاخص بورس + جست‌وجوی سهم).
+"""سرویس بازار — پروکسیِ کش‌شدهٔ BrsApi (قیمت طلا/ارز/رمزارز + شاخص بورس + جست‌وجوی سهم).
 
 چرا از بک‌اند و نه مستقیم از کلاینت: کلیدِ API نباید در باندلِ PWA لو برود و
 محدودیتِ CORS هم پیش نمی‌آید. کشِ سرور-سمتی با TTL (پیش‌فرض ۵ دقیقه) سقفِ
 پلنِ رایگان BrsApi (۱۵۰۰ درخواست/روز برای طلا/ارز و ۱۰۰۰ برای شاخص) را با
 خیال راحت نگه می‌دارد؛ بدترین حالت ~۲۸۸ درخواست/روز است.
+
+سه دستهٔ قیمت از یک فراخوانیِ Gold_Currency می‌آیند و همان‌جا تفکیک می‌شوند:
+طلا/سکه، ارز، و رمزارز. رمزارز تا ۲۰۲۶-۰۹-۱۲ دور ریخته می‌شد؛ حالا دستهٔ
+سومِ خروجی است (هزینهٔ اضافه ندارد، چون داده در همان پاسخ بود).
 
 خطای بالادست: اگر کشِ منقضی‌شده‌ای باشد، همان با stale=true برگردانده می‌شود
 (کاربر قیمتِ کمی قدیمی می‌بیند، نه خطا). فقط وقتی هیچ داده‌ای در کار نیست
@@ -54,12 +58,23 @@ _USER_AGENT = (
 )
 _ACCEPT = "application/json, text/plain, */*"
 
-# نام‌های رمزارز از فهرستِ رسمیِ BrsApi — خروجیِ رایگانِ Gold_Currency آن‌ها را هم
-# برمی‌گرداند؛ خواستهٔ محصول فقط ارز/طلا/بورس است، پس کنار گذاشته می‌شوند.
+# نام‌های رمزارز از فهرستِ رسمیِ BrsApi. تا پیش از این این‌ها دور ریخته
+# می‌شدند؛ حالا دستهٔ سومِ خروجی‌اند (خواستهٔ محصول، ۲۰۲۶-۰۹-۱۲).
 _CRYPTO_NAMES = {
     "بیتکوین", "اتریوم", "ایکسآرپی", "تتر", "بیانبی", "سولانا", "یواسدی کوین",
     "کاردانو", "دوجکوین", "ترون", "چینلینک", "استلار", "آوالانچ", "شیبا اینو",
     "لایتکوین", "پولکادات", "یونیسواپ", "فایلکوین", "کازماس", "پالیگان",
+}
+
+# تورِ ایمنیِ رمزارز. فهرستِ بالا دستی است و BrsApi هر وقت سکهٔ تازه‌ای اضافه
+# کند در آن نیست؛ تا دیروز بی‌اهمیت بود (همه‌چیزِ ناشناخته در «ارز» می‌افتاد و
+# دیده نمی‌شد) ولی حالا که رمزارز بخشِ جداست، یک سکهٔ جدید اشتباهاً کنارِ دلار
+# می‌نشیند. پس نمادِ لاتین را هم می‌سنجیم: نمادهای رمزارز در خروجیِ BrsApi
+# لاتین‌اند (BTC, ETH…) در حالی که ارز/طلا نمادِ فارسی یا کدِ ارزی دارند.
+_CRYPTO_SYMBOLS = {
+    "BTC", "ETH", "XRP", "USDT", "BNB", "SOL", "USDC", "ADA", "DOGE", "TRX",
+    "LINK", "XLM", "AVAX", "SHIB", "LTC", "DOT", "UNI", "FIL", "ATOM", "MATIC",
+    "TON", "BCH", "NEAR", "APT", "ARB", "OP", "PEPE", "SUI", "ICP", "ETC",
 }
 
 _FA_DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٫،٬", "0123456789..,")
@@ -101,9 +116,12 @@ def _norm_search(s: str) -> str:
     )
 
 
-def _is_crypto(name: str) -> bool:
+def _is_crypto(name: str, symbol: str = "") -> bool:
+    """رمزارز است؟ اول نامِ فارسی، بعد نمادِ لاتین (تورِ ایمنیِ سکه‌های تازه)."""
     n = _norm(name)
-    return any(n == _norm(c) for c in _CRYPTO_NAMES)
+    if any(n == _norm(c) for c in _CRYPTO_NAMES):
+        return True
+    return (symbol or "").strip().upper() in _CRYPTO_SYMBOLS
 
 
 def _is_gold(name: str) -> bool:
@@ -266,9 +284,24 @@ class _Entry:
         self.data = data
 
 
-_prices_cache: _Entry | None = None   # (gold, currency)
+_prices_cache: _Entry | None = None   # (gold, currency, crypto)
 _bourse_cache: _Entry | None = None
 _symbols_cache: _Entry | None = None  # list[StockOut] — فهرستِ کاملِ نمادها
+
+
+def _unpack_prices(data: object) -> tuple[list[MarketItemOut], list[MarketItemOut], list[MarketItemOut]]:
+    """کشِ قیمت‌ها را باز می‌کند و شکلِ دوتاییِ قدیمی را هم تحمل می‌کند.
+
+    چرا: پیش از افزودنِ رمزارز، کش تاپلِ (gold, currency) بود. اگر پروسه‌ای
+    با کشِ گرمِ دوتایی این کد را اجرا کند، unpackِ سه‌تایی ValueError می‌دهد و
+    صفحهٔ بازار می‌ترکد. این تابع هر دو شکل را می‌پذیرد.
+    """
+    if isinstance(data, tuple):
+        if len(data) == 3:
+            return data  # type: ignore[return-value]
+        if len(data) == 2:
+            return data[0], data[1], []
+    return [], [], []
 
 # قفلِ نوشتنِ کش. عمداً قفلِ جدا برای هر بخش نداریم: نوشتن‌ها کوتاه‌اند.
 _lock = threading.Lock()
@@ -305,17 +338,18 @@ def get_market_snapshot(settings: Settings | None = None) -> MarketSnapshotOut:
     global _prices_cache, _bourse_cache
     stale = False
 
-    # ── طلا/ارز ──
+    # ── طلا/ارز/رمزارز ──
     gold: list[MarketItemOut] = []
     currency: list[MarketItemOut] = []
+    crypto: list[MarketItemOut] = []
     if _fresh(_prices_cache, ttl):
-        gold, currency = _prices_cache.data  # type: ignore[assignment,misc]
+        gold, currency, crypto = _unpack_prices(_prices_cache.data)  # type: ignore[union-attr]
     else:
         # فقط یک thread می‌رود بالادست؛ بقیه پشتِ قفل می‌مانند و بعد از آزاد شدن
         # کشِ تازه‌ای که همان نفر نوشته را برمی‌دارند (دوباره _fresh را می‌سنجیم).
         with _fetch_locks["prices"]:
             if _fresh(_prices_cache, ttl):
-                gold, currency = _prices_cache.data  # type: ignore[assignment,misc]
+                gold, currency, crypto = _unpack_prices(_prices_cache.data)  # type: ignore[union-attr]
             else:
                 try:
                     payload = _upstream_payload(
@@ -326,15 +360,18 @@ def get_market_snapshot(settings: Settings | None = None) -> MarketSnapshotOut:
                         if not isinstance(r, dict):
                             continue
                         name = str(r.get("name") or "")
-                        if _is_crypto(name):
-                            continue
                         item = _map_item(r)
-                        (gold if _is_gold(name) else currency).append(item)
+                        if _is_crypto(name, item.symbol):
+                            crypto.append(item)
+                        elif _is_gold(name):
+                            gold.append(item)
+                        else:
+                            currency.append(item)
                     with _lock:
-                        _prices_cache = _Entry((gold, currency))
+                        _prices_cache = _Entry((gold, currency, crypto))
                 except AppError:
                     if _prices_cache is not None:
-                        gold, currency = _prices_cache.data  # type: ignore[assignment,misc]
+                        gold, currency, crypto = _unpack_prices(_prices_cache.data)
                         stale = True
 
     # ── شاخص بورس ──
@@ -367,7 +404,7 @@ def get_market_snapshot(settings: Settings | None = None) -> MarketSnapshotOut:
                     else:
                         stale = True
 
-    if not gold and not currency and bourse is None:
+    if not gold and not currency and not crypto and bourse is None:
         raise AppError("SERVER", "داده‌ای از بازار در دسترس نیست — بعداً دوباره تلاش کنید.", 502)
 
     # زمانِ نمایشی = *قدیمی‌ترین* بخشِ موجود، نه تازه‌ترین.
@@ -381,6 +418,7 @@ def get_market_snapshot(settings: Settings | None = None) -> MarketSnapshotOut:
         stale=stale,
         gold=gold,
         currency=currency,
+        crypto=crypto,
         bourse=bourse,
     )
 
