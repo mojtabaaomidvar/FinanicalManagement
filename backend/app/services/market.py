@@ -612,3 +612,133 @@ def search_stocks(
         total=len(scored),
         results=[s for _, s in scored[:top]],
     )
+
+
+# ── قیمت‌گذاریِ دارایی‌های کاربر ─────────────────────────────
+# سرویسِ holdings مقدارِ کاربر را دارد و قیمتِ امروز را از این‌جا می‌گیرد.
+# عمداً هیچ درخواستِ تازه‌ای به بالادست اضافه نمی‌کند: همان دو کشی که
+# اسنپ‌شات و جست‌وجو از آن می‌خوانند این‌جا هم استفاده می‌شوند.
+
+
+def price_key(kind: str, symbol: str, name: str = "") -> str:
+    """کلیدِ یکتا برایِ نگاشتِ قیمت.
+
+    عمومی است چون سرویسِ holdings هم برای جست‌وجو در نگاشت به آن نیاز دارد؛
+    اگر خصوصی می‌ماند، دو تعریفِ موازی از «کلید» می‌داشتیم که بی‌صدا از هم
+    جدا می‌افتادند.
+
+    kind در کلید هست چون نام‌ها بینِ دسته‌ها تکراری‌اند («طلا» هم در فلزات هست
+    هم می‌تواند نامِ نمادی در بورس باشد)؛ بدونِ kind یک هم‌نامیِ اتفاقی قیمتِ
+    دستهٔ دیگر را برمی‌گرداند و کاربر عددِ بی‌ربط می‌بیند.
+    """
+    return f"{kind}:{_norm_search(symbol or name)}"
+
+
+# واحدهای پولی‌ای که مستقیم به تومان تبدیل می‌شوند.
+_FIAT_TOMAN = {"تومان": 1.0, "ریال": 0.1}
+
+
+def _usd_toman(items: list[MarketItemOut]) -> float:
+    """نرخِ دلار به تومان از همان اسنپ‌شاتِ ارز — ۰ یعنی پیدا نشد.
+
+    بعضی ردیف‌های بالادست (به‌ویژه رمزارز) قیمتِ دلاری می‌دهند و بدونِ این نرخ
+    نمی‌شود آن‌ها را با بقیه جمع زد. هیچ درخواستِ تازه‌ای اضافه نمی‌کند چون
+    اسنپ‌شات هر سه سبد را با هم می‌آورد.
+    """
+    row = next((i for i in items if _norm_search(i.name) == _norm_search("دلار آمریکا")), None)
+    if row is None:
+        row = next((i for i in items if "دلار" in _norm_search(i.name)), None)
+    if row is None or row.price <= 0:
+        return 0.0
+    # واحدِ خودِ دلار فقط ریال/تومان است؛ عمداً بازگشتی حل نمی‌شود.
+    n = _norm_search(row.unit)
+    return row.price * _FIAT_TOMAN.get(n, 1.0 if not n else 0.0)
+
+
+def _to_toman(price: float, unit: str, usd_rate: float) -> float:
+    """قیمتِ یک قلم را به تومان برمی‌گرداند؛ خروجیِ ۰ یعنی «واحد را نمی‌شناسیم».
+
+    صفرِ برگشتی عمدی است: سرویسِ holdings همین حالا هم قیمتِ ≤۰ را
+    priced=false می‌گیرد، پس ردیفِ با واحدِ ناشناخته به‌جای آلوده‌کردنِ جمع،
+    «قیمت ندارد» نشان داده می‌شود — همان الگویِ fail-closed بقیهٔ این فایل.
+    """
+    if price <= 0:
+        return 0.0
+    n = _norm_search(unit)
+    if not n:
+        # نبودِ واحد را تومان می‌گیریم: هم واحدِ پایهٔ خودِ اپ است هم پیش‌فرضِ
+        # بالادست. این ردیف‌ها پیش‌تر هم عملاً تومان فرض می‌شدند.
+        return price
+    if n in _FIAT_TOMAN:
+        return price * _FIAT_TOMAN[n]
+    if "دلار" in n or n in ("usd", "$"):
+        return price * usd_rate if usd_rate > 0 else 0.0
+    return 0.0
+
+
+def price_lookup(
+    kinds: set[str],
+    settings: Settings | None = None,
+) -> tuple[dict[str, tuple[float, str]], bool]:
+    """نگاشتِ «کلید → (قیمتِ تومانی، واحد)» + پرچمِ کهنگی.
+
+    قیمت همیشه به **تومان** یکسان‌سازی می‌شود و واحدِ برگشتی هم همیشه «تومان»
+    است. این عمدی است: بالادست سهم را به ریال، طلا/ارز را به تومان و گاهی
+    رمزارز را به دلار می‌دهد، و سرویسِ holdings این عددها را در یک `total`
+    جمع می‌زند. بدونِ یکسان‌سازی، سبدی که هم سهم داشت هم سکه، جمعِ بی‌معنایی
+    می‌ساخت که برایِ بخشِ سهمش ۱۰ برابر بود.
+
+    فقط دسته‌هایی که کاربر واقعاً دارایی‌شان را دارد بار می‌شوند: اگر کسی هیچ
+    سهمی ندارد، فهرستِ چندهزارتاییِ نمادها اصلاً گرفته نمی‌شود.
+
+    هر قلم با دو کلید ثبت می‌شود (نماد و نام) چون بالادست برای بعضی ردیف‌های
+    طلا/سکه نمادِ خالی می‌فرستد و تنها چیزِ پایدار نام است؛ کلاینت هم ممکن است
+    هرکدام را ذخیره کرده باشد.
+
+    خطای بالادست این‌جا بلعیده نمی‌شود اما کشنده هم نیست: اگر داده‌ای نبود
+    نگاشتِ خالی برمی‌گردد و سرویسِ holdings ردیف‌ها را priced=false علامت
+    می‌زند — یعنی کاربر فهرستِ دارایی‌هایش را می‌بیند، فقط بدونِ عددِ ارزش.
+    """
+    cfg = settings or get_settings()
+    index: dict[str, tuple[float, str]] = {}
+    stale = False
+
+    spot = kinds & {"gold", "currency", "crypto"}
+    if spot:
+        try:
+            snap = get_market_snapshot(cfg)
+            stale = stale or snap.stale
+            # از سبدِ ارز خوانده می‌شود حتی وقتی کاربر ارزی ندارد: اسنپ‌شات
+            # هر سه سبد را یک‌جا می‌آورد، پس هزینهٔ اضافه‌ای ندارد.
+            usd = _usd_toman(snap.currency)
+            buckets = {"gold": snap.gold, "currency": snap.currency, "crypto": snap.crypto}
+            for kind in spot:
+                for it in buckets[kind]:
+                    toman = _to_toman(it.price, it.unit, usd)
+                    for key in (
+                        price_key(kind, it.symbol),
+                        price_key(kind, "", it.name),
+                    ):
+                        # نمادِ خالی کلیدِ «kind:» می‌سازد که به هر ردیفِ بی‌نام
+                        # می‌خورد؛ چنین کلیدی را نمی‌پذیریم.
+                        if key.split(":", 1)[1]:
+                            index.setdefault(key, (toman, "تومان"))
+        except AppError:
+            # بالادست در دسترس نیست — ردیف‌ها بی‌قیمت برمی‌گردند، نه خطا.
+            stale = True
+
+    if "stock" in kinds:
+        try:
+            stocks, _at, sym_stale = _load_symbols(cfg)
+            stale = stale or sym_stale
+            for s in stocks:
+                # قیمتِ سهم در بالادست ریال است (هم‌سان با UIِ جست‌وجو) و
+                # این‌جا به تومان تبدیل می‌شود تا با بقیهٔ سبد جمع‌پذیر باشد.
+                index.setdefault(
+                    price_key("stock", s.symbol),
+                    (_to_toman(s.price, "ریال", 0.0), "تومان"),
+                )
+        except AppError:
+            stale = True
+
+    return index, stale

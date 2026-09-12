@@ -15,6 +15,7 @@ import { SupabaseCustomCategoryRepository } from "./customCategoryRepository";
 import { SupabaseEventRepository } from "./eventRepository";
 import { SupabaseCategoryBudgetRepository } from "./categoryBudgetRepository";
 import { RestMarketRepository } from "./marketRepository";
+import { RestHoldingRepository } from "./holdingRepository";
 import type { SecureStorage } from "@/infrastructure/storage/secureStorage.adapter";
 
 export interface Repositories {
@@ -29,6 +30,7 @@ export interface Repositories {
   events: SupabaseEventRepository;
   categoryBudgets: SupabaseCategoryBudgetRepository;
   market: RestMarketRepository;
+  holdings: RestHoldingRepository;
 }
 
 export interface Container {
@@ -63,6 +65,7 @@ export function getContainer(): Promise<Container> {
           events: new SupabaseEventRepository(client),
           categoryBudgets: new SupabaseCategoryBudgetRepository(client),
           market: new RestMarketRepository(client),
+          holdings: new RestHoldingRepository(client),
         },
       };
     })();

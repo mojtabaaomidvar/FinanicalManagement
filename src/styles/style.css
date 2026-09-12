@@ -2423,10 +2423,22 @@ button:active {
 }
 
 /* کیف‌پول‌ها */
+/* بازنشسته — چیدمانِ دوستونیِ قبلیِ کیف‌پول‌ها؛ جایگزینش .wallet-flat است.
+   حذف نشد چون قاعدهٔ این پروژه «بازنشسته‌کردن با توضیح» است نه پاک‌کردن.
+   اگر تصمیم گرفتید کیف‌پول‌ها دوباره دوستونه شوند، این‌جا آماده است. */
 .wallet-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 10px;
+}
+/* فهرستِ تک‌ستونیِ کیف‌پول‌ها. قبلاً کلاسِ JSX «wallet-flat» بود ولی در CSS
+   فقط «wallet-grid» تعریف شده بود، یعنی این قاعده اصلاً اعمال نمی‌شد و
+   کارت‌ها بدون فاصله به‌هم می‌چسبیدند — کلاسِ تعریف‌نشده در این پروژه
+   بی‌صدا شکست می‌خورد. */
+.wallet-flat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 .wallet-card {
   position: relative;
@@ -6779,6 +6791,168 @@ button.set-row:active {
   cursor: default;
 }
 
+/* ── شبکه‌ی چهار کاشی (صفحه‌ی اصلیِ بازار) ──────────────────
+   دو ستون، هم‌وزنِ شبکه‌ی هاب تا کاربر حسِ «همان سیستم» را داشته باشد.
+   ارتفاعِ کمینه از کاشیِ هاب بیشتر است چون این کاشی سه طبقه دارد:
+   عنوان، قیمتِ شاخص، و نوارِ پایین (درصد + تعداد). */
+.market-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--sp-3);
+}
+.market-tile {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  min-height: 132px;
+  padding: var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--card);
+  text-align: start;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    transform var(--dur-fast) ease,
+    border-color var(--dur-fast) ease;
+}
+.market-tile:active {
+  transform: scale(0.975);
+  border-color: var(--border-strong);
+}
+/* دسته‌ی بی‌داده — دیده می‌شود ولی صراحتاً غیرفعال است، چون کاشیِ
+   ناپیدا کاربر را سردرگم می‌کند («طلا کجا رفت؟»). */
+.market-tile.is-empty {
+  cursor: default;
+  background: transparent;
+  border-style: dashed;
+}
+.market-tile.is-empty .market-tile-title {
+  color: var(--text-3);
+}
+.market-tile.is-empty .market-tile-ic {
+  opacity: 0.6;
+}
+.market-tile-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.market-tile-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.5;
+}
+.market-tile-ic {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-md);
+  background: var(--card-2);
+  color: var(--text-2);
+}
+.market-tile-ic.is-amber {
+  background: var(--t-amber-bg);
+  color: var(--t-amber-fg);
+}
+.market-tile-ic.is-emerald {
+  background: var(--t-emerald-bg);
+  color: var(--t-emerald-fg);
+}
+.market-tile-ic.is-indigo {
+  background: var(--t-indigo-bg);
+  color: var(--t-indigo-fg);
+}
+.market-tile-ic.is-lime {
+  background: var(--t-lime-bg);
+  color: var(--t-lime-fg);
+}
+.market-tile-ic.is-rose {
+  background: var(--t-rose-bg);
+  color: var(--t-rose-fg);
+}
+.market-tile-ic.is-sky {
+  background: var(--t-sky-bg);
+  color: var(--t-sky-fg);
+}
+.market-tile-ic.is-teal {
+  background: var(--t-teal-bg);
+  color: var(--t-teal-fg);
+}
+.market-tile-ic.is-violet {
+  background: var(--t-violet-bg);
+  color: var(--t-violet-fg);
+}
+.market-tile-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+/* نامِ موردِ شاخص — یک خط، وگرنه «طلای ۱۸ عیار / ۷۵۰» کاشی را می‌کشد */
+.market-tile-label {
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.market-tile-value {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.market-tile-value small {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3);
+  margin-inline-start: 3px;
+}
+.market-tile-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.market-tile-count {
+  font-size: 10.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.market-tile-sub {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+/* سرِ زیرصفحه — دکمه‌ی بازگشت کنارِ عنوان.
+   flex:1 لازم است تا دکمه‌ی کنش (به‌روزرسانی) به لبه‌ی دیگر برود. */
+.market-sub-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 340px) {
+  .market-tile {
+    min-height: 120px;
+    padding: var(--sp-3);
+  }
+  .market-tile-value {
+    font-size: 14px;
+  }
+}
+
 /* بازنشسته (۲۰۲۶-۰۹-۱۲): .market-section و .market-h2 — چیدمانِ قبلی که عنوان
    بیرونِ کارت می‌نشست. جایشان .market-card / .market-card-head آمد تا هر بخش
    یک کاشیِ مستقل باشد. در هیچ JSX استفاده نمی‌شوند؛ نگه داشته شده‌اند فقط برای
@@ -7128,6 +7302,269 @@ button.set-row:active {
 }
 .market-stock-detail small {
   font-size: 10px;
+}
+
+/* ── افزودن دارایی از ردیفِ بازار ─────────────────────────────
+
+   ردیفِ قیمت حالا <button> است، نه <div>. مرورگر به دکمه پس‌زمینه،
+   حاشیه، فونتِ خودش و text-align: center می‌دهد؛ این‌ها همه باید صریح
+   خنثی شوند وگرنه ردیف‌ها ظاهرشان با قبل فرق می‌کند. چیدمانِ
+   flex/justify-content از همان .market-row بالا می‌آید و دست‌نخورده است. */
+
+button.market-row {
+  width: 100%;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  /* padding و چیدمانِ flex عمداً این‌جا تکرار نشده‌اند: قاعده‌ی .market-row
+     بالاتر همه‌شان را می‌دهد و استایلِ نویسنده همیشه بر پیش‌فرضِ مرورگر
+     می‌چربد، پس ردیف دقیقاً همان ابعادِ قبلی را دارد. */
+}
+button.market-row:active {
+  background: var(--bg);
+}
+
+/* نامِ ردیف حالا می‌تواند نشانِ «دارید» را زیرِ خودش بگیرد */
+.market-row-name {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+/* نشانِ مالکیت — کم‌رنگ‌تر از نام تا فهرست شلوغ به‌نظر نرسد */
+.market-row-held {
+  align-self: flex-start;
+  padding: 1px 6px;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font-size: 10.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* راهنمای بالای فهرست — یک‌بار می‌گوید ردیف‌ها قابلِ لمس‌اند */
+.market-pick-hint {
+  margin: 0 0 var(--sp-2);
+  color: var(--text-3);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+/* دکمه‌ی صریحِ افزودن در جزئیاتِ سهم — چون لمسِ خودِ ردیف «باز/بسته» است */
+.market-stock-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  width: 100%;
+  margin-top: var(--sp-3);
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.market-stock-add:active {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+/* سرِ مودالِ افزودن — نام و قیمتِ همان ردیفی که کاربر زده */
+.hold-target {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--bg);
+}
+.hold-target-name {
+  font-size: 14px;
+  font-weight: 800;
+}
+.hold-target-price {
+  font-size: 14px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.hold-target-price small {
+  margin-inline-start: 4px;
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 600;
+}
+/* حالتِ «قیمت نداریم» — عمداً کم‌رنگ و بدونِ tabular-nums چون عدد نیست */
+.hold-target-price.is-muted {
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* پیش‌نمایشِ ارزشِ امروز — هیچ‌وقت ذخیره نمی‌شود، فقط اطمینانِ کاربر */
+.hold-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-top: var(--sp-2);
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.hold-preview b {
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.hold-preview small {
+  margin-inline-start: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+/* ── گروهِ «دارایی‌ها» در صفحهٔ حساب‌ها ──────────────────────
+   ردیفِ تک‌سطری (برخلافِ کیف‌پولِ دوستونه) چون نامِ نماد می‌تواند بلند
+   باشد («تتر»، «سکهٔ امامی طرح جدید») و شکستنش به دو ستون، نام را
+   زودتر به «…» می‌رساند. */
+.hold-flat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.hold-card {
+  position: relative;
+  padding: 10px 12px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  background: var(--card-soft);
+  /* جا برای دکمهٔ حذف که مطلق در گوشه می‌نشیند */
+  padding-inline-end: 42px;
+}
+.hold-card.tappable:active {
+  border-color: var(--accent);
+}
+.hold-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hold-ic {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-md);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+/* همان هشت آهنگِ رنگیِ کاشی‌های بازار. هر هشت توکن آمده — نه فقط
+   چهارتای فعلی — چون کلاسِ تعریف‌نشده بی‌صدا شکست می‌خورد و افزودنِ
+   دستهٔ تازه نباید آیکونِ بی‌رنگ بدهد. */
+.hold-ic.is-amber {
+  background: var(--t-amber-bg);
+  color: var(--t-amber-fg);
+}
+.hold-ic.is-emerald {
+  background: var(--t-emerald-bg);
+  color: var(--t-emerald-fg);
+}
+.hold-ic.is-indigo {
+  background: var(--t-indigo-bg);
+  color: var(--t-indigo-fg);
+}
+.hold-ic.is-lime {
+  background: var(--t-lime-bg);
+  color: var(--t-lime-fg);
+}
+.hold-ic.is-rose {
+  background: var(--t-rose-bg);
+  color: var(--t-rose-fg);
+}
+.hold-ic.is-sky {
+  background: var(--t-sky-bg);
+  color: var(--t-sky-fg);
+}
+.hold-ic.is-teal {
+  background: var(--t-teal-bg);
+  color: var(--t-teal-fg);
+}
+.hold-ic.is-violet {
+  background: var(--t-violet-bg);
+  color: var(--t-violet-fg);
+}
+/* min-width:0 لازم است وگرنه آیتمِ فلکس کوچک‌تر از متنش نمی‌شود و
+   ellipsis هرگز فعال نمی‌شود (عرضِ پیش‌فرضِ فلکس = min-content). */
+.hold-title {
+  flex: 1;
+  min-width: 0;
+}
+.hold-title b {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hold-title p {
+  font-size: 10.5px;
+  color: var(--text-3);
+}
+.hold-value {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  flex: none;
+}
+.hold-value b {
+  font-size: 14px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.hold-value span {
+  font-size: 10px;
+  color: var(--text-3);
+}
+/* «قیمت ندارد» عمداً عدد نیست: صفرِ ارزش با «نمادش پیدا نشد» فرق دارد
+   و نمایشِ «۰ تومان» کاربر را به اشتباه می‌انداخت. */
+.hold-noprice {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--warn);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+/* مثل کیف‌پول، دکمهٔ حذف بالا-گوشه و کوچک */
+.hold-card .account-actions {
+  position: absolute;
+  top: 50%;
+  bottom: auto;
+  transform: translateY(-50%);
+  inset-inline-end: 8px;
+}
+.hold-card .account-actions .icon-btn {
+  width: 26px;
+  height: 26px;
+}
+.hold-card .account-actions .icon-btn svg {
+  width: 13px;
+  height: 13px;
 }
 
 /* ═══════════════════════════════════════════════════════════

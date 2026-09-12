@@ -3,11 +3,20 @@
    عیناً همین کامپوننت رندر می‌شود، پس نمایش هر دو همیشه یکسان است. */
 
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
-import { Card } from "@/shared/ui";
+import { useState } from "react";
+import { Card, Icon } from "@/shared/ui";
 import { maskCardNumber } from "@/domain/account/account.rules";
 import type { Account } from "@/domain/account/account.types";
 import { formatAmount } from "@/shared/lib/format";
+import { toFa } from "@/shared/lib/digits";
 import { toDisplay } from "@/shared/lib/currency";
+import { AddHoldingModal } from "@/features/holdings";
+import {
+  KIND_LABEL,
+  KIND_UNIT,
+  formatQuantity,
+} from "@/domain/holding/holding.rules";
+import type { Holding, HoldingKind } from "@/domain/holding/holding.types";
 import type { AccountsModel } from "../model/useAccountsModel";
 import { WALLET_PRESETS } from "../model/useAccountsModel";
 import { AccountFormFeature } from "./AccountFormFeature";
@@ -112,6 +121,160 @@ function RowActions({ acc, m }: { acc: Account; m: AccountsModel }) {
         </svg>
       </button>
     </div>
+  );
+}
+
+/** ظاهرِ هر دستهٔ دارایی — عمداً همان آیکون/رنگِ کاشی‌های صفحهٔ «ارز و بورس»
+    است تا کاربر همان قلمی را که آن‌جا زده، این‌جا با همان نشانه بشناسد. */
+const KIND_FACE: Record<HoldingKind, { icon: string; tone: string }> = {
+  stock: { icon: "i-chart", tone: "rose" },
+  gold: { icon: "i-crown", tone: "amber" },
+  currency: { icon: "i-swap", tone: "sky" },
+  crypto: { icon: "i-grid4", tone: "violet" },
+};
+
+/** گروهِ سومِ صفحه — دارایی‌های بازاری (طلا/ارز/رمزارز/سهم).
+
+    چرا جدا از حساب‌ها و کیف‌پول‌ها؟ آن‌ها مبلغِ ثابت دارند و این‌ها مقدار؛
+    ارزششان هر روز عوض می‌شود و ردیفِ «۲ سکه» با ردیفِ «۵۰۰٬۰۰۰ تومان نقد»
+    در یک فهرست، دو چیزِ ناهم‌جنس را هم‌جنس نشان می‌داد.
+
+    افزودن این‌جا نیست چون برای افزودن باید قیمتِ زندهٔ یک نماد را انتخاب
+    کرد؛ آن کار در صفحهٔ «ارز و بورس» انجام می‌شود. این‌جا فقط نمایش،
+    ویرایشِ مقدار و حذف است. */
+function HoldingsCard({ m }: { m: AccountsModel }) {
+  const h = m.holdings;
+  /* هدفِ ویرایش — از خودِ ردیف ساخته می‌شود، نه از ردیفِ بازار.
+     واحد عمداً «تومان» ثابت است: سرور قیمت را همیشه به تومان یکسان
+     می‌کند (holding.types را ببینید) و مودال قیمتِ خامِ همین ردیف را
+     نشان می‌دهد، نه عددِ تبدیل‌شده به واحدِ نمایشِ کاربر. */
+  const [editing, setEditing] = useState<Holding | null>(null);
+
+  const submit = async (quantity: number) => {
+    if (!editing) return;
+    const ok = await h.update({ id: editing.id, quantity });
+    if (ok) setEditing(null); // فقط در موفقیت می‌بندیم
+  };
+
+  const removeOne = async (x: Holding) => {
+    if (!confirm(`«${x.name}» از دارایی‌ها حذف شود؟`)) return;
+    await h.remove(x.id);
+  };
+
+  return (
+    <>
+      <Card title="دارایی‌ها">
+        {h.items.length ? (
+          <div className="hold-flat">
+            {h.items.map((x) => {
+              const face = KIND_FACE[x.kind];
+              return (
+                <div
+                  key={x.id}
+                  className="hold-card tappable"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`ویرایش ${x.name}`}
+                  onClick={() => {
+                    h.clearError();
+                    setEditing(x);
+                  }}
+                  onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
+                    if (e.target !== e.currentTarget) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      h.clearError();
+                      setEditing(x);
+                    }
+                  }}
+                >
+                  <div className="hold-head">
+                    <span className={`hold-ic is-${face.tone}`}>
+                      <Icon name={face.icon} size={18} />
+                    </span>
+                    <div className="hold-title">
+                      <b>{x.name}</b>
+                      <p>
+                        {KIND_LABEL[x.kind]} · {formatQuantity(x.quantity)}{" "}
+                        {KIND_UNIT[x.kind]}
+                      </p>
+                    </div>
+                    <div className="hold-value">
+                      {x.priced ? (
+                        <>
+                          <b>{formatAmount(toDisplay(x.value, m.cur))}</b>
+                          <span>{m.cur}</span>
+                        </>
+                      ) : (
+                        <span className="hold-noprice">قیمت ندارد</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="account-actions">
+                    <button
+                      className="icon-btn small danger"
+                      aria-label={`حذف ${x.name}`}
+                      onClick={(e) => {
+                        stop(e);
+                        void removeOne(x);
+                      }}
+                    >
+                      <svg>
+                        <use href="#i-trash" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : h.loading ? (
+          <p className="accounts-empty">در حال دریافت…</p>
+        ) : (
+          <p className="accounts-empty">
+            هنوز دارایی‌ای ثبت نشده — از «ارز و بورس» روی هر قیمت بزنید تا به
+            این فهرست اضافه شود
+          </p>
+        )}
+
+        {h.unpriced > 0 ? (
+          /* «جمعِ بالا» نمی‌گوییم: این کامپوننت در زیرصفحهٔ تنظیمات هم رندر
+             می‌شود و آن‌جا هیچ عددِ جمعی بالایش نیست. */
+          <p className="section-hint">
+            قیمتِ {toFa(String(h.unpriced))} مورد امروز در دسترس نبود، پس در
+            جمعِ دارایی‌ها حساب نشده‌اند.
+          </p>
+        ) : null}
+        {h.stale ? (
+          <p className="section-hint">قیمت‌ها از آخرین دادهٔ موجود است.</p>
+        ) : null}
+        {h.error ? <p className="field-error">{h.error}</p> : null}
+      </Card>
+
+      <AddHoldingModal
+        target={
+          editing
+            ? {
+                kind: editing.kind,
+                symbol: editing.symbol,
+                name: editing.name,
+                unit: "تومان",
+                price: editing.price,
+              }
+            : null
+        }
+        existingQuantity={editing?.quantity}
+        busy={h.busy}
+        error={h.error}
+        onClose={() => {
+          /* خطا هم پاک می‌شود وگرنه پس از «انصراف»، پیامِ شکستِ ذخیره
+             روی کارتِ پشتِ مودال باقی می‌ماند و بی‌ربط به نظر می‌رسد. */
+          h.clearError();
+          setEditing(null);
+        }}
+        onSubmit={(q) => void submit(q)}
+      />
+    </>
   );
 }
 
@@ -235,6 +398,8 @@ export function AccountsFeature({ m }: { m: AccountsModel }) {
           </div>
         )}
       </Card>
+
+      <HoldingsCard m={m} />
 
       <AccountFormFeature m={m} />
     </>

@@ -27,7 +27,9 @@ export function TextInput(props: {
   type?: string;
   dir?: "ltr" | "rtl";
   autoComplete?: string;
-  inputMode?: "text" | "tel" | "numeric";
+  /* decimal برای مقدارِ اعشاری (دارایی): numeric در موبایل کیبوردِ
+     بدونِ جداکنندهٔ اعشار می‌دهد و «۲٫۵ گرم» اصلاً قابلِ تایپ نمی‌شد. */
+  inputMode?: "text" | "tel" | "numeric" | "decimal";
   className?: string;
   autoFocus?: boolean;
   maxLength?: number;

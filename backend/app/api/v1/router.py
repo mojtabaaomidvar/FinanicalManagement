@@ -19,6 +19,7 @@ from app.api.v1.routes import (
     events,
     files,
     health,
+    holdings,
     market,
     members,
     sms,
@@ -36,6 +37,8 @@ api_router.include_router(accounts.router)
 api_router.include_router(categories.router)
 api_router.include_router(sms.router)
 api_router.include_router(events.router)
+# ── دارایی‌های بازاری — دادهٔ خانواده (RLS)، ولی قیمتش از سرویسِ بازار می‌آید ──
+api_router.include_router(holdings.router)
 # ── هویتی (فاز ۷) — بیرون از RLS: get_current_member/require_owner ──
 api_router.include_router(members.router)
 # ── بازار (BrsApi) — هویتی، دادهٔ عمومیِ بازار؛ کش/کلید در سرویسِ market ──

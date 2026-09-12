@@ -24,6 +24,7 @@ if TYPE_CHECKING:  # فقط تایپ؛ وابستگی زمان‌اجرا به �
     from app.models.account import Account
     from app.models.category import CategoryBudget, CustomCategory, Subcategory
     from app.models.event import FamilyEvent
+    from app.models.holding import Holding
     from app.models.messaging import SmsBridge, SmsMessage
     from app.models.transaction import Transaction, TransactionPhoto
 
@@ -466,3 +467,95 @@ class CurrencyUpdate(BaseModel):
 
 class RelationUpdate(BaseModel):
     relation: str | None = None
+
+
+# ── دارایی‌های بازاری ────────────────────────────────────────
+class HoldingCreate(BaseModel):
+    """افزودن دارایی — کاربر «مقدار» می‌دهد، نه مبلغ.
+
+    symbol/name/unit از همان ردیفِ قیمتی می‌آید که کاربر رویش زده، پس کلاینت
+    آن‌ها را عیناً پس می‌فرستد؛ سرور دوباره اعتبارسنجی می‌کند.
+    """
+
+    kind: str | None = None       # gold | currency | crypto | stock
+    symbol: str | None = None
+    name: str | None = None
+    unit: str | None = None
+    quantity: Decimal | None = None
+
+
+class HoldingUpdate(BaseModel):
+    """فقط مقدار ویرایش می‌شود؛ نوع و نماد تغییرناپذیرند.
+
+    اگر کاربر بخواهد دارایی دیگری ثبت کند ردیفِ تازه می‌سازد — تغییرِ نماد یعنی
+    ردیف دیگر معنایِ قبلی‌اش را ندارد و تاریخچه‌اش گمراه‌کننده می‌شود.
+    """
+
+    quantity: Decimal | None = None
+
+
+class HoldingOut(BaseModel):
+    """یک دارایی به‌همراهِ ارزشِ امروزش.
+
+    price/value عمداً «ذخیره‌شده» نیستند؛ هر بار از قیمتِ روز حساب می‌شوند.
+    priced=false یعنی نمادِ این ردیف در دادهٔ امروزِ بازار پیدا نشد (حذف/تغییرِ
+    نام در بالادست یا خطای موقت). در آن حالت value صفر است ولی این «صفر» با
+    «ارزشِ صفر» فرق دارد — کلاینت باید به‌جای عدد، هشدار نشان دهد. برای همین
+    پرچمِ صریح داریم و صفرِ خاموش برنمی‌گردانیم.
+    """
+
+    id: str
+    family_id: str
+    member_id: str
+    kind: str
+    symbol: str
+    name: str
+    unit: str
+    quantity: Decimal
+    created_at: datetime
+    price: float          # قیمتِ واحد در آخرین اسنپ‌شات
+    value: float          # quantity × price
+    priced: bool          # false = قیمتِ امروز پیدا نشد
+
+    @field_serializer("quantity")
+    def _ser_quantity(self, v: Decimal) -> float:
+        return float(v)
+
+    @classmethod
+    def of(
+        cls, h: Holding, price: float, priced: bool, unit: str | None = None
+    ) -> HoldingOut:
+        """unit از قیمتِ زنده می‌آید و فقط اگر نبود به عکسِ ذخیره‌شده برمی‌گردیم.
+
+        اگر همیشه واحدِ ذخیره‌شده را نشان می‌دادیم، تغییرِ واحد در بالادست
+        (مثلاً تومان → ریال) عددِ تازه را کنارِ برچسبِ کهنه می‌گذاشت — یعنی
+        دقیقاً همان دادهٔ بی‌صدا کهنه‌ای که این طراحی برای حذفش ساخته شده.
+        """
+        return cls(
+            id=_uuid(h.id),
+            family_id=_uuid(h.family_id),
+            member_id=_uuid(h.member_id),
+            kind=h.kind,
+            symbol=h.symbol,
+            name=h.name,
+            unit=unit if unit else h.unit,
+            quantity=h.quantity,
+            created_at=h.created_at,
+            price=price,
+            value=float(h.quantity) * price if priced else 0.0,
+            priced=priced,
+        )
+
+
+class HoldingListOut(BaseModel):
+    """فهرستِ دارایی‌ها + جمعِ ارزش.
+
+    total فقط ردیف‌هایِ قیمت‌خورده را جمع می‌زند؛ پس اگر نمادی قیمت نداشت،
+    جمع کم‌تر از واقعیت است نه غلط. unpriced تعدادشان را می‌گوید تا کلاینت
+    بتواند بگوید «۱ مورد قیمت ندارد» به‌جای نمایشِ جمعِ گمراه‌کننده.
+    """
+
+    items: list[HoldingOut]
+    total: float
+    unpriced: int
+    stale: bool           # true = قیمت‌ها از کشِ قدیمی آمده‌اند

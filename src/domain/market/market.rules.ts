@@ -66,3 +66,50 @@ export function findDollar(items: MarketItem[]): MarketItem | null {
     null
   );
 }
+
+/* ── یکسان‌سازیِ واحدِ قیمت به تومان ───────────────────────────
+
+   چرا این‌جا لازم است؟ اسنپ‌شاتِ بازار واحدِ *خام*ِ بالادست را می‌دهد
+   (رمزارز اغلب «دلار»، سهم «ریال»، طلا/ارز «تومان»)، ولی ارزشِ دارایی که
+   سرور برمی‌گرداند همیشه تومان است. اگر پیش‌نمایشِ «ارزشِ امروز» را از
+   قیمتِ خام می‌ساختیم، کاربر در مودال یک عدد می‌دید و یک لحظه بعد در
+   «دارایی‌ها» عددِ دیگری — برایِ سهم دقیقاً ۱۰ برابر.
+
+   این‌ها عمداً آینهٔ _FIAT_TOMAN/_to_toman در backend/app/services/market.py
+   هستند. هر تغییری آن‌جا باید این‌جا هم بیاید، وگرنه همان اختلاف برمی‌گردد. */
+
+const FIAT_TOMAN: Record<string, number> = { تومان: 1, ریال: 0.1 };
+
+/* حرف‌های هم‌شکلِ عربی → فارسی + حذفِ فاصله/نیم‌فاصله + حروفِ کوچک.
+   بدونِ این، «ريال» با یایِ عربی ناشناخته می‌ماند و قیمت حذف می‌شد. */
+function normUnit(s: string): string {
+  return (s || "")
+    .replace(/ي/g, "ی")
+    .replace(/ك/g, "ک")
+    .replace(/[ـ‌\s]/g, "")
+    .toLowerCase();
+}
+
+/** نرخِ دلار به تومان از همان فهرستِ ارز — ۰ یعنی پیدا نشد.
+    عمداً بازگشتی حل نمی‌شود: واحدِ خودِ دلار فقط ریال/تومان است. */
+export function usdToman(currency: MarketItem[]): number {
+  const row = findDollar(currency);
+  if (!row || row.price <= 0) return 0;
+  const n = normUnit(row.unit);
+  if (!n) return row.price;
+  return row.price * (FIAT_TOMAN[n] ?? 0);
+}
+
+/** قیمتِ یک قلم → تومان. خروجیِ ۰ یعنی «واحد را نمی‌شناسیم» و UI باید
+    به‌جای عددِ غلط، هیچ عددی نشان ندهد (همان رفتارِ priced=false سرور).
+    واحدِ خالی عمداً تومان فرض می‌شود: واحدِ پیش‌فرضِ بالادست همان است. */
+export function toToman(price: number, unit: string, usdRate: number): number {
+  if (!Number.isFinite(price) || price <= 0) return 0;
+  const n = normUnit(unit);
+  if (!n) return price;
+  if (n in FIAT_TOMAN) return price * FIAT_TOMAN[n];
+  if (n.includes("دلار") || n === "usd" || n === "$") {
+    return usdRate > 0 ? price * usdRate : 0;
+  }
+  return 0;
+}

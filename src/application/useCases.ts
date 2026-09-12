@@ -86,6 +86,12 @@ import {
   GetMarketSnapshotUseCase,
   SearchStocksUseCase,
 } from "./market/market.usecases";
+import {
+  AddHoldingUseCase,
+  DeleteHoldingUseCase,
+  ListHoldingsUseCase,
+  UpdateHoldingUseCase,
+} from "./holding/holding.usecases";
 
 export interface UseCases {
   getPublicConfig: GetPublicConfigUseCase;
@@ -164,6 +170,11 @@ export interface UseCases {
 
   getMarketSnapshot: GetMarketSnapshotUseCase;
   searchStocks: SearchStocksUseCase;
+
+  listHoldings: ListHoldingsUseCase;
+  addHolding: AddHoldingUseCase;
+  updateHolding: UpdateHoldingUseCase;
+  deleteHolding: DeleteHoldingUseCase;
 }
 
 export function createUseCases(c: Container): UseCases {
@@ -257,5 +268,10 @@ export function createUseCases(c: Container): UseCases {
 
     getMarketSnapshot: new GetMarketSnapshotUseCase(c.repos.market),
     searchStocks: new SearchStocksUseCase(c.repos.market),
+
+    listHoldings: new ListHoldingsUseCase(c.repos.holdings),
+    addHolding: new AddHoldingUseCase(c.repos.holdings),
+    updateHolding: new UpdateHoldingUseCase(c.repos.holdings),
+    deleteHolding: new DeleteHoldingUseCase(c.repos.holdings),
   };
 }

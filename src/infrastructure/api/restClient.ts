@@ -57,6 +57,13 @@ const REST_ERROR_MAP: { re: RegExp; code: AppErrorCode; msg: string }[] = [
   { re: /INVALID_INITIAL_BALANCE/, code: "INVALID_ACCOUNT", msg: "موجودی اولیه معتبر نیست" },
   { re: /INVALID_ACCOUNT_ID/, code: "INVALID_ACCOUNT", msg: "حساب انتخاب‌شده معتبر نیست" },
   { re: /BANK_MISMATCH/, code: "INVALID_ACCOUNT", msg: "شماره کارت با بانک انتخاب‌شده هم‌خوانی ندارد" },
+  // دارایی‌های بازاری. نامِ کدِ سرور عمداً INVALID_HOLDING_KIND است نه
+  // INVALID_KIND، چون کدِ دومی بالاتر به دامنهٔ «حساب» گرفته شده و mapError
+  // روی نخستین تطبیق برمی‌گردد؛ هم‌نامی یعنی پیامِ «نوع حساب…» برای دارایی.
+  { re: /INVALID_HOLDING_KIND/, code: "INVALID_HOLDING", msg: "نوع دارایی معتبر نیست" },
+  // INVALID_QUANTITY عمداً نگاشته نشده: سرور چهار پیامِ متفاوت می‌دهد (خالی،
+  // نامعتبر، صفر، بیش از حد) و نگاشتن همه به یک جملهٔ عمومی، دقیق‌ترین پیام را
+  // از کاربر می‌گیرد. بدونِ نگاشت، همان متنِ فارسیِ سرور با کدِ SERVER می‌رسد.
   { re: /CATEGORY_IN_USE/, code: "CATEGORY_IN_USE", msg: "این دسته در تراکنش‌های ثبت‌شده به‌کار رفته و حذف نمی‌شود" },
   { re: /IMAGE_TOO_LARGE/, code: "SERVER", msg: "حجم تصویر بیش از حد مجاز است" },
   { re: /INVALID_IMAGE/, code: "SERVER", msg: "تصویر انتخاب‌شده معتبر نیست" },

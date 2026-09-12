@@ -14,6 +14,7 @@ export type AppErrorCode =
   | "INVALID_MEMBER"
   | "INVALID_TX"
   | "INVALID_ACCOUNT"
+  | "INVALID_HOLDING"
   | "NOT_FOUND"
   | "FORBIDDEN"
   | "CATEGORY_IN_USE"

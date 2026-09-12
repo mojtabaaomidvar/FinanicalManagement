@@ -17,6 +17,7 @@ from app.models.auth import (
 from app.models.category import CategoryBudget, CustomCategory, Subcategory
 from app.models.event import FamilyEvent
 from app.models.family import Family, Member
+from app.models.holding import Holding
 from app.models.messaging import SmsBridge, SmsMessage
 from app.models.settings import AppSetting
 from app.models.transaction import Transaction, TransactionPhoto
@@ -41,4 +42,5 @@ __all__ = [
     "FamilyInvite",
     "FamilyEvent",
     "AppSetting",
+    "Holding",
 ]

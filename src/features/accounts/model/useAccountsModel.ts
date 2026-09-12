@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
+import { useHoldings } from "@/features/holdings";
 import { bankOfCard, cardMatchesBank } from "@/shared/lib/banks";
 import { digitsOf, formatCardFa } from "@/domain/account/account.rules";
 import type { Account, AccountKind } from "@/domain/account/account.types";
@@ -74,10 +75,32 @@ export function useAccountsModel() {
     return m;
   }, [balances]);
 
-  const totalWealth = useMemo(
+  /* جمعِ نقدِ حساب‌ها و کیف‌پول‌ها — همان چیزی که نمودارِ روند رسم می‌کند */
+  const cashWealth = useMemo(
     () => balances.reduce((s, b) => s + b.balance, 0),
     [balances],
   );
+
+  /* ارزشِ امروزِ دارایی‌های بازاری (طلا/ارز/رمزارز/سهم).
+     سرور همیشه تومان برمی‌گرداند، یعنی همان واحدِ پایه‌ی balance‌ها، پس
+     جمعشان مستقیم درست است و toDisplay یک‌بار روی حاصل اعمال می‌شود. */
+  const holdings = useHoldings();
+
+  /* ⚠️ ناسازگاریِ عمدی — عدد و نمودار از دو منبعِ متفاوت‌اند:
+
+     «دارایی کل» = نقد + ارزشِ امروزِ دارایی‌های بازاری
+     «نمودارِ روند» = فقط نقد (از روی تاریخچه‌ی تراکنش‌ها)
+
+     دلیل: از قیمت‌ها هیچ تاریخچه‌ای ذخیره نمی‌کنیم، فقط قیمتِ همین لحظه
+     را داریم. برای رسمِ نمودارِ درست باید می‌دانستیم دو ماهِ پیش سکه چند
+     بود؛ نداریم. تنها جایگزین‌ها این بود که قیمتِ امروز را به کلِ گذشته
+     تعمیم دهیم (نموداری بسازد که هرگز اتفاق نیفتاده) یا دارایی‌ها را از
+     عددِ کل هم بیرون بگذاریم (عددی که کاربر می‌داند غلط است). این گزینه
+     انتخابِ صریحِ کاربر بود: «در عدد بله، در نمودار نه».
+
+     پس اگر روزی نمودار با عددِ بالای همان کارت جور در نیامد، این باگ
+     نیست. با ذخیره‌ی اسنپ‌شاتِ روزانه‌ی قیمت می‌شود درستش کرد. */
+  const totalWealth = cashWealth + holdings.total;
 
   const banks = balances.filter((b) => b.account.kind !== "wallet");
   const wallets = balances.filter((b) => b.account.kind === "wallet");
@@ -265,7 +288,9 @@ export function useAccountsModel() {
     balances,
     banks,
     wallets,
+    cashWealth,
     totalWealth,
+    holdings,
     balanceOf,
     canEdit,
     /* نمایش شماره کارت */
