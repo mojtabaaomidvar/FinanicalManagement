@@ -12,6 +12,9 @@ import re
 _PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"(?i)(authorization:\s*bearer\s+)[A-Za-z0-9._\-]+"), r"\1***"),
     (re.compile(r"(?i)(api[_-]?key\"?\s*[:=]\s*\"?)[^\"\s,&]+"), r"\1***"),
+    # پارامترِ لختِ `key=` در کوئری‌استرینگ (مثلاً ?key=… در آدرسِ BrsApi).
+    # الگوی api_key بالا این را نمی‌گرفت و کلید کامل در لاگ می‌نشست.
+    (re.compile(r"(?i)([?&]key=)[^&\s\"]+"), r"\1***"),
     (re.compile(r"(?i)(password\"?\s*[:=]\s*\"?)[^\"\s,&]+"), r"\1***"),
     (re.compile(r"(?i)(token\"?\s*[:=]\s*\"?)[^\"\s,&]+"), r"\1***"),
     (re.compile(r"\b[a-fA-F0-9]{64}\b"), "***"),  # توکن/هش ۶۴ کاراکتری hex
@@ -46,3 +49,10 @@ def configure_logging(debug: bool = False) -> None:
     root.handlers.clear()
     root.addHandler(handler)
     root.setLevel(level)
+
+    # httpx در سطحِ INFO کلِ آدرسِ درخواست را لاگ می‌کند؛ برای فراخوانیِ BrsApi
+    # یعنی `?key=…` مستقیم روی دیسکِ سرور می‌نشیند. فیلترِ ردکشن آن را ماسک
+    # می‌کند، ولی اتکا به یک الگوی رشته‌ای برای یک راز شکننده است — پس خودِ
+    # لاگر هم به WARNING می‌رود (خطاها باقی می‌مانند، آدرس‌ها نه).
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)

@@ -44,6 +44,16 @@ _BASE = "https://api.brsapi.ir"
 # ۲×۶ + سرباری < ۱۵ می‌ماند، پس کاربر «خطای شبکه» نمی‌بیند.
 _TIMEOUT = httpx.Timeout(6.0)
 
+# عاملِ کاربرِ مرورگرمانند — الزامی، نه احتیاط. مستندِ خودِ BrsApi می‌گوید
+# یوزرایجنتِ کتابخانه‌های پایتون را «فایروال ۶جی» مسدود می‌کند، پس بدونِ این
+# هدر همهٔ فراخوان‌ها 403 Forbidden می‌شوند حتی با کلیدِ کاملاً معتبر.
+# رشتهٔ زیر و Accept، عیناً همان نمونهٔ رسمیِ مستندِ BrsApi است.
+_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 OPR/106.0.0.0"
+)
+_ACCEPT = "application/json, text/plain, */*"
+
 # نام‌های رمزارز از فهرستِ رسمیِ BrsApi — خروجیِ رایگانِ Gold_Currency آن‌ها را هم
 # برمی‌گرداند؛ خواستهٔ محصول فقط ارز/طلا/بورس است، پس کنار گذاشته می‌شوند.
 _CRYPTO_NAMES = {
@@ -212,15 +222,35 @@ def _map_stock(row: dict) -> StockOut:
     )
 
 
+def _scrub(text: str, key: str) -> str:
+    """کلید را از هر متنی که ممکن است لاگ یا به کاربر برگردد پاک می‌کند."""
+    return text.replace(key, "***") if key else text
+
+
 def _fetch(url: str, key: str, extra: dict | None = None) -> object:
     params = {"key": key}
     if extra:
         params.update(extra)
     try:
-        with httpx.Client(timeout=_TIMEOUT) as client:
+        # بدونِ این دو هدر، BrsApi با 403 پاسخ می‌دهد (فایروالِ ۶جی، UAِ پایتون).
+        headers = {"User-Agent": _USER_AGENT, "Accept": _ACCEPT}
+        with httpx.Client(timeout=_TIMEOUT, headers=headers) as client:
             res = client.get(url, params=params)
             res.raise_for_status()
             return res.json()
+    except httpx.HTTPStatusError as e:
+        # بدنهٔ پاسخ را نگه می‌داریم: BrsApi دلیلِ رد را همان‌جا می‌نویسد
+        # (کلیدِ باطل، اتمامِ سهمیه، پلنِ بدونِ دسترسی…). بدونِ این، خطا
+        # قابلِ عیب‌یابی نیست. کلید از متن پاک می‌شود.
+        body = _scrub((e.response.text or "").strip()[:200], key)
+        status = e.response.status_code
+        if status in (401, 403):
+            raise AppError(
+                "SERVER",
+                f"BrsApi دسترسی را رد کرد ({status}) — {body or 'بدونِ توضیح'}",
+                502,
+            ) from e
+        raise AppError("SERVER", f"خطای BrsApi ({status}) — {body or '—'}", 502) from e
     except httpx.HTTPError as e:
         raise AppError("SERVER", f"اتصال به BrsApi برقرار نشد — {type(e).__name__}", 502) from e
     except ValueError as e:  # بدنهٔ غیر-JSON (مثلاً صفحهٔ خطای HTML)

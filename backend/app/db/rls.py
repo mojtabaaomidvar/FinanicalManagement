@@ -31,8 +31,19 @@ def set_current_family(family_id: object) -> Token:
 
 
 def reset_current_family(token: Token) -> None:
-    """زمینه را به حالت قبل برمی‌گرداند (پایان درخواست) تا به درخواست بعدی نشت نکند."""
-    _current_family.reset(token)
+    """زمینه را به حالت قبل برمی‌گرداند (پایان درخواست) تا به درخواست بعدی نشت نکند.
+
+    چرا try/except: FastAPI وابستگیِ ژنراتورِ همگام را در threadpool اجرا می‌کند و
+    starlette زمینه را کپی می‌کند؛ گاه بخشِ finally در زمینه‌ای جدا از جایی که
+    توکن ساخته شد اجرا می‌شود و `reset` با «was created in a different Context»
+    استثنا می‌دهد. آن استثنا از وابستگی بالا می‌رفت و پاسخِ درخواست را خراب
+    می‌کرد. در آن حالت پاک‌کردنِ صریح (ست روی None) همان اثرِ ایمن را دارد:
+    زمینه به درخواستِ بعدی نشت نمی‌کند و RLS همچنان fail-closed می‌ماند.
+    """
+    try:
+        _current_family.reset(token)
+    except ValueError:
+        _current_family.set(None)
 
 
 def current_family() -> str | None:
