@@ -15,7 +15,7 @@ dependencies = [
   "bcrypt>=4.2",         # فقط برای تأیید هش‌های قدیمی bcrypt هنگام ارتقا
   "python-multipart>=0.0.12",
   "httpx>=0.27",         # فراخوانی ارائه‌دهندگان پیامک
-  "boto3>=1.35",         # ذخیره‌سازیِ آبجکتِ S3-compatible (فعال با env؛ فاز ۱۱)
+  "boto3>=1.35",         # ذخیره‌سازی آبجکت S3-compatible (فعال با env؛ فاز ۱۱)
 ]
 
 [project.optional-dependencies]

@@ -143,7 +143,7 @@ export function usePwaUpdate(): PwaUpdateState {
 
     /* reg.update() فقط دانلود را شروع می‌کند. اگر همین‌جا برگردیم، وقتی
        نسخه تازه هنوز در حال نصب است می‌گوییم «آخرین نسخه را دارید» —
-       که دقیقاً همان حسِ «آپدیت را نشناخت» را می‌دهد. پس تا پایان نصب
+       که دقیقاً همان حس «آپدیت را نشناخت» را می‌دهد. پس تا پایان نصب
        صبر می‌کنیم (با سقف زمانی تا روی شبکه کند گیر نکنیم). */
     const installing = reg.installing;
     if (!installing) return false;
@@ -184,7 +184,9 @@ const PwaUpdateCtx = createContext<PwaUpdateState | null>(null);
 
 export function PwaUpdateProvider({ children }: { children: ReactNode }) {
   const value = usePwaUpdate();
-  return <PwaUpdateCtx.Provider value={value}>{children}</PwaUpdateCtx.Provider>;
+  return (
+    <PwaUpdateCtx.Provider value={value}>{children}</PwaUpdateCtx.Provider>
+  );
 }
 
 export function usePwaUpdateState(): PwaUpdateState {

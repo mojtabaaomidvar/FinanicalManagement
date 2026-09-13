@@ -16,8 +16,8 @@ export function SmsBridgeCard() {
 
   useEffect(() => {
     let alive = true;
-    useCases
-      ?.getBridge.execute()
+    useCases?.getBridge
+      .execute()
       .then((b) => {
         if (alive) setToken(b?.token ?? null);
       })
@@ -31,7 +31,12 @@ export function SmsBridgeCard() {
   }, [useCases]);
 
   async function generate() {
-    if (token && !confirm("کلید قبلی بی‌درنگ باطل می‌شود و باید اپ فوروادر را با کلید جدید تنظیم کنید. ادامه؟")) {
+    if (
+      token &&
+      !confirm(
+        "کلید قبلی بی‌درنگ باطل می‌شود و باید اپ فوروادر را با کلید جدید تنظیم کنید. ادامه؟",
+      )
+    ) {
       return;
     }
     setBusy(true);
@@ -55,8 +60,8 @@ export function SmsBridgeCard() {
     }
   }
 
-  /* آدرسِ مطلقِ webhookِ سرور (بک‌اندِ اختصاصی). در اپ نیتیو location.origin همان
-     localhost است، پس absoluteApiUrl() آدرسِ واقعیِ سرور را می‌سازد. */
+  /* آدرس مطلق webhook سرور (بک‌اند اختصاصی). در اپ نیتیو location.origin همان
+     localhost است، پس absoluteApiUrl() آدرس واقعی سرور را می‌سازد. */
   const webhookUrl = `${absoluteApiUrl()}/sms/bridge-ingest`;
   const bodyTemplate = token
     ? `{"token":"${token}","text":"متن پیامک","sender":"شماره فرستنده"}`
@@ -124,21 +129,22 @@ export function SmsBridgeCard() {
             <summary>راهنمای نصب (۳ دقیقه)</summary>
             <ol>
               <li>
-                روی گوشی اندرویدی یکی از اپ‌های «SMS Forwarder» یا
-                «MacroDroid» یا «Tasker» را نصب کنید (کافه‌بازار/گوگل‌پلی).
+                روی گوشی اندرویدی یکی از اپ‌های «SMS Forwarder» یا «MacroDroid»
+                یا «Tasker» را نصب کنید (کافه‌بازار/گوگل‌پلی).
               </li>
               <li>
-                یک قانون جدید بسازید: <b>دریافت پیامک</b> ← <b>ارسال HTTP POST</b> به
-                «آدرس اتصال» بالا، با بدنه JSON بالا (جای «متن پیامک» و «شماره
-                فرستنده» متغیرهای پیامک اپ را بگذارید).
+                یک قانون جدید بسازید: <b>دریافت پیامک</b> ←{" "}
+                <b>ارسال HTTP POST</b> به «آدرس اتصال» بالا، با بدنه JSON بالا
+                (جای «متن پیامک» و «شماره فرستنده» متغیرهای پیامک اپ را
+                بگذارید).
               </li>
               <li>
                 برای ارسال فقط پیامک‌های بانکی، در فیلتر قانون، فرستنده را روی
                 شماره‌های بانک خودتان محدود کنید.
               </li>
               <li>
-                پیامک‌ها با وضعیت «ثبت‌نشده» در اپ ظاهر می‌شوند و هنگام باز
-                کردن اپ، یکی‌یکی برای ثبت پیشنهاد می‌شوند.
+                پیامک‌ها با وضعیت «ثبت‌نشده» در اپ ظاهر می‌شوند و هنگام باز کردن
+                اپ، یکی‌یکی برای ثبت پیشنهاد می‌شوند.
               </li>
             </ol>
           </details>

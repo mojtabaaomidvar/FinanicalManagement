@@ -1,37 +1,37 @@
 #!/usr/bin/env python3
-"""ایمپورتِ دادهٔ «فقط ضروری» از فایل‌های JSON به بک‌اندِ اختصاصی (فاز ۱۱).
+"""ایمپورت دادهٔ «فقط ضروری» از فایل‌های JSON به بک‌اند اختصاصی (فاز ۱۱).
 
-چرا این نسخه؟ در شبکهٔ ایران نصبِ psycopg روی لپ‌تاپ و اتصالِ مستقیم به Supabase دشوار بود.
-به‌جایش مسیرِ «بدونِ نصب» را می‌رویم:
+چرا این نسخه؟ در شبکهٔ ایران نصب psycopg روی لپ‌تاپ و اتصال مستقیم به Supabase دشوار بود.
+به‌جایش مسیر «بدون نصب» را می‌رویم:
 
-  ۱) روی لپ‌تاپ، export_supabase.mjs با fetchِ داخلیِ Node (بدونِ هیچ وابستگی) جدول‌های
+  ۱) روی لپ‌تاپ، export_supabase.mjs با fetch داخلی Node (بدون هیچ وابستگی) جدول‌های
      ضروری را از PostgREST سوپابیس می‌خواند و در migration/export/<table>.json می‌ریزد
-     (ستونِ national_id همان‌جا حذف می‌شود؛ روی دیسک نمی‌نشیند).
+     (ستون national_id همان‌جا حذف می‌شود؛ روی دیسک نمی‌نشیند).
   ۲) پوشهٔ export/ + همین اسکریپت به سرور scp می‌شود.
-  ۳) این اسکریپت «داخلِ کانتینرِ api» (که psycopg دارد) اجرا می‌شود و JSON را در
-     Postgresِ مقصد (سرویسِ db، از طریقِ DATABASE_URL خودِ کانتینر) بار می‌کند.
+  ۳) این اسکریپت «داخل کانتینر api» (که psycopg دارد) اجرا می‌شود و JSON را در
+     Postgres مقصد (سرویس db، از طریق DATABASE_URL خود کانتینر) بار می‌کند.
 
 قواعد دقیقاً هم‌سان با migrate_essentials.py:
-  • ستون‌های حمل‌شونده = «ستون‌های تارگت ∩ کلیدهای JSON» منهایِ EXCLUDE.
+  • ستون‌های حمل‌شونده = «ستون‌های تارگت ∩ کلیدهای JSON» منهای EXCLUDE.
   • national_id هرگز (در اکسپورت حذف شده؛ این‌جا هم safety-net).
   • members.avatar_url اجباراً NULL (فایل‌ها از صفر؛ لینک‌های قدیمی بی‌اعتبارند).
   • members باید password_hash و phone در JSON داشته باشد وگرنه توقف (ورود بدون آن‌ها می‌شکند).
-  • یک تراکنش، ترتیبِ کلیدِ خارجی، ON CONFLICT (pk) DO NOTHING، سپس راستی‌آزماییِ شمارش.
+  • یک تراکنش، ترتیب کلید خارجی، ON CONFLICT (pk) DO NOTHING، سپس راستی‌آزمایی شمارش.
 
-نوع‌آگاهی: چون مقادیر از JSON «رشته/عدد» می‌آیند، نوعِ هر ستونِ مقصد را از information_schema
+نوع‌آگاهی: چون مقادیر از JSON «رشته/عدد» می‌آیند، نوع هر ستون مقصد را از information_schema
 می‌خوانیم و صریحاً تبدیل می‌کنیم (uuid→UUID، timestamptz→datetime، numeric→Decimal، jsonb→Jsonb).
 
-ترتیبِ حیاتیِ RLS همان است:
+ترتیب حیاتی RLS همان است:
     alembic upgrade 0001  →  این اسکریپت  →  alembic upgrade head
 اگر RLS از قبل روی تارگت فعال باشد، اسکریپت با پیام متوقف می‌شود.
 
-اجرا (روی سرور، داخلِ کانتینر — رمز روی خطِ فرمان نمی‌آید؛ از DATABASE_URLِ .env خوانده می‌شود):
+اجرا (روی سرور، داخل کانتینر — رمز روی خط فرمان نمی‌آید؛ از DATABASE_URL .env خوانده می‌شود):
     cd /opt/khaneyar/backend/deploy
     docker compose run --rm -v /opt/khaneyar/backend/migration:/app/migration \
         api python /app/migration/import_essentials.py --dir /app/migration/export --dry-run
-    # سپس بدونِ --dry-run
+    # سپس بدون --dry-run
 
-اسرار هرگز چاپ نمی‌شوند؛ فقط نامِ جدول و شمارشِ ردیف.
+اسرار هرگز چاپ نمی‌شوند؛ فقط نام جدول و شمارش ردیف.
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ try:
     from psycopg.types.json import Jsonb
 except ModuleNotFoundError:  # pragma: no cover - راهنمای اجرا
     sys.stderr.write(
-        "psycopg (v3) نصب نیست. این اسکریپت باید «داخلِ کانتینرِ api» اجرا شود که psycopg دارد:\n"
+        "psycopg (v3) نصب نیست. این اسکریپت باید «داخل کانتینر api» اجرا شود که psycopg دارد:\n"
         "    cd /opt/khaneyar/backend/deploy\n"
         "    docker compose run --rm -v /opt/khaneyar/backend/migration:/app/migration \\\n"
         "        api python /app/migration/import_essentials.py --dir /app/migration/export\n"
@@ -60,9 +60,9 @@ except ModuleNotFoundError:  # pragma: no cover - راهنمای اجرا
     raise SystemExit(2)
 
 
-# ── پیکربندیِ ثابت (هم‌سان با migrate_essentials.py) ──────────────────────────
+# ── پیکربندی ثابت (هم‌سان با migrate_essentials.py) ──────────────────────────
 
-#: جدول‌های ضروری به ترتیبِ امنِ کلیدِ خارجی (والد پیش از فرزند).
+#: جدول‌های ضروری به ترتیب امن کلید خارجی (والد پیش از فرزند).
 ESSENTIAL_TABLES: tuple[str, ...] = (
     "families",          # ریشه
     "members",           # FK → families
@@ -72,12 +72,12 @@ ESSENTIAL_TABLES: tuple[str, ...] = (
     "category_budgets",  # FK → families
 )
 
-#: جدول‌های مرجعِ ساکن (نه دادهٔ کاربر). با --skip-reference می‌توان صرفِ نظر کرد.
+#: جدول‌های مرجع ساکن (نه دادهٔ کاربر). با --skip-reference می‌توان صرف نظر کرد.
 REFERENCE_TABLES: tuple[str, ...] = (
-    "card_bins",  # BIN شش‌رقمی → نامِ بانک (کلیدِ اصلی: bin)
+    "card_bins",  # BIN شش‌رقمی → نام بانک (کلید اصلی: bin)
 )
 
-#: ستونِ تشخیصِ تکرار برای ON CONFLICT (پیش‌فرض id؛ استثناها این‌جا).
+#: ستون تشخیص تکرار برای ON CONFLICT (پیش‌فرض id؛ استثناها این‌جا).
 CONFLICT_KEY: dict[str, str] = {"card_bins": "bin"}
 
 #: ستون‌هایی که هرگز منتقل نمی‌شوند (سراسری).
@@ -98,7 +98,7 @@ FRESH_TABLES: tuple[str, ...] = (
     "lookup_attempts", "family_invites",
 )
 
-#: جدول‌هایی از مجموعهٔ ضروری که در 0002 مشمولِ FORCE RLS می‌شوند (نگهبانِ ترتیب).
+#: جدول‌هایی از مجموعهٔ ضروری که در 0002 مشمول FORCE RLS می‌شوند (نگهبان ترتیب).
 RLS_GUARDED_ESSENTIALS: frozenset[str] = frozenset({
     "accounts", "subcategories", "custom_categories", "category_budgets",
 })
@@ -109,7 +109,7 @@ BATCH = 1000  # اندازهٔ دستهٔ درج
 # ── کمکی‌ها ──────────────────────────────────────────────────────────────────
 
 def normalize_url(url: str) -> str:
-    """URLِ سبکِ SQLAlchemy را به libpq استاندارد تبدیل می‌کند (psycopg پیشوندِ +driver را نمی‌فهمد)."""
+    """URL سبک SQLAlchemy را به libpq استاندارد تبدیل می‌کند (psycopg پیشوند +driver را نمی‌فهمد)."""
     if url.startswith("postgresql+"):
         url = "postgresql://" + url.split("://", 1)[1]
     elif url.startswith("postgres://"):
@@ -122,14 +122,14 @@ def get_target_url() -> str:
               or os.environ.get("DATABASE_URL") or "").strip()
     if not target:
         raise SystemExit(
-            "متغیرِ مقصد ست نشده: TARGET_DATABASE_URL (یا DATABASE_URL).\n"
-            "داخلِ کانتینرِ api این از .env می‌آید؛ اگر بیرون اجرا می‌کنی خودت ستش کن."
+            "متغیر مقصد ست نشده: TARGET_DATABASE_URL (یا DATABASE_URL).\n"
+            "داخل کانتینر api این از .env می‌آید؛ اگر بیرون اجرا می‌کنی خودت ستش کن."
         )
     return normalize_url(target)
 
 
 def table_columns(conn: "psycopg.Connection", table: str) -> list[tuple[str, str]]:
-    """(نام، نوعِ داده) ستون‌های جدول به ترتیبِ ordinal (از information_schema)."""
+    """(نام، نوع داده) ستون‌های جدول به ترتیب ordinal (از information_schema)."""
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -150,7 +150,7 @@ def count_rows(conn: "psycopg.Connection", table: str) -> int:
 
 
 def rls_forced_tables(conn: "psycopg.Connection", tables: Iterable[str]) -> list[str]:
-    """از میانِ tables، آن‌هایی که روی تارگت FORCE RLS دارند (نگهبانِ ترتیبِ فاز ۱۰)."""
+    """از میان tables، آن‌هایی که روی تارگت FORCE RLS دارند (نگهبان ترتیب فاز ۱۰)."""
     names = list(tables)
     with conn.cursor() as cur:
         cur.execute(
@@ -168,14 +168,14 @@ def rls_forced_tables(conn: "psycopg.Connection", tables: Iterable[str]) -> list
 
 
 def load_json_rows(dir_path: Path, table: str) -> list[dict] | None:
-    """فایلِ <table>.json را می‌خواند؛ اگر نبود None برمی‌گرداند (رد می‌شود)."""
+    """فایل <table>.json را می‌خواند؛ اگر نبود None برمی‌گرداند (رد می‌شود)."""
     fp = dir_path / f"{table}.json"
     if not fp.exists():
         return None
     with fp.open("r", encoding="utf-8") as f:
         data = json.load(f)
     if not isinstance(data, list):
-        raise SystemExit(f"فایلِ {fp.name} باید آرایهٔ JSON باشد (خروجیِ export_supabase.mjs).")
+        raise SystemExit(f"فایل {fp.name} باید آرایهٔ JSON باشد (خروجی export_supabase.mjs).")
     return data
 
 
@@ -187,15 +187,15 @@ def source_columns(rows: list[dict]) -> set[str]:
 
 
 def carry_columns(target_cols: list[str], source_cols: set[str]) -> list[str]:
-    """ستون‌های حمل‌شونده: در تارگت هست، در JSON هم هست، و در EXCLUDE نیست (ترتیبِ تارگت حفظ می‌شود)."""
+    """ستون‌های حمل‌شونده: در تارگت هست، در JSON هم هست، و در EXCLUDE نیست (ترتیب تارگت حفظ می‌شود)."""
     return [c for c in target_cols if c in source_cols and c not in EXCLUDE_COLUMNS]
 
 
 def adapt_value(table: str, col: str, value, data_type: str):
-    """مقدارِ خام از JSON را به نوعِ درستِ پایتونی برای ستونِ مقصد تبدیل می‌کند.
+    """مقدار خام از JSON را به نوع درست پایتونی برای ستون مقصد تبدیل می‌کند.
 
-    psycopg آبجکت‌های بومی (UUID/datetime/Decimal/Jsonb/bool/int/str) را با OIDِ درست
-    می‌فرستد؛ پس با تبدیلِ صریح، «رشته → uuid/timestamptz/numeric» بی‌ابهام درج می‌شود.
+    psycopg آبجکت‌های بومی (UUID/datetime/Decimal/Jsonb/bool/int/str) را با OID درست
+    می‌فرستد؛ پس با تبدیل صریح، «رشته → uuid/timestamptz/numeric» بی‌ابهام درج می‌شود.
     """
     if (table, col) in FORCE_NULL:
         return None
@@ -218,17 +218,17 @@ def adapt_value(table: str, col: str, value, data_type: str):
         return value if isinstance(value, Decimal) else Decimal(str(value))
     if data_type in ("json", "jsonb"):
         return Jsonb(value)
-    # text/varchar/char, integer/bigint/smallint, boolean, double precision, real → بدونِ تغییر
+    # text/varchar/char, integer/bigint/smallint, boolean, double precision, real → بدون تغییر
     return value
 
 
-# ── منطقِ اصلی ────────────────────────────────────────────────────────────────
+# ── منطق اصلی ────────────────────────────────────────────────────────────────
 
 def plan_table(tgt: "psycopg.Connection", dir_path: Path, table: str) -> dict:
-    """نقشهٔ ایمپورتِ یک جدول را می‌سازد و اعتبارسنجی می‌کند (بدونِ نوشتن)."""
+    """نقشهٔ ایمپورت یک جدول را می‌سازد و اعتبارسنجی می‌کند (بدون نوشتن)."""
     tcols = table_columns(tgt, table)
     if not tcols:
-        raise SystemExit(f"جدولِ تارگت وجود ندارد: {table} — آیا «alembic upgrade 0001» اجرا شده؟")
+        raise SystemExit(f"جدول تارگت وجود ندارد: {table} — آیا «alembic upgrade 0001» اجرا شده؟")
     target_names = [c[0] for c in tcols]
     target_type = {c[0]: c[1] for c in tcols}
 
@@ -244,14 +244,14 @@ def plan_table(tgt: "psycopg.Connection", dir_path: Path, table: str) -> dict:
     absent = sorted(required - src_cols)
     if rows and absent:
         raise SystemExit(
-            f"ستون‌های حیاتی در JSONِ «{table}» نیستند: {absent}. "
-            "بدونِ این‌ها ایمپورت متوقف شد (ورود می‌شکند)."
+            f"ستون‌های حیاتی در JSON «{table}» نیستند: {absent}. "
+            "بدون این‌ها ایمپورت متوقف شد (ورود می‌شکند)."
         )
 
     carry = carry_columns(target_names, src_cols)
     pk = CONFLICT_KEY.get(table, "id")
     if rows and pk not in carry:
-        raise SystemExit(f"کلیدِ «{pk}» برای «{table}» در JSON نیست؛ ایمپورت امن نیست.")
+        raise SystemExit(f"کلید «{pk}» برای «{table}» در JSON نیست؛ ایمپورت امن نیست.")
 
     return {
         "table": table,
@@ -266,7 +266,7 @@ def plan_table(tgt: "psycopg.Connection", dir_path: Path, table: str) -> dict:
 
 
 def copy_table(tgt: "psycopg.Connection", plan: dict) -> int:
-    """ردیف‌های یک جدول را با ستون‌های نقشه درج می‌کند. تعدادِ درج‌شده را برمی‌گرداند."""
+    """ردیف‌های یک جدول را با ستون‌های نقشه درج می‌کند. تعداد درج‌شده را برمی‌گرداند."""
     table, carry, rows = plan["table"], plan["carry"], plan["rows"]
     if plan["missing_source"] or not carry or not rows:
         return 0
@@ -297,15 +297,15 @@ def copy_table(tgt: "psycopg.Connection", plan: dict) -> int:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="ایمپورتِ دادهٔ «فقط ضروری» از JSON (فاز ۱۱).")
+    ap = argparse.ArgumentParser(description="ایمپورت دادهٔ «فقط ضروری» از JSON (فاز ۱۱).")
     ap.add_argument("--dir", required=True,
-                    help="پوشهٔ حاویِ <table>.json (خروجیِ export_supabase.mjs).")
+                    help="پوشهٔ حاوی <table>.json (خروجی export_supabase.mjs).")
     ap.add_argument("--dry-run", action="store_true",
                     help="فقط پیش‌نمایش و شمارش؛ هیچ نوشتنی روی تارگت انجام نمی‌شود.")
     ap.add_argument("--truncate", action="store_true",
-                    help="پیش از بار، جدول‌های ضروریِ تارگت را خالی می‌کند (برای اجرای دوبارهٔ تمیز).")
+                    help="پیش از بار، جدول‌های ضروری تارگت را خالی می‌کند (برای اجرای دوبارهٔ تمیز).")
     ap.add_argument("--skip-reference", action="store_true",
-                    help="جدولِ مرجعِ ساکن (card_bins) را بار نکن.")
+                    help="جدول مرجع ساکن (card_bins) را بار نکن.")
     args = ap.parse_args()
 
     dir_path = Path(args.dir)
@@ -315,17 +315,17 @@ def main() -> int:
     target_url = get_target_url()
     load_tables = ESSENTIAL_TABLES + (() if args.skip_reference else REFERENCE_TABLES)
 
-    print("در حالِ اتصال به تارگت…")
+    print("در حال اتصال به تارگت…")
     with psycopg.connect(target_url) as tgt:
         tgt.autocommit = False  # همه‌چیز در یک تراکنش
 
-        # نگهبانِ ترتیبِ RLS: اگر جدول‌های محافظت‌شده روی تارگت FORCE RLS دارند، یعنی 0002
-        # اجرا شده و بارِ داده به‌عنوان مالک بسته می‌شود. (در dry-run فقط هشدار.)
+        # نگهبان ترتیب RLS: اگر جدول‌های محافظت‌شده روی تارگت FORCE RLS دارند، یعنی 0002
+        # اجرا شده و بار داده به‌عنوان مالک بسته می‌شود. (در dry-run فقط هشدار.)
         forced = rls_forced_tables(tgt, RLS_GUARDED_ESSENTIALS)
         if forced:
             msg = (
                 "RLS روی تارگت از قبل فعال است: " + "، ".join(sorted(forced)) + "\n"
-                "دادهٔ ضروری باید «پیش از» مهاجرتِ 0002 بار شود. لطفاً:\n"
+                "دادهٔ ضروری باید «پیش از» مهاجرت 0002 بار شود. لطفاً:\n"
                 "    docker compose run --rm api alembic downgrade 0001\n"
                 "سپس این اسکریپت را دوباره اجرا و بعد: alembic upgrade head\n"
             )
@@ -333,16 +333,16 @@ def main() -> int:
                 raise SystemExit(msg)
             print("\n⚠ هشدار (dry-run): " + msg)
 
-        # نقشهٔ هر جدول (اعتبارسنجیِ ستون‌ها).
+        # نقشهٔ هر جدول (اعتبارسنجی ستون‌ها).
         plans = [plan_table(tgt, dir_path, t) for t in load_tables]
 
         print("\n── نقشهٔ ایمپورت ─────────────────────────────")
         for p in plans:
             tag = "  [مرجع]" if p["table"] in REFERENCE_TABLES else ""
             if p["missing_source"]:
-                print(f"  {p['table']:<18} (فایلِ JSON نبود — رد شد){tag}")
+                print(f"  {p['table']:<18} (فایل JSON نبود — رد شد){tag}")
                 continue
-            print(f"  {p['table']:<18} ردیفِ JSON={p['source_rows']:>6}  ستون‌ها={len(p['carry'])}{tag}")
+            print(f"  {p['table']:<18} ردیف JSON={p['source_rows']:>6}  ستون‌ها={len(p['carry'])}{tag}")
             if p["dropped_present_in_source"]:
                 print(f"      ⊘ کنارگذاشته: {', '.join(p['dropped_present_in_source'])}")
             if p["nulled"]:
@@ -355,11 +355,11 @@ def main() -> int:
         print("     " + "، ".join(FRESH_TABLES))
 
         if args.dry_run:
-            print("\n[dry-run] هیچ داده‌ای نوشته نشد. برای اجرای واقعی بدونِ --dry-run اجرا کنید.")
+            print("\n[dry-run] هیچ داده‌ای نوشته نشد. برای اجرای واقعی بدون --dry-run اجرا کنید.")
             return 0
 
         if args.truncate:
-            print("\nخالی‌کردنِ جدول‌های تارگت (RESTART IDENTITY CASCADE)…")
+            print("\nخالی‌کردن جدول‌های تارگت (RESTART IDENTITY CASCADE)…")
             with tgt.cursor() as cur:
                 cur.execute(sql.SQL("TRUNCATE {} RESTART IDENTITY CASCADE").format(
                     sql.SQL(", ").join(
@@ -367,7 +367,7 @@ def main() -> int:
                     )
                 ))
 
-        print("\n── بارِ داده (یک تراکنش) ────────────────────")
+        print("\n── بار داده (یک تراکنش) ────────────────────")
         total = 0
         try:
             for p in plans:
@@ -380,8 +380,8 @@ def main() -> int:
             print("\n✗ خطا رخ داد؛ تراکنش برگردانده شد (هیچ ردیفی نماند).")
             raise
 
-        # راستی‌آزماییِ شمارشِ ردیف پس از commit.
-        print("\n── راستی‌آزمایی (شمارشِ تارگت) ───────────────")
+        # راستی‌آزمایی شمارش ردیف پس از commit.
+        print("\n── راستی‌آزمایی (شمارش تارگت) ───────────────")
         ok = True
         for p in plans:
             tgt_n = count_rows(tgt, p["table"])
@@ -391,8 +391,8 @@ def main() -> int:
                 ok = False
             print(f"  {mark} {p['table']:<18} JSON={src_n:>6}  تارگت={tgt_n:>6}")
 
-        print(f"\nمجموعِ ردیفِ درج‌شده: {total}")
-        print("انجام شد ✓" if ok else "هشدار: شمارشِ برخی جدول‌ها کمتر از JSON است — بررسی کنید.")
+        print(f"\nمجموع ردیف درج‌شده: {total}")
+        print("انجام شد ✓" if ok else "هشدار: شمارش برخی جدول‌ها کمتر از JSON است — بررسی کنید.")
     return 0
 
 

@@ -1,7 +1,7 @@
-/* مخزن احراز هویت — اندپوینت‌های REST بک‌اندِ اختصاصی (/auth/*) + نشست امن.
-   نکته: نامِ کلاس با پیشوندِ «Supabase» صرفاً میراثی است و برای کم‌کردنِ دامنهٔ تغییر
+/* مخزن احراز هویت — اندپوینت‌های REST بک‌اند اختصاصی (/auth/*) + نشست امن.
+   نکته: نام کلاس با پیشوند «Supabase» صرفاً میراثی است و برای کم‌کردن دامنهٔ تغییر
    حفظ شده؛ این مخزن دیگر با Supabase کار نمی‌کند و از RestClient استفاده می‌کند.
-   توکن به‌صورتِ خودکار از هدرِ Authorization توسط RestClient می‌رود؛ مسیرهای boot
+   توکن به‌صورت خودکار از هدر Authorization توسط RestClient می‌رود؛ مسیرهای boot
    (validateSession/logout/logout-all/change-password) توکن را صریح override می‌کنند. */
 
 import type { AuthRepository } from "@/domain/auth/auth.repository";
@@ -60,21 +60,22 @@ export class SupabaseAuthRepository implements AuthRepository {
   }
 
   async uploadAvatar(dataUrl: string): Promise<string> {
-    /* آپلود به استوریجِ خصوصیِ سرور؛ توکن خودکار از هدر می‌رود. مهلتِ بلندتر برای
-       تصویرِ حجیم. خطاها (INVALID_IMAGE/IMAGE_TOO_LARGE/SERVER_NOT_CONFIGURED/
-       SESSION_EXPIRED) در RestClient به پیامِ فارسی نگاشته می‌شوند. */
+    /* آپلود به استوریج خصوصی سرور؛ توکن خودکار از هدر می‌رود. مهلت بلندتر برای
+       تصویر حجیم. خطاها (INVALID_IMAGE/IMAGE_TOO_LARGE/SERVER_NOT_CONFIGURED/
+       SESSION_EXPIRED) در RestClient به پیام فارسی نگاشته می‌شوند. */
     const r = await this.client.post<{ ok?: boolean; url?: string }>(
       "/uploads/avatar",
       { image: dataUrl },
       { timeoutMs: 60000 },
     );
-    if (!r?.url) throw new AppError("SERVER", "آپلود ناموفق بود — دوباره تلاش کنید");
+    if (!r?.url)
+      throw new AppError("SERVER", "آپلود ناموفق بود — دوباره تلاش کنید");
     return r.url;
   }
 
   async requestOtp(phone: string): Promise<OtpRequestResult> {
-    /* اندپوینتِ dev کدِ ساخته‌شده را برمی‌گرداند؛ اگر ارسالِ پیامک تنظیم نشده باشد،
-       سرور OTP_API_ONLY می‌دهد که RestClient به پیامِ فارسی نگاشته و پرتاب می‌کند. */
+    /* اندپوینت dev کد ساخته‌شده را برمی‌گرداند؛ اگر ارسال پیامک تنظیم نشده باشد،
+       سرور OTP_API_ONLY می‌دهد که RestClient به پیام فارسی نگاشته و پرتاب می‌کند. */
     const r = await this.client.post<{ code?: string | null }>(
       "/auth/otp/request",
       { phone },
@@ -104,7 +105,10 @@ export class SupabaseAuthRepository implements AuthRepository {
     return this.mapAuth(r);
   }
 
-  async register(input: RegisterInput, otpCode: string | null): Promise<AuthResult> {
+  async register(
+    input: RegisterInput,
+    otpCode: string | null,
+  ): Promise<AuthResult> {
     const r = await this.client.post<AuthResultRow>("/auth/register", {
       family_name: input.familyName,
       member_name: input.memberName,

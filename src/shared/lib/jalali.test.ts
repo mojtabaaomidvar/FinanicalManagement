@@ -50,7 +50,7 @@ describe("jalali — تبدیل رفت‌وبرگشت", () => {
     expect(formatISO([1404, 6, 5])).toBe("۱۴۰۴/۰۶/۰۵");
   });
 
-  it("روزهای مانده تا پایان ماه — شامل خودِ روز", () => {
+  it("روزهای مانده تا پایان ماه — شامل خود روز", () => {
     expect(daysLeftInMonth([1404, 6, 1])).toBe(31); /* شهریور ۳۱ روزه */
     expect(daysLeftInMonth([1404, 6, 31])).toBe(1);
     expect(daysLeftInMonth([1404, 7, 25])).toBe(6); /* مهر ۳۰ روزه */

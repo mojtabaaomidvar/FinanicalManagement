@@ -1,6 +1,6 @@
 /* Secure Storage — رمزنگاری داده حساس پیش از ذخیره
    ─────────────────────────────────────────────────
-   - کلید AES-GCM ۲۵۶ بیتیِ غیرقابل استخراج (non-extractable) در IndexedDB
+   - کلید AES-GCM ۲۵۶ بیتی غیرقابل استخراج (non-extractable) در IndexedDB
      نگه داشته می‌شود؛ حتی کد JS نمی‌تواند خود کلید را بیرون ببرد.
    - مقادیر همیشه رمزنگاری‌شده (iv + ciphertext) ذخیره می‌شوند.
    - اگر IndexedDB/WebCrypto در دسترس نباشد → حافظه موقت (بدون ماندگاری).
@@ -69,7 +69,7 @@ async function loadOrCreateKey(db: IDBDatabase): Promise<CryptoKey> {
 
   const key = await crypto.subtle.generateKey(
     { name: "AES-GCM", length: 256 },
-    false, /* non-extractable */
+    false /* non-extractable */,
     ["encrypt", "decrypt"],
   );
   await idbPut(db, KEY_ID, key);

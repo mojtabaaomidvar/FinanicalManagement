@@ -1,12 +1,12 @@
-/* بازنشسته در فاز ۹ (سوییچِ کامل و تمیز).
+/* بازنشسته در فاز ۹ (سوییچ کامل و تمیز).
    ────────────────────────────────────────────────────────────────────────
-   این ماژول قبلاً OTP را از تابعِ سرورلسِ Vercel (`/api/send-otp`) می‌فرستاد. با
-   مهاجرت به بک‌اندِ اختصاصی، درخواستِ OTP به `authRepository.requestOtp` منتقل شد که
-   اندپوینتِ REST «POST /api/v1/auth/otp/request» را از طریقِ RestClient صدا می‌زند.
+   این ماژول قبلاً OTP را از تابع سرورلس Vercel (`/api/send-otp`) می‌فرستاد. با
+   مهاجرت به بک‌اند اختصاصی، درخواست OTP به `authRepository.requestOtp` منتقل شد که
+   اندپوینت REST «POST /api/v1/auth/otp/request» را از طریق RestClient صدا می‌زند.
    دیگر هیچ فایلی این ماژول را import نمی‌کند. طبق قاعدهٔ «حذف نکن، بازنشسته کن»، بدنهٔ
    قبلی پاک نشده و در تاریخچهٔ گیت باقی است؛ این فایل عمداً خالی نگه داشته می‌شود.
 
-   کدِ قدیمی (مرجع):
+   کد قدیمی (مرجع):
      export async function sendOtpViaServerless(phone): Promise<...> {
        const res = await fetch(`${API_BASE}/api/send-otp`, { ... });
        ...  // 429/TOO_SOON → AppError("TOO_SOON"); در دسترس نبودن → unavailable:true

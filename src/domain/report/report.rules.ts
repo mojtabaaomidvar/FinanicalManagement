@@ -50,7 +50,7 @@ export function monthTotals(list: Transaction[]): MonthTotals {
 }
 
 /* درصد تغییر نسبت به بازه قبل — مبنای صفر قابل مقایسه نیست (null)
-   گرد کردن روی «اندازه» انجام می‌شود تا کاهش و افزایشِ هم‌اندازه، عدد یکسان بدهند
+   گرد کردن روی «اندازه» انجام می‌شود تا کاهش و افزایش هم‌اندازه، عدد یکسان بدهند
    (Math.round(-62.5) در جاوااسکریپت −۶۲ می‌شود، نه −۶۳) */
 export function deltaPercent(current: number, previous: number): number | null {
   if (!previous) return null;
@@ -167,7 +167,7 @@ export function accountBalances(
   return accounts.map((a) => ({ account: a, balance: map.get(a.id) ?? 0 }));
 }
 
-/* سری زمانی دارایی کل خانواده — یک نقطه در پایان هر روزِ بازه
+/* سری زمانی دارایی کل خانواده — یک نقطه در پایان هر روز بازه
    دارایی روز d = مبنای اولیه + جمع درآمد−هزینه همه تراکنش‌های تاریخ ≤ d */
 export function wealthSeries(
   list: Transaction[],

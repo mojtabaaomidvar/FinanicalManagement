@@ -1,12 +1,12 @@
-"""روتِ webhookِ ماشین-به-ماشین — ingestِ پیامک با «توکنِ پل» (فاز ۸).
+"""روت webhook ماشین-به-ماشین — ingest پیامک با «توکن پل» (فاز ۸).
 
-جایگزینِ api/sms-webhook.js (تابعِ سرورلسِ Vercel). این تنها روتی است که با نشستِ
-کاربر (Bearer) احراز نمی‌شود؛ احراز با «توکنِ پلِ» ۴۰-هگز در بدنه است — یک قراردادِ
-ماشین-به-ماشین برای اپِ فورواردر (فالبکِ وب/iOS). به همین دلیل این روت عمداً در
-فایلی جدا از روت‌های دادهٔ نشست‌محور (sms.py) قرار دارد تا مرزِ «هویت فقط از Bearer»
+جایگزین api/sms-webhook.js (تابع سرورلس Vercel). این تنها روتی است که با نشست
+کاربر (Bearer) احراز نمی‌شود؛ احراز با «توکن پل» ۴۰-هگز در بدنه است — یک قرارداد
+ماشین-به-ماشین برای اپ فورواردر (فالبک وب/iOS). به همین دلیل این روت عمداً در
+فایلی جدا از روت‌های دادهٔ نشست‌محور (sms.py) قرار دارد تا مرز «هویت فقط از Bearer»
 در آن فایل‌ها دست‌نخورده بماند.
 
-زمینهٔ RLS: چون get_tenant_member نداریم، سرویسِ ingest_via_bridge خودش پس از یافتنِ
+زمینهٔ RLS: چون get_tenant_member نداریم، سرویس ingest_via_bridge خودش پس از یافتن
 پل با توکن، زمینهٔ خانواده را دستی ست می‌کند (جزئیات در services/messaging.py).
 """
 
@@ -27,9 +27,9 @@ def bridge_ingest(
     body: BridgeIngest,
     db: Session = Depends(get_db),
 ) -> IngestResult:
-    """webhookِ پل: {token, text, sender?} → پارسِ سمت‌سرور → درجِ pending.
+    """webhook پل: {token, text, sender?} → پارس سمت‌سرور → درج pending.
 
-    توکنِ نامعتبر → UNAUTHORIZED (۴۰۱). متنِ خالی → count=0 بدونِ خطا.
+    توکن نامعتبر → UNAUTHORIZED (۴۰۱). متن خالی → count=0 بدون خطا.
     """
     n = messaging_service.ingest_via_bridge(db, body.token, body.text, body.sender)
     return IngestResult(ok=True, count=n)

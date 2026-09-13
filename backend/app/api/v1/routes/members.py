@@ -1,16 +1,16 @@
-"""روتِ تنظیماتِ خانواده و پروفایلِ عضو — نوشتن (فاز ۷).
+"""روت تنظیمات خانواده و پروفایل عضو — نوشتن (فاز ۷).
 
-این روت‌ها روی جدول‌های «هویتیِ» families/members کار می‌کنند که از RLS مستثنا
-هستند؛ بنابراین برخلافِ روت‌های داده، از get_tenant_member استفاده نمی‌کنند:
-- get_current_member: هویتِ عضو از توکن (بدون بستنِ زمینهٔ RLS).
-- require_owner: فقط مدیر (برای سقفِ بودجهٔ خانواده).
-مرزِ مستأجر در «لایهٔ اپ» اعمال می‌شود (سرویس، family_id عضو را می‌سنجد).
+این روت‌ها روی جدول‌های «هویتی» families/members کار می‌کنند که از RLS مستثنا
+هستند؛ بنابراین برخلاف روت‌های داده، از get_tenant_member استفاده نمی‌کنند:
+- get_current_member: هویت عضو از توکن (بدون بستن زمینهٔ RLS).
+- require_owner: فقط مدیر (برای سقف بودجهٔ خانواده).
+مرز مستأجر در «لایهٔ اپ» اعمال می‌شود (سرویس، family_id عضو را می‌سنجد).
 
-- PATCH /family/settings            : سقفِ بودجهٔ خانواده (فقط مدیر) → ۲۰۴.
-- PATCH /members/me                 : پروفایلِ خودِ عضو → MemberPublic.
-- PATCH /members/me/theme           : تمِ نمایشِ خودِ عضو → ۲۰۴.
-- PATCH /members/me/currency        : واحدِ پولِ خودِ عضو → MemberPublic.
-- PATCH /members/{member_id}/relation : نسبتِ یک عضو → MemberPublic.
+- PATCH /family/settings            : سقف بودجهٔ خانواده (فقط مدیر) → ۲۰۴.
+- PATCH /members/me                 : پروفایل خود عضو → MemberPublic.
+- PATCH /members/me/theme           : تم نمایش خود عضو → ۲۰۴.
+- PATCH /members/me/currency        : واحد پول خود عضو → MemberPublic.
+- PATCH /members/{member_id}/relation : نسبت یک عضو → MemberPublic.
 """
 
 from __future__ import annotations

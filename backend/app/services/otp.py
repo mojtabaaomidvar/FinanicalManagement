@@ -1,6 +1,6 @@
 """چرخهٔ حیات OTP + پرچم‌های پیکربندی عمومی (otp_enabled / dev_mode).
 
-مصرف OTP (consume_otp) از همان گِیت ضد brute-force (attempts) استفاده می‌کند؛
+مصرف OTP (consume_otp) از همان گیت ضد brute-force (attempts) استفاده می‌کند؛
 یعنی خطاهای OTP و خطاهای رمز در یک شمارنده و یک پنجره جمع می‌شوند — دقیقاً مثل
 _consume_otp در schema.sql.
 """
@@ -36,12 +36,12 @@ def is_dev_mode(db: Session) -> bool:
 
 
 def generate_code() -> str:
-    """کد ۶ رقمیِ تصادفیِ امن (با صفرِ پیشوند)."""
+    """کد ۶ رقمی تصادفی امن (با صفر پیشوند)."""
     return f"{secrets.randbelow(1_000_000):06d}"
 
 
 def insert_otp(db: Session, phone: str, code: str) -> None:
-    """درج کد تازه؛ کدهای قبلیِ همین شماره و کدهای کهنه‌تر از ۱ ساعت حذف می‌شوند."""
+    """درج کد تازه؛ کدهای قبلی همین شماره و کدهای کهنه‌تر از ۱ ساعت حذف می‌شوند."""
     db.execute(
         delete(OtpCode).where(
             or_(OtpCode.phone == phone, OtpCode.created_at < utcnow() - timedelta(hours=1))

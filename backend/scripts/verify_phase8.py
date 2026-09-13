@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
-"""راستی‌آزماییِ ایستای فاز ۸ (بدونِ دیتابیس/شبکه/pydantic) — «خانه‌یار» بک‌اند.
+"""راستی‌آزمایی ایستای فاز ۸ (بدون دیتابیس/شبکه/pydantic) — «خانه‌یار» بک‌اند.
 
-فاز ۸ = ingestِ پیامکِ سمت‌سرور + آپلودِ فایل به استوریجِ خصوصی. این اسکریپت فقط با
-AST و متن کار می‌کند (هیچ importی از app انجام نمی‌دهد؛ VM وابستگیِ شخص‌ثالث ندارد) و
+فاز ۸ = ingest پیامک سمت‌سرور + آپلود فایل به استوریج خصوصی. این اسکریپت فقط با
+AST و متن کار می‌کند (هیچ importی از app انجام نمی‌دهد؛ VM وابستگی شخص‌ثالث ندارد) و
 این نامتغیرها را ثابت می‌کند:
 
- ۱) سیم‌کشیِ روتر: uploads/files/webhooks در router.py include شده‌اند.
- ۲) ingestِ پیامک:
+ ۱) سیم‌کشی روتر: uploads/files/webhooks در router.py include شده‌اند.
+ ۲) ingest پیامک:
       • POST /sms/ingest در sms.py با get_tenant_member (نشست‌محور، RLS).
-      • POST /sms/bridge-ingest در webhooks.py «بدونِ» وابستگیِ نشست/هویت است
-        (احراز با «توکنِ پل» در بدنه — استثنای آگاهانه و مستند).
- ۳) مرزِ فاز ۷ دست‌نخورده: فایل‌های روتِ «داده» (شاملِ sms.py) هنوز فقط get_tenant_member
-    دارند؛ webhooks.py یک فایلِ جدا است تا این مرز نشکند.
+      • POST /sms/bridge-ingest در webhooks.py «بدون» وابستگی نشست/هویت است
+        (احراز با «توکن پل» در بدنه — استثنای آگاهانه و مستند).
+ ۳) مرز فاز ۷ دست‌نخورده: فایل‌های روت «داده» (شامل sms.py) هنوز فقط get_tenant_member
+    دارند؛ webhooks.py یک فایل جدا است تا این مرز نشکند.
  ۴) آپلود: /uploads/avatar و /uploads/photo با get_current_member (Bearer، نه tenant).
- ۵) سروِ فایل: GET /files/{path} «بدونِ» هیچ وابستگیِ احراز (مجوز در امضای HMAC).
- ۶) سرویس/اسکیما/مهاجرت: توابع و مدل‌ها و مهاجرتِ 0003 (خروج sms_bridges از RLS) موجودند.
- ۷) fail-closedِ پل: ingest_via_bridge برای توکنِ نبود/نامعتبر UNAUTHORIZED می‌دهد و
+ ۵) سرو فایل: GET /files/{path} «بدون» هیچ وابستگی احراز (مجوز در امضای HMAC).
+ ۶) سرویس/اسکیما/مهاجرت: توابع و مدل‌ها و مهاجرت 0003 (خروج sms_bridges از RLS) موجودند.
+ ۷) fail-closed پل: ingest_via_bridge برای توکن نبود/نامعتبر UNAUTHORIZED می‌دهد و
     زمینهٔ خانواده را ست و در finally ریست می‌کند.
 
-خروجی: جدول + شمارشِ PASS/FAIL؛ کدِ خروجِ ۱ در صورتِ هر شکست.
+خروجی: جدول + شمارش PASS/FAIL؛ کد خروج ۱ در صورت هر شکست.
 """
 
 from __future__ import annotations
@@ -59,7 +59,7 @@ def check(cond: bool, ok_msg: str, fail_msg: str) -> None:
         failures.append(fail_msg)
 
 
-# ── تحلیلِ AST روت‌ها (متد/مسیر/وابستگی‌ها، مثلِ verify_phase7) ──
+# ── تحلیل AST روت‌ها (متد/مسیر/وابستگی‌ها، مثل verify_phase7) ──
 HTTP_METHODS = {"get", "post", "patch", "delete", "put"}
 
 
@@ -124,7 +124,7 @@ def find(method: str, path: str, file: str | None = None) -> Route | None:
 
 
 def defs_in(py: Path) -> set[str]:
-    """نامِ توابع/کلاس‌های سطحِ ماژول."""
+    """نام توابع/کلاس‌های سطح ماژول."""
     tree = ast.parse(py.read_text(encoding="utf-8"))
     return {
         n.name
@@ -133,19 +133,19 @@ def defs_in(py: Path) -> set[str]:
     }
 
 
-# ── ۱) سیم‌کشیِ روتر ──────────────────────────────────────────
-print("① سیم‌کشیِ روتر (include_router)")
+# ── ۱) سیم‌کشی روتر ──────────────────────────────────────────
+print("① سیم‌کشی روتر (include_router)")
 router_src = ROUTER.read_text(encoding="utf-8")
 for mod in ("uploads", "files", "webhooks"):
     check(
         f"{mod}.router" in router_src and f"include_router({mod}.router)" in router_src,
-        f"router.py شاملِ {mod}.router است",
-        f"router.py شاملِ {mod}.router نیست",
+        f"router.py شامل {mod}.router است",
+        f"router.py شامل {mod}.router نیست",
     )
 
 
-# ── ۲) ingestِ پیامک ─────────────────────────────────────────
-print("\n② ingestِ پیامک (نشست در برابر توکنِ پل)")
+# ── ۲) ingest پیامک ─────────────────────────────────────────
+print("\n② ingest پیامک (نشست در برابر توکن پل)")
 r_ingest = find("POST", "/sms/ingest", "sms")
 check(
     r_ingest is not None and TENANT_DEP in r_ingest.deps,
@@ -155,14 +155,14 @@ check(
 r_bridge = find("POST", "/sms/bridge-ingest", "webhooks")
 check(
     r_bridge is not None and not (r_bridge.deps & SESSION_DEPS),
-    "POST /sms/bridge-ingest در webhooks.py بدونِ وابستگیِ نشست/هویت (توکنِ پل)",
-    f"POST /sms/bridge-ingest نبود یا وابستگیِ نشست دارد: "
+    "POST /sms/bridge-ingest در webhooks.py بدون وابستگی نشست/هویت (توکن پل)",
+    f"POST /sms/bridge-ingest نبود یا وابستگی نشست دارد: "
     f"{sorted(r_bridge.deps) if r_bridge else 'نبود'}",
 )
 
 
-# ── ۳) مرزِ فاز ۷ دست‌نخورده ─────────────────────────────────
-print("\n③ مرزِ فاز ۷ (روت‌های داده فقط get_tenant_member)")
+# ── ۳) مرز فاز ۷ دست‌نخورده ─────────────────────────────────
+print("\n③ مرز فاز ۷ (روت‌های داده فقط get_tenant_member)")
 data_routes = [r for r in all_routes if r.file in DATA_ROUTE_FILES]
 bad_data = [
     f"{r.file}:{r.func} deps={sorted(r.deps)}"
@@ -171,44 +171,44 @@ bad_data = [
 ]
 check(
     not bad_data,
-    f"همهٔ {len(data_routes)} روتِ داده (شاملِ /sms/ingest) فقط {TENANT_DEP} دارند",
-    f"روتِ دادهٔ نادرست: {bad_data}",
+    f"همهٔ {len(data_routes)} روت داده (شامل /sms/ingest) فقط {TENANT_DEP} دارند",
+    f"روت دادهٔ نادرست: {bad_data}",
 )
-# webhooks یک فایلِ جدا از روت‌های داده است (نه در DATA_ROUTE_FILES)
+# webhooks یک فایل جدا از روت‌های داده است (نه در DATA_ROUTE_FILES)
 check(
     "webhooks" not in DATA_ROUTE_FILES and (ROUTES / "webhooks.py").is_file(),
-    "webhooks.py فایلی جدا از روت‌های داده است (مرزِ «هویت فقط از Bearer» حفظ شد)",
+    "webhooks.py فایلی جدا از روت‌های داده است (مرز «هویت فقط از Bearer» حفظ شد)",
     "webhooks.py جدا نیست",
 )
 
 
-# ── ۴) آپلودِ فایل (Bearer، نه tenant) ───────────────────────
-print("\n④ آپلودِ فایل (get_current_member)")
+# ── ۴) آپلود فایل (Bearer، نه tenant) ───────────────────────
+print("\n④ آپلود فایل (get_current_member)")
 for path in ("/uploads/avatar", "/uploads/photo"):
     r = find("POST", path, "uploads")
     check(
         r is not None and "get_current_member" in r.deps and TENANT_DEP not in r.deps,
         f"POST {path} با get_current_member (Bearer، بیرون از RLS)",
-        f"POST {path} نبود یا وابستگیِ نادرست دارد",
+        f"POST {path} نبود یا وابستگی نادرست دارد",
     )
 
 
-# ── ۵) سروِ فایل بدونِ احراز (مجوز در امضای HMAC) ────────────
-print("\n⑤ سروِ فایل (بدونِ وابستگیِ احراز؛ HMAC)")
+# ── ۵) سرو فایل بدون احراز (مجوز در امضای HMAC) ────────────
+print("\n⑤ سرو فایل (بدون وابستگی احراز؛ HMAC)")
 r_files = find("GET", "/files/{path:path}", "files")
-if r_files is None:  # نامِ پارامتر ممکن است فرق کند
+if r_files is None:  # نام پارامتر ممکن است فرق کند
     r_files = next((r for r in all_routes if r.file == "files" and r.method == "GET"), None)
 check(
     r_files is not None and not (r_files.deps & SESSION_DEPS),
-    "GET /files/{path} بدونِ هیچ وابستگیِ احراز است (مجوز در sig)",
-    f"روتِ سروِ فایل نبود یا وابستگیِ احراز دارد: "
+    "GET /files/{path} بدون هیچ وابستگی احراز است (مجوز در sig)",
+    f"روت سرو فایل نبود یا وابستگی احراز دارد: "
     f"{sorted(r_files.deps) if r_files else 'نبود'}",
 )
 files_src = (ROUTES / "files.py").read_text(encoding="utf-8")
 check(
     "verify_path" in files_src and "FORBIDDEN" in files_src,
-    "files.py امضا را با verify_path بررسی و در نبودِ آن FORBIDDEN می‌دهد (fail-closed)",
-    "files.py بررسیِ امضا/FORBIDDEN ندارد",
+    "files.py امضا را با verify_path بررسی و در نبود آن FORBIDDEN می‌دهد (fail-closed)",
+    "files.py بررسی امضا/FORBIDDEN ندارد",
 )
 
 
@@ -229,8 +229,8 @@ for cls in ("SmsIngestItem", "SmsIngestBatch", "BridgeIngest", "IngestResult", "
 mig_0003 = MIGRATIONS / "0003_sms_bridges_no_rls.py"
 if mig_0003.is_file():
     mig_src = mig_0003.read_text(encoding="utf-8")
-    # انتساب ممکن است تایپ‌دار باشد: `revision: str = "0003"` — با AST مقدارِ ثابتِ
-    # سطحِ ماژول را می‌خوانیم تا به قالبِ نگارش حساس نباشیم.
+    # انتساب ممکن است تایپ‌دار باشد: `revision: str = "0003"` — با AST مقدار ثابت
+    # سطح ماژول را می‌خوانیم تا به قالب نگارش حساس نباشیم.
     mig_tree = ast.parse(mig_src)
     mig_vals: dict[str, object] = {}
     for node in mig_tree.body:
@@ -245,16 +245,16 @@ if mig_0003.is_file():
         "sms_bridges" in mig_src
         and mig_vals.get("revision") == "0003"
         and mig_vals.get("down_revision") == "0002",
-        "مهاجرتِ 0003 (خروجِ sms_bridges از RLS) با زنجیرهٔ درستِ 0002→0003",
-        f"مهاجرتِ 0003 زنجیره/محتوای درست ندارد (revision={mig_vals.get('revision')!r}, "
+        "مهاجرت 0003 (خروج sms_bridges از RLS) با زنجیرهٔ درست 0002→0003",
+        f"مهاجرت 0003 زنجیره/محتوای درست ندارد (revision={mig_vals.get('revision')!r}, "
         f"down_revision={mig_vals.get('down_revision')!r})",
     )
 else:
-    check(False, "", "فایلِ مهاجرتِ 0003_sms_bridges_no_rls.py پیدا نشد")
+    check(False, "", "فایل مهاجرت 0003_sms_bridges_no_rls.py پیدا نشد")
 
 
-# ── ۷) fail-closedِ پل ───────────────────────────────────────
-print("\n⑦ رفتارِ ingest_via_bridge")
+# ── ۷) fail-closed پل ───────────────────────────────────────
+print("\n⑦ رفتار ingest_via_bridge")
 msg_src = (SERVICES / "messaging.py").read_text(encoding="utf-8")
 tree = ast.parse(msg_src)
 bridge_fn_src = ""
@@ -264,8 +264,8 @@ for node in ast.walk(tree):
         break
 check(
     'AppError("UNAUTHORIZED"' in bridge_fn_src,
-    "ingest_via_bridge برای توکنِ نبود/نامعتبر UNAUTHORIZED می‌دهد (fail-closed)",
-    "ingest_via_bridge گاردِ UNAUTHORIZED ندارد",
+    "ingest_via_bridge برای توکن نبود/نامعتبر UNAUTHORIZED می‌دهد (fail-closed)",
+    "ingest_via_bridge گارد UNAUTHORIZED ندارد",
 )
 check(
     "set_current_family" in bridge_fn_src
@@ -273,14 +273,14 @@ check(
     and "reset_current_family" in bridge_fn_src
     and "finally" in bridge_fn_src,
     "ingest_via_bridge زمینهٔ خانواده را دستی ست و در finally ریست می‌کند",
-    "ingest_via_bridge مدیریتِ زمینهٔ خانواده (ست/ریست در finally) ندارد",
+    "ingest_via_bridge مدیریت زمینهٔ خانواده (ست/ریست در finally) ندارد",
 )
 
 
 # ── جمع‌بندی ─────────────────────────────────────────────────
 print("\n── یادداشت‌ها ──")
 notes.append(f"روت‌های اسکن‌شده: {len(all_routes)}")
-notes.append("استثنای آگاهانه: bridge-ingest تنها روتِ بدونِ Bearer است (توکنِ پل).")
+notes.append("استثنای آگاهانه: bridge-ingest تنها روت بدون Bearer است (توکن پل).")
 for n in notes:
     print(f"  • {n}")
 

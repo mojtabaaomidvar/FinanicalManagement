@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""راستی‌آزماییِ ایستای فاز ۷ (بدونِ دیتابیس/شبکه) — «خانه‌یار» بک‌اند.
+"""راستی‌آزمایی ایستای فاز ۷ (بدون دیتابیس/شبکه) — «خانه‌یار» بک‌اند.
 
 سه چیز را ثابت می‌کند:
- ۱) پوششِ RPC: هر rpc()‌ای که فرانت صدا می‌زند دقیقاً یک اندپوینتِ متناظر (متد+مسیر)
+ ۱) پوشش RPC: هر rpc()‌ای که فرانت صدا می‌زند دقیقاً یک اندپوینت متناظر (متد+مسیر)
     در بک‌اند دارد و هیچ RPCی بی‌نگاشت نمانده است.
- ۲) مرزِ وابستگی: روت‌های «داده» فقط get_tenant_member (RLS/fail-closed) دارند و
+ ۲) مرز وابستگی: روت‌های «داده» فقط get_tenant_member (RLS/fail-closed) دارند و
     روت‌های «هویتی» (members.py) فقط get_current_member/require_owner (بیرون از RLS).
- ۳) گاردِ مدیر در لایهٔ سرویس: بودجهٔ دسته و تنظیماتِ خانواده فقط-مدیر؛ نسبتِ مدیر ثابت.
+ ۳) گارد مدیر در لایهٔ سرویس: بودجهٔ دسته و تنظیمات خانواده فقط-مدیر؛ نسبت مدیر ثابت.
 
-خروجی: جدول + شمارشِ PASS/FAIL؛ کدِ خروجِ ۱ در صورتِ هر شکست.
+خروجی: جدول + شمارش PASS/FAIL؛ کد خروج ۱ در صورت هر شکست.
 """
 
 from __future__ import annotations
@@ -51,7 +51,7 @@ def check(cond: bool, ok_msg: str, fail_msg: str) -> None:
         failures.append(fail_msg)
 
 
-# ── ۰) نگاشتِ مرجع RPC → (متد، مسیر) ─────────────────────────
+# ── ۰) نگاشت مرجع RPC → (متد، مسیر) ─────────────────────────
 RPC_TO_ENDPOINT: dict[str, tuple[str, str]] = {
     # احراز هویت / هویت (فاز ۴)
     "get_public_config": ("GET", "/auth/config"),
@@ -105,7 +105,7 @@ RPC_TO_ENDPOINT: dict[str, tuple[str, str]] = {
     "add_event": ("POST", "/events"),
     "delete_event": ("DELETE", "/events/{}"),
     "sync_birthday_events": ("POST", "/events/sync-birthdays"),
-    # تنظیماتِ خانواده / پروفایلِ عضو (فاز ۷ — بیرون از RLS)
+    # تنظیمات خانواده / پروفایل عضو (فاز ۷ — بیرون از RLS)
     "update_family_settings": ("PATCH", "/family/settings"),
     "update_member_profile": ("PATCH", "/members/me"),
     "set_member_theme": ("PATCH", "/members/me/theme"),
@@ -130,18 +130,18 @@ PHASE7_WRITE_RPCS = {
 
 
 def norm_path(p: str) -> str:
-    """پارامترهای مسیر را به {} یکسان کن تا مقایسه به نامِ پارامتر حساس نباشد."""
+    """پارامترهای مسیر را به {} یکسان کن تا مقایسه به نام پارامتر حساس نباشد."""
     return re.sub(r"\{[^}]+\}", "{}", p)
 
 
-# ── ۱) استخراجِ RPCهای فرانت ─────────────────────────────────
+# ── ۱) استخراج RPCهای فرانت ─────────────────────────────────
 RPC_CALL = re.compile(r"rpc\s*(?:<[^>]*>)?\s*\(\s*[\"']([a-z_]+)[\"']")
 frontend_rpcs: set[str] = set()
 for ts in sorted(REPOS.glob("*.ts")):
     frontend_rpcs |= set(RPC_CALL.findall(ts.read_text(encoding="utf-8")))
 
 
-# ── ۲) تحلیلِ AST روت‌های بک‌اند ──────────────────────────────
+# ── ۲) تحلیل AST روت‌های بک‌اند ──────────────────────────────
 class Route:
     __slots__ = ("file", "method", "path", "deps", "func")
 
@@ -160,7 +160,7 @@ def extract_prefix(tree: ast.AST) -> str:
 
 
 def deps_of(func: ast.FunctionDef) -> set[str]:
-    """نامِ توابعِ Depends(...) در پیش‌فرضِ پارامترها."""
+    """نام توابع Depends(...) در پیش‌فرض پارامترها."""
     found: set[str] = set()
     for default in list(func.args.defaults) + list(func.args.kw_defaults):
         if isinstance(default, ast.Call) and isinstance(default.func, ast.Name) and default.func.id == "Depends":
@@ -200,8 +200,8 @@ for py in sorted(ROUTES.glob("*.py")):
 route_index = {(r.method, norm_path(r.path)) for r in all_routes}
 
 
-# ── تستِ ۱: پوششِ RPC ────────────────────────────────────────
-print("① پوششِ RPC (فرانت → اندپوینت)")
+# ── تست ۱: پوشش RPC ────────────────────────────────────────
+print("① پوشش RPC (فرانت → اندپوینت)")
 unmapped = sorted(frontend_rpcs - set(RPC_TO_ENDPOINT))
 check(not unmapped, f"همهٔ {len(frontend_rpcs)} RPC فرانت نگاشت دارند", f"RPC بی‌نگاشت: {unmapped}")
 
@@ -212,14 +212,14 @@ for name in sorted(frontend_rpcs):
     method, path = RPC_TO_ENDPOINT[name]
     if (method, norm_path(path)) not in route_index:
         missing_endpoints.append(f"{name} → {method} {path}")
-check(not missing_endpoints, "هر RPC یک اندپوینتِ متناظر دارد", f"اندپوینتِ گم‌شده: {missing_endpoints}")
+check(not missing_endpoints, "هر RPC یک اندپوینت متناظر دارد", f"اندپوینت گم‌شده: {missing_endpoints}")
 
 covered_writes = sorted(r for r in PHASE7_WRITE_RPCS if r in frontend_rpcs)
-notes.append(f"RPCهای نوشتنِ پوشش‌داده‌شده (فاز ۷): {len(covered_writes)} از {len(PHASE7_WRITE_RPCS)}")
+notes.append(f"RPCهای نوشتن پوشش‌داده‌شده (فاز ۷): {len(covered_writes)} از {len(PHASE7_WRITE_RPCS)}")
 
 
-# ── تستِ ۲: مرزِ وابستگی ─────────────────────────────────────
-print("\n② مرزِ وابستگی (RLS داده در برابر هویتیِ بیرون از RLS)")
+# ── تست ۲: مرز وابستگی ─────────────────────────────────────
+print("\n② مرز وابستگی (RLS داده در برابر هویتی بیرون از RLS)")
 data_routes = [r for r in all_routes if r.file in DATA_ROUTE_FILES]
 bad_data = [
     f"{r.file}:{r.func} deps={sorted(r.deps)}"
@@ -228,8 +228,8 @@ bad_data = [
 ]
 check(
     not bad_data,
-    f"همهٔ {len(data_routes)} روتِ داده فقط {TENANT_DEP} دارند",
-    f"روتِ دادهٔ نادرست: {bad_data}",
+    f"همهٔ {len(data_routes)} روت داده فقط {TENANT_DEP} دارند",
+    f"روت دادهٔ نادرست: {bad_data}",
 )
 
 identity_routes = [r for r in all_routes if r.file == IDENTITY_ROUTE_FILE]
@@ -240,18 +240,18 @@ bad_identity = [
 ]
 check(
     identity_routes and not bad_identity,
-    f"همهٔ {len(identity_routes)} روتِ هویتی (members) بیرون از RLS و با گاردِ هویت‌اند",
-    f"روتِ هویتیِ نادرست: {bad_identity}",
+    f"همهٔ {len(identity_routes)} روت هویتی (members) بیرون از RLS و با گارد هویت‌اند",
+    f"روت هویتی نادرست: {bad_identity}",
 )
 
 fam_settings = [r for r in identity_routes if r.func == "update_family_settings"]
 check(
     len(fam_settings) == 1 and "require_owner" in fam_settings[0].deps,
-    "PATCH /family/settings زیرِ require_owner است (فقط مدیر)",
-    "PATCH /family/settings گاردِ require_owner ندارد",
+    "PATCH /family/settings زیر require_owner است (فقط مدیر)",
+    "PATCH /family/settings گارد require_owner ندارد",
 )
 
-# مدیریتِ اعضا در auth باید فقط-مدیر باشد
+# مدیریت اعضا در auth باید فقط-مدیر باشد
 auth_routes = {(r.method, r.func): r for r in all_routes if r.file == "auth"}
 for key, label in [
     (("POST", "add_member"), "POST /auth/members"),
@@ -261,13 +261,13 @@ for key, label in [
     r = auth_routes.get(key)
     check(
         r is not None and "require_owner" in r.deps,
-        f"{label} زیرِ require_owner است",
-        f"{label} گاردِ require_owner ندارد",
+        f"{label} زیر require_owner است",
+        f"{label} گارد require_owner ندارد",
     )
 
 
-# ── تستِ ۳: گاردِ مدیر در لایهٔ سرویس ────────────────────────
-print("\n③ گاردِ مدیر/قواعد در لایهٔ سرویس")
+# ── تست ۳: گارد مدیر در لایهٔ سرویس ────────────────────────
+print("\n③ گارد مدیر/قواعد در لایهٔ سرویس")
 
 
 def func_src(path: Path, name: str) -> str:
@@ -283,22 +283,22 @@ for fn in ("set_category_budget", "delete_category_budget"):
     src = func_src(cat_src, fn)
     check(
         'role != "owner"' in src and "FORBIDDEN" in src,
-        f"categories.{fn} گاردِ فقط-مدیر دارد",
-        f"categories.{fn} گاردِ فقط-مدیر ندارد",
+        f"categories.{fn} گارد فقط-مدیر دارد",
+        f"categories.{fn} گارد فقط-مدیر ندارد",
     )
 
 fam_src = SERVICES / "family.py"
 ufs = func_src(fam_src, "update_family_settings")
 check(
     'role != "owner"' in ufs and "FORBIDDEN" in ufs,
-    "family.update_family_settings گاردِ فقط-مدیر دارد",
-    "family.update_family_settings گاردِ فقط-مدیر ندارد",
+    "family.update_family_settings گارد فقط-مدیر دارد",
+    "family.update_family_settings گارد فقط-مدیر ندارد",
 )
 smr = func_src(fam_src, "set_member_relation")
 check(
     "OWNER_RELATION_FIXED" in smr,
-    "family.set_member_relation نسبتِ مدیر را ثابت نگه می‌دارد (OWNER_RELATION_FIXED)",
-    "family.set_member_relation گاردِ OWNER_RELATION_FIXED ندارد",
+    "family.set_member_relation نسبت مدیر را ثابت نگه می‌دارد (OWNER_RELATION_FIXED)",
+    "family.set_member_relation گارد OWNER_RELATION_FIXED ندارد",
 )
 
 

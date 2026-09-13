@@ -1,10 +1,10 @@
-/* مخزن خانواده و اعضا — اندپوینت‌های REST بک‌اندِ اختصاصی.
-   پیشوندِ «Supabase» در نامِ کلاس میراثی است؛ مخزن اکنون REST-محور است و از
+/* مخزن خانواده و اعضا — اندپوینت‌های REST بک‌اند اختصاصی.
+   پیشوند «Supabase» در نام کلاس میراثی است؛ مخزن اکنون REST-محور است و از
    RestClient استفاده می‌کند (توکن خودکار از هدر).
 
    مسیرها ترکیبی‌اند:
-   - خانواده/اعضا (خواندن و مدیریت مالک): زیرِ /auth/* (get_tenant_member).
-   - تنظیماتِ خانواده و پروفایلِ عضو (بیرون از RLS، members.py): زیرِ /family/* و /members/*. */
+   - خانواده/اعضا (خواندن و مدیریت مالک): زیر /auth/* (get_tenant_member).
+   - تنظیمات خانواده و پروفایل عضو (بیرون از RLS، members.py): زیر /family/* و /members/*. */
 
 import type { FamilyRepository } from "@/domain/family/family.repository";
 import type {
@@ -34,7 +34,7 @@ export class SupabaseFamilyRepository implements FamilyRepository {
   }
 
   async setMonthlyBudget(budget: number): Promise<void> {
-    /* واحد پول و تم از v5.8 شخصی شدند؛ اینجا فقط سقفِ بودجهٔ خانواده به‌روز می‌شود. */
+    /* واحد پول و تم از v5.8 شخصی شدند؛ اینجا فقط سقف بودجهٔ خانواده به‌روز می‌شود. */
     await this.client.patch<void>("/family/settings", { budget });
   }
 

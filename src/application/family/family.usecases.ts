@@ -34,7 +34,7 @@ export class UpdateOwnProfileUseCase {
     if (!name || name.length > 40) {
       throw new AppError("INVALID_TX", "نام باید ۱ تا ۴۰ کاراکتر باشد");
     }
-    /* اعتبارسنجیِ کد ملی حذف شد (۲۰۲۶-۰۹-۰۸): کدملی از برنامه حذف شد */
+    /* اعتبارسنجی کد ملی حذف شد (۲۰۲۶-۰۹-۰۸): کدملی از برنامه حذف شد */
     return this.repo.updateOwnProfile({ ...input, name });
   }
 }
@@ -79,13 +79,19 @@ export class AddMemberByManagerUseCase {
   ): Promise<Member> {
     const trimmed = name.trim();
     if (!trimmed || trimmed.length > 40) {
-      throw new AppError("INVALID_TX", "نام عضو را وارد کنید (حداکثر ۴۰ کاراکتر)");
+      throw new AppError(
+        "INVALID_TX",
+        "نام عضو را وارد کنید (حداکثر ۴۰ کاراکتر)",
+      );
     }
     if (!/^09\d{9}$/.test(phone)) {
       throw new AppError("INVALID_TX", "شماره موبایل معتبر نیست (۰۹xxxxxxxxx)");
     }
     if (!relation.trim()) {
-      throw new AppError("INVALID_TX", "نسبت عضو با مدیر خانواده را انتخاب کنید");
+      throw new AppError(
+        "INVALID_TX",
+        "نسبت عضو با مدیر خانواده را انتخاب کنید",
+      );
     }
     return this.repo.addMemberByManager(trimmed, phone, relation.trim());
   }

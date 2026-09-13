@@ -1250,8 +1250,8 @@ begin
   end if;
 end $$;
 
--- ثبتِ رسیدگی به یک سررسیدِ تراکنش تکرارشونده (بخش ۳.۲)
--- مدیر برای هر سررسید یا «ثبت شد» می‌زند (تراکنش واقعیِ جدا از مسیر عادی
+-- ثبت رسیدگی به یک سررسید تراکنش تکرارشونده (بخش ۳.۲)
+-- مدیر برای هر سررسید یا «ثبت شد» می‌زند (تراکنش واقعی جدا از مسیر عادی
 -- add_transaction ساخته می‌شود) یا «رد شد»؛ در هر دو حالت تاریخ سررسید به
 -- handled_occurrences افزوده می‌شود تا همان دوره دوباره پرسیده نشود.
 -- فقط مدیر خانواده — پیام تأیید سررسید هم فقط به او نشان داده می‌شود.
@@ -1278,7 +1278,7 @@ begin
     raise exception 'INVALID_DATE';
   end if;
 
-  -- باید تراکنشِ تکرارشونده‌ی همین خانواده باشد
+  -- باید تراکنش تکرارشونده‌ی همین خانواده باشد
   select repeat into v_repeat
   from public.transactions
   where id = p_tx_id and family_id = v_family_id;
@@ -1485,7 +1485,7 @@ end $$;
 
 -- ذخیره تنظیمات خانواده — فقط سقف بودجه ماهانه، و فقط مدیر خانواده.
 -- تغییر v5.8: واحد پول و تم از این تابع خارج شدند. قبلاً هر عضوی می‌توانست
--- families.currency و families.dark را عوض کند و واحد پولِ همه‌ی خانواده
+-- families.currency و families.dark را عوض کند و واحد پول همه‌ی خانواده
 -- با آن جابه‌جا می‌شد. اکنون واحد پول شخصی است (members.currency و
 -- set_member_currency) و تم هم شخصی است (members.theme و set_member_theme).
 -- پارامترهای p_currency و p_dark فقط برای سازگاری امضا مانده‌اند و
@@ -2118,7 +2118,7 @@ end $$;
 
 -- واحد پول نمایشی شخصی (v5.8)
 -- برخلاف تم، ردیف عمومی عضو را برمی‌گرداند تا کلاینت بتواند بدون
--- refreshData کامل، همان‌جا member را به‌روز کند (خواندنِ واحد پول در
+-- refreshData کامل، همان‌جا member را به‌روز کند (خواندن واحد پول در
 -- ده‌ها ویجت است و باید بی‌درنگ عوض شود).
 create or replace function public.set_member_currency(
   p_token text, p_currency text
@@ -2145,7 +2145,7 @@ end $$;
 
 -- نسبت یک عضو با مدیر خانواده (v5.8)
 -- مدیر می‌تواند نسبت هر عضو را اصلاح کند، عضو عادی فقط نسبت خودش را.
--- نسبتِ خود مدیر همیشه «خودم» است و قابل تغییر نیست — چون نسبت نسبت به
+-- نسبت خود مدیر همیشه «خودم» است و قابل تغییر نیست — چون نسبت نسبت به
 -- مدیر تعریف می‌شود و «نسبت مدیر به خودش» معنایی جز خودم ندارد.
 create or replace function public.set_member_relation(
   p_token text, p_member_id uuid, p_relation text
@@ -2202,11 +2202,11 @@ create table if not exists public.family_events (
 
 create index if not exists idx_events_family on public.family_events(family_id);
 
--- مهاجرت دیتابیس‌های موجود: عضوِ مربوط به رویداد (اختیاری)
+-- مهاجرت دیتابیس‌های موجود: عضو مربوط به رویداد (اختیاری)
 alter table public.family_events
   add column if not exists for_member_id uuid references public.members(id) on delete set null;
 
--- رویدادهای تولدِ ساخته‌شده با sync قبلی → عضو مربوطه را پر کن
+-- رویدادهای تولد ساخته‌شده با sync قبلی → عضو مربوطه را پر کن
 update public.family_events e
 set for_member_id = e.member_id
 from public.members m
@@ -2263,7 +2263,7 @@ begin
     raise exception 'FORBIDDEN';
   end if;
 
-  -- عضو مربوطه باید عضو فعال همین خانواده باشد (مثلاً تولدِ کدام عضو)
+  -- عضو مربوطه باید عضو فعال همین خانواده باشد (مثلاً تولد کدام عضو)
   if p_for_member_id is not null and not exists (
     select 1 from public.members
     where id = p_for_member_id and family_id = v_family_id and status = 'active'

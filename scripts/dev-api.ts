@@ -67,7 +67,7 @@ export function devApiPlugin(): Plugin {
         );
       }
 
-      /* سنجش دسترسی به Supabase با کش کوتاه — در ایرانِ بدون VPN اتصال
+      /* سنجش دسترسی به Supabase با کش کوتاه — در ایران بدون VPN اتصال
          به supabase.co به‌جای خطای سریع معمولاً هنگ می‌کند؛ نتیجه‌ی کش‌شده
          مانع انتظار تکراری در هر درخواست است */
       let supabaseOk: boolean | null = null;
@@ -78,7 +78,9 @@ export function devApiPlugin(): Plugin {
           return supabaseOk;
         }
         const base = (
-          process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ""
+          process.env.SUPABASE_URL ??
+          process.env.VITE_SUPABASE_URL ??
+          ""
         ).replace(/\/$/, "");
         let ok = false;
         if (base) {
@@ -117,11 +119,10 @@ export function devApiPlugin(): Plugin {
           req: Connect.IncomingMessage,
           res: ServerResponse,
         ): Promise<void> {
-          const name = (req.url ?? "")
-            .split("?")[0]
-            .replace(/^\/+|\/+$/g, "");
+          const name = (req.url ?? "").split("?")[0].replace(/^\/+|\/+$/g, "");
           const file = name ? path.join(apiDir, `${name}.js`) : "";
-          if (!file || !fs.existsSync(file)) return next(); /* api نیست → خود ویته */
+          if (!file || !fs.existsSync(file))
+            return next(); /* api نیست → خود ویته */
 
           const body = await readBody(req);
 

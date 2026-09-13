@@ -1,19 +1,19 @@
-"""ذخیره‌سازیِ فایلِ آپلودی + امضای HMACِ URLها (فاز ۸).
+"""ذخیره‌سازی فایل آپلودی + امضای HMAC URLها (فاز ۸).
 
-جایگزینِ باکت‌های «عمومیِ» Supabase Storage. دو نگرانیِ جدا:
+جایگزین باکت‌های «عمومی» Supabase Storage. دو نگرانی جدا:
 
 ۱) «کجا» بایت‌ها ذخیره شوند → StorageBackend (LocalDiskStorage یا S3Storage؛
-   انتخاب فقط با env، بدونِ تغییرِ روت‌ها).
+   انتخاب فقط با env، بدون تغییر روت‌ها).
 
-۲) «چطور» فایل امن سرو شود → URLِ قابلیتیِ امضاشده با HMAC.
-   چرا URLِ امضاشدهٔ «بی‌انقضا» (durable capability URL)؟ چون این URLها در دیتابیس
-   ذخیره می‌شوند (Member.avatar_url، عکسِ تراکنش) و با تگِ <img> رندر می‌شوند — پس
-   نه می‌توان هدرِ Authorization فرستاد و نه می‌توان انقضای کوتاه گذاشت (URLِ
-   ذخیره‌شده باید همیشه کار کند). راه‌حل: مسیرِ فایل با کلیدِ سرور HMAC می‌شود؛ داشتنِ
-   «امضای معتبر» یعنی «مجوزِ دیدن». اما «آپلود» با نشستِ Bearer محافظت می‌شود، نه
-   قابلیت — تا فقط اعضای واردشده بتوانند فایلِ تازه بسازند.
+۲) «چطور» فایل امن سرو شود → URL قابلیتی امضاشده با HMAC.
+   چرا URL امضاشدهٔ «بی‌انقضا» (durable capability URL)؟ چون این URLها در دیتابیس
+   ذخیره می‌شوند (Member.avatar_url، عکس تراکنش) و با تگ <img> رندر می‌شوند — پس
+   نه می‌توان هدر Authorization فرستاد و نه می‌توان انقضای کوتاه گذاشت (URL
+   ذخیره‌شده باید همیشه کار کند). راه‌حل: مسیر فایل با کلید سرور HMAC می‌شود؛ داشتن
+   «امضای معتبر» یعنی «مجوز دیدن». اما «آپلود» با نشست Bearer محافظت می‌شود، نه
+   قابلیت — تا فقط اعضای واردشده بتوانند فایل تازه بسازند.
 
-تفاوت با باکت‌های عمومیِ قبلی: آنجا URL کاملاً حدس‌زدنی/عمومی بود؛ اینجا بدونِ امضای
+تفاوت با باکت‌های عمومی قبلی: آنجا URL کاملاً حدس‌زدنی/عمومی بود؛ اینجا بدون امضای
 معتبر (که فقط سرور می‌تواند بسازد) هیچ فایلی سرو نمی‌شود.
 """
 
@@ -33,13 +33,13 @@ from typing import Protocol
 from app.core.config import settings
 from app.core.errors import AppError
 
-# mime → پسوند (هم‌سان با توابع سرورلسِ قبلی: png/jpeg/webp)
+# mime → پسوند (هم‌سان با توابع سرورلس قبلی: png/jpeg/webp)
 _ALLOWED: dict[str, str] = {
     "image/png": "png",
     "image/jpeg": "jpg",
     "image/webp": "webp",
 }
-# پسوند → mime (برای Content-Type هنگامِ سرو کردن)
+# پسوند → mime (برای Content-Type هنگام سرو کردن)
 _EXT_MIME: dict[str, str] = {
     "png": "image/png",
     "jpg": "image/jpeg",
@@ -47,29 +47,29 @@ _EXT_MIME: dict[str, str] = {
     "webp": "image/webp",
 }
 
-# فقط dataURLِ تصویرِ base64 با mimeهای مجاز (هم‌سان با regexِ توابع سرورلس)
+# فقط dataURL تصویر base64 با mimeهای مجاز (هم‌سان با regex توابع سرورلس)
 _DATA_URL = re.compile(r"^data:(image/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$")
 
-# بخشِ امنِ مسیر: حرف/عدد/نقطه/زیرخط/خط‌تیره (UUID و timestamp را پوشش می‌دهد)
+# بخش امن مسیر: حرف/عدد/نقطه/زیرخط/خط‌تیره (UUID و timestamp را پوشش می‌دهد)
 _SAFE_SEG = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
 @dataclass(frozen=True)
 class DecodedImage:
-    """نتیجهٔ دیکودِ یک dataURLِ تصویر."""
+    """نتیجهٔ دیکود یک dataURL تصویر."""
 
     mime: str
     ext: str
     data: bytes
 
 
-# ── دیکود و اعتبارسنجیِ تصویرِ ورودی ──────────────────────────
+# ── دیکود و اعتبارسنجی تصویر ورودی ──────────────────────────
 def decode_data_url(data_url: str | None, max_bytes: int) -> DecodedImage:
-    """dataURL → (mime, ext, bytes)؛ با کدهای خطای پایدارِ هم‌سان با نسخهٔ قبلی.
+    """dataURL → (mime, ext, bytes)؛ با کدهای خطای پایدار هم‌سان با نسخهٔ قبلی.
 
-    INVALID_IMAGE اگر قالب/base64 خراب یا خالی باشد؛ IMAGE_TOO_LARGE اگر بایتِ
-    دیکودشده از max_bytes بیشتر شود. سقف روی «بایتِ دیکودشده» سنجیده می‌شود (نه طولِ
-    base64) که دقیق‌تر از نسخهٔ سرورلسِ قبلی است.
+    INVALID_IMAGE اگر قالب/base64 خراب یا خالی باشد؛ IMAGE_TOO_LARGE اگر بایت
+    دیکودشده از max_bytes بیشتر شود. سقف روی «بایت دیکودشده» سنجیده می‌شود (نه طول
+    base64) که دقیق‌تر از نسخهٔ سرورلس قبلی است.
     """
     if not data_url:
         raise AppError("INVALID_IMAGE", "تصویر نامعتبر است.", 400)
@@ -88,12 +88,12 @@ def decode_data_url(data_url: str | None, max_bytes: int) -> DecodedImage:
     return DecodedImage(mime=mime, ext=_ALLOWED[mime], data=raw)
 
 
-# ── امضای HMACِ مسیر (کلیدِ سرور؛ راز) ────────────────────────
+# ── امضای HMAC مسیر (کلید سرور؛ راز) ────────────────────────
 def require_configured() -> None:
-    """اگر کلیدِ امضا تنظیم نشده باشد، fail-closed با SERVER_NOT_CONFIGURED.
+    """اگر کلید امضا تنظیم نشده باشد، fail-closed با SERVER_NOT_CONFIGURED.
 
-    بدونِ کلید نه می‌توان امضا ساخت (آپلود) نه راستی‌آزمایی کرد (سرو). این را در
-    ابتدای هر دو روت صدا می‌زنیم تا خطای واضحِ عملیاتی بدهد، نه ۴۰۳/۴۰۴ گمراه‌کننده.
+    بدون کلید نه می‌توان امضا ساخت (آپلود) نه راستی‌آزمایی کرد (سرو). این را در
+    ابتدای هر دو روت صدا می‌زنیم تا خطای واضح عملیاتی بدهد، نه ۴۰۳/۴۰۴ گمراه‌کننده.
     """
     if not settings.file_signing_secret:
         raise AppError(
@@ -102,22 +102,22 @@ def require_configured() -> None:
 
 
 def sign_path(path: str) -> str:
-    """امضای HMAC-SHA256ِ مسیرِ ذخیره (هگز)."""
+    """امضای HMAC-SHA256 مسیر ذخیره (هگز)."""
     key = settings.file_signing_secret.encode("utf-8")
     return hmac.new(key, path.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 def verify_path(path: str, sig: str | None) -> bool:
-    """راستی‌آزماییِ ثابت-زمانِ امضا در برابرِ مسیر."""
+    """راستی‌آزمایی ثابت-زمان امضا در برابر مسیر."""
     if not sig:
         return False
     return hmac.compare_digest(sign_path(path), sig)
 
 
 def build_url(path: str) -> str:
-    """URLِ کاملِ قابلِ ذخیره در DB: {files_base_url}/api/v1/files/{path}?sig=...
+    """URL کامل قابل ذخیره در DB: {files_base_url}/api/v1/files/{path}?sig=...
 
-    اگر files_base_url خالی باشد، URLِ نسبی (هم‌مبدأ) برمی‌گردد که در <img> کار می‌کند.
+    اگر files_base_url خالی باشد، URL نسبی (هم‌مبدأ) برمی‌گردد که در <img> کار می‌کند.
     """
     sig = sign_path(path)
     base = settings.files_base_url.rstrip("/")
@@ -127,9 +127,9 @@ def build_url(path: str) -> str:
 def make_object_path(
     bucket: str, member_id: str, ext: str, *, unique: bool = False
 ) -> str:
-    """مسیرِ آبجکت: '{bucket}/{member_id}-{ts_ms}[-rand].{ext}' (هم‌سان با نام‌گذاریِ قبلی).
+    """مسیر آبجکت: '{bucket}/{member_id}-{ts_ms}[-rand].{ext}' (هم‌سان با نام‌گذاری قبلی).
 
-    unique=True یک پسوندِ تصادفی می‌افزاید (برای عکسِ تراکنش که چند فایل در یک میلی‌ثانیه
+    unique=True یک پسوند تصادفی می‌افزاید (برای عکس تراکنش که چند فایل در یک میلی‌ثانیه
     ممکن است؛ آواتار چون هر بار جایگزین می‌شود لازم ندارد).
     """
     ts = int(time.time() * 1000)
@@ -140,14 +140,14 @@ def make_object_path(
 
 
 def content_type_for(path: str) -> str:
-    """Content-Type از روی پسوندِ مسیر (پیش‌فرض octet-stream)."""
+    """Content-Type از روی پسوند مسیر (پیش‌فرض octet-stream)."""
     ext = path.rsplit(".", 1)[-1].lower() if "." in path else ""
     return _EXT_MIME.get(ext, "application/octet-stream")
 
 
-# ── لایهٔ ذخیره‌سازی (دیسکِ محلی یا S3؛ انتخاب با env) ─────────
+# ── لایهٔ ذخیره‌سازی (دیسک محلی یا S3؛ انتخاب با env) ─────────
 class StorageBackend(Protocol):
-    """قراردادِ ذخیره‌سازی — LocalDiskStorage و S3Storage آن را پیاده می‌کنند (انتخاب با env)."""
+    """قرارداد ذخیره‌سازی — LocalDiskStorage و S3Storage آن را پیاده می‌کنند (انتخاب با env)."""
 
     def save(self, path: str, data: bytes) -> None: ...
 
@@ -155,16 +155,16 @@ class StorageBackend(Protocol):
 
 
 class LocalDiskStorage:
-    """ذخیره روی دیسکِ محلی زیرِ یک ریشه، با محافظت در برابرِ path traversal."""
+    """ذخیره روی دیسک محلی زیر یک ریشه، با محافظت در برابر path traversal."""
 
     def __init__(self, root: str) -> None:
         self._root = Path(root).resolve()
 
     def _resolve(self, path: str) -> Path:
-        """مسیرِ نسبی → مسیرِ مطلقِ درونِ ریشه؛ NOT_FOUND اگر مشکوک به traversal.
+        """مسیر نسبی → مسیر مطلق درون ریشه؛ NOT_FOUND اگر مشکوک به traversal.
 
-        دو لایهٔ دفاع: (۱) هر بخشِ مسیر باید با _SAFE_SEG بخواند و '.'/'..' نباشد،
-        (۲) مسیرِ resolve‌شده باید واقعاً زیرِ ریشه بیفتد.
+        دو لایهٔ دفاع: (۱) هر بخش مسیر باید با _SAFE_SEG بخواند و '.'/'..' نباشد،
+        (۲) مسیر resolve‌شده باید واقعاً زیر ریشه بیفتد.
         """
         parts = [p for p in path.split("/") if p]
         if not parts:
@@ -190,13 +190,13 @@ class LocalDiskStorage:
 
 
 class S3Storage:
-    """ذخیره روی فضای آبجکتِ سازگار با S3 (مثلِ Object Storageِ لیارا).
+    """ذخیره روی فضای آبجکت سازگار با S3 (مثل Object Storage لیارا).
 
-    فقط وقتی فعال می‌شود که هر دویِ storage_endpoint و storage_bucket ست باشند
-    (انتخاب در _build_storage). مسیرِ آبجکت (مثلِ 'avatars/xxx.png') به‌عنوانِ Key
-    درونِ همان یک باکت به‌کار می‌رود؛ پیشوندهای avatars/ و tx-photos/ صرفاً بخشی از
+    فقط وقتی فعال می‌شود که هر دوی storage_endpoint و storage_bucket ست باشند
+    (انتخاب در _build_storage). مسیر آبجکت (مثل 'avatars/xxx.png') به‌عنوان Key
+    درون همان یک باکت به‌کار می‌رود؛ پیشوندهای avatars/ و tx-photos/ صرفاً بخشی از
     کلیدند. روت‌ها تغییر نمی‌کنند: سرو همچنان بایت‌ها را از این backend می‌خواند و با
-    URLِ امضاشدهٔ HMAC پروکسی می‌کند (نه لینکِ مستقیمِ باکت) — پس باکت می‌تواند خصوصی بماند.
+    URL امضاشدهٔ HMAC پروکسی می‌کند (نه لینک مستقیم باکت) — پس باکت می‌تواند خصوصی بماند.
     """
 
     def __init__(self) -> None:
@@ -207,7 +207,7 @@ class S3Storage:
         except ImportError as exc:  # pragma: no cover
             raise AppError(
                 "SERVER_NOT_CONFIGURED",
-                "بستهٔ boto3 نصب نیست؛ برای ذخیره‌سازیِ S3 لازم است.",
+                "بستهٔ boto3 نصب نیست؛ برای ذخیره‌سازی S3 لازم است.",
                 500,
             ) from exc
         self._bucket = settings.storage_bucket
@@ -223,7 +223,7 @@ class S3Storage:
 
     @staticmethod
     def _safe_key(path: str) -> str:
-        """اعتبارسنجیِ بخش‌های مسیر (هم‌سان با دیسک) → کلیدِ نرمال‌شده؛ NOT_FOUND اگر مشکوک."""
+        """اعتبارسنجی بخش‌های مسیر (هم‌سان با دیسک) → کلید نرمال‌شده؛ NOT_FOUND اگر مشکوک."""
         parts = [p for p in path.split("/") if p]
         if not parts:
             raise AppError("NOT_FOUND", "فایل یافت نشد.", 404)
@@ -250,13 +250,13 @@ class S3Storage:
             code = str(exc.response.get("Error", {}).get("Code", ""))
             if code in ("NoSuchKey", "NoSuchBucket", "404"):
                 raise AppError("NOT_FOUND", "فایل یافت نشد.", 404) from exc
-            raise AppError("STORAGE_ERROR", "خطا در خواندنِ فایل.", 502) from exc
+            raise AppError("STORAGE_ERROR", "خطا در خواندن فایل.", 502) from exc
 
 
 def _build_storage() -> StorageBackend:
-    """انتخابِ backend از روی env: S3 اگر endpoint+bucket ست باشند، وگرنه دیسکِ محلی.
+    """انتخاب backend از روی env: S3 اگر endpoint+bucket ست باشند، وگرنه دیسک محلی.
 
-    غیرمخرب: بدونِ ستِ این دو متغیر، رفتار دقیقاً مثلِ قبل (دیسک) است.
+    غیرمخرب: بدون ست این دو متغیر، رفتار دقیقاً مثل قبل (دیسک) است.
     """
     if settings.storage_endpoint and settings.storage_bucket:
         return S3Storage()
@@ -267,5 +267,5 @@ _storage: StorageBackend = _build_storage()
 
 
 def get_storage() -> StorageBackend:
-    """نمونهٔ واحدِ backendِ ذخیره‌سازی."""
+    """نمونهٔ واحد backend ذخیره‌سازی."""
     return _storage

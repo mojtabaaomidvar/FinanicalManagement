@@ -1,12 +1,12 @@
-"""پارسرِ پیامکِ بانکیِ ایرانی — پورتِ منطقِ خالصِ src/shared/lib/sms-parser.ts.
+"""پارسر پیامک بانکی ایرانی — پورت منطق خالص src/shared/lib/sms-parser.ts.
 
-چرا سمت سرور؟ تا پیش از این، پارسِ پیامک «فقط» در کلاینت (TS) انجام می‌شد و مسیرهای
-مختلفِ ورودی (فورواردرِ خودکار که فقط متنِ خام را ذخیره می‌کرد، در برابر مسیرِ دستی که
-سمت کلاینت پارس می‌شد) خروجیِ ناهم‌سان می‌دادند. با انتقالِ پارس به سرور، هر دو مسیرِ
-ورود (خواندنِ نیتیوِ اپِ اندروید + پلِ فورواردر) دقیقاً یک‌جور تراکنش می‌سازند و وب هم
+چرا سمت سرور؟ تا پیش از این، پارس پیامک «فقط» در کلاینت (TS) انجام می‌شد و مسیرهای
+مختلف ورودی (فورواردر خودکار که فقط متن خام را ذخیره می‌کرد، در برابر مسیر دستی که
+سمت کلاینت پارس می‌شد) خروجی ناهم‌سان می‌دادند. با انتقال پارس به سرور، هر دو مسیر
+ورود (خواندن نیتیو اپ اندروید + پل فورواردر) دقیقاً یک‌جور تراکنش می‌سازند و وب هم
 همان نتیجه را می‌بیند.
 
-بدونِ هیچ وابستگیِ بیرونی؛ فقط کتابخانهٔ استاندارد + app.services.jalali.
+بدون هیچ وابستگی بیرونی؛ فقط کتابخانهٔ استاندارد + app.services.jalali.
 منطق مو‌به‌مو با نسخهٔ TS یکی است تا در دورهٔ گذار (که هر دو زنده‌اند) اختلافی نباشد.
 """
 
@@ -18,7 +18,7 @@ from datetime import date
 
 from app.services.jalali import to_gregorian, to_jalali
 
-# ── ارقام فارسی/عربی → انگلیسی (معادلِ digits.ts:toEn) ───────────
+# ── ارقام فارسی/عربی → انگلیسی (معادل digits.ts:toEn) ───────────
 _FA_DIGITS = "۰۱۲۳۴۵۶۷۸۹"
 _AR_DIGITS = "٠١٢٣٤٥٦٧٨٩"
 _DIGIT_MAP: dict[int, str] = {ord(c): str(i) for i, c in enumerate(_FA_DIGITS)}
@@ -26,7 +26,7 @@ _DIGIT_MAP.update({ord(c): str(i) for i, c in enumerate(_AR_DIGITS)})
 
 
 def to_en(value: str) -> str:
-    """ارقام فارسی/عربی → انگلیسی. سایرِ نویسه‌ها دست‌نخورده."""
+    """ارقام فارسی/عربی → انگلیسی. سایر نویسه‌ها دست‌نخورده."""
     return str(value).translate(_DIGIT_MAP)
 
 
@@ -113,7 +113,7 @@ _CAT_RULES: list[tuple[re.Pattern[str], str]] = [
 
 @dataclass(frozen=True)
 class SmsDate:
-    """تاریخِ استخراج‌شده — میلادی (gy/gm/gd) به‌همراهِ معادلِ جلالی."""
+    """تاریخ استخراج‌شده — میلادی (gy/gm/gd) به‌همراه معادل جلالی."""
 
     gy: int
     gm: int
@@ -121,13 +121,13 @@ class SmsDate:
     jalali: tuple[int, int, int]
 
     def to_date(self) -> date:
-        """datetime.date میلادی؛ در صورتِ اجزای نامعتبر ValueError می‌دهد."""
+        """datetime.date میلادی؛ در صورت اجزای نامعتبر ValueError می‌دهد."""
         return date(self.gy, self.gm, self.gd)
 
 
 @dataclass(frozen=True)
 class ParsedSms:
-    """نتیجهٔ خالصِ پارس. category ستونِ دیتابیس نیست (هنگام تبدیلِ پیامک به تراکنش
+    """نتیجهٔ خالص پارس. category ستون دیتابیس نیست (هنگام تبدیل پیامک به تراکنش
     در کلاینت به‌کار می‌رود) و صرفاً برای اطلاع برگردانده می‌شود."""
 
     normalized: str
@@ -140,12 +140,12 @@ class ParsedSms:
 
 
 def normalize_sms(s: str) -> str:
-    """ارقام فارسی/عربی → انگلیسی + ي→ی، ك→ک + حذفِ نویسه‌های نامرئی."""
+    """ارقام فارسی/عربی → انگلیسی + ي→ی، ك→ک + حذف نویسه‌های نامرئی."""
     return _INVISIBLE_RE.sub("", to_en(str(s)).replace("ي", "ی").replace("ك", "ک"))
 
 
 def extract_amounts(text: str) -> list[int]:
-    """همهٔ اعدادِ «بزرگ» (>= ۱۰۰۰) به ترتیبِ ظهور."""
+    """همهٔ اعداد «بزرگ» (>= ۱۰۰۰) به ترتیب ظهور."""
     t = to_en(text)
     out: list[int] = []
     for m in _AMOUNT_RE.finditer(t):
@@ -156,7 +156,7 @@ def extract_amounts(text: str) -> list[int]:
 
 
 def detect_type(text: str) -> str | None:
-    """رأی‌گیریِ کلیدواژه‌ای: واریز/درآمد در برابر برداشت/هزینه."""
+    """رأی‌گیری کلیدواژه‌ای: واریز/درآمد در برابر برداشت/هزینه."""
     t = text.lower()
     income = sum(1 for w in _INCOME_WORDS if w in t)
     expense = sum(1 for w in _EXPENSE_WORDS if w in t)
@@ -175,7 +175,7 @@ def detect_bank(text: str) -> str | None:
 
 
 def extract_date(text: str) -> SmsDate | None:
-    """جلالی (۱۴xx/xx/xx) → میلادی؛ وگرنه میلادیِ 20xx (سال-اول یا روز-اول)."""
+    """جلالی (۱۴xx/xx/xx) → میلادی؛ وگرنه میلادی 20xx (سال-اول یا روز-اول)."""
     t = to_en(text)
     m = _JALALI_RE.search(t)
     if m:
@@ -184,7 +184,7 @@ def extract_date(text: str) -> SmsDate | None:
         if 1 <= jm <= 12 and 1 <= jd <= 31:
             gy, gm, gd = to_gregorian(jy, jm, jd)
             return SmsDate(gy, gm, gd, (jy, jm, jd))
-        # جلالیِ خارج از بازه: به شاخهٔ میلادی می‌افتد (مثلِ نسخهٔ TS)
+        # جلالی خارج از بازه: به شاخهٔ میلادی می‌افتد (مثل نسخهٔ TS)
     m = _GREG_RE.search(t)
     if m:
         gy, gm, gd = int(m.group(1)), int(m.group(2)), int(m.group(3))
@@ -217,12 +217,12 @@ def guess_category(text: str) -> str | None:
 
 
 def parse_sms(raw_text: str) -> ParsedSms | None:
-    """پارسِ کاملِ یک پیامک. None اگر متن پس از نرمال‌سازی خالی باشد.
+    """پارس کامل یک پیامک. None اگر متن پس از نرمال‌سازی خالی باشد.
 
-    مبلغِ تراکنش به ترتیبِ اولویت:
-      ۱) عددِ پس از کلیدواژهٔ «مبلغ» (اگر با موجودی برابر نباشد)،
-      ۲) اولین عددِ بزرگِ ≠ موجودی،
-      ۳) اولین عددِ بزرگ.
+    مبلغ تراکنش به ترتیب اولویت:
+      ۱) عدد پس از کلیدواژهٔ «مبلغ» (اگر با موجودی برابر نباشد)،
+      ۲) اولین عدد بزرگ ≠ موجودی،
+      ۳) اولین عدد بزرگ.
     """
     text = normalize_sms(raw_text or "")
     if not text:
@@ -249,7 +249,7 @@ def parse_sms(raw_text: str) -> ParsedSms | None:
         try:
             parsed_date = sms_date.to_date()
         except ValueError:
-            parsed_date = None  # اجزای تاریخِ نامعتبر → بدونِ تاریخ (به‌جای خطا)
+            parsed_date = None  # اجزای تاریخ نامعتبر → بدون تاریخ (به‌جای خطا)
 
     return ParsedSms(
         normalized=text,
@@ -263,5 +263,5 @@ def parse_sms(raw_text: str) -> ParsedSms | None:
 
 
 def split_sms_blocks(raw: str) -> list[str]:
-    """تفکیکِ چند پیامک با خطِ خالی (معادلِ splitSmsBlocks)."""
+    """تفکیک چند پیامک با خط خالی (معادل splitSmsBlocks)."""
     return [b.strip() for b in re.split(r"\n\s*\n", raw) if b.strip()]

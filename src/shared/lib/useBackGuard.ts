@@ -1,7 +1,7 @@
-/* useBackGuard — به‌ازای هر لایهٔ باز، یک ورودیِ بازگشت ثبت می‌کند.
-   وقتی open=true شود، لایه به پشتهٔ backGuard افزوده می‌شود؛ با بازگشتِ
+/* useBackGuard — به‌ازای هر لایهٔ باز، یک ورودی بازگشت ثبت می‌کند.
+   وقتی open=true شود، لایه به پشتهٔ backGuard افزوده می‌شود؛ با بازگشت
    کاربر (دکمه/سوایپ) تابع onClose صدا می‌خورد. اگر لایه برنامه‌ای بسته
-   شود (open=false)، ورودیِ تاریخچه‌اش پس گرفته می‌شود. */
+   شود (open=false)، ورودی تاریخچه‌اش پس گرفته می‌شود. */
 
 import { useEffect, useRef } from "react";
 import { popGuard, pushGuard } from "./backGuard";

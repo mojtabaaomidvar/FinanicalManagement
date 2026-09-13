@@ -194,7 +194,7 @@ export function AccountsPage() {
             </Field>
           </div>
           <p className="modal-sub full" style={{ gridColumn: "1 / -1" }}>
-            نمودار دارایی از اولین تا آخرین روزِ این بازه رسم می‌شود.
+            نمودار دارایی از اولین تا آخرین روز این بازه رسم می‌شود.
           </p>
         </div>
         <div className="modal-actions">

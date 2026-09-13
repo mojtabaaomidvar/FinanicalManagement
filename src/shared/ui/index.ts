@@ -1,4 +1,5 @@
 export { Icon } from "./Icon";
+export { BrandMark } from "./BrandMark";
 export { Card } from "./Card";
 export { Modal } from "./Modal";
 export { FitText } from "./FitText";

@@ -1,14 +1,14 @@
-/* هوک جست‌وجوی تک‌سهم — کاربر تایپ می‌کند، سرور روی فهرستِ کشِ‌شده فیلتر می‌کند.
+/* هوک جست‌وجوی تک‌سهم — کاربر تایپ می‌کند، سرور روی فهرست کش‌شده فیلتر می‌کند.
 
-   چرا debounce: هر کلیدِ فشرده‌شده یک درخواست نباشد. ۳۵۰ میلی‌ثانیه سکوت
-   کافی است تا تایپِ یک نماد تمام شود.
+   چرا debounce: هر کلید فشرده‌شده یک درخواست نباشد. ۳۵۰ میلی‌ثانیه سکوت
+   کافی است تا تایپ یک نماد تمام شود.
 
-   چرا شمارندهٔ turn: پاسخ‌ها می‌توانند بی‌ترتیب برسند (کوئریِ کوتاه‌تر
-   دیرتر جواب بگیرد). هر درخواست شماره دارد و فقط پاسخِ آخرین شماره در state
+   چرا شمارندهٔ turn: پاسخ‌ها می‌توانند بی‌ترتیب برسند (کوئری کوتاه‌تر
+   دیرتر جواب بگیرد). هر درخواست شماره دارد و فقط پاسخ آخرین شماره در state
    می‌نشیند؛ وگرنه نتیجهٔ «فولا» روی نتیجهٔ «فولاد» می‌نشست.
 
-   کشِ ماژول-سطح نداریم — برخلافِ اسنپ‌شات، این‌جا کوئری متغیر است و سرور
-   خودش فهرست را کش کرده؛ پس تکرارِ درخواست هزینهٔ بالادست ندارد. */
+   کش ماژول-سطح نداریم — برخلاف اسنپ‌شات، این‌جا کوئری متغیر است و سرور
+   خودش فهرست را کش کرده؛ پس تکرار درخواست هزینهٔ بالادست ندارد. */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
@@ -16,7 +16,7 @@ import type { StockSearch } from "@/domain/market/market.types";
 
 const DEBOUNCE_MS = 350;
 
-/** کمترین طولِ کوئری. سرور هم همین را دارد؛ این‌جا فقط درخواستِ بی‌فایده نمی‌زنیم. */
+/** کمترین طول کوئری. سرور هم همین را دارد؛ این‌جا فقط درخواست بی‌فایده نمی‌زنیم. */
 const MIN_CHARS = 2;
 
 export function useStockSearch() {
@@ -27,7 +27,7 @@ export function useStockSearch() {
   const [loading, setLoading] = useState(false);
 
   const turn = useRef(0);
-  // زنده‌بودنِ کامپوننت: جلوی setState بعد از unmount را می‌گیرد.
+  // زنده‌بودن کامپوننت: جلوی setState بعد از unmount را می‌گیرد.
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -55,7 +55,7 @@ export function useStockSearch() {
       useCases.searchStocks
         .execute(q)
         .then((res) => {
-          if (!alive.current || mine !== turn.current) return; // پاسخِ کهنه
+          if (!alive.current || mine !== turn.current) return; // پاسخ کهنه
           setData(res);
           setLoading(false);
         })
@@ -70,7 +70,7 @@ export function useStockSearch() {
   }, [query, useCases]);
 
   const clear = useCallback(() => {
-    turn.current++; // پاسخِ در راه را بی‌اعتبار کن
+    turn.current++; // پاسخ در راه را بی‌اعتبار کن
     setQuery("");
     setData(null);
     setError(null);

@@ -122,7 +122,7 @@ export function isLeap(jy: number): boolean {
   return [1, 5, 9, 13, 17, 22, 26, 30].includes(mod);
 }
 
-/* ── روزهای باقیمانده تا پایان ماه، شامل خودِ همان روز ── */
+/* ── روزهای باقیمانده تا پایان ماه، شامل خود همان روز ── */
 export function daysLeftInMonth([jy, jm, jd]: JDate): number {
   return Math.max(1, daysInMonth(jy, jm) - jd + 1);
 }

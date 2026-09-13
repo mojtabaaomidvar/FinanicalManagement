@@ -53,9 +53,7 @@ export function AccountFormFeature({ m }: { m: AccountsModel }) {
             <TextInput
               value={m.form.title}
               onChange={(v) => m.patch({ title: v })}
-              placeholder={
-                isWallet ? "مثال: کیف پول نقدی" : "مثال: کارت اصلی"
-              }
+              placeholder={isWallet ? "مثال: کیف پول نقدی" : "مثال: کارت اصلی"}
               autoFocus
             />
           </Field>
@@ -144,7 +142,7 @@ export function AccountFormFeature({ m }: { m: AccountsModel }) {
               <b>این یک درآمد یا هزینهٔ واقعی نیست</b>
             </div>
             <p>
-              موجودی به‌صورت دستی اصلاح می‌شود. برای شفاف‌ماندنِ حساب، تفاوت
+              موجودی به‌صورت دستی اصلاح می‌شود. برای شفاف‌ماندن حساب، تفاوت
               به‌صورت یک تراکنش با عنوان «تغییر دستی موجودی» به تاریخ و ساعت
               همین لحظه ثبت می‌شود؛ ولی این پول واقعاً خرج یا کسب نشده. اگر
               درآمد یا هزینهٔ واقعی دارید، به‌جای این کار یک تراکنش عادی ثبت

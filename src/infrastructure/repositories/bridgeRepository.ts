@@ -1,5 +1,5 @@
-/* مخزن پل پیامک — اندپوینت‌های REST بک‌اندِ اختصاصی (/sms/bridge).
-   پیشوندِ «Supabase» در نامِ کلاس میراثی است؛ مخزن اکنون REST-محور است و از
+/* مخزن پل پیامک — اندپوینت‌های REST بک‌اند اختصاصی (/sms/bridge).
+   پیشوند «Supabase» در نام کلاس میراثی است؛ مخزن اکنون REST-محور است و از
    RestClient استفاده می‌کند (توکن خودکار از هدر). */
 
 import type { BridgeRepository } from "@/domain/sms/bridge.repository";

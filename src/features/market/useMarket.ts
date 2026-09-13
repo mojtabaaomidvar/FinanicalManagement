@@ -1,8 +1,8 @@
-/* هوک بازار — دادهٔ مشترک بینِ کاشیِ هاب و صفحه‌ی بازار.
+/* هوک بازار — دادهٔ مشترک بین کاشی هاب و صفحه‌ی بازار.
 
-   کشِ ماژول-سطح (۶۰ ثانیه) مانعِ فراخوانیِ پشت‌سرهم می‌شود: سرور خودش
-   ۵ دقیقه کش می‌کند، این لایه فقط از اسپامِ درخواستِ «هر رندر» جلوگیری
-   می‌کند. refresh() کشِ کلاینت را دور می‌زند (سرور همچنان تصمیم می‌گیرد). */
+   کش ماژول-سطح (۶۰ ثانیه) مانع فراخوانی پشت‌سرهم می‌شود: سرور خودش
+   ۵ دقیقه کش می‌کند، این لایه فقط از اسپام درخواست «هر رندر» جلوگیری
+   می‌کند. refresh() کش کلاینت را دور می‌زند (سرور همچنان تصمیم می‌گیرد). */
 
 import { useCallback, useEffect, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
@@ -14,13 +14,14 @@ const CLIENT_TTL_MS = 60_000;
 let cached: { at: number; data: MarketSnapshot } | null = null;
 let inflight: Promise<MarketSnapshot> | null = null;
 
-/** کشِ کلاینت را بی‌اعتبار می‌کند (مثلاً بعد از به‌روزرسانی اپ). */
+/** کش کلاینت را بی‌اعتبار می‌کند (مثلاً بعد از به‌روزرسانی اپ). */
 export function invalidateMarketCache(): void {
   cached = null;
 }
 
 function load(uc: UseCases): Promise<MarketSnapshot> {
-  if (cached && Date.now() - cached.at < CLIENT_TTL_MS) return Promise.resolve(cached.data);
+  if (cached && Date.now() - cached.at < CLIENT_TTL_MS)
+    return Promise.resolve(cached.data);
   if (!inflight) {
     inflight = uc.getMarketSnapshot
       .execute()

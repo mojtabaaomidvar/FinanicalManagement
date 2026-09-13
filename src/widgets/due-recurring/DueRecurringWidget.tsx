@@ -1,6 +1,6 @@
-/* ویجت سررسیدِ تراکنش‌های تکرارشونده (بخش ۳.۲) — فقط برای مدیر خانواده.
+/* ویجت سررسید تراکنش‌های تکرارشونده (بخش ۳.۲) — فقط برای مدیر خانواده.
    برای هر تراکنش تکرارشونده، سررسیدهای رسیدگی‌نشده تا امروز محاسبه می‌شوند
-   و از مدیر پرسیده می‌شود «انجام شد؟». پاسخ بله فرم را با مبلغ/دسته/توضیحِ
+   و از مدیر پرسیده می‌شود «انجام شد؟». پاسخ بله فرم را با مبلغ/دسته/توضیح
    الگو پیش‌پر می‌کند (تاریخ روی امروز است تا کاربر خودش نهایی کند)؛ پاسخ نه
    همان سررسید را علامت رسیدگی می‌زند تا دوباره پرسیده نشود. */
 
@@ -27,7 +27,8 @@ interface DueItem {
 const MAX_SHOWN = 6;
 
 export function DueRecurringWidget({ form }: { form: TxFormModel }) {
-  const { txs, member, cur, customCategories, useCases, refreshData } = useApp();
+  const { txs, member, cur, customCategories, useCases, refreshData } =
+    useApp();
   const [busy, setBusy] = useState<string | null>(null);
 
   const resolve = useMemo(
@@ -42,10 +43,7 @@ export function DueRecurringWidget({ form }: { form: TxFormModel }) {
     for (const tx of txs) {
       if (tx.repeat === "none") continue;
       const due = dueOccurrences(tx.date, tx.repeat, tx.repeatEnd, now);
-      const pending = pendingOccurrences(
-        due,
-        new Set(tx.handledOccurrences),
-      );
+      const pending = pendingOccurrences(due, new Set(tx.handledOccurrences));
       for (const d of pending) {
         out.push({ tx, dueDate: d, label: formatLong(isoToJalali(d)) });
       }
@@ -94,8 +92,7 @@ export function DueRecurringWidget({ form }: { form: TxFormModel }) {
               <div className="due-info">
                 <b>{item.tx.note?.trim() || cat.name}</b>
                 <p>
-                  {item.label} ·{" "}
-                  {formatAmount(toDisplay(item.tx.amount, cur))}
+                  {item.label} · {formatAmount(toDisplay(item.tx.amount, cur))}
                 </p>
               </div>
               <div className="due-actions">

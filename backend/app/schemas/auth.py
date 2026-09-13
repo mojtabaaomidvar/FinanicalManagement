@@ -25,7 +25,7 @@ _MIN_PASSWORD = 8
 
 # ── نماهای خروجی ─────────────────────────────────────────────
 class MemberPublic(BaseModel):
-    """نمای امنِ عضو — معادل _member_public در schema.sql (بدون password_hash)."""
+    """نمای امن عضو — معادل _member_public در schema.sql (بدون password_hash)."""
 
     id: str
     family_id: str

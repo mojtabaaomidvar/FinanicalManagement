@@ -1,7 +1,7 @@
-/* مخزن تراکنش‌ها — اندپوینت‌های REST بک‌اندِ اختصاصی (/transactions).
-   نکته: پیشوندِ «Supabase» در نامِ کلاس صرفاً میراثی است و برای کم‌کردنِ دامنهٔ تغییر
+/* مخزن تراکنش‌ها — اندپوینت‌های REST بک‌اند اختصاصی (/transactions).
+   نکته: پیشوند «Supabase» در نام کلاس صرفاً میراثی است و برای کم‌کردن دامنهٔ تغییر
    حفظ شده؛ این مخزن دیگر با Supabase کار نمی‌کند و از RestClient استفاده می‌کند.
-   توکن خودکار از هدرِ Authorization توسط RestClient تزریق می‌شود. */
+   توکن خودکار از هدر Authorization توسط RestClient تزریق می‌شود. */
 
 import type { TransactionRepository } from "@/domain/transaction/transaction.repository";
 import type {
@@ -12,7 +12,7 @@ import type { RestClient } from "@/infrastructure/api/restClient";
 import { AppError } from "@/shared/lib/appError";
 import { mapTransaction, type TransactionRow } from "./mappers";
 
-/** بدنهٔ snake_case مشترکِ افزودن/ویرایش تراکنش (سازگار با اسکیمای بک‌اند). */
+/** بدنهٔ snake_case مشترک افزودن/ویرایش تراکنش (سازگار با اسکیمای بک‌اند). */
 function toBody(input: TransactionInput) {
   return {
     member_id: input.memberId,
@@ -68,15 +68,16 @@ export class SupabaseTransactionRepository implements TransactionRepository {
   }
 
   async uploadPhoto(dataUrl: string): Promise<string> {
-    /* آپلود به استوریجِ خصوصیِ سرور؛ توکن خودکار از هدر می‌رود. مهلتِ بلندتر برای
-       تصویرِ حجیم. خطاها (INVALID_IMAGE/IMAGE_TOO_LARGE/SERVER_NOT_CONFIGURED/
-       SESSION_EXPIRED) در RestClient به پیامِ فارسی نگاشته می‌شوند. */
+    /* آپلود به استوریج خصوصی سرور؛ توکن خودکار از هدر می‌رود. مهلت بلندتر برای
+       تصویر حجیم. خطاها (INVALID_IMAGE/IMAGE_TOO_LARGE/SERVER_NOT_CONFIGURED/
+       SESSION_EXPIRED) در RestClient به پیام فارسی نگاشته می‌شوند. */
     const r = await this.client.post<{ ok?: boolean; url?: string }>(
       "/uploads/photo",
       { image: dataUrl },
       { timeoutMs: 60000 },
     );
-    if (!r?.url) throw new AppError("SERVER", "آپلود ناموفق بود — دوباره تلاش کنید");
+    if (!r?.url)
+      throw new AppError("SERVER", "آپلود ناموفق بود — دوباره تلاش کنید");
     return r.url;
   }
 

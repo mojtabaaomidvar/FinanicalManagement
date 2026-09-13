@@ -1,4 +1,4 @@
-/* مخزن بازار — اندپوینت REST بک‌اندِ اختصاصی (/market/prices).
+/* مخزن بازار — اندپوینت REST بک‌اند اختصاصی (/market/prices).
    بک‌اند خودش BrsApi را با کش صدا می‌زند؛ کلید هرگز به کلاینت نمی‌رسد. */
 
 import type { MarketRepository } from "@/domain/market/market.repository";
@@ -42,7 +42,7 @@ type SnapshotRow = {
   stale: boolean;
   gold: ItemRow[];
   currency: ItemRow[];
-  /** اختیاری: سرورِ قدیمی‌تر این فیلد را نمی‌فرستد */
+  /** اختیاری: سرور قدیمی‌تر این فیلد را نمی‌فرستد */
   crypto?: ItemRow[];
   bourse: BourseRow | null;
 };
@@ -137,7 +137,7 @@ export class RestMarketRepository implements MarketRepository {
   }
 
   async searchStocks(query: string, limit?: number): Promise<StockSearch> {
-    // RestClient.get پارامترِ query نمی‌گیرد، پس رشته را خودمان می‌چسبانیم
+    // RestClient.get پارامتر query نمی‌گیرد، پس رشته را خودمان می‌چسبانیم
     // (encode لازم است: نمادها فارسی‌اند).
     const qs = `?q=${encodeURIComponent(query)}${limit ? `&limit=${limit}` : ""}`;
     const r = await this.client.get<StockSearchRow>(`/market/stocks${qs}`);

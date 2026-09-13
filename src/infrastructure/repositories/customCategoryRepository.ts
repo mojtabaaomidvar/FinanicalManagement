@@ -1,5 +1,5 @@
-/* مخزن دسته‌های سفارشی — اندپوینت‌های REST بک‌اندِ اختصاصی (/custom-categories).
-   پیشوندِ «Supabase» در نامِ کلاس میراثی است؛ مخزن اکنون REST-محور است و از
+/* مخزن دسته‌های سفارشی — اندپوینت‌های REST بک‌اند اختصاصی (/custom-categories).
+   پیشوند «Supabase» در نام کلاس میراثی است؛ مخزن اکنون REST-محور است و از
    RestClient استفاده می‌کند (توکن خودکار از هدر). */
 
 import type {
@@ -26,26 +26,23 @@ function mapCustomCategory(r: CustomCategoryRow): CustomCategory {
   };
 }
 
-export class SupabaseCustomCategoryRepository
-  implements CustomCategoryRepository
-{
+export class SupabaseCustomCategoryRepository implements CustomCategoryRepository {
   constructor(private readonly client: RestClient) {}
 
   async list(): Promise<CustomCategory[]> {
-    const rows = await this.client.get<CustomCategoryRow[]>(
-      "/custom-categories",
-    );
+    const rows =
+      await this.client.get<CustomCategoryRow[]>("/custom-categories");
     return (rows ?? []).map(mapCustomCategory);
   }
 
-  async add(
-    type: "expense" | "income",
-    name: string,
-  ): Promise<CustomCategory> {
-    const row = await this.client.post<CustomCategoryRow>("/custom-categories", {
-      type,
-      name,
-    });
+  async add(type: "expense" | "income", name: string): Promise<CustomCategory> {
+    const row = await this.client.post<CustomCategoryRow>(
+      "/custom-categories",
+      {
+        type,
+        name,
+      },
+    );
     return mapCustomCategory(row);
   }
 

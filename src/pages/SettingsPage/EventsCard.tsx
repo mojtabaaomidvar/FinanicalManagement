@@ -73,7 +73,7 @@ export function EventsCard() {
     }
   }
 
-  /* مدیر: رویدادِ متعلق به دیگری را نمی‌تواند بزند جز خودش — حذف عادی کار می‌کند */
+  /* مدیر: رویداد متعلق به دیگری را نمی‌تواند بزند جز خودش — حذف عادی کار می‌کند */
   const canDelete = (ev: { memberId: string | null }) =>
     member?.role === "owner" || ev.memberId === member?.id;
 

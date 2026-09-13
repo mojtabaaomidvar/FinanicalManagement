@@ -91,7 +91,7 @@ def upgrade() -> None:
         sa.CheckConstraint("theme IN ('light','dark','auto')", name="ck_members_theme"),
         sa.CheckConstraint("currency IN ('تومان','ریال')", name="ck_members_currency"),
     )
-    # یکتاییِ شماره فقط برای مقادیر غیر-NULL (چند عضو بدون شماره مجاز است).
+    # یکتایی شماره فقط برای مقادیر غیر-NULL (چند عضو بدون شماره مجاز است).
     op.create_index(
         "uq_members_phone", "members", ["phone"],
         unique=True, postgresql_where=sa.text("phone IS NOT NULL"),

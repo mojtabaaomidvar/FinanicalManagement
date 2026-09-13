@@ -74,7 +74,7 @@ def resolve_member_id(db: Session, raw_token: str) -> uuid.UUID:
 
 
 def logout(db: Session, raw_token: str) -> None:
-    """ابطال همین نشست (بر پایهٔ هشِ توکن)."""
+    """ابطال همین نشست (بر پایهٔ هش توکن)."""
     db.execute(delete(SessionModel).where(SessionModel.token == hash_token(raw_token)))
     db.commit()
 

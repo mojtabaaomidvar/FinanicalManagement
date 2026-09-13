@@ -23,7 +23,13 @@ import type { TxRepeat } from "@/domain/transaction/transaction.types";
 import { sortTxDesc } from "@/domain/transaction/transaction.rules";
 import { formatAmount, parseAmountInput } from "@/shared/lib/format";
 import { fromDisplay, toDisplay } from "@/shared/lib/currency";
-import { formatISO, isoToJalali, jalaliToIso, parse, today } from "@/shared/lib/jalali";
+import {
+  formatISO,
+  isoToJalali,
+  jalaliToIso,
+  parse,
+  today,
+} from "@/shared/lib/jalali";
 
 type SchedType = "expense" | "income";
 
@@ -45,7 +51,7 @@ const REPEAT_FA: Record<string, string> = {
   yearly: "سالانه",
 };
 
-/* مثالِ توضیح بسته به نوع فرق می‌کند — تعهد دوره‌ای هزینه با درآمد یکی نیست */
+/* مثال توضیح بسته به نوع فرق می‌کند — تعهد دوره‌ای هزینه با درآمد یکی نیست */
 const NOTE_HINT: Record<SchedType, string> = {
   expense: "مثلاً: قسط وام مسکن",
   income: "مثلاً: حقوق ماهانه یا اجارهٔ مغازه",
@@ -90,7 +96,7 @@ export function ScheduledTxsCard() {
 
   function openNew() {
     /* تراکنش تکرارشونده یک تعهد دوره‌ای است؛ حساب و عضو دیگر پرسیده
-       نمی‌شوند — حساب null می‌ماند و رکورد به خودِ مدیر نسبت می‌گیرد */
+       نمی‌شوند — حساب null می‌ماند و رکورد به خود مدیر نسبت می‌گیرد */
     setType("expense");
     setAmount("");
     setCategory(CATEGORIES.find((c) => c.type === "expense")?.id ?? "");
@@ -136,7 +142,7 @@ export function ScheduledTxsCard() {
     setBusy(true);
     try {
       await useCases!.addTransaction.execute({
-        /* رکورد باید صاحب داشته باشد → به خودِ مدیرِ سازنده نسبت می‌گیرد */
+        /* رکورد باید صاحب داشته باشد → به خود مدیر سازنده نسبت می‌گیرد */
         memberId: member?.id || "",
         type,
         amount: fromDisplay(value, cur),
@@ -234,10 +240,15 @@ export function ScheduledTxsCard() {
 
           {/* مبلغ — کارت شاخص بالای فرم */}
           <Field label="مبلغ">
-            <AmountInput value={amount} onChange={setAmount} currency={cur} big />
+            <AmountInput
+              value={amount}
+              onChange={setAmount}
+              currency={cur}
+              big
+            />
           </Field>
 
-          {/* توضیح و دسته کنار هم — جفتِ «چیست» */}
+          {/* توضیح و دسته کنار هم — جفت «چیست» */}
           <div className="sched-grid">
             <Field label="توضیح">
               <TextInput
@@ -256,7 +267,7 @@ export function ScheduledTxsCard() {
             </Field>
           </div>
 
-          {/* بلوکِ زمان‌بندی — یک قابِ نرم که سه فیلد تکرار را جمع می‌کند */}
+          {/* بلوک زمان‌بندی — یک قاب نرم که سه فیلد تکرار را جمع می‌کند */}
           <div className="sched-when">
             <div className="sched-when-head">
               <svg>

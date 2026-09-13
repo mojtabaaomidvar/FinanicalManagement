@@ -30,9 +30,9 @@ describe("validateTransaction", () => {
     /* دسته ثابت معتبر */
     expect(ok({ category: "food" }).ok).toBe(true);
     /* دسته سفارشی (uuid) معتبر — مالکیت نهایی در سرور چک می‌شود */
-    expect(
-      ok({ category: "123e4567-e89b-12d3-a456-426614174000" }).ok,
-    ).toBe(true);
+    expect(ok({ category: "123e4567-e89b-12d3-a456-426614174000" }).ok).toBe(
+      true,
+    );
     /* ناشناخته و نه uuid */
     expect(ok({ category: " Salary! " }).error).toBe("INVALID_CATEGORY");
     expect(ok({ category: "" }).error).toBe("INVALID_CATEGORY");
@@ -80,23 +80,21 @@ describe("validateTransaction", () => {
     /* بدون تکرار → بدون نیاز به پایان */
     expect(ok({ repeatEnd: null }).ok).toBe(true);
     /* تکرار + پایان معتبر */
-    expect(
-      ok({ repeat: "monthly", repeatEnd: "2025-10-06" }).ok,
-    ).toBe(true);
+    expect(ok({ repeat: "monthly", repeatEnd: "2025-10-06" }).ok).toBe(true);
     /* تکرار بدون پایان */
-    expect(
-      ok({ repeat: "monthly", repeatEnd: null }).error,
-    ).toBe("INVALID_REPEAT_END");
+    expect(ok({ repeat: "monthly", repeatEnd: null }).error).toBe(
+      "INVALID_REPEAT_END",
+    );
     /* پایان قبل از تاریخ تراکنش */
-    expect(
-      ok({ repeat: "monthly", repeatEnd: "2025-09-01" }).error,
-    ).toBe("INVALID_REPEAT_END");
+    expect(ok({ repeat: "monthly", repeatEnd: "2025-09-01" }).error).toBe(
+      "INVALID_REPEAT_END",
+    );
     /* پایان مساوی تاریخ تراکنش مجاز است */
     expect(ok({ repeat: "monthly", repeatEnd: "2025-09-06" }).ok).toBe(true);
     /* پایان نامعتبر */
-    expect(
-      ok({ repeat: "weekly", repeatEnd: "1404/07/01" }).error,
-    ).toBe("INVALID_REPEAT_END");
+    expect(ok({ repeat: "weekly", repeatEnd: "1404/07/01" }).error).toBe(
+      "INVALID_REPEAT_END",
+    );
   });
 });
 
@@ -156,21 +154,18 @@ describe("txsInJalaliMonth", () => {
 });
 
 describe("txsInJalaliMonthUpToDay", () => {
-  it("تا روز مشخص — شامل خودِ روز", () => {
+  it("تا روز مشخص — شامل خود روز", () => {
     /* 2025-08-23 = 1404/06/01 ؛ 2025-09-06 = 1404/06/15 ؛ 2025-09-11 = 1404/06/20 */
     const list = [
       tx("a", "2025-08-23", "x"),
       tx("b", "2025-09-06", "y"),
       tx("c", "2025-09-11", "z"),
     ];
-    expect(txsInJalaliMonthUpToDay(list, 1404, 6, 15).map((t) => t.id)).toEqual([
-      "a",
-      "b",
-    ]);
-    expect(txsInJalaliMonthUpToDay(list, 1404, 6, 31).map((t) => t.id)).toEqual([
-      "a",
-      "b",
-      "c",
-    ]);
+    expect(txsInJalaliMonthUpToDay(list, 1404, 6, 15).map((t) => t.id)).toEqual(
+      ["a", "b"],
+    );
+    expect(txsInJalaliMonthUpToDay(list, 1404, 6, 31).map((t) => t.id)).toEqual(
+      ["a", "b", "c"],
+    );
   });
 });

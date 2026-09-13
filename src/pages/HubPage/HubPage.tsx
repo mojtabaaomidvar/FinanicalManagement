@@ -1,10 +1,10 @@
-/* صفحه‌ی هابِ خانه — خانه‌ی جدیدِ اپ.
+/* صفحه‌ی هاب خانه — خانه‌ی جدید اپ.
 
-   ساختار: هدرِ خانواده → بنرِ زمینه‌ایِ چرخشی → دکمه‌ی ثبتِ سریع →
+   ساختار: هدر خانواده → بنر زمینه‌ای چرخشی → دکمه‌ی ثبت سریع →
    شبکه‌ی دوستونه‌ی ماژول‌ها (فعال + به‌زودی).
 
-   «مالی» دیگر کلِ اپ نیست؛ یکی از کاشی‌هاست. زیرنویسِ کاشی‌های فعال
-   از داده‌ی واقعیِ همین لحظه ساخته می‌شود (نه متنِ تزئینی). */
+   «مالی» دیگر کل اپ نیست؛ یکی از کاشی‌هاست. زیرنویس کاشی‌های فعال
+   از داده‌ی واقعی همین لحظه ساخته می‌شود (نه متن تزئینی). */
 
 import { useMemo, useRef, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
@@ -39,14 +39,22 @@ export function HubPage({
   onNav: (r: Route) => void;
   onAddTransaction: () => void;
 }) {
-  const { member, family, members, txs, accounts, budgets, customCategories, cur } =
-    useApp();
+  const {
+    member,
+    family,
+    members,
+    txs,
+    accounts,
+    budgets,
+    customCategories,
+    cur,
+  } = useApp();
 
-  /* قیمت لحظه‌ای دلار برای زیرنویسِ کاشیِ بازار — با صفحه‌ی بازار کش مشترک دارد */
+  /* قیمت لحظه‌ای دلار برای زیرنویس کاشی بازار — با صفحه‌ی بازار کش مشترک دارد */
   const market = useMarket();
   const usd = market.data ? findDollar(market.data.currency) : null;
 
-  /* ارقامِ زنده‌ی همین ماه — یک‌بار حساب می‌شوند و بینِ زیرنویس‌ها و بنرها مشترک‌اند */
+  /* ارقام زنده‌ی همین ماه — یک‌بار حساب می‌شوند و بین زیرنویس‌ها و بنرها مشترک‌اند */
   const stats = useMemo(() => {
     const [jy, jm] = today();
     const monthTxs = txsInJalaliMonth(txs, jy, jm);
@@ -58,8 +66,10 @@ export function HubPage({
     let warnBudget: string | null = null;
     for (const b of budgets) {
       const st = budgetStatus(b.amount, spend.get(b.category) ?? 0);
-      if (st.level === "over" && !overBudget) overBudget = resolve(b.category).name;
-      else if (st.level === "warn" && !warnBudget) warnBudget = resolve(b.category).name;
+      if (st.level === "over" && !overBudget)
+        overBudget = resolve(b.category).name;
+      else if (st.level === "warn" && !warnBudget)
+        warnBudget = resolve(b.category).name;
     }
 
     return {
@@ -73,9 +83,9 @@ export function HubPage({
 
   const money = (n: number) => `${formatAmount(toDisplay(n, cur))} ${cur}`;
 
-  /* زیرنویسِ زنده‌ی هر کاشیِ فعال */
+  /* زیرنویس زنده‌ی هر کاشی فعال */
   const liveSub: Record<string, string> = {
-    finance: `خرجِ این ماه ${money(stats.monthExpense)}`,
+    finance: `خرج این ماه ${money(stats.monthExpense)}`,
     transactions: stats.monthCount
       ? `${toFa(stats.monthCount)} تراکنش در این ماه`
       : "هنوز تراکنشی ثبت نشده",
@@ -88,9 +98,9 @@ export function HubPage({
     market: usd
       ? `دلار ${formatAmount(usd.price)} ${usd.unit}`
       : market.loading
-        ? "در حال دریافتِ قیمت‌ها…"
+        ? "در حال دریافت قیمت‌ها…"
         : "قیمت‌ها موقتاً در دسترس نیست",
-    reports: "نمودار و گزارشِ ماهانه",
+    reports: "نمودار و گزارش ماهانه",
   };
 
   /* بنرها — فقط وقتی واقعاً موضوعی هست؛ هیچ‌کدام تزئینی نیست */
@@ -100,7 +110,7 @@ export function HubPage({
       list.push({
         id: "invite",
         title: "خانواده‌ات را دعوت کن",
-        desc: "با هم ثبت کنید تا تصویرِ کاملِ خرجِ خانه را ببینید.",
+        desc: "با هم ثبت کنید تا تصویر کامل خرج خانه را ببینید.",
         icon: "i-users",
         tone: "indigo",
         cta: "دعوت از اعضا",
@@ -122,38 +132,38 @@ export function HubPage({
       list.push({
         id: "over",
         title: `بودجه‌ی ${stats.overBudget} تمام شد`,
-        desc: "مصرفِ این ماه از سقفی که گذاشته‌ای بیشتر شده است.",
+        desc: "مصرف این ماه از سقفی که گذاشته‌ای بیشتر شده است.",
         icon: "i-alert",
         tone: "rose",
-        cta: "دیدنِ بودجه‌ها",
+        cta: "دیدن بودجه‌ها",
         route: "budgets",
       });
     } else if (stats.warnBudget) {
       list.push({
         id: "warn",
-        title: `بودجه‌ی ${stats.warnBudget} نزدیکِ سقف`,
+        title: `بودجه‌ی ${stats.warnBudget} نزدیک سقف`,
         desc: "بیش از ۸۰٪ بودجه‌ی این ماه مصرف شده است.",
         icon: "i-piggy",
         tone: "amber",
-        cta: "دیدنِ بودجه‌ها",
+        cta: "دیدن بودجه‌ها",
         route: "budgets",
       });
     }
     if (!budgets.length) {
       list.push({
         id: "budget",
-        title: "برای خرجِ ماه سقف بگذار",
-        desc: "بودجه‌ی دسته‌ها را تعیین کن تا جلوی خرجِ اضافه گرفته شود.",
+        title: "برای خرج ماه سقف بگذار",
+        desc: "بودجه‌ی دسته‌ها را تعیین کن تا جلوی خرج اضافه گرفته شود.",
         icon: "i-piggy",
         tone: "amber",
-        cta: "ساختنِ بودجه",
+        cta: "ساختن بودجه",
         route: "budgets",
       });
     }
     return list.slice(0, 3);
   }, [members.length, accounts.length, budgets.length, stats]);
 
-  /* نقطه‌های کاروسل — در RTL مقدارِ scrollLeft منفی می‌شود، پس قدرِمطلق */
+  /* نقطه‌های کاروسل — در RTL مقدار scrollLeft منفی می‌شود، پس قدرمطلق */
   const stripRef = useRef<HTMLDivElement | null>(null);
   const [slide, setSlide] = useState(0);
   function onStripScroll() {
@@ -227,7 +237,7 @@ export function HubPage({
         </span>
         <span className="hub-add-txt">
           <b>ثبت خرج یا درآمد</b>
-          <span>سریع‌ترین راه برای ثبتِ یک تراکنش</span>
+          <span>سریع‌ترین راه برای ثبت یک تراکنش</span>
         </span>
       </button>
 
@@ -240,7 +250,7 @@ export function HubPage({
 
       <h2 className="hub-section">
         به‌زودی
-        <span className="hub-section-note">در حالِ ساخت</span>
+        <span className="hub-section-note">در حال ساخت</span>
       </h2>
       <div className="hub-grid">
         {SOON_MODULES.map((m) => (

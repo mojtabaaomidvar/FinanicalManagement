@@ -21,7 +21,12 @@ export const CATEGORIES: Category[] = [
   { id: "clothing", name: "پوشاک", icon: "i-cloth", type: "expense" },
   { id: "edu", name: "آموزش", icon: "i-edu", type: "expense" },
   { id: "fun", name: "تفریح و سرگرمی", icon: "i-fun", type: "expense" },
-  { id: "shopping", name: "خرید و کالاهای شخصی", icon: "i-cart", type: "expense" },
+  {
+    id: "shopping",
+    name: "خرید و کالاهای شخصی",
+    icon: "i-cart",
+    type: "expense",
+  },
   { id: "comm", name: "ارتباطات", icon: "i-phone", type: "expense" },
   { id: "finance", name: "مالی و بانکی", icon: "i-wallet", type: "expense" },
   { id: "insurance", name: "بیمه", icon: "i-shield", type: "expense" },
@@ -51,13 +56,18 @@ export const LEGACY_CATEGORIES: Category[] = [
   { id: "other-i", name: "متفرقه", icon: "i-more", type: "income" },
 ];
 
-/* دسته‌های سیستمی — خودِ اپ می‌سازدشان، نه کاربر. در فهرست انتخاب دسته
+/* دسته‌های سیستمی — خود اپ می‌سازدشان، نه کاربر. در فهرست انتخاب دسته
    دیده نمی‌شوند (categoriesFor برنمی‌گرداندشان) ولی معتبرند و در لیست
    تراکنش‌ها با همین نام نشان داده می‌شوند. «تغییر دستی موجودی» وقتی ساخته
    می‌شود که کاربر موجودی کارت/کیف‌پول را دستی اصلاح کند. */
 export const SYSTEM_CATEGORIES: Category[] = [
   { id: "adjust-i", name: "تغییر دستی موجودی", icon: "i-edit", type: "income" },
-  { id: "adjust-e", name: "تغییر دستی موجودی", icon: "i-edit", type: "expense" },
+  {
+    id: "adjust-e",
+    name: "تغییر دستی موجودی",
+    icon: "i-edit",
+    type: "expense",
+  },
 ];
 
 /** شناسهٔ دستهٔ «تغییر دستی موجودی» بر اساس علامت تغییر */

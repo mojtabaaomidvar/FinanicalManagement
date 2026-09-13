@@ -1,18 +1,18 @@
-/* پنلِ توسعه‌دهنده — فقط در حالتِ dev.
+/* پنل توسعه‌دهنده — فقط در حالت dev.
 
-   چرا وجود دارد: با بازنشسته‌شدنِ تب‌بار و منتقل‌شدنِ آنبوردینگ به پیش از
-   ورود، بعضی صفحه‌ها به‌سختی در دسترس‌اند — مثلاً برای دیدنِ دوباره‌ی قیفِ
-   آغازین باید فلگِ localStorage را پاک کنی و برای دیدنِ فرمِ ثبت‌نام باید
+   چرا وجود دارد: با بازنشسته‌شدن تب‌بار و منتقل‌شدن آنبوردینگ به پیش از
+   ورود، بعضی صفحه‌ها به‌سختی در دسترس‌اند — مثلاً برای دیدن دوباره‌ی قیف
+   آغازین باید فلگ localStorage را پاک کنی و برای دیدن فرم ثبت‌نام باید
    خارج شوی. این پنل همه را یک‌کلیکه می‌کند.
 
-   در بیلدِ production کاملاً حذف می‌شود: تنها جایی که صدا زده می‌شود پشتِ
-   شرطِ import.meta.env.DEV است و ویت آن را به false تبدیل می‌کند، پس
-   rollup کلِ این ماژول را کنار می‌گذارد. */
+   در بیلد production کاملاً حذف می‌شود: تنها جایی که صدا زده می‌شود پشت
+   شرط import.meta.env.DEV است و ویت آن را به false تبدیل می‌کند، پس
+   rollup کل این ماژول را کنار می‌گذارد. */
 
 import { useEffect, useState } from "react";
 import type { Route } from "../router";
 
-/* حالت‌هایی که خارج از جریانِ عادی نمایش داده می‌شوند */
+/* حالت‌هایی که خارج از جریان عادی نمایش داده می‌شوند */
 export type DevOverride =
   | null
   | "intro"
@@ -22,7 +22,7 @@ export type DevOverride =
 
 const ROUTE_LABELS: { route: Route; label: string }[] = [
   { route: "hub", label: "هاب (خانه)" },
-  { route: "dashboard", label: "داشبوردِ مالی" },
+  { route: "dashboard", label: "داشبورد مالی" },
   { route: "transactions", label: "تراکنش‌ها" },
   { route: "reports", label: "نمای کلی" },
   { route: "accounts", label: "کیف پول" },
@@ -31,12 +31,13 @@ const ROUTE_LABELS: { route: Route; label: string }[] = [
   { route: "settings", label: "تنظیمات" },
 ];
 
-const OVERRIDE_LABELS: { value: Exclude<DevOverride, null>; label: string }[] = [
-  { value: "intro", label: "قیفِ آغازین (آنبوردینگ)" },
-  { value: "auth-login", label: "فرمِ ورود" },
-  { value: "auth-register", label: "فرمِ ثبت‌نام" },
-  { value: "invite", label: "پذیرشِ دعوت" },
-];
+const OVERRIDE_LABELS: { value: Exclude<DevOverride, null>; label: string }[] =
+  [
+    { value: "intro", label: "قیف آغازین (آنبوردینگ)" },
+    { value: "auth-login", label: "فرم ورود" },
+    { value: "auth-register", label: "فرم ثبت‌نام" },
+    { value: "invite", label: "پذیرش دعوت" },
+  ];
 
 export function DevPanel({
   route,
@@ -50,11 +51,14 @@ export function DevPanel({
   onOverride: (o: DevOverride) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [size, setSize] = useState(() => `${window.innerWidth}×${window.innerHeight}`);
+  const [size, setSize] = useState(
+    () => `${window.innerWidth}×${window.innerHeight}`,
+  );
 
-  /* اندازه‌ی ویوپورت — برای وارسیِ سریعِ چیدمانِ موبایل */
+  /* اندازه‌ی ویوپورت — برای وارسی سریع چیدمان موبایل */
   useEffect(() => {
-    const onResize = () => setSize(`${window.innerWidth}×${window.innerHeight}`);
+    const onResize = () =>
+      setSize(`${window.innerWidth}×${window.innerHeight}`);
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
@@ -71,7 +75,7 @@ export function DevPanel({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  /* پاک‌کردنِ فقطِ کلیدهای قیف — عمداً localStorage.clear() نیست تا از
+  /* پاک‌کردن فقط کلیدهای قیف — عمداً localStorage.clear() نیست تا از
      اپ بیرون نیفتی و نشستت حفظ شود */
   function resetIntro() {
     try {
@@ -99,7 +103,7 @@ export function DevPanel({
   return (
     <div className="dev-panel">
       <div className="dev-head">
-        <b>پنلِ توسعه</b>
+        <b>پنل توسعه</b>
         <span className="dev-size">{size}</span>
         <button type="button" className="dev-x" onClick={() => setOpen(false)}>
           ✕
@@ -147,7 +151,7 @@ export function DevPanel({
             className="dev-btn"
             onClick={() => onOverride(null)}
           >
-            بازگشت به جریانِ عادی
+            بازگشت به جریان عادی
           </button>
         ) : null}
       </div>
@@ -155,7 +159,7 @@ export function DevPanel({
       <div className="dev-group">
         <span className="dev-label">ابزار</span>
         <button type="button" className="dev-btn" onClick={resetIntro}>
-          پاک‌کردنِ فلگِ آنبوردینگ و بارگذاری دوباره
+          پاک‌کردن فلگ آنبوردینگ و بارگذاری دوباره
         </button>
       </div>
     </div>

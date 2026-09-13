@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import type { Subcategory } from "@/domain/category/subcategory.types";
-import type { Transaction, TxRepeat } from "@/domain/transaction/transaction.types";
+import type {
+  Transaction,
+  TxRepeat,
+} from "@/domain/transaction/transaction.types";
 import type { UseCases } from "@/application/useCases";
 import type { Member } from "@/domain/family/family.types";
-import {
-  defaultCategoryOf,
-} from "@/domain/category/category.catalog";
+import { defaultCategoryOf } from "@/domain/category/category.catalog";
 import { parse } from "@/shared/lib/jalali";
 import { jalaliToIso } from "@/shared/lib/jalali";
 import {
@@ -66,12 +67,13 @@ export function useTxFormModel(
   const [form, setForm] = useState<TxFormState>(defaults());
   const [photos, setPhotos] = useState<TxPhotoItem[]>([]);
   const [busy, setBusy] = useState(false);
-  /* وقتی فرم برای «تحققِ» یک سررسیدِ تراکنش تکرارشونده باز شده باشد:
-     تراکنش واقعیِ جدید ثبت می‌شود و بعد همان سررسید علامت رسیدگی می‌خورد
+  /* وقتی فرم برای «تحقق» یک سررسید تراکنش تکرارشونده باز شده باشد:
+     تراکنش واقعی جدید ثبت می‌شود و بعد همان سررسید علامت رسیدگی می‌خورد
      تا دوباره پرسیده نشود. (بخش ۳.۲) */
-  const [occurrence, setOccurrence] = useState<
-    { recurringId: string; dueDate: string } | null
-  >(null);
+  const [occurrence, setOccurrence] = useState<{
+    recurringId: string;
+    dueDate: string;
+  } | null>(null);
   /** ارز ورودی مبلغ — مستقل از ارز اصلی، همان لحظه ثبت */
   const [entryCurrency, setEntryCurrency] = useState<string>(currency);
 
@@ -79,7 +81,7 @@ export function useTxFormModel(
     return {
       type: "expense",
       amount: "",
-      categoryId: "", /* بدون دسته → گرید انتخاب دسته نمایش داده می‌شود */
+      categoryId: "" /* بدون دسته → گرید انتخاب دسته نمایش داده می‌شود */,
       date: formatISO(today()),
       time: nowTime(),
       memberId: currentMemberId,
@@ -114,8 +116,7 @@ export function useTxFormModel(
       note: tx.note ?? "",
       accountId: tx.accountId ?? "",
       toAccountId: tx.toAccountId ?? "",
-      label:
-        subcategories.find((s) => s.id === tx.subcategoryId)?.name ?? "",
+      label: subcategories.find((s) => s.id === tx.subcategoryId)?.name ?? "",
       repeat: tx.repeat,
       repeatEnd: tx.repeatEnd ? formatISO(isoToJalali(tx.repeatEnd)) : "",
     });
@@ -130,8 +131,8 @@ export function useTxFormModel(
     setOpen(true);
   }
 
-  /** فرم را برای «تحققِ» یک سررسیدِ تراکنش تکرارشونده باز می‌کند (بخش ۳.۲).
-      یک تراکنش واقعیِ تازه ثبت می‌شود (نه ویرایش): مبلغ/دسته/توضیح از الگو
+  /** فرم را برای «تحقق» یک سررسید تراکنش تکرارشونده باز می‌کند (بخش ۳.۲).
+      یک تراکنش واقعی تازه ثبت می‌شود (نه ویرایش): مبلغ/دسته/توضیح از الگو
       پیش‌پر می‌شوند، ولی «تاریخ» عمداً روی امروز است نه سررسید — چون ممکن
       است پرداخت دیرتر انجام شده باشد و کاربر باید تاریخ/ساعت را خودش نهایی
       کند. repeat=none چون این رخداد یک تراکنش عادی است، نه تعهدی دوباره. */
@@ -163,7 +164,7 @@ export function useTxFormModel(
       type,
       /* انتقال دسته ثابت دارد؛ هزینه/درآمد دوباره از گرید انتخاب می‌شوند */
       categoryId: type === "transfer" ? defaultCategoryOf("transfer").id : "",
-      label: "", /* دسته عوض شد — لیبل قبلی نامعتبر می‌شود */
+      label: "" /* دسته عوض شد — لیبل قبلی نامعتبر می‌شود */,
     }));
   }
 
@@ -172,18 +173,18 @@ export function useTxFormModel(
     const v = evaluateExpression(form.amount) ?? parseAmountInput(form.amount);
     setForm((f) => ({
       ...f,
-      amount: v ? formatAmount(toDisplay(fromDisplay(v, entryCurrency), next)) : "",
+      amount: v
+        ? formatAmount(toDisplay(fromDisplay(v, entryCurrency), next))
+        : "",
     }));
     setEntryCurrency(next);
   }
 
-  async function save(
-    onDone: () => Promise<void>,
-    accountsCount: number,
-  ) {
+  async function save(onDone: () => Promise<void>, accountsCount: number) {
     if (busy) return;
     /* مبلغ می‌تواند عبارت ریاضی باشد — همان‌جا ارزیابی می‌شود */
-    const amount = evaluateExpression(form.amount) ?? parseAmountInput(form.amount);
+    const amount =
+      evaluateExpression(form.amount) ?? parseAmountInput(form.amount);
     if (!amount || amount <= 0) return notify("لطفاً مبلغ معتبر وارد کنید");
 
     const isTransfer = form.type === "transfer";
@@ -193,7 +194,7 @@ export function useTxFormModel(
       return notify("دسته‌بندی را انتخاب کنید");
     }
 
-    /* حساب الزامی — با پیام دقیق. استثنا: تحققِ سررسیدِ تراکنش تکرارشونده
+    /* حساب الزامی — با پیام دقیق. استثنا: تحقق سررسید تراکنش تکرارشونده
        (بخش ۳.۱ حساب را برای تعهد دوره‌ای اختیاری کرد؛ اینجا هم بن‌بست
        «خانواده بدون حساب» پیش نیاید) */
     if (!form.accountId && !occurrence) {
@@ -214,7 +215,9 @@ export function useTxFormModel(
     /* انتقال: مقصد الزامی و متفاوت از مبدأ */
     if (isTransfer) {
       if (!form.toAccountId) {
-        return notify("حساب مقصد را انتخاب کنید — پول به کدام حساب/کیف‌پول برود؟");
+        return notify(
+          "حساب مقصد را انتخاب کنید — پول به کدام حساب/کیف‌پول برود؟",
+        );
       }
       if (form.toAccountId === form.accountId) {
         return notify("حساب مبدأ و مقصد نباید یکی باشد");
@@ -282,11 +285,11 @@ export function useTxFormModel(
         txId = created.id;
         notify("تراکنش ثبت شد");
 
-        /* تحققِ سررسید تراکنش تکرارشونده: بعد از ثبتِ موفقِ تراکنش واقعی،
-           همان سررسید علامت رسیدگی می‌خورد تا دوباره پرسیده نشود. تلاشِ
+        /* تحقق سررسید تراکنش تکرارشونده: بعد از ثبت موفق تراکنش واقعی،
+           همان سررسید علامت رسیدگی می‌خورد تا دوباره پرسیده نشود. تلاش
            بهترین‌کوشش است؛ اگر ناموفق شود تراکنش ثبت‌شده باقی می‌ماند و
            سررسید دوباره ظاهر می‌شود (کاربر می‌تواند «رد» بزند) — بهتر از
-           گم‌شدنِ بی‌صدای رکورد. */
+           گم‌شدن بی‌صدای رکورد. */
         if (occurrence) {
           try {
             await useCases.markRecurringOccurrence.execute(
@@ -370,7 +373,8 @@ export function useTxFormModel(
         ...f,
         amount: toFa(toEn(v).replace(/[^\d+\-×÷]/g, "")),
       })),
-    setDate: (v: string) => setForm((f) => ({ ...f, date: liveFormatJalaliDate(v) })),
+    setDate: (v: string) =>
+      setForm((f) => ({ ...f, date: liveFormatJalaliDate(v) })),
     setTime: (v: string) => setForm((f) => ({ ...f, time: v })),
     setRepeat: (v: TxRepeat) => setForm((f) => ({ ...f, repeat: v })),
     setRepeatEnd: (v: string) =>

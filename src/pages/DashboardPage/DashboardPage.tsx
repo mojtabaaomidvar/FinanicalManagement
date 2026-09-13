@@ -1,8 +1,8 @@
 /* صفحه خانه — سلام و اعلان، جستجو، پنل خلاصه ماه،
    هزینه‌های ماه، آخرین تراکنش‌ها و نوارهای هفته/اعضا/بودجه
 
-   پس از بازنشستگیِ تب‌بار و FAB، ثبت تراکنش از دکمه‌ی «+» در هدرِ همین
-   صفحه (یا دکمه‌ی پهنِ هاب) باز می‌شود؛ ردیف میان‌بُر پیشین
+   پس از بازنشستگی تب‌بار و FAB، ثبت تراکنش از دکمه‌ی «+» در هدر همین
+   صفحه (یا دکمه‌ی پهن هاب) باز می‌شود؛ ردیف میان‌بُر پیشین
    (widgets/quick-actions) حذف شد و «ثبت از پیامک» به شیت تراکنش منتقل شد. */
 
 import { useMemo, useState } from "react";
@@ -17,7 +17,14 @@ import { BudgetCirclesWidget } from "@/widgets/budget-circles";
 import { Modal } from "@/shared/ui";
 import { budgetStatus, monthCategorySpend } from "@/domain/budget/budget.rules";
 import { buildCategoryResolver } from "@/domain/category/resolve";
-import { formatWeekday, today, addDays, cmp, formatLong, type JDate } from "@/shared/lib/jalali";
+import {
+  formatWeekday,
+  today,
+  addDays,
+  cmp,
+  formatLong,
+  type JDate,
+} from "@/shared/lib/jalali";
 import type { TxFormModel } from "@/features/transaction-form";
 
 export function DashboardPage({
@@ -40,14 +47,20 @@ export function DashboardPage({
 
   /* اعلان‌ها: رویدادهای ۳۰ روز آینده + هشدار بودجه‌ها */
   const notifs = useMemo(() => {
-    const items: { icon: string; title: string; sub: string; danger?: boolean }[] = [];
+    const items: {
+      icon: string;
+      title: string;
+      sub: string;
+      danger?: boolean;
+    }[] = [];
     const now = today();
     const in30 = addDays(now, 30);
     for (const e of events) {
       const [, m, d] = e.date.split("-").map(Number);
       /* سال گذشته → امسال (تولد تکرارشونده) */
       const thisYear: JDate = [now[0], m, d];
-      const target: JDate = cmp(thisYear, now) < 0 ? [now[0] + 1, m, d] : thisYear;
+      const target: JDate =
+        cmp(thisYear, now) < 0 ? [now[0] + 1, m, d] : thisYear;
       if (cmp(target, in30) <= 0) {
         items.push({
           icon: "i-bell",
@@ -88,7 +101,7 @@ export function DashboardPage({
           <p>{headerDate}</p>
         </div>
         <div className="header-actions">
-          {/* افزودن تراکنش — جانشینِ FAB پیشین پس از بازنشستگیِ تب‌بار */}
+          {/* افزودن تراکنش — جانشین FAB پیشین پس از بازنشستگی تب‌بار */}
           <button
             className="icon-btn"
             aria-label="افزودن تراکنش"
@@ -155,7 +168,11 @@ export function DashboardPage({
       </div>
 
       {/* مرکز اعلان‌ها */}
-      <Modal open={notifOpen} onClose={() => setNotifOpen(false)} title="اعلان‌ها">
+      <Modal
+        open={notifOpen}
+        onClose={() => setNotifOpen(false)}
+        title="اعلان‌ها"
+      >
         {notifs.length ? (
           <div className="notif-list">
             {notifs.map((n, i) => (

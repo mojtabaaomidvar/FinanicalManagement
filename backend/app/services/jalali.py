@@ -1,16 +1,16 @@
-"""تبدیل تقویم جلالی ↔ میلادی — پورتِ بی‌وابستگیِ src/shared/lib/jalali.ts.
+"""تبدیل تقویم جلالی ↔ میلادی — پورت بی‌وابستگی src/shared/lib/jalali.ts.
 
-فقط دو تابعِ لازمِ پارسرِ پیامک (to_gregorian / to_jalali) پورت شده‌اند تا سرور و
-کلاینت روی یک متنِ یکسان «دقیقاً» یک نتیجه بدهند (پیامکِ بانکی ممکن است تاریخِ شمسی
+فقط دو تابع لازم پارسر پیامک (to_gregorian / to_jalali) پورت شده‌اند تا سرور و
+کلاینت روی یک متن یکسان «دقیقاً» یک نتیجه بدهند (پیامک بانکی ممکن است تاریخ شمسی
 یا میلادی داشته باشد). الگوریتم و ثابت‌ها مو‌به‌مو همان نسخهٔ TS‌اند؛ چون همهٔ عملوندها
-نامنفی‌اند، Math.floor جاواسکریپت == تقسیمِ صحیحِ پایتون (//).
+نامنفی‌اند، Math.floor جاواسکریپت == تقسیم صحیح پایتون (//).
 """
 
 from __future__ import annotations
 
 
 def to_jalali(gy: int, gm: int, gd: int) -> tuple[int, int, int]:
-    """میلادی → جلالی. برابرِ toJalali در jalali.ts."""
+    """میلادی → جلالی. برابر toJalali در jalali.ts."""
     g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
     jy = 0 if gy <= 1600 else 979
     gy -= 621 if gy <= 1600 else 1600
@@ -37,7 +37,7 @@ def to_jalali(gy: int, gm: int, gd: int) -> tuple[int, int, int]:
 
 
 def to_gregorian(jy: int, jm: int, jd: int) -> tuple[int, int, int]:
-    """جلالی → میلادی. برابرِ toGregorian در jalali.ts."""
+    """جلالی → میلادی. برابر toGregorian در jalali.ts."""
     gy = 621 if jy <= 979 else 1600
     jy -= 0 if jy <= 979 else 979
     days = (
@@ -51,7 +51,7 @@ def to_gregorian(jy: int, jm: int, jd: int) -> tuple[int, int, int]:
     gy += 400 * (days // 146097)
     days %= 146097
     if days > 36524:
-        days -= 1  # معادلِ --days در TS (پیش‌کاهش)
+        days -= 1  # معادل --days در TS (پیش‌کاهش)
         gy += 100 * (days // 36524)
         days %= 36524
         if days >= 365:

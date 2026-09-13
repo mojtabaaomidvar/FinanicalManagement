@@ -31,7 +31,7 @@ class FamilyEvent(Base):
     member_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("members.id", ondelete="SET NULL")
     )
-    # عضو مرتبط با رویداد (مثلاً تولدِ چه کسی)
+    # عضو مرتبط با رویداد (مثلاً تولد چه کسی)
     for_member_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("members.id", ondelete="SET NULL")
     )

@@ -47,7 +47,7 @@ export function JalaliDatePicker({
   const withTime = !!onTimeChange;
 
   /* این کامپوننت فقط وقتی والد بازش می‌کند mount می‌شود؛ پس همیشه «باز»
-     است. بازگشتِ دکمه/سوایپ = بستن (LIFO؛ روی مودالِ زیرش می‌نشیند). */
+     است. بازگشت دکمه/سوایپ = بستن (LIFO؛ روی مودال زیرش می‌نشیند). */
   useBackGuard(true, onClose);
 
   const [view, setView] = useState<DpView>("date");

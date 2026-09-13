@@ -25,20 +25,20 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * پلاگینِ خواندنِ نیتیوِ پیامکِ بانکی (فقط اندروید).
+ * پلاگین خواندن نیتیو پیامک بانکی (فقط اندروید).
  *
- * <p>هدف: وقتی بانک پیامکِ تراکنش می‌فرستد، اپ همان لحظه متن را می‌خواند و از طریق
- * لایهٔ JS به سرور می‌فرستد تا تراکنشِ «در انتظار» ساخته شود — بدونِ کپی/پیستِ دستی.
- * پارسِ متن و تصمیم «بانکی هست یا نه» سمتِ سرور انجام می‌شود؛ اینجا فقط متنِ خام و
+ * <p>هدف: وقتی بانک پیامک تراکنش می‌فرستد، اپ همان لحظه متن را می‌خواند و از طریق
+ * لایهٔ JS به سرور می‌فرستد تا تراکنش «در انتظار» ساخته شود — بدون کپی/پیست دستی.
+ * پارس متن و تصمیم «بانکی هست یا نه» سمت سرور انجام می‌شود؛ اینجا فقط متن خام و
  * فرستنده را بالا می‌دهیم.
  *
- * <p>محدودهٔ نسخهٔ ۱: گیرنده در «زمانِ اجرا» ثبت می‌شود، پس تا وقتی پروسهٔ اپ زنده است
- * (پیش‌زمینه یا گرم در حافظه) پیامک را می‌گیرد. برای دریافت در حالتِ کاملاً بسته باید
- * گیرنده را در Manifest اعلام کرد و بدونِ WebView مستقیم با سرور حرف زد؛ آن مسیر سطحِ
- * نیتیوِ بزرگ‌تری می‌خواهد و فعلاً «پلِ فورواردر» به‌عنوانِ جایگزین/وبِ فالبک می‌ماند.
+ * <p>محدودهٔ نسخهٔ ۱: گیرنده در «زمان اجرا» ثبت می‌شود، پس تا وقتی پروسهٔ اپ زنده است
+ * (پیش‌زمینه یا گرم در حافظه) پیامک را می‌گیرد. برای دریافت در حالت کاملاً بسته باید
+ * گیرنده را در Manifest اعلام کرد و بدون WebView مستقیم با سرور حرف زد؛ آن مسیر سطح
+ * نیتیو بزرگ‌تری می‌خواهد و فعلاً «پل فورواردر» به‌عنوان جایگزین/وب فالبک می‌ماند.
  *
- * <p>مجوزها با نام‌مستعارِ «sms» اعلام شده‌اند؛ متدهای checkPermissions/requestPermissions
- * از خودِ Capacitor در دسترس‌اند و requestSmsPermission یک راهِ ساده با پاسخِ روشن است.
+ * <p>مجوزها با نام‌مستعار «sms» اعلام شده‌اند؛ متدهای checkPermissions/requestPermissions
+ * از خود Capacitor در دسترس‌اند و requestSmsPermission یک راه ساده با پاسخ روشن است.
  */
 @CapacitorPlugin(
     name = "SmsReader",
@@ -52,10 +52,10 @@ import java.util.Locale;
 public class SmsReaderPlugin extends Plugin {
 
     private BroadcastReceiver receiver;
-    /** فیلترِ اختیاریِ فرستنده (زیررشته، حروفِ کوچک). خالی = همهٔ پیامک‌ها به پارسر برسند. */
+    /** فیلتر اختیاری فرستنده (زیررشته، حروف کوچک). خالی = همهٔ پیامک‌ها به پارسر برسند. */
     private final List<String> senderFilter = new ArrayList<>();
 
-    /** آیا مجوزِ پیامک داده شده؟ (متدِ checkPermissionsِ داخلیِ Capacitor هم کار می‌کند.) */
+    /** آیا مجوز پیامک داده شده؟ (متد checkPermissions داخلی Capacitor هم کار می‌کند.) */
     @PluginMethod
     public void requestSmsPermission(PluginCall call) {
         if (getPermissionState("sms") == PermissionState.GRANTED) {
@@ -70,7 +70,7 @@ public class SmsReaderPlugin extends Plugin {
         call.resolve(stateResult());
     }
 
-    /** شروعِ گوش‌دادن به پیامک‌های ورودی. آرایهٔ اختیاریِ senderFilter برای محدودکردن به بانک‌ها. */
+    /** شروع گوش‌دادن به پیامک‌های ورودی. آرایهٔ اختیاری senderFilter برای محدودکردن به بانک‌ها. */
     @PluginMethod
     public void startWatching(PluginCall call) {
         if (getPermissionState("sms") != PermissionState.GRANTED) {
@@ -91,7 +91,7 @@ public class SmsReaderPlugin extends Plugin {
         call.resolve();
     }
 
-    /** توقفِ گوش‌دادن. */
+    /** توقف گوش‌دادن. */
     @PluginMethod
     public void stopWatching(PluginCall call) {
         unregister();
@@ -108,7 +108,7 @@ public class SmsReaderPlugin extends Plugin {
                 SmsMessage[] msgs = Telephony.Sms.Intents.getMessagesFromIntent(intent);
                 if (msgs == null || msgs.length == 0) return;
 
-                // پیامکِ چندبخشی: بخش‌ها را به‌ترتیب به‌هم می‌چسبانیم؛ فرستنده از اولین بخش.
+                // پیامک چندبخشی: بخش‌ها را به‌ترتیب به‌هم می‌چسبانیم؛ فرستنده از اولین بخش.
                 StringBuilder body = new StringBuilder();
                 String sender = null;
                 for (SmsMessage m : msgs) {
@@ -130,8 +130,8 @@ public class SmsReaderPlugin extends Plugin {
         };
 
         IntentFilter filter = new IntentFilter(Telephony.Sms.Intents.SMS_RECEIVED_ACTION);
-        // SMS_RECEIVED یک broadcastِ «محافظت‌شدهٔ سیستمی» است — فقط سیستم می‌تواند بفرستد،
-        // پس EXPORTED امن است و روی اندروید ۱۳+ برای دریافتِ broadcastِ سیستمی لازم است.
+        // SMS_RECEIVED یک broadcast «محافظت‌شدهٔ سیستمی» است — فقط سیستم می‌تواند بفرستد،
+        // پس EXPORTED امن است و روی اندروید ۱۳+ برای دریافت broadcast سیستمی لازم است.
         // (ContextCompat خودش فقط روی API 33+ فلگ را اعمال می‌کند.)
         ContextCompat.registerReceiver(
             getContext(), receiver, filter, ContextCompat.RECEIVER_EXPORTED

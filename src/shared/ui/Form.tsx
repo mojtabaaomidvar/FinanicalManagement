@@ -27,8 +27,8 @@ export function TextInput(props: {
   type?: string;
   dir?: "ltr" | "rtl";
   autoComplete?: string;
-  /* decimal برای مقدارِ اعشاری (دارایی): numeric در موبایل کیبوردِ
-     بدونِ جداکنندهٔ اعشار می‌دهد و «۲٫۵ گرم» اصلاً قابلِ تایپ نمی‌شد. */
+  /* decimal برای مقدار اعشاری (دارایی): numeric در موبایل کیبورد
+     بدون جداکنندهٔ اعشار می‌دهد و «۲٫۵ گرم» اصلاً قابل تایپ نمی‌شد. */
   inputMode?: "text" | "tel" | "numeric" | "decimal";
   className?: string;
   autoFocus?: boolean;
@@ -45,7 +45,9 @@ export function TextInput(props: {
       inputMode={props.inputMode}
       maxLength={props.maxLength}
       autoFocus={props.autoFocus}
-      onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
+      onChange={(e: ChangeEvent<HTMLInputElement>) =>
+        props.onChange(e.target.value)
+      }
     />
   );
 }

@@ -7,14 +7,21 @@ import { useNativeSmsReader } from "./useNativeSmsReader";
 import { useTheme } from "./providers/useTheme";
 import type { Route } from "./router";
 import { PwaUpdateProvider, usePwaUpdateState } from "./pwaUpdate.tsx";
-import { AuthFeature, InviteAcceptFeature, type AuthPrefill } from "@/features/auth";
+import {
+  AuthFeature,
+  InviteAcceptFeature,
+  type AuthPrefill,
+} from "@/features/auth";
 import {
   OnboardingFeature,
   isIntroSeen,
   markIntroSeen,
   useApplyIntroDraft,
 } from "@/features/onboarding";
-import { TransactionFormFeature, useTxFormModel } from "@/features/transaction-form";
+import {
+  TransactionFormFeature,
+  useTxFormModel,
+} from "@/features/transaction-form";
 import { PendingSmsFeature } from "@/features/pending-sms";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { HubPage } from "@/pages/HubPage";
@@ -39,12 +46,12 @@ function AppBody() {
   const { phase, useCases, member, refreshData } = useApp();
   const [route, setRoute] = useState<Route>("hub");
   const [inviteToken, setInviteToken] = useState<string | null>(null);
-  /* قیفِ آغازین — پیش از فرمِ ورود. فلگ «دستگاهی» است نه per-member،
+  /* قیف آغازین — پیش از فرم ورود. فلگ «دستگاهی» است نه per-member،
      چون در این مرحله هنوز عضوی وجود ندارد. */
   const [introSeen, setIntroSeen] = useState(() => isIntroSeen());
-  /* پاسخ‌های قیف که باید فرمِ ثبت‌نام را از پیش پر کنند */
+  /* پاسخ‌های قیف که باید فرم ثبت‌نام را از پیش پر کنند */
   const [authPrefill, setAuthPrefill] = useState<AuthPrefill | undefined>();
-  /* دورزدنِ موقتِ جریان از پنلِ توسعه — فقط در dev معنا دارد */
+  /* دورزدن موقت جریان از پنل توسعه — فقط در dev معنا دارد */
   const [devOverride, setDevOverride] = useState<DevOverride>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   /* جستجوی ارسالی از هدر خانه → صفحه تراکنش‌ها */
@@ -56,8 +63,8 @@ function AppBody() {
 
   useTheme(member, useCases);
 
-  /* واحدِ پولِ انتخاب‌شده در قیفِ آغازین را — به‌محضِ آماده‌شدنِ نشست —
-     روی حسابِ تازه می‌نویسد و پیش‌نویس را پاک می‌کند (بی‌صدا). */
+  /* واحد پول انتخاب‌شده در قیف آغازین را — به‌محض آماده‌شدن نشست —
+     روی حساب تازه می‌نویسد و پیش‌نویس را پاک می‌کند (بی‌صدا). */
   useApplyIntroDraft();
 
   /* تشخیص لینک دعوت */
@@ -90,14 +97,14 @@ function AppBody() {
     setRefreshKey((k) => k + 1);
   }, [refreshData]);
 
-  /* خواندنِ نیتیوِ پیامکِ بانکی روی اندروید (وب/iOS بی‌صدا رد می‌شود).
-     پیامکِ رسیده → تراکنشِ «در انتظار» → رفرشِ فهرست */
+  /* خواندن نیتیو پیامک بانکی روی اندروید (وب/iOS بی‌صدا رد می‌شود).
+     پیامک رسیده → تراکنش «در انتظار» → رفرش فهرست */
   useNativeSmsReader(phase === "ready", useCases, bumpRefresh);
 
   /* ── محتوای اصلی بر پایه‌ی فاز ──
-     در حالتِ dev، پنلِ توسعه می‌تواند این جریان را موقتاً دور بزند تا
-     صفحه‌هایی که عادتاً سخت در دسترس‌اند (قیفِ آغازین، فرمِ ثبت‌نام،
-     پذیرشِ دعوت) یک‌کلیکه دیده شوند. */
+     در حالت dev، پنل توسعه می‌تواند این جریان را موقتاً دور بزند تا
+     صفحه‌هایی که عادتاً سخت در دسترس‌اند (قیف آغازین، فرم ثبت‌نام،
+     پذیرش دعوت) یک‌کلیکه دیده شوند. */
   function content() {
     if (import.meta.env.DEV && devOverride) {
       if (devOverride === "intro") {
@@ -109,8 +116,8 @@ function AppBody() {
         );
       }
       if (devOverride === "auth-login" || devOverride === "auth-register") {
-        /* key لازم است: prefill فقط مقدارِ اولیه‌ی useState را می‌سازد، پس
-           بدونِ remount جابه‌جاییِ ورود↔ثبت‌نام از پنل بی‌اثر می‌ماند */
+        /* key لازم است: prefill فقط مقدار اولیه‌ی useState را می‌سازد، پس
+           بدون remount جابه‌جایی ورود↔ثبت‌نام از پنل بی‌اثر می‌ماند */
         return useCases ? (
           <AuthFeature
             key={devOverride}
@@ -121,8 +128,8 @@ function AppBody() {
         ) : null;
       }
       if (devOverride === "invite") {
-        /* بدونِ توکنِ واقعی، صفحه حالتِ «دعوت نامعتبر» را نشان می‌دهد —
-           برای وارسیِ ظاهر کافی است */
+        /* بدون توکن واقعی، صفحه حالت «دعوت نامعتبر» را نشان می‌دهد —
+           برای وارسی ظاهر کافی است */
         return useCases ? (
           <InviteAcceptFeature token={inviteToken ?? "dev-preview"} />
         ) : null;
@@ -143,9 +150,9 @@ function AppBody() {
       return <InviteAcceptFeature token={inviteToken} />;
     }
 
-    /* قیفِ آغازین — اولین چیزی که کاربرِ تازه می‌بیند، *پیش از* فرمِ ورود.
-       دو خروجی دارد: «ورود» (کاربرِ قدیمی) و «ساختِ حساب» (که فرمِ ثبت‌نام را
-       از پیش پر می‌کند). صاحبانِ لینکِ دعوت بالاتر رد شده‌اند و قیف را
+    /* قیف آغازین — اولین چیزی که کاربر تازه می‌بیند، *پیش از* فرم ورود.
+       دو خروجی دارد: «ورود» (کاربر قدیمی) و «ساخت حساب» (که فرم ثبت‌نام را
+       از پیش پر می‌کند). صاحبان لینک دعوت بالاتر رد شده‌اند و قیف را
        نمی‌بینند، چون خانواده‌شان از قبل معلوم است. */
     if (phase === "auth" && !introSeen) {
       return (
@@ -196,7 +203,7 @@ function AppBody() {
   );
 }
 
-/* آیتم‌های تب‌بارِ پیشین — با بازطراحیِ «هابِ خانه» بازنشسته شد.
+/* آیتم‌های تب‌بار پیشین — با بازطراحی «هاب خانه» بازنشسته شد.
    عمداً به‌صورت کامنت نگه داشته شده تا اگر روزی تب‌بار برگشت،
    ترتیب و برچسب‌های قبلی در دسترس باشد:
 
@@ -243,7 +250,7 @@ function MainShell({
     [setRoute],
   );
 
-  /* بازگشتِ دکمه/سوایپ در هر صفحه‌ای جز هاب = برگشت به هاب (نه خروج از اپ) */
+  /* بازگشت دکمه/سوایپ در هر صفحه‌ای جز هاب = برگشت به هاب (نه خروج از اپ) */
   useBackGuard(route !== "hub", () => nav("hub"));
 
   /* جستجو از هدر خانه: انتقال به تراکنش‌ها با متن جستجو */
@@ -293,9 +300,9 @@ function MainShell({
       <TransactionFormFeature form={form} onImported={bumpRefresh} />
       <PendingSmsFeature refreshKey={refreshKey} />
 
-      {/* داکِ پایین (تب‌بارِ ۵تایی + FAB پلاس) از بازطراحیِ «هابِ خانه»
-          بازنشسته شد: ناوبری حالا از راهِ کاشی‌های هاب و بازگشتِ
-          سخت‌افزاری/سوایپ انجام می‌شود و ثبتِ تراکنش از دکمه‌ی پهنِ
+      {/* داک پایین (تب‌بار ۵تایی + FAB پلاس) از بازطراحی «هاب خانه»
+          بازنشسته شد: ناوبری حالا از راه کاشی‌های هاب و بازگشت
+          سخت‌افزاری/سوایپ انجام می‌شود و ثبت تراکنش از دکمه‌ی پهن
           «ثبت خرج یا درآمد» در هاب باز می‌شود. NAV_ITEMS و کلاس‌های
           CSS تب‌بار و دکمه‌ی شناور عمداً نگه داشته شده‌اند تا اگر
           خواستیم دوباره برگردند. */}

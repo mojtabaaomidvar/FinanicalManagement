@@ -1,19 +1,19 @@
 """زیردسته‌ها، دسته‌های سفارشی و بودجهٔ دسته‌ها — خواندن (فاز ۶) + نوشتن (فاز ۷).
 
-خواندن — ترتیب‌ها دقیقاً مطابقِ RPCهای قدیمی:
+خواندن — ترتیب‌ها دقیقاً مطابق RPCهای قدیمی:
 - زیردسته‌ها: category صعودی، سپس created_at صعودی.
 - دسته‌های سفارشی: created_at صعودی.
 - بودجهٔ دسته‌ها: created_at صعودی.
 
-نوشتن — معادلِ add/delete_subcategory، add/delete_custom_category و
+نوشتن — معادل add/delete_subcategory، add/delete_custom_category و
 set/delete_category_budget قدیمی با «همان» کدهای خطا:
-- افزودنِ زیردسته/دستهٔ سفارشی idempotent است (ON CONFLICT DO NOTHING سپس
-  بازخوانیِ ردیف) تا قرارداد «برگرداندنِ ردیف» هرگز خطا ندهد.
-- حذفِ دستهٔ سفارشی اگر در تراکنشی به‌کار رفته باشد اجازه نمی‌دهد
+- افزودن زیردسته/دستهٔ سفارشی idempotent است (ON CONFLICT DO NOTHING سپس
+  بازخوانی ردیف) تا قرارداد «برگرداندن ردیف» هرگز خطا ندهد.
+- حذف دستهٔ سفارشی اگر در تراکنشی به‌کار رفته باشد اجازه نمی‌دهد
   (CATEGORY_IN_USE) و در غیر این صورت زیردسته‌ها/بودجه‌های وابسته را هم پاک می‌کند.
-- تعیین/حذفِ بودجه فقط برای مدیر (FORBIDDEN).
+- تعیین/حذف بودجه فقط برای مدیر (FORBIDDEN).
 
-مرزِ خانواده در لایهٔ اپ (فیلترِ family_id) در کنارِ RLS.
+مرز خانواده در لایهٔ اپ (فیلتر family_id) در کنار RLS.
 """
 
 from __future__ import annotations
@@ -66,10 +66,10 @@ def list_category_budgets(db: Session, family_id: uuid.UUID) -> list[CategoryBud
 
 # ── کمک‌تابع‌ها ──────────────────────────────────────────────
 def _valid_name(name: str | None) -> str:
-    """نامِ زیردسته/دستهٔ سفارشی: ۱ تا ۳۰ کاراکتر (هم‌سان با اعتبارسنجیِ کلاینت)."""
+    """نام زیردسته/دستهٔ سفارشی: ۱ تا ۳۰ کاراکتر (هم‌سان با اعتبارسنجی کلاینت)."""
     t = (name or "").strip()
     if not t or len(t) > 30:
-        raise AppError("INVALID_CATEGORY", "نامِ دسته باید ۱ تا ۳۰ کاراکتر باشد.", 422)
+        raise AppError("INVALID_CATEGORY", "نام دسته باید ۱ تا ۳۰ کاراکتر باشد.", 422)
     return t
 
 
@@ -77,7 +77,7 @@ def _valid_name(name: str | None) -> str:
 def add_subcategory(
     db: Session, family_id: uuid.UUID, req: SubcategoryCreate
 ) -> Subcategory:
-    """افزودنِ زیردسته؛ idempotent روی یکتاییِ (family, category, name)."""
+    """افزودن زیردسته؛ idempotent روی یکتایی (family, category, name)."""
     category = (req.category or "").strip()
     if not category or len(category) > 60:
         raise AppError("INVALID_CATEGORY", "دستهٔ والد نامعتبر است.", 422)
@@ -115,10 +115,10 @@ def delete_subcategory(
 def add_custom_category(
     db: Session, family_id: uuid.UUID, req: CustomCategoryCreate
 ) -> CustomCategory:
-    """افزودنِ دستهٔ سفارشی؛ idempotent روی یکتاییِ (family, type, name)."""
+    """افزودن دستهٔ سفارشی؛ idempotent روی یکتایی (family, type, name)."""
     ctype = (req.type or "").strip()
     if ctype not in ("expense", "income"):
-        raise AppError("INVALID_TYPE", "نوعِ دسته نامعتبر است.", 422)
+        raise AppError("INVALID_TYPE", "نوع دسته نامعتبر است.", 422)
     name = _valid_name(req.name)
     db.execute(
         pg_insert(CustomCategory)
@@ -138,7 +138,7 @@ def add_custom_category(
 def delete_custom_category(
     db: Session, family_id: uuid.UUID, category_id: uuid.UUID
 ) -> None:
-    """حذفِ دستهٔ سفارشی. اگر در تراکنشی به‌کار رفته باشد → CATEGORY_IN_USE؛
+    """حذف دستهٔ سفارشی. اگر در تراکنشی به‌کار رفته باشد → CATEGORY_IN_USE؛
     وگرنه زیردسته‌ها و بودجه‌های وابسته (کلید = id::text) هم پاک می‌شوند."""
     row = db.execute(
         select(CustomCategory).where(
@@ -175,14 +175,14 @@ def delete_custom_category(
 def set_category_budget(
     db: Session, actor: Member, req: CategoryBudgetSet
 ) -> CategoryBudget:
-    """تعیین/به‌روزرسانیِ سقفِ بودجهٔ یک دسته — فقط مدیر (upsert روی (family, category))."""
+    """تعیین/به‌روزرسانی سقف بودجهٔ یک دسته — فقط مدیر (upsert روی (family, category))."""
     if actor.role != "owner":
         raise AppError("FORBIDDEN", "فقط مدیر خانواده مجاز است.", 403)
     category = (req.category or "").strip()
     if not category or len(category) > 60:
         raise AppError("INVALID_CATEGORY", "دسته نامعتبر است.", 422)
     if req.amount is None or req.amount <= 0 or req.amount > _MAX_BUDGET:
-        raise AppError("INVALID_AMOUNT", "مبلغِ بودجه نامعتبر است.", 422)
+        raise AppError("INVALID_AMOUNT", "مبلغ بودجه نامعتبر است.", 422)
     db.execute(
         pg_insert(CategoryBudget)
         .values(family_id=actor.family_id, category=category, amount=req.amount)
@@ -201,8 +201,8 @@ def set_category_budget(
 
 
 def delete_category_budget(db: Session, actor: Member, category: str | None) -> None:
-    """حذفِ سقفِ بودجهٔ یک دسته — فقط مدیر. کلید «رشتهٔ دسته» است و مثلِ آینهٔ
-    set (upsert) بی‌اثرپذیر (idempotent) است؛ نبودِ بودجه خطا نمی‌دهد."""
+    """حذف سقف بودجهٔ یک دسته — فقط مدیر. کلید «رشتهٔ دسته» است و مثل آینهٔ
+    set (upsert) بی‌اثرپذیر (idempotent) است؛ نبود بودجه خطا نمی‌دهد."""
     if actor.role != "owner":
         raise AppError("FORBIDDEN", "فقط مدیر خانواده مجاز است.", 403)
     cat = (category or "").strip()

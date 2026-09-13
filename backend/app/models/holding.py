@@ -1,7 +1,7 @@
-"""دارایی‌های بازاری — مقدارِ نگهداری‌شده از طلا/ارز/رمزارز/سهم.
+"""دارایی‌های بازاری — مقدار نگهداری‌شده از طلا/ارز/رمزارز/سهم.
 
 اینجا هیچ مبلغی ذخیره نمی‌شود؛ فقط «چه‌قدر از چه چیزی». ارزش هنگام خواندن از
-قیمتِ روزِ بازار حساب می‌شود (services/holdings.py). دلیل در مهاجرت 0004 آمده.
+قیمت روز بازار حساب می‌شود (services/holdings.py). دلیل در مهاجرت 0004 آمده.
 """
 
 from __future__ import annotations
@@ -37,13 +37,13 @@ class Holding(Base):
     )
     # gold | currency | crypto | stock — تعیین می‌کند قیمت از کدام منبع بیاید
     kind: Mapped[str] = mapped_column(Text, nullable=False)
-    # نمادِ بالادست؛ کلیدِ پیوند به قیمت
+    # نماد بالادست؛ کلید پیوند به قیمت
     symbol: Mapped[str] = mapped_column(Text, nullable=False)
-    # عکسِ لحظه‌ایِ نام — اگر نماد از بالادست حذف شد، ردیف خوانا بماند
+    # عکس لحظه‌ای نام — اگر نماد از بالادست حذف شد، ردیف خوانا بماند
     name: Mapped[str] = mapped_column(Text, nullable=False)
-    # واحدِ قیمت در لحظهٔ ثبت (تومان/ریال) — فقط برای نمایش
+    # واحد قیمت در لحظهٔ ثبت (تومان/ریال) — فقط برای نمایش
     unit: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
-    # اعشاردار: «۲٫۵ گرم» یا «۰٫۰۳ بیت‌کوین» بدونِ اعشار بیان نمی‌شود
+    # اعشاردار: «۲٫۵ گرم» یا «۰٫۰۳ بیت‌کوین» بدون اعشار بیان نمی‌شود
     quantity: Mapped[Decimal] = mapped_column(Numeric(18, 6), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

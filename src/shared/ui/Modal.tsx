@@ -44,7 +44,7 @@ export function Modal(props: {
   const closeRef = useRef(props.onClose);
   closeRef.current = props.onClose;
 
-  /* بازگشتِ فیزیکی/نرم‌افزاری و سوایپ لبه = بستن این مودال (LIFO) */
+  /* بازگشت فیزیکی/نرم‌افزاری و سوایپ لبه = بستن این مودال (LIFO) */
   useBackGuard(props.open, props.onClose);
 
   useEffect(() => {
@@ -70,7 +70,7 @@ export function Modal(props: {
 
   /* ── کشیدن برای بستن — فقط وقتی شیت در بالای اسکرول است ── */
   function onTouchStart(e: TouchEvent) {
-    /* مودالِ رویی با Portal روی body می‌نشیند، اما رویداد ری‌اکت از درخت
+    /* مودال رویی با Portal روی body می‌نشیند، اما رویداد ری‌اکت از درخت
        کامپوننت بالا می‌آید؛ پس لمس داخل مودال رویی به این هندلر هم می‌رسد.
        بدون این نگهبان، اسکرول در «ورود پیامک» شیت تراکنش زیر آن را می‌بندد. */
     if (!props.dragToClose) return;
@@ -85,7 +85,8 @@ export function Modal(props: {
     const d = drag.current;
     if (!d.active || !sheetRef.current) return;
     d.y = e.touches[0].clientY - d.startY;
-    if (d.y > 0) sheetRef.current.style.transform = `translateY(${d.y * 0.85}px)`;
+    if (d.y > 0)
+      sheetRef.current.style.transform = `translateY(${d.y * 0.85}px)`;
   }
 
   function onTouchEnd() {

@@ -1,7 +1,7 @@
 /* پوسته‌ی زیرصفحه‌ی بازار — هدر با دکمه‌ی بازگشت + انیمیشن ورود.
 
-   چرا کپیِ SettingsSubPage است و از آن import نمی‌شود: هر دو در لایه‌ی pages
-   هستند و import از pages به pages وابستگیِ افقی می‌سازد. اگر روزی سومی هم
+   چرا کپی SettingsSubPage است و از آن import نمی‌شود: هر دو در لایه‌ی pages
+   هستند و import از pages به pages وابستگی افقی می‌سازد. اگر روزی سومی هم
    لازم شد، وقتش است که این پوسته به shared/ui برود. */
 
 import type { ReactNode } from "react";
@@ -15,7 +15,7 @@ export function MarketSubPage({
 }: {
   title: string;
   onBack: () => void;
-  /** گوشه‌ی چپِ هدر — مثلاً دکمه‌ی به‌روزرسانی */
+  /** گوشه‌ی چپ هدر — مثلاً دکمه‌ی به‌روزرسانی */
   action?: ReactNode;
   children: ReactNode;
 }) {
@@ -29,7 +29,7 @@ export function MarketSubPage({
             aria-label="بازگشت"
             onClick={onBack}
           >
-            {/* در RTL فلشِ بازگشت به راست است */}
+            {/* در RTL فلش بازگشت به راست است */}
             <Icon name="i-arrow-r" size={20} />
           </button>
           <div className="header-title">

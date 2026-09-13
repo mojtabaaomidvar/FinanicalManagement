@@ -47,7 +47,7 @@ export function getContainer(): Promise<Container> {
       const storage = await createSecureStorage();
       const session = new SessionRepository(storage);
       const tokenProvider = session;
-      /* یک نمونهٔ واحدِ RestClient که به همهٔ مخازن تزریق می‌شود؛ توکن را از
+      /* یک نمونهٔ واحد RestClient که به همهٔ مخازن تزریق می‌شود؛ توکن را از
          SessionRepository (به‌عنوان TokenProvider) به‌صورت خودکار در هدر می‌گذارد. */
       const client = new RestClient(tokenProvider);
       return {

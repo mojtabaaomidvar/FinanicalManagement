@@ -29,7 +29,7 @@ from app.services import passwords, sessions
 from app.services.clock import utcnow
 
 _MIN_PASSWORD = 8
-_PRE_REG_MAX_PER_MINUTE = 60  # سطل سراسری (نه per-phone) — ضدِ «شمارش شماره‌ها»
+_PRE_REG_MAX_PER_MINUTE = 60  # سطل سراسری (نه per-phone) — ضد «شمارش شماره‌ها»
 
 
 # ── پیکربندی عمومی ───────────────────────────────────────────
@@ -66,7 +66,7 @@ def login(db: Session, phone: str, password: str, code: str | None) -> AuthResul
 
 # ── ثبت‌نام ──────────────────────────────────────────────────
 def _generate_family_code(db: Session) -> str:
-    """کد ۶ رقمیِ یکتای خانواده (حلقه تا نبودِ تکراری)."""
+    """کد ۶ رقمی یکتای خانواده (حلقه تا نبود تکراری)."""
     while True:
         code = f"{secrets.randbelow(1_000_000):06d}"
         exists = db.execute(
@@ -93,7 +93,7 @@ def register(db: Session, req: RegisterRequest) -> AuthResult:
     if existing is not None:
         if existing.status != "pending":
             raise AppError("PHONE_EXISTS", "این شماره قبلاً ثبت شده است.", 409)
-        # تکمیل ثبت‌نامِ عضوِ معرفی‌شده توسط مدیر
+        # تکمیل ثبت‌نام عضو معرفی‌شده توسط مدیر
         name = (req.member_name or "").strip() or existing.name
         existing.name = name
         existing.password_hash = hash_password(req.password)
@@ -108,7 +108,7 @@ def register(db: Session, req: RegisterRequest) -> AuthResult:
             session_token=token,
         )
 
-    # خانوادهٔ تازه + عضوِ اول (مدیر؛ نسبت همیشه «خودم»)
+    # خانوادهٔ تازه + عضو اول (مدیر؛ نسبت همیشه «خودم»)
     family = Family(name=req.family_name.strip(), code=_generate_family_code(db))
     db.add(family)
     db.flush()  # برای در دست داشتن family.id

@@ -1,18 +1,18 @@
 """رویدادهای خانواده — خواندن (فاز ۶) + نوشتن با قواعد سمت سرور (فاز ۷).
 
-خواندن — معادلِ list_events قدیمی: همهٔ ستون‌ها، مرتب بر date نزولی، سپس created_at نزولی.
+خواندن — معادل list_events قدیمی: همهٔ ستون‌ها، مرتب بر date نزولی، سپس created_at نزولی.
 
-نوشتن — معادلِ add_event، delete_event و sync_birthday_events قدیمی:
-- add_event: عنوان ۱..۶۰، تاریخ الزامی، عضوِ سازنده (پیش‌فرض actor؛ انتساب به عضو
-  دیگر فقط توسط مدیر)، for_member باید عضوِ «فعالِ» همین خانواده باشد، و اگر رویدادِ
-  هم‌عنوان + هم‌تاریخ باشد → EVENT_DUPLICATE. ردیفِ ساخته‌شده را برمی‌گرداند.
-- delete_event: مدیر هر رویدادِ خانواده؛ عضو فقط رویدادِ ساختهٔ خودش.
-- sync_birthday_events: برای هر عضوِ فعالِ دارای تاریخِ تولد، رویدادِ «تولدِ ...» را
-  به سالِ جاری هم‌گام می‌کند (به‌روزرسانیِ ردیفِ موجود یا ساختِ تازه)؛ شمارهٔ
+نوشتن — معادل add_event، delete_event و sync_birthday_events قدیمی:
+- add_event: عنوان ۱..۶۰، تاریخ الزامی، عضو سازنده (پیش‌فرض actor؛ انتساب به عضو
+  دیگر فقط توسط مدیر)، for_member باید عضو «فعال» همین خانواده باشد، و اگر رویداد
+  هم‌عنوان + هم‌تاریخ باشد → EVENT_DUPLICATE. ردیف ساخته‌شده را برمی‌گرداند.
+- delete_event: مدیر هر رویداد خانواده؛ عضو فقط رویداد ساختهٔ خودش.
+- sync_birthday_events: برای هر عضو فعال دارای تاریخ تولد، رویداد «تولد ...» را
+  به سال جاری هم‌گام می‌کند (به‌روزرسانی ردیف موجود یا ساخت تازه)؛ شمارهٔ
   رویدادهای «تازه‌ساخته‌شده» را برمی‌گرداند (کلاینت این عدد را نادیده می‌گیرد).
 
 کدهای تازه (خارج از RPC_ERROR_MAP فعلی، برای افزودن در فاز ۹): INVALID_EVENT.
-مرزِ خانواده در لایهٔ اپ (فیلترِ family_id) در کنارِ RLS.
+مرز خانواده در لایهٔ اپ (فیلتر family_id) در کنار RLS.
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ def _birthday_title(name: str | None) -> str:
 
 
 def _this_year_occurrence(birth: _date, today: _date) -> _date:
-    """تاریخِ تولد در سالِ جاری (۲۹ اسفند/۲۹ فوریه → ۲۸)."""
+    """تاریخ تولد در سال جاری (۲۹ اسفند/۲۹ فوریه → ۲۸)."""
     try:
         return birth.replace(year=today.year)
     except ValueError:
@@ -58,9 +58,9 @@ def add_event(db: Session, actor: Member, req: EventCreate) -> FamilyEvent:
     if not title or len(title) > 60:
         raise AppError("INVALID_EVENT", "عنوان رویداد باید ۱ تا ۶۰ کاراکتر باشد.", 422)
     if req.date is None:
-        raise AppError("INVALID_DATE", "تاریخِ رویداد لازم است.", 422)
+        raise AppError("INVALID_DATE", "تاریخ رویداد لازم است.", 422)
 
-    # سازندهٔ رویداد: پیش‌فرض خودِ actor؛ انتساب به عضو دیگر فقط توسط مدیر
+    # سازندهٔ رویداد: پیش‌فرض خود actor؛ انتساب به عضو دیگر فقط توسط مدیر
     member_id = to_uuid_opt(req.member_id, "INVALID_MEMBER", "عضو نامعتبر است.")
     if member_id is None:
         member_id = actor.id
@@ -73,7 +73,7 @@ def add_event(db: Session, actor: Member, req: EventCreate) -> FamilyEvent:
     ).first() is None:
         raise AppError("INVALID_MEMBER", "عضو نامعتبر است.", 422)
 
-    # عضوِ مرتبط (تولدِ چه کسی): در صورت وجود باید عضوِ «فعالِ» همین خانواده باشد
+    # عضو مرتبط (تولد چه کسی): در صورت وجود باید عضو «فعال» همین خانواده باشد
     for_member_id = to_uuid_opt(req.for_member_id, "INVALID_MEMBER", "عضو نامعتبر است.")
     if for_member_id is not None and db.execute(
         select(Member.id).where(
@@ -84,7 +84,7 @@ def add_event(db: Session, actor: Member, req: EventCreate) -> FamilyEvent:
     ).first() is None:
         raise AppError("INVALID_MEMBER", "عضو نامعتبر است.", 422)
 
-    # جلوگیری از رویدادِ تکراری (هم‌عنوان + هم‌تاریخ در همان خانواده)
+    # جلوگیری از رویداد تکراری (هم‌عنوان + هم‌تاریخ در همان خانواده)
     if db.execute(
         select(FamilyEvent.id).where(
             FamilyEvent.family_id == actor.family_id,
@@ -109,7 +109,7 @@ def add_event(db: Session, actor: Member, req: EventCreate) -> FamilyEvent:
 
 
 def delete_event(db: Session, actor: Member, event_id: uuid.UUID) -> None:
-    """حذف: مدیر هر رویدادِ خانواده؛ عضو فقط رویدادِ ساختهٔ خودش."""
+    """حذف: مدیر هر رویداد خانواده؛ عضو فقط رویداد ساختهٔ خودش."""
     stmt = select(FamilyEvent).where(
         FamilyEvent.id == event_id, FamilyEvent.family_id == actor.family_id
     )
@@ -123,11 +123,11 @@ def delete_event(db: Session, actor: Member, event_id: uuid.UUID) -> None:
 
 
 def sync_birthday_events(db: Session, actor: Member) -> int:
-    """رویدادهای تولدِ اعضای فعال را با تاریخِ تولدِ پروفایل هم‌گام می‌کند.
+    """رویدادهای تولد اعضای فعال را با تاریخ تولد پروفایل هم‌گام می‌کند.
 
-    برای هر عضوِ فعالِ دارای birth_date: تاریخِ تولد در سالِ جاری محاسبه و ردیفِ
-    «تولدِ ...»ی موجود (شناسایی با for_member_id + عنوانِ آغازشونده با «تولد»)
-    به‌روزرسانی، وگرنه ردیفِ تازه ساخته می‌شود. شمارهٔ ردیف‌های تازه را برمی‌گرداند.
+    برای هر عضو فعال دارای birth_date: تاریخ تولد در سال جاری محاسبه و ردیف
+    «تولد ...»ی موجود (شناسایی با for_member_id + عنوان آغازشونده با «تولد»)
+    به‌روزرسانی، وگرنه ردیف تازه ساخته می‌شود. شمارهٔ ردیف‌های تازه را برمی‌گرداند.
     """
     today = _date.today()
     members = list(

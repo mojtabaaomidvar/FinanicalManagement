@@ -40,7 +40,7 @@ export class DeleteTransactionUseCase {
   }
 }
 
-/** ثبتِ رسیدگی به یک سررسیدِ تراکنش تکرارشونده (ثبت‌شده یا رد‌شده).
+/** ثبت رسیدگی به یک سررسید تراکنش تکرارشونده (ثبت‌شده یا رد‌شده).
     dueDate تاریخ میلادی ISO سررسید است تا دیگر برای همان دوره پرسیده نشود. */
 export class MarkRecurringOccurrenceUseCase {
   constructor(private readonly repo: TransactionRepository) {}

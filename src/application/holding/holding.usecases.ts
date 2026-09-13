@@ -14,7 +14,7 @@ import type {
 } from "@/domain/holding/holding.types";
 import { AppError } from "@/shared/lib/appError";
 
-/* پیام‌های خطای مشترکِ افزودن و ویرایش — کدها از holding.rules می‌آیند */
+/* پیام‌های خطای مشترک افزودن و ویرایش — کدها از holding.rules می‌آیند */
 const HOLDING_ERRORS: Record<string, string> = {
   INVALID_KIND: "نوع دارایی معتبر نیست",
   INVALID_NAME: "نام دارایی معتبر نیست (حداکثر ۸۰ کاراکتر)",
@@ -42,8 +42,8 @@ export class AddHoldingUseCase {
   async execute(input: HoldingInput): Promise<Holding> {
     const v = validateHoldingInput(input);
     if (!v.ok) fail(v.error);
-    /* گِردکردن پیش از ارسال: ستون Numeric(18,6) است و اگر عددِ درازتری
-       برود، سرور/دیتابیس بی‌صدا گِردش می‌کند. این‌جا صریح انجامش می‌دهیم
+    /* گردکردن پیش از ارسال: ستون Numeric(18,6) است و اگر عدد درازتری
+       برود، سرور/دیتابیس بی‌صدا گردش می‌کند. این‌جا صریح انجامش می‌دهیم
        تا چیزی که ذخیره می‌شود دقیقاً همانی باشد که اعتبارسنجی شده. */
     return this.repo.add({
       ...input,

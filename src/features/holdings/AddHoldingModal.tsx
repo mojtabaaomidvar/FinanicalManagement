@@ -1,14 +1,14 @@
-/* مودالِ افزودن/ویرایشِ دارایی از یک ردیفِ قیمت.
+/* مودال افزودن/ویرایش دارایی از یک ردیف قیمت.
 
    کاربر «مقدار» می‌دهد نه مبلغ: «۲ سکه» همیشه ۲ سکه است ولی ارزشش هر روز
-   فرق می‌کند. پیش‌نمایشِ ارزش این‌جا فقط برای اطمینانِ کاربر است و هیچ‌وقت
-   ذخیره نمی‌شود؛ سرور ارزش را از قیمتِ روزِ خودش حساب می‌کند.
+   فرق می‌کند. پیش‌نمایش ارزش این‌جا فقط برای اطمینان کاربر است و هیچ‌وقت
+   ذخیره نمی‌شود؛ سرور ارزش را از قیمت روز خودش حساب می‌کند.
 
    یک مودال برای هر دو کار (افزودن و ویرایش) است چون فرم‌شان دقیقاً یکی است:
-   نماد و نوع تغییرناپذیرند و تنها فیلدِ قابلِ تغییر «مقدار» است. اگر کاربر
-   نمادی را که قبلاً دارد دوباره بزند، ردیفِ دوم ساخته نمی‌شود بلکه همان
-   ردیف ویرایش می‌شود — دارایی نه قیمتِ خرید دارد نه تاریخ، پس دو ردیفِ
-   «۱ سکه» و «۲ سکه» هیچ اطلاعاتی بیش از یک ردیفِ «۳ سکه» ندارند و فقط
+   نماد و نوع تغییرناپذیرند و تنها فیلد قابل تغییر «مقدار» است. اگر کاربر
+   نمادی را که قبلاً دارد دوباره بزند، ردیف دوم ساخته نمی‌شود بلکه همان
+   ردیف ویرایش می‌شود — دارایی نه قیمت خرید دارد نه تاریخ، پس دو ردیف
+   «۱ سکه» و «۲ سکه» هیچ اطلاعاتی بیش از یک ردیف «۳ سکه» ندارند و فقط
    فهرست را شلوغ می‌کنند. */
 
 import { useEffect, useState } from "react";
@@ -25,21 +25,27 @@ import {
 } from "@/domain/holding/holding.rules";
 import type { HoldingKind } from "@/domain/holding/holding.types";
 
-/** پیامِ فارسیِ هر کدِ خطایِ قواعد — قواعد کد می‌دهند، UI جمله می‌سازد. */
+/** پیام فارسی هر کد خطای قواعد — قواعد کد می‌دهند، UI جمله می‌سازد. */
 const QUANTITY_ERROR: Record<string, string> = {
   INVALID_QUANTITY: "مقدار را درست وارد کنید.",
   ZERO_QUANTITY: "مقدار باید بیشتر از صفر باشد.",
-  HUGE_QUANTITY: "این مقدار بیش از حدِ مجاز است.",
+  HUGE_QUANTITY: "این مقدار بیش از حد مجاز است.",
 };
 
 export type HoldingTarget = {
   kind: HoldingKind;
   symbol: string;
   name: string;
-  /** واحدِ قیمتِ ردیفِ بازار (تومان/ریال) — فقط برای نمایش */
+  /** واحد *نمایشی* کنار قیمت — واحد پول کاربر (تومان/ریال) */
   unit: string;
-  /** قیمتِ واحد در همان واحدِ بالا */
+  /** قیمت واحد در همان واحد نمایشی بالا */
   price: number;
+  /* واحدی که باید **ذخیره** شود. عمداً از `unit` جداست: `unit` با تنظیمات
+     کاربر عوض می‌شود ولی سرور ارزش دارایی را همیشه تومانی حساب می‌کند. اگر
+     یکی بودند، کاربری که روی «ریال» است برچسب «ریال» را روی عددی تومانی
+     در دیتابیس می‌نشاند و بعدها — آن‌جا که قیمت زنده نداریم و سرور به
+     همین واحد ذخیره‌شده برمی‌گردد — عدد ۱۰ برابر خوانده می‌شد. */
+  storeUnit: string;
 };
 
 export function AddHoldingModal({
@@ -52,7 +58,7 @@ export function AddHoldingModal({
 }: {
   /** null = بسته. هر بار که باز می‌شود فرم از نو مقداردهی می‌شود. */
   target: HoldingTarget | null;
-  /** مقدارِ فعلی اگر این نماد قبلاً ثبت شده — یعنی حالتِ ویرایش */
+  /** مقدار فعلی اگر این نماد قبلاً ثبت شده — یعنی حالت ویرایش */
   existingQuantity?: number;
   busy: boolean;
   error: string | null;
@@ -64,8 +70,8 @@ export function AddHoldingModal({
 
   const editing = existingQuantity !== undefined;
 
-  /* با هر بار باز شدن، فرم را به مقدارِ فعلی (یا خالی) برگردان.
-     بدونِ این، مقدارِ نمادِ قبلی در مودالِ نمادِ بعدی می‌ماند. */
+  /* با هر بار باز شدن، فرم را به مقدار فعلی (یا خالی) برگردان.
+     بدون این، مقدار نماد قبلی در مودال نماد بعدی می‌ماند. */
   useEffect(() => {
     if (!target) return;
     setRaw(editing ? formatQuantity(existingQuantity) : "");
@@ -77,7 +83,7 @@ export function AddHoldingModal({
   const quantity = roundQuantity(parseQuantityInput(raw));
   const check = validateQuantity(quantity);
   const showError = touched && !check.ok;
-  /* پیش‌نمایش فقط وقتی هم مقدار معتبر است هم قیمت داریم. قیمتِ ۰ یعنی
+  /* پیش‌نمایش فقط وقتی هم مقدار معتبر است هم قیمت داریم. قیمت ۰ یعنی
      بالادست این قلم را نداده؛ آن‌وقت «۰ تومان» گمراه‌کننده است. */
   const preview = check.ok && target.price > 0 ? quantity * target.price : null;
 
@@ -115,8 +121,8 @@ export function AddHoldingModal({
           }}
           placeholder="۰"
           dir="ltr"
-          /* decimal نه numeric: کیبوردِ numeric جداکنندهٔ اعشار ندارد و
-             «۲٫۵ گرم» اصلاً قابلِ تایپ نمی‌شد. */
+          /* decimal نه numeric: کیبورد numeric جداکنندهٔ اعشار ندارد و
+             «۲٫۵ گرم» اصلاً قابل تایپ نمی‌شد. */
           inputMode="decimal"
           autoFocus
           maxLength={20}
@@ -131,7 +137,7 @@ export function AddHoldingModal({
 
       {preview !== null ? (
         <div className="hold-preview">
-          <span>ارزشِ امروز</span>
+          <span>ارزش امروز</span>
           <b dir="ltr">
             {formatAmount(preview)}
             <small>{target.unit}</small>
@@ -141,8 +147,8 @@ export function AddHoldingModal({
 
       {editing ? (
         <p className="section-hint">
-          این نماد را قبلاً ثبت کرده‌اید؛ مقدارِ تازه جایگزینِ مقدارِ قبلی
-          ({formatQuantity(existingQuantity)} {KIND_UNIT[target.kind]}) می‌شود.
+          این نماد را قبلاً ثبت کرده‌اید؛ مقدار تازه جایگزین مقدار قبلی (
+          {formatQuantity(existingQuantity)} {KIND_UNIT[target.kind]}) می‌شود.
         </p>
       ) : null}
 

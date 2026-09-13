@@ -1,7 +1,7 @@
 """حساب‌ها/کارت‌ها: خواندن (فاز ۶) + نوشتن با قواعد سمت سرور (فاز ۷).
 
-معادلِ add/update/delete_account قدیمی با همان کدهای خطا. هم‌خوانیِ ۶ رقمِ اولِ
-کارت (BIN) با بانکِ انتخاب‌شده عیناً حفظ شده است. نوعِ حساب (kind) هنگام ویرایش
+معادل add/update/delete_account قدیمی با همان کدهای خطا. هم‌خوانی ۶ رقم اول
+کارت (BIN) با بانک انتخاب‌شده عیناً حفظ شده است. نوع حساب (kind) هنگام ویرایش
 تغییرناپذیر است؛ ویرایش موجودی منفی هم می‌پذیرد (کلاینت «موجودی فعلی» را ویرایش
 می‌کند و موجودی اولیه ممکن است منفی شود).
 """
@@ -45,17 +45,17 @@ def _normalize_card(raw: str | None) -> str | None:
 
 
 def _check_bin(db: Session, card: str | None, bank: str | None) -> None:
-    """هم‌خوانیِ ۶ رقمِ اولِ کارت با بانکِ انتخاب‌شده — عیناً مثلِ RPC قدیمی."""
+    """هم‌خوانی ۶ رقم اول کارت با بانک انتخاب‌شده — عیناً مثل RPC قدیمی."""
     bank_t = (bank or "").strip()
     if card is None or not bank_t:
         return
     first6 = card[:6]
-    # کارتِ این BIN متعلق به بانکِ دیگری است
+    # کارت این BIN متعلق به بانک دیگری است
     if db.execute(
         select(CardBin.bin).where(CardBin.bin == first6, CardBin.bank != bank_t).limit(1)
     ).first() is not None:
-        raise AppError("BANK_MISMATCH", "شماره کارت با بانکِ انتخاب‌شده هم‌خوان نیست.", 422)
-    # بانکِ انتخابی اصلاً BIN ندارد ولی BINِ کارت شناخته‌شده و مالِ بانکِ دیگری است
+        raise AppError("BANK_MISMATCH", "شماره کارت با بانک انتخاب‌شده هم‌خوان نیست.", 422)
+    # بانک انتخابی اصلاً BIN ندارد ولی BIN کارت شناخته‌شده و مال بانک دیگری است
     bank_has_bin = db.execute(
         select(CardBin.bin).where(CardBin.bank == bank_t).limit(1)
     ).first() is not None
@@ -63,13 +63,13 @@ def _check_bin(db: Session, card: str | None, bank: str | None) -> None:
         select(CardBin.bin).where(CardBin.bin == first6).limit(1)
     ).first() is not None
     if not bank_has_bin and first6_known:
-        raise AppError("BANK_MISMATCH", "شماره کارت با بانکِ انتخاب‌شده هم‌خوان نیست.", 422)
+        raise AppError("BANK_MISMATCH", "شماره کارت با بانک انتخاب‌شده هم‌خوان نیست.", 422)
 
 
 def _valid_title(title: str | None) -> str:
     t = (title or "").strip()
     if not t or len(t) > 40:
-        raise AppError("INVALID_TITLE", "نامِ حساب نامعتبر است.", 422)
+        raise AppError("INVALID_TITLE", "نام حساب نامعتبر است.", 422)
     return t
 
 
@@ -77,7 +77,7 @@ def _valid_title(title: str | None) -> str:
 def create(db: Session, family_id: uuid.UUID, req: AccountCreate) -> Account:
     kind = (req.kind or "").strip() or "bank"
     if kind not in ("bank", "wallet"):
-        raise AppError("INVALID_KIND", "نوعِ حساب نامعتبر است.", 422)
+        raise AppError("INVALID_KIND", "نوع حساب نامعتبر است.", 422)
     title = _valid_title(req.title)
 
     member_id = to_uuid(req.member_id, "INVALID_MEMBER", "عضو نامعتبر است.")
@@ -111,7 +111,7 @@ def create(db: Session, family_id: uuid.UUID, req: AccountCreate) -> Account:
 
 
 def update(db: Session, actor: Member, account_id: uuid.UUID, req: AccountUpdate) -> Account:
-    # ردیفِ فعلی + بررسیِ مجوز در یک مرحله (مدیر هر کارت / عضو کارتِ خودش)
+    # ردیف فعلی + بررسی مجوز در یک مرحله (مدیر هر کارت / عضو کارت خودش)
     stmt = select(Account).where(
         Account.id == account_id, Account.family_id == actor.family_id
     )
@@ -141,7 +141,7 @@ def update(db: Session, actor: Member, account_id: uuid.UUID, req: AccountUpdate
 
 
 def delete(db: Session, actor: Member, account_id: uuid.UUID) -> None:
-    """حذف: مدیر هر کارتِ خانواده؛ عضو فقط کارتِ خودش."""
+    """حذف: مدیر هر کارت خانواده؛ عضو فقط کارت خودش."""
     stmt = select(Account).where(
         Account.id == account_id, Account.family_id == actor.family_id
     )

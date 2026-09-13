@@ -7,7 +7,7 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        // پلاگینِ نیتیوِ خواندنِ پیامک باید پیش از super.onCreate ثبت شود.
+        // پلاگین نیتیو خواندن پیامک باید پیش از super.onCreate ثبت شود.
         registerPlugin(SmsReaderPlugin.class);
         super.onCreate(savedInstanceState);
     }

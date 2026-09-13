@@ -36,7 +36,10 @@ import {
   type Category,
 } from "@/domain/category/category.catalog";
 import { categoryColor } from "@/domain/category/category.colors";
-import { TX_REPEATS, type TxRepeat } from "@/domain/transaction/transaction.types";
+import {
+  TX_REPEATS,
+  type TxRepeat,
+} from "@/domain/transaction/transaction.types";
 import { maskCardNumber } from "@/domain/account/account.rules";
 import { formatAmount } from "@/shared/lib/format";
 
@@ -53,23 +56,16 @@ function accountLabel(
 
 /* تگ‌های پیشنهادی لیبل — پیش‌فرض عمومی؛ سابقه خانواده هنگام اجرا اضافه می‌شود */
 const QUICK_LABELS: Record<"expense" | "income", string[]> = {
-  expense: [
-    "خرید روزانه",
-    "نان",
-    "میوه",
-    "تاکسی",
-    "بنزین",
-    "قبض",
-    "دارو",
-  ],
+  expense: ["خرید روزانه", "نان", "میوه", "تاکسی", "بنزین", "قبض", "دارو"],
   income: ["حقوق", "پاداش", "عیدی", "فروش", "سود سرمایه", "هدیه"],
 };
 
-const TYPE_TABS: { value: "expense" | "income" | "transfer"; label: string }[] = [
-  { value: "expense", label: "هزینه" },
-  { value: "income", label: "درآمد" },
-  { value: "transfer", label: "انتقال" },
-];
+const TYPE_TABS: { value: "expense" | "income" | "transfer"; label: string }[] =
+  [
+    { value: "expense", label: "هزینه" },
+    { value: "income", label: "درآمد" },
+    { value: "transfer", label: "انتقال" },
+  ];
 
 /* عنوان بالای باکس مبلغ */
 const AMOUNT_CAPS: Record<string, string> = {
@@ -78,7 +74,7 @@ const AMOUNT_CAPS: Record<string, string> = {
   transfer: "مبلغ انتقال",
 };
 
-/* مثالِ توضیح بسته به نوع تراکنش فرق می‌کند — مثال هزینه با درآمد یکی نیست */
+/* مثال توضیح بسته به نوع تراکنش فرق می‌کند — مثال هزینه با درآمد یکی نیست */
 const NOTE_PLACEHOLDERS: Record<string, string> = {
   expense: "مثلاً: خرید نان و شیر (اختیاری)…",
   income: "مثلاً: حقوق شهریور (اختیاری)…",
@@ -167,7 +163,8 @@ export function TransactionFormFeature({
     const own = subcategories
       .filter((s) => s.category === m.form.categoryId)
       .map((s) => s.name);
-    const baseTags = QUICK_LABELS[m.form.type === "income" ? "income" : "expense"];
+    const baseTags =
+      QUICK_LABELS[m.form.type === "income" ? "income" : "expense"];
     return [...new Set([...own, ...baseTags])].slice(0, 9);
   }, [subcategories, m.form.categoryId, m.form.type]);
 
@@ -246,7 +243,9 @@ export function TransactionFormFeature({
     >
       <div
         className="tx-form"
-        style={{ "--cat-color": catColor, "--sheet-tint": base } as CSSProperties}
+        style={
+          { "--cat-color": catColor, "--sheet-tint": base } as CSSProperties
+        }
       >
         {/* ── هدر: بستن / عنوان / حذف + ذخیره ── */}
         <div className="tx-head">
@@ -284,7 +283,13 @@ export function TransactionFormFeature({
               disabled={m.busy}
               onClick={() => m.save(refreshData, accounts.length)}
             >
-              {m.busy ? "…" : <svg><use href="#i-check" /></svg>}
+              {m.busy ? (
+                "…"
+              ) : (
+                <svg>
+                  <use href="#i-check" />
+                </svg>
+              )}
             </button>
           </span>
         </div>
@@ -548,7 +553,10 @@ export function TransactionFormFeature({
 
             {m.form.repeat !== "none" ? (
               <div className="tx-chips">
-                <span className="tx-pill tx-pill-date" title="تاریخ پایان تکرار (الزامی)">
+                <span
+                  className="tx-pill tx-pill-date"
+                  title="تاریخ پایان تکرار (الزامی)"
+                >
                   <svg>
                     <use href="#i-clock" />
                   </svg>
@@ -616,7 +624,9 @@ export function TransactionFormFeature({
                         }
                       >
                         <svg>
-                          <use href={m.form.label === t ? "#i-check" : "#i-plus"} />
+                          <use
+                            href={m.form.label === t ? "#i-check" : "#i-plus"}
+                          />
                         </svg>
                         {t}
                       </button>

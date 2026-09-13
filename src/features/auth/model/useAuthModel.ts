@@ -5,7 +5,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { UseCases } from "@/application/useCases";
 import type { OtpFlowMode } from "@/domain/auth/auth.types";
-import { normalizePhone, isValidPassword, isValidOtpCode, cleanOtpCode } from "@/domain/auth/auth.rules";
+import {
+  normalizePhone,
+  isValidPassword,
+  isValidOtpCode,
+  cleanOtpCode,
+} from "@/domain/auth/auth.rules";
 import { toEn } from "@/shared/lib/digits";
 import { AppError } from "@/shared/lib/appError";
 
@@ -20,8 +25,8 @@ export interface OtpFlow {
   relation?: string;
 }
 
-/** مقادیرِ آغازینِ فرم — قیفِ آغازین (onboarding) نامِ خانواده را از پیش
-    جمع کرده و کاربر را مستقیم به حالتِ ثبت‌نام می‌فرستد. فقط «مقدارِ اولیه»
+/** مقادیر آغازین فرم — قیف آغازین (onboarding) نام خانواده را از پیش
+    جمع کرده و کاربر را مستقیم به حالت ثبت‌نام می‌فرستد. فقط «مقدار اولیه»
     است؛ کاربر می‌تواند هر دو را عوض کند. */
 export interface AuthPrefill {
   mode?: "login" | "register";
@@ -150,7 +155,11 @@ export function useAuthModel(
          (اگر OTP روی سرور روشن باشد، INVALID_OTP برمی‌گردد و جریان کد ادامه می‌یابد) */
       if (otpEnabled !== true) {
         try {
-          const r = await useCases.loginWithOtp.execute(phone, loginPassword, null);
+          const r = await useCases.loginWithOtp.execute(
+            phone,
+            loginPassword,
+            null,
+          );
           await useCases.saveSession.execute(r);
           await onDone();
           return;
@@ -195,7 +204,11 @@ export function useAuthModel(
       setBusy(true);
       try {
         const r = await useCases.register.execute(input, null);
-        notify(preReg ? "ثبت‌نام کامل شد — خوش آمدید" : "خانواده ساخته شد — خوش آمدید");
+        notify(
+          preReg
+            ? "ثبت‌نام کامل شد — خوش آمدید"
+            : "خانواده ساخته شد — خوش آمدید",
+        );
         await useCases.saveSession.execute(r);
         await onDone();
         return;
@@ -274,7 +287,11 @@ export function useAuthModel(
     try {
       let result = null;
       if (flow.mode === "login") {
-        result = await useCases.loginWithOtp.execute(flow.phone, flow.password, code);
+        result = await useCases.loginWithOtp.execute(
+          flow.phone,
+          flow.password,
+          code,
+        );
       } else if (flow.mode === "register") {
         result = await useCases.register.execute(
           {

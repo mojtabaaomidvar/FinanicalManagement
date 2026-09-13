@@ -1,19 +1,19 @@
-"""پیام‌های بانکی و پلِ پیامک — خواندن (فاز ۶) + نوشتن (فاز ۷).
+"""پیام‌های بانکی و پل پیامک — خواندن (فاز ۶) + نوشتن (فاز ۷).
 
 خواندن:
-- list_sms: همهٔ ستون‌ها، فیلترِ اختیاریِ status، مرتب بر created_at نزولی
-  (معادلِ list_sms(p_token, p_status) قدیمی).
-- get_bridge: پلِ «فعالِ» عضو جاری (آخرین ساخته‌شده) یا None. برخلافِ سایر خواندن‌ها
-  این یک «عضو-محور» است (member_id)، نه صرفاً خانواده‌محور — عیناً مثلِ get_bridge
+- list_sms: همهٔ ستون‌ها، فیلتر اختیاری status، مرتب بر created_at نزولی
+  (معادل list_sms(p_token, p_status) قدیمی).
+- get_bridge: پل «فعال» عضو جاری (آخرین ساخته‌شده) یا None. برخلاف سایر خواندن‌ها
+  این یک «عضو-محور» است (member_id)، نه صرفاً خانواده‌محور — عیناً مثل get_bridge
   قدیمی. RLS همچنان روی family_id اعمال است (پل‌های عضو در همان خانواده‌اند).
 
-نوشتن — معادلِ add_sms_messages، set_sms_status و create_bridge قدیمی:
-- add_sms_messages: درجِ دسته‌ای برای عضو جاری، شمارهٔ ردیف‌های واردشده را برمی‌گرداند
-  (متنِ خالی نادیده؛ نوع فقط expense/income وگرنه NULL؛ status='pending').
-- set_sms_status: تغییرِ وضعیت (pending/recorded/ignored)، NOT_FOUND اگر پیامک نباشد.
-- create_bridge: غیرفعال‌کردنِ پل‌های فعالِ قبلیِ عضو و ساختِ توکنِ تازه (۴۰ هگز).
+نوشتن — معادل add_sms_messages، set_sms_status و create_bridge قدیمی:
+- add_sms_messages: درج دسته‌ای برای عضو جاری، شمارهٔ ردیف‌های واردشده را برمی‌گرداند
+  (متن خالی نادیده؛ نوع فقط expense/income وگرنه NULL؛ status='pending').
+- set_sms_status: تغییر وضعیت (pending/recorded/ignored)، NOT_FOUND اگر پیامک نباشد.
+- create_bridge: غیرفعال‌کردن پل‌های فعال قبلی عضو و ساخت توکن تازه (۴۰ هگز).
 
-مرزِ خانواده در لایهٔ اپ (فیلترِ family_id) در کنارِ RLS.
+مرز خانواده در لایهٔ اپ (فیلتر family_id) در کنار RLS.
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ def list_sms(
 
 
 def get_bridge(db: Session, member_id: uuid.UUID) -> SmsBridge | None:
-    """پلِ فعالِ عضو جاری (آخرین)، یا None اگر پلی نساخته باشد."""
+    """پل فعال عضو جاری (آخرین)، یا None اگر پلی نساخته باشد."""
     return db.execute(
         select(SmsBridge)
         .where(SmsBridge.member_id == member_id, SmsBridge.active.is_(True))
@@ -57,10 +57,10 @@ def get_bridge(db: Session, member_id: uuid.UUID) -> SmsBridge | None:
 
 # ── نوشتن (فاز ۷) ────────────────────────────────────────────
 def add_sms_messages(db: Session, actor: Member, items: list[SmsItem]) -> int:
-    """درجِ دسته‌ایِ پیام‌های بانکی برای عضو جاری؛ شمارهٔ ردیف‌های واردشده را برمی‌گرداند.
+    """درج دسته‌ای پیام‌های بانکی برای عضو جاری؛ شمارهٔ ردیف‌های واردشده را برمی‌گرداند.
 
-    پیام‌های با متنِ خالی نادیده گرفته می‌شوند؛ نوع فقط اگر expense/income باشد نگه
-    داشته می‌شود (وگرنه NULL، هم‌سان با CHECKِ جدول)؛ وضعیت اولیه pending است.
+    پیام‌های با متن خالی نادیده گرفته می‌شوند؛ نوع فقط اگر expense/income باشد نگه
+    داشته می‌شود (وگرنه NULL، هم‌سان با CHECK جدول)؛ وضعیت اولیه pending است.
     """
     rows: list[SmsMessage] = []
     for it in items:
@@ -106,13 +106,13 @@ def set_sms_status(
 
 
 def create_bridge(db: Session, actor: Member) -> str:
-    """پل‌های فعالِ قبلیِ عضو را غیرفعال و پلِ تازه‌ای می‌سازد؛ توکنِ آن را برمی‌گرداند."""
+    """پل‌های فعال قبلی عضو را غیرفعال و پل تازه‌ای می‌سازد؛ توکن آن را برمی‌گرداند."""
     db.execute(
         sa_update(SmsBridge)
         .where(SmsBridge.member_id == actor.id, SmsBridge.active.is_(True))
         .values(active=False)
     )
-    token = secrets.token_hex(20)  # ۴۰ رقمِ هگز — هم‌سان با create_bridge قدیمی
+    token = secrets.token_hex(20)  # ۴۰ رقم هگز — هم‌سان با create_bridge قدیمی
     db.add(
         SmsBridge(
             family_id=actor.family_id,
@@ -126,9 +126,9 @@ def create_bridge(db: Session, actor: Member) -> str:
 
 
 # ── ingest: پارس «سمت سرور» (فاز ۸) ──────────────────────────
-# تفاوتِ کلیدی با add_sms_messages: آنجا کلاینت فیلدهای پارس‌شده را می‌فرستد؛ اینجا
-# فقط متنِ خام می‌آید و سرور با app.services.sms_parser پارس می‌کند. هدف: وب و اندروید
-# و پلِ فورواردر همگی «یک منطقِ پارس» داشته باشند (پیش‌تر فقط کلاینت پارس می‌کرد و
+# تفاوت کلیدی با add_sms_messages: آنجا کلاینت فیلدهای پارس‌شده را می‌فرستد؛ اینجا
+# فقط متن خام می‌آید و سرور با app.services.sms_parser پارس می‌کند. هدف: وب و اندروید
+# و پل فورواردر همگی «یک منطق پارس» داشته باشند (پیش‌تر فقط کلاینت پارس می‌کرد و
 # مسیرها ناهم‌سان بودند).
 def _row_from_raw(
     family_id: uuid.UUID,
@@ -136,12 +136,12 @@ def _row_from_raw(
     raw_text: str | None,
     sender: str | None,
 ) -> SmsMessage | None:
-    """متنِ خام → ردیفِ SmsMessage (pending) با فیلدهای پارس‌شده؛ یا None اگر متن خالی.
+    """متن خام → ردیف SmsMessage (pending) با فیلدهای پارس‌شده؛ یا None اگر متن خالی.
 
-    raw_text «اصل» (فقط trim‌شده) ذخیره می‌شود تا کاربر متنِ واقعی را ببیند؛ پارس روی
-    نسخهٔ نرمال انجام می‌شود. اگر بانک از متن پیدا نشد و فرستنده داده شده بود، به‌عنوانِ
-    کمکی از روی نامِ فرستنده هم تلاش می‌کنیم (بهبود نسبت به webhook قدیمی که نامِ
-    فرستنده را خام در ستونِ bank می‌ریخت).
+    raw_text «اصل» (فقط trim‌شده) ذخیره می‌شود تا کاربر متن واقعی را ببیند؛ پارس روی
+    نسخهٔ نرمال انجام می‌شود. اگر بانک از متن پیدا نشد و فرستنده داده شده بود، به‌عنوان
+    کمکی از روی نام فرستنده هم تلاش می‌کنیم (بهبود نسبت به webhook قدیمی که نام
+    فرستنده را خام در ستون bank می‌ریخت).
     """
     raw = (raw_text or "").strip()
     if not raw:
@@ -168,10 +168,10 @@ def _row_from_raw(
 def ingest_sms(
     db: Session, actor: Member, items: list[tuple[str | None, str | None]]
 ) -> list[SmsMessage]:
-    """درجِ دسته‌ایِ پیامک‌های «خام» برای عضو جاری با پارسِ سمت‌سرور.
+    """درج دسته‌ای پیامک‌های «خام» برای عضو جاری با پارس سمت‌سرور.
 
     items فهرستی از (raw_text, sender) است. ردیف‌های واردشده را برمی‌گرداند (برای
-    نمایشِ فوری در کلاینت، بدونِ نیاز به fetchِ دوباره). مسیرِ نشست‌محور (RLS فعال).
+    نمایش فوری در کلاینت، بدون نیاز به fetch دوباره). مسیر نشست‌محور (RLS فعال).
     """
     rows: list[SmsMessage] = []
     for raw_text, sender in items:
@@ -190,13 +190,13 @@ def ingest_sms(
 def ingest_via_bridge(
     db: Session, token: str | None, text: str | None, sender: str | None = None
 ) -> int:
-    """webhookِ پل (جایگزینِ api/sms-webhook.js): توکن → خانواده/عضو → پارس و درج.
+    """webhook پل (جایگزین api/sms-webhook.js): توکن → خانواده/عضو → پارس و درج.
 
-    احراز با «توکنِ پل» است، نه نشستِ کاربر؛ پس این مسیر get_tenant_member ندارد و
-    زمینهٔ RLS را «دستی» ست می‌کند. ابتدا ردیفِ پل با توکن خوانده می‌شود (جدولِ
-    sms_bridges پس از مهاجرت 0003 بیرون از RLS است تا این خواندنِ پیش-از-زمینه ممکن
-    باشد)، سپس زمینهٔ خانواده ست و پیامک در sms_messages (که هنوز زیرِ RLS است) درج
-    می‌شود. تعدادِ واردشده (۰ یا ۱) را برمی‌گرداند.
+    احراز با «توکن پل» است، نه نشست کاربر؛ پس این مسیر get_tenant_member ندارد و
+    زمینهٔ RLS را «دستی» ست می‌کند. ابتدا ردیف پل با توکن خوانده می‌شود (جدول
+    sms_bridges پس از مهاجرت 0003 بیرون از RLS است تا این خواندن پیش-از-زمینه ممکن
+    باشد)، سپس زمینهٔ خانواده ست و پیامک در sms_messages (که هنوز زیر RLS است) درج
+    می‌شود. تعداد واردشده (۰ یا ۱) را برمی‌گرداند.
     """
     tok = (token or "").strip()
     if not tok:
@@ -209,7 +209,7 @@ def ingest_via_bridge(
 
     ctx = set_current_family(bridge.family_id)
     try:
-        apply_to_transaction(db)  # زمینهٔ خانواده روی همین تراکنشِ باز
+        apply_to_transaction(db)  # زمینهٔ خانواده روی همین تراکنش باز
         row = _row_from_raw(bridge.family_id, bridge.member_id, text, sender)
         if row is None:
             return 0

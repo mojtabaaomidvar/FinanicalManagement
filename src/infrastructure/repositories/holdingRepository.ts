@@ -1,8 +1,8 @@
-/* مخزن دارایی‌ها — اندپوینت REST بک‌اندِ اختصاصی (/holdings).
+/* مخزن دارایی‌ها — اندپوینت REST بک‌اند اختصاصی (/holdings).
 
-   قیمت و ارزش عمداً در بدنهٔ درخواست نمی‌روند: سرور خودش از اسنپ‌شاتِ بازار
-   حساب‌شان می‌کند. اگر کلاینت قیمت می‌فرستاد، کاربرِ بدخواه می‌توانست ارزشِ
-   دلخواه بسازد و کاربرِ عادی هم با دادهٔ کهنهٔ تبش عددِ غلط ثبت می‌کرد. */
+   قیمت و ارزش عمداً در بدنهٔ درخواست نمی‌روند: سرور خودش از اسنپ‌شات بازار
+   حساب‌شان می‌کند. اگر کلاینت قیمت می‌فرستاد، کاربر بدخواه می‌توانست ارزش
+   دلخواه بسازد و کاربر عادی هم با دادهٔ کهنهٔ تبش عدد غلط ثبت می‌کرد. */
 
 import type { HoldingRepository } from "@/domain/holding/holding.repository";
 import type {
@@ -41,7 +41,7 @@ function mapHolding(r: HoldingRow): Holding {
     id: r.id,
     familyId: r.family_id,
     memberId: r.member_id,
-    // سرور kind را از فهرستِ بسته‌ای اعتبارسنجی می‌کند، پس تبدیل امن است
+    // سرور kind را از فهرست بسته‌ای اعتبارسنجی می‌کند، پس تبدیل امن است
     kind: r.kind as HoldingKind,
     symbol: r.symbol,
     name: r.name,
@@ -68,8 +68,8 @@ export class RestHoldingRepository implements HoldingRepository {
   }
 
   async add(input: HoldingInput): Promise<Holding> {
-    /* پاسخِ افزودن عمداً بی‌قیمت است (price/value صفر، priced=false): سرور
-       برای یک ردیف، یک فراخوانیِ جداگانهٔ بازار نمی‌زند. مصرف‌کننده باید پس از
+    /* پاسخ افزودن عمداً بی‌قیمت است (price/value صفر، priced=false): سرور
+       برای یک ردیف، یک فراخوانی جداگانهٔ بازار نمی‌زند. مصرف‌کننده باید پس از
        افزودن، فهرست را تازه کند تا قیمت‌ها یک‌جا بیایند. */
     const row = await this.client.post<HoldingRow>("/holdings", {
       kind: input.kind,
@@ -82,7 +82,7 @@ export class RestHoldingRepository implements HoldingRepository {
   }
 
   async update(patch: HoldingPatch): Promise<Holding> {
-    // فقط مقدار؛ نوع و نماد تغییرناپذیرند (ردیفِ تازه جایِ ویرایشِ نماد را می‌گیرد)
+    // فقط مقدار؛ نوع و نماد تغییرناپذیرند (ردیف تازه جای ویرایش نماد را می‌گیرد)
     const row = await this.client.patch<HoldingRow>(
       `/holdings/${encodeURIComponent(patch.id)}`,
       { quantity: patch.quantity },

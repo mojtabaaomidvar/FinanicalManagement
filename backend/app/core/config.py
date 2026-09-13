@@ -54,23 +54,23 @@ class Settings(BaseSettings):
     market_cache_seconds: int = 300       # TTL کش سرور-سمتی (سقف رایگان: ۱۵۰۰/۱۰۰۰ درخواست در روز)
 
     # ── ذخیره‌سازی آبجکت (S3-compatible) ──────────────────
-    # اگر storage_endpoint و storage_bucket هر دو ست شوند → backendِ S3 فعال می‌شود؛
-    # وگرنه دیسکِ محلی (storage_dir). غیرمخرب و سازگارِ عقب‌رو.
-    storage_endpoint: str = ""             # مثلِ https://storage.iran.liara.space
-    storage_bucket: str = ""               # نامِ باکتِ واقعی (مثلِ khaneyar-files)
-    storage_bucket_avatars: str = "avatars"    # پیشوندِ کلید داخلِ باکت
-    storage_bucket_photos: str = "tx-photos"   # پیشوندِ کلید داخلِ باکت
+    # اگر storage_endpoint و storage_bucket هر دو ست شوند → backend S3 فعال می‌شود؛
+    # وگرنه دیسک محلی (storage_dir). غیرمخرب و سازگار عقب‌رو.
+    storage_endpoint: str = ""             # مثل https://storage.iran.liara.space
+    storage_bucket: str = ""               # نام باکت واقعی (مثل khaneyar-files)
+    storage_bucket_avatars: str = "avatars"    # پیشوند کلید داخل باکت
+    storage_bucket_photos: str = "tx-photos"   # پیشوند کلید داخل باکت
     storage_access_key: str = ""
     storage_secret_key: str = ""
-    storage_region: str = "us-east-1"      # فقط برایِ امضای SigV4 (endpoint مسیر را تعیین می‌کند)
+    storage_region: str = "us-east-1"      # فقط برای امضای SigV4 (endpoint مسیر را تعیین می‌کند)
 
-    # ── فایل‌های آپلودی: ذخیرهٔ دیسکِ محلی + URLِ امضاشدهٔ HMAC (فاز ۸) ──
-    # جایگزینِ باکت‌های «عمومیِ» Supabase. بایت‌ها زیرِ storage_dir ذخیره و از راهِ
+    # ── فایل‌های آپلودی: ذخیرهٔ دیسک محلی + URL امضاشدهٔ HMAC (فاز ۸) ──
+    # جایگزین باکت‌های «عمومی» Supabase. بایت‌ها زیر storage_dir ذخیره و از راه
     # GET /api/v1/files/{path}?sig=... سرو می‌شوند؛ امضا با file_signing_secret.
     storage_dir: str = "./var/uploads"     # ریشهٔ ذخیره روی دیسک
-    files_base_url: str = ""               # پیشوندِ URLِ عمومی؛ خالی = نسبی (هم‌مبدأ)
-    file_signing_secret: str = ""          # کلیدِ HMACِ URLها — «راز»، فقط از محیط
-    upload_max_bytes: int = 1_050_000      # ~۱MB پس از دیکود (هم‌سان با سقفِ قبلی)
+    files_base_url: str = ""               # پیشوند URL عمومی؛ خالی = نسبی (هم‌مبدأ)
+    file_signing_secret: str = ""          # کلید HMAC URLها — «راز»، فقط از محیط
+    upload_max_bytes: int = 1_050_000      # ~۱MB پس از دیکود (هم‌سان با سقف قبلی)
 
     @property
     def cors_origins_list(self) -> list[str]:

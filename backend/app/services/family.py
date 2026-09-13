@@ -1,6 +1,6 @@
 """خانواده و اعضا: اعتبارسنجی نشست، دعوت، افزودن/حذف عضو.
 
-همهٔ این عملیات‌ها با «عضوِ احراز‌هویت‌شده از توکن» کار می‌کنند (لایهٔ deps) و مرزِ
+همهٔ این عملیات‌ها با «عضو احراز‌هویت‌شده از توکن» کار می‌کنند (لایهٔ deps) و مرز
 خانواده را از family_id همان عضو می‌گیرند — نه از ورودی کلاینت.
 """
 
@@ -69,7 +69,7 @@ def validate_session_payload(db: Session, member: Member) -> SessionPayload:
 
 # ── دعوت ─────────────────────────────────────────────────────
 def create_invite(db: Session, family_id: uuid.UUID, created_by: uuid.UUID) -> str:
-    """دعوت فعالِ قبلی غیرفعال می‌شود و توکن تازه (۴۰ هگز، ۳۰ روزه) ساخته می‌شود."""
+    """دعوت فعال قبلی غیرفعال می‌شود و توکن تازه (۴۰ هگز، ۳۰ روزه) ساخته می‌شود."""
     db.execute(
         update(FamilyInvite)
         .where(FamilyInvite.family_id == family_id, FamilyInvite.active.is_(True))
@@ -151,7 +151,7 @@ def accept_invite(db: Session, req: AcceptInviteRequest) -> AuthResult:
 def add_member_by_manager(
     db: Session, actor: Member, name: str, phone: str, relation: str
 ) -> MemberPublic:
-    """افزودن عضوِ pending (اسم/شماره/نسبت) — تا خودش ثبت‌نام کند. فقط مدیر."""
+    """افزودن عضو pending (اسم/شماره/نسبت) — تا خودش ثبت‌نام کند. فقط مدیر."""
     if actor.role != "owner":
         raise AppError("FORBIDDEN", "فقط مدیر خانواده مجاز است.", 403)
 
@@ -196,12 +196,12 @@ def remove_member(db: Session, actor: Member, member_id: uuid.UUID) -> None:
     db.commit()
 
 
-# ── تنظیماتِ خانواده و پروفایلِ عضو (فاز ۷ — بیرون از RLS) ────
+# ── تنظیمات خانواده و پروفایل عضو (فاز ۷ — بیرون از RLS) ────
 # این عملیات‌ها روی جدول‌های هویتی (families/members) کار می‌کنند که از RLS مستثنا
-# هستند؛ پس مرزِ مستأجر در «لایهٔ اپ» اعمال می‌شود: هر نوشتن یا به خودِ actor محدود
-# است یا صریحاً family_id عضوِ هدف با actor سنجیده می‌شود.
+# هستند؛ پس مرز مستأجر در «لایهٔ اپ» اعمال می‌شود: هر نوشتن یا به خود actor محدود
+# است یا صریحاً family_id عضو هدف با actor سنجیده می‌شود.
 def update_family_settings(db: Session, owner: Member, req: FamilySettingsUpdate) -> None:
-    """تعیینِ سقفِ بودجهٔ ماهانهٔ خانواده — فقط مدیر.
+    """تعیین سقف بودجهٔ ماهانهٔ خانواده — فقط مدیر.
 
     فقط budget اعمال می‌شود (منفی/None → صفر)؛ currency/dark عمداً نادیده گرفته
     می‌شوند چون واحد پول و تم اکنون «شخصی»‌اند (هم‌سان با update_family_settings v5.8).
@@ -217,9 +217,9 @@ def update_family_settings(db: Session, owner: Member, req: FamilySettingsUpdate
 
 
 def update_member_profile(db: Session, actor: Member, req: MemberProfileUpdate) -> Member:
-    """به‌روزرسانیِ پروفایلِ «خودِ» عضو (نام/جنسیت/تولد/آواتار/تم).
+    """به‌روزرسانی پروفایل «خود» عضو (نام/جنسیت/تولد/آواتار/تم).
 
-    نام الزامی (۱..۴۰)؛ جنسیتِ نامعتبر → NULL؛ تمِ نامعتبر/خالی → بدون تغییر.
+    نام الزامی (۱..۴۰)؛ جنسیت نامعتبر → NULL؛ تم نامعتبر/خالی → بدون تغییر.
     """
     name = (req.name or "").strip()
     if not (1 <= len(name) <= _MEMBER_NAME_MAX):
@@ -240,16 +240,16 @@ def update_member_profile(db: Session, actor: Member, req: MemberProfileUpdate) 
 
 
 def set_member_theme(db: Session, actor: Member, theme: str | None) -> None:
-    """تعیینِ تمِ نمایشِ «خودِ» عضو (light/dark/auto)."""
+    """تعیین تم نمایش «خود» عضو (light/dark/auto)."""
     t = (theme or "").strip()
     if t not in _THEMES:
-        raise AppError("INVALID_THEME", "تمِ نمایش نامعتبر است.", 422)
+        raise AppError("INVALID_THEME", "تم نمایش نامعتبر است.", 422)
     actor.theme = t
     db.commit()
 
 
 def set_member_currency(db: Session, actor: Member, currency: str | None) -> Member:
-    """تعیینِ واحدِ پولِ نمایشیِ «خودِ» عضو (تومان/ریال). مبالغ همیشه به تومان ذخیره‌اند."""
+    """تعیین واحد پول نمایشی «خود» عضو (تومان/ریال). مبالغ همیشه به تومان ذخیره‌اند."""
     c = (currency or "").strip()
     if c not in _CURRENCIES:
         raise AppError("INVALID_CURRENCY", "واحد پول نامعتبر است.", 422)
@@ -262,15 +262,15 @@ def set_member_currency(db: Session, actor: Member, currency: str | None) -> Mem
 def set_member_relation(
     db: Session, actor: Member, member_id: uuid.UUID, relation: str | None
 ) -> Member:
-    """تعیینِ نسبتِ یک عضو. مدیر می‌تواند نسبتِ هر عضو را تغییر دهد؛ عضوِ عادی فقط
-    نسبتِ خودش را. نسبتِ «مدیر» ثابت است (OWNER_RELATION_FIXED)."""
+    """تعیین نسبت یک عضو. مدیر می‌تواند نسبت هر عضو را تغییر دهد؛ عضو عادی فقط
+    نسبت خودش را. نسبت «مدیر» ثابت است (OWNER_RELATION_FIXED)."""
     target = db.get(Member, member_id)
     if target is None or target.family_id != actor.family_id:
         raise AppError("NOT_FOUND", "عضو یافت نشد.", 404)
     if target.role == "owner":
-        raise AppError("OWNER_RELATION_FIXED", "نسبتِ مدیر خانواده ثابت است.", 409)
+        raise AppError("OWNER_RELATION_FIXED", "نسبت مدیر خانواده ثابت است.", 409)
     if actor.role != "owner" and target.id != actor.id:
-        raise AppError("FORBIDDEN", "اجازهٔ تغییر نسبتِ این عضو را ندارید.", 403)
+        raise AppError("FORBIDDEN", "اجازهٔ تغییر نسبت این عضو را ندارید.", 403)
     rel = (relation or "").strip()
     if not rel:
         raise AppError("EMPTY_RELATION", "نسبت را مشخص کنید.", 422)

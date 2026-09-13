@@ -47,7 +47,7 @@ class Member(Base):
         CheckConstraint("status IN ('pending','active')", name="status"),
         CheckConstraint("theme IN ('light','dark','auto')", name="theme"),
         CheckConstraint("currency IN ('تومان','ریال')", name="currency"),
-        # یکتاییِ شماره فقط برای مقادیر واقعی؛ چند عضو بدون شماره مجاز است.
+        # یکتایی شماره فقط برای مقادیر واقعی؛ چند عضو بدون شماره مجاز است.
         Index(
             "uq_members_phone", "phone",
             unique=True, postgresql_where=text("phone IS NOT NULL"),
@@ -62,7 +62,7 @@ class Member(Base):
     )
     name: Mapped[str] = mapped_column(Text, nullable=False)
     role: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'member'"))
-    phone: Mapped[str | None] = mapped_column(Text)  # 09xxxxxxxxx — یکتاییِ جزئی در __table_args__
+    phone: Mapped[str | None] = mapped_column(Text)  # 09xxxxxxxxx — یکتایی جزئی در __table_args__
     # هش رمز: Argon2id ($argon2id$…). قالب‌های قدیمی bcrypt/sha256 هنگام ورود ارتقا می‌یابند.
     password_hash: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(

@@ -1,5 +1,5 @@
-/* مخزن پیامک‌های بانکی — اندپوینت‌های REST بک‌اندِ اختصاصی (/sms).
-   پیشوندِ «Supabase» در نامِ کلاس میراثی است؛ مخزن اکنون REST-محور است و از
+/* مخزن پیامک‌های بانکی — اندپوینت‌های REST بک‌اند اختصاصی (/sms).
+   پیشوند «Supabase» در نام کلاس میراثی است؛ مخزن اکنون REST-محور است و از
    RestClient استفاده می‌کند (توکن خودکار از هدر). */
 
 import type { SmsRepository } from "@/domain/sms/sms.repository";
@@ -30,7 +30,7 @@ export class SupabaseSmsRepository implements SmsRepository {
 
   async ingestRaw(rawText: string, sender?: string | null): Promise<number> {
     /* سرور پارس/تشخیص را انجام می‌دهد و آرایهٔ رکوردهای ساخته‌شده را برمی‌گرداند؛
-       طولِ آن = تعدادِ افزوده (۰ یعنی پیامکِ بانکی نبود یا تکراری بود). */
+       طول آن = تعداد افزوده (۰ یعنی پیامک بانکی نبود یا تکراری بود). */
     const rows = await this.client.post<unknown[]>("/sms/ingest", {
       items: [{ raw_text: rawText, sender: sender ?? null }],
     });

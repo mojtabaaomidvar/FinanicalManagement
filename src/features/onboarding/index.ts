@@ -1,4 +1,4 @@
-/* بارلِ فیچرِ onboarding — نقطه‌ی ورودِ عمومی */
+/* بارل فیچر onboarding — نقطه‌ی ورود عمومی */
 export { OnboardingFeature } from "./ui/OnboardingFeature";
 export {
   isIntroSeen,

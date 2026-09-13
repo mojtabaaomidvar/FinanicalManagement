@@ -22,7 +22,7 @@ import { toDisplay } from "@/shared/lib/currency";
 import { toFa } from "@/shared/lib/digits";
 import { FitText } from "@/shared/ui";
 
-/* چیپ درصد تغییر — رنگ بر اساس «خوب بودنِ» جهت تغییر، نه علامت عدد
+/* چیپ درصد تغییر — رنگ بر اساس «خوب بودن» جهت تغییر، نه علامت عدد
    (هزینه کمتر = سبز، درآمد کمتر = قرمز) */
 function DeltaChip({
   value,
