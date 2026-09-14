@@ -30,6 +30,7 @@ from app.db.rls import apply_to_transaction, reset_current_family, set_current_f
 from app.models.family import Member
 from app.models.messaging import SmsBridge, SmsMessage
 from app.schemas.data import SmsItem
+from app.services import sms_settings as settings_service
 from app.services.sms_parser import detect_bank, normalize_sms, parse_sms
 
 _SMS_STATUS = {"pending", "recorded", "ignored"}
@@ -125,6 +126,103 @@ def create_bridge(db: Session, actor: Member) -> str:
     return token
 
 
+# ── دروازهٔ رضایت (بند ۱ و ۲۵) ───────────────────────────────
+# قاعده: هیچ پیامکی که «خودکار» خوانده شده بدون رضایت صریح ذخیره نمی‌شود.
+#
+# این دروازه فقط روی دو مسیر خودکار است (ingest_sms از خوانندهٔ نیتیو، و
+# ingest_via_bridge از فورواردر). مسیر دستی add_sms_messages عمداً از این
+# دروازه رد نمی‌شود: وقتی کاربر خودش متنی را کپی و وارد می‌کند، همان کارْ
+# رضایت است. اگر آنجا هم سد می‌گذاشتیم، کاربری که هیچ حسابی فعال نکرده
+# نمی‌توانست حتی یک پیامک را دستی وارد کند.
+#
+# سه حالت خروجی برای هر پیامک:
+#   • حسابِ یکتا پیدا شد   → account_id ست می‌شود.
+#   • پذیرفته ولی مبهم     → account_id = NULL یعنی «نیازمند بررسی» (بند ۲۰).
+#   • هیچ نشانه‌ای نبود    → اصلاً ذخیره نمی‌شود.
+def _norm_bank(name: str | None) -> str:
+    """نام بانک را برای «مقایسه» ساده می‌کند (نه برای نمایش).
+
+    فقط پیشوند «بانک»، نیم‌فاصله و ی/ک عربی را یکدست می‌کند. عمداً هیچ واژهٔ
+    معناداری حذف نمی‌شود: اگر «قرض الحسنه» را دور بریزیم، از نام پارسر چیزی
+    باقی نمی‌ماند و همان موردی که این تابع برایش نوشته شده خراب می‌شود.
+    """
+    s = (name or "").strip()
+    if not s:
+        return ""
+    s = s.replace("‌", " ").replace("‏", "").replace("‎", "")
+    s = s.replace("ي", "ی").replace("ك", "ک")
+    s = s.replace("بانک", " ").replace("موسسه", " ").replace("مؤسسه", " ")
+    return " ".join(s.split())
+
+
+# پارسر و فهرست بانک‌های فرانت پس از یکدست‌سازی ۲۳ نام از ۲۵ نام را مو‌به‌مو
+# یکی می‌دهند. تنها اختلاف واقعی همین یکی است: پارسر «قرض‌الحسنه» و «مهر ایران»
+# را دو بانک جدا می‌شناسد، ولی حساب کاربر «قرض‌الحسنه مهر ایران» ذخیره شده.
+#
+# این نگاشتِ صریح عمدی است و جایگزین «تطبیق دربرگیرنده» شد: با قاعدهٔ in،
+# «صادرات» داخل «توسعه صادرات» می‌افتد و دو بانکِ واقعاً متفاوت یکی می‌شوند —
+# یعنی پیامک به حساب اشتباه بچسبد. اینجا هر نام فقط با نام برابرِ خودش (یا
+# مترادفِ فهرست‌شده) جفت می‌شود.
+_BANK_ALIASES = {
+    "قرض الحسنه": "قرض الحسنه مهر ایران",
+    "مهر ایران": "قرض الحسنه مهر ایران",
+}
+
+
+def _canon_bank(name: str | None) -> str:
+    n = _norm_bank(name)
+    return _BANK_ALIASES.get(n, n)
+
+
+def _bank_matches(parsed_bank: str | None, account_bank: str | None) -> bool:
+    """تساویِ نامِ یکدست‌شده — نه دربرگیرندگی (دلیلش بالای _BANK_ALIASES)."""
+    a, b = _canon_bank(parsed_bank), _canon_bank(account_bank)
+    return bool(a) and bool(b) and a == b
+
+
+def _resolve_account(
+    db: Session,
+    family_id: uuid.UUID,
+    sender: str | None,
+    parsed_bank: str | None,
+) -> tuple[bool, uuid.UUID | None]:
+    """(پذیرفته‌شود؟، شناسهٔ حساب) — قلبِ رضایت‌محوری.
+
+    ترتیب عمدی است: اول فرستنده، بعد بانک. فرستنده نشانهٔ قوی‌تری است چون
+    کاربر آن را صراحتاً به «همان حساب» بسته؛ نام بانک فقط از متن حدس زده
+    می‌شود. ولی بند ۱۰ می‌گوید تشخیص نباید «فقط» به سرشماره تکیه کند، پس
+    سرشمارهٔ ناشناس هم پایان کار نیست و بانک همچنان بررسی می‌شود.
+    """
+    enabled = settings_service.enabled_accounts(db, family_id)
+    if not enabled:
+        return (False, None)  # هیچ حسابی فعال نیست → هیچ چیز ذخیره نمی‌شود
+
+    enabled_ids = {a.id for a in enabled}
+
+    # ① فرستنده: فقط سرشماره‌هایی که به یک حسابِ فعال بسته شده‌اند
+    norm = settings_service.normalize_sender(sender)
+    if norm:
+        matched = {
+            s.account_id
+            for s in settings_service.list_senders(db, family_id)
+            if s.sender == norm and s.account_id in enabled_ids
+        }
+        if len(matched) == 1:
+            return (True, next(iter(matched)))
+        if matched:
+            return (True, None)  # چند حساب همین سرشماره را دارند → مبهم
+
+    # ② بانک: از متن پیامک، مقابلِ بانکِ حساب‌های فعال
+    if parsed_bank:
+        hits = [a.id for a in enabled if _bank_matches(parsed_bank, a.bank)]
+        if len(hits) == 1:
+            return (True, hits[0])
+        if hits:
+            return (True, None)  # چند حساب از همان بانک → کاربر تعیین کند
+
+    return (False, None)
+
+
 # ── ingest: پارس «سمت سرور» (فاز ۸) ──────────────────────────
 # تفاوت کلیدی با add_sms_messages: آنجا کلاینت فیلدهای پارس‌شده را می‌فرستد؛ اینجا
 # فقط متن خام می‌آید و سرور با app.services.sms_parser پارس می‌کند. هدف: وب و اندروید
@@ -162,6 +260,10 @@ def _row_from_raw(
         balance=parsed.balance,
         date=parsed.date,
         status="pending",
+        # فرستنده «همان‌طور که آمده» ذخیره می‌شود تا کاربر در فهرست ببیند
+        # پیامک از کجاست و بتواند از رویش سرشمارهٔ مجاز بسازد (بند ۱۰).
+        # مقایسه‌ها روی نسخهٔ نرمال انجام می‌شود، نه روی این.
+        sender=(sender or "").strip() or None,
     )
 
 
@@ -172,12 +274,23 @@ def ingest_sms(
 
     items فهرستی از (raw_text, sender) است. ردیف‌های واردشده را برمی‌گرداند (برای
     نمایش فوری در کلاینت، بدون نیاز به fetch دوباره). مسیر نشست‌محور (RLS فعال).
+
+    این مسیر «خودکار» است (خوانندهٔ نیتیو)، پس از دروازهٔ رضایت رد می‌شود: اگر
+    کاربر هیچ حسابی را فعال نکرده باشد، خروجی خالی است و هیچ ردیفی ذخیره
+    نمی‌شود — حتی اگر متن کاملاً یک پیامک بانکی معتبر باشد.
     """
     rows: list[SmsMessage] = []
     for raw_text, sender in items:
         row = _row_from_raw(actor.family_id, actor.id, raw_text, sender)
-        if row is not None:
-            rows.append(row)
+        if row is None:
+            continue
+        accept, account_id = _resolve_account(
+            db, actor.family_id, sender, row.bank
+        )
+        if not accept:
+            continue
+        row.account_id = account_id
+        rows.append(row)
     if not rows:
         return []
     db.add_all(rows)
@@ -213,6 +326,15 @@ def ingest_via_bridge(
         row = _row_from_raw(bridge.family_id, bridge.member_id, text, sender)
         if row is None:
             return 0
+        # همان دروازهٔ رضایتِ مسیر نیتیو. اگر اینجا نبود، کاربری که پل را
+        # قبلاً ساخته بی‌آنکه حسابی فعال کند، باز هم همهٔ پیامک‌هایش ذخیره
+        # می‌شد — یعنی یک درِ پشتی به همان رفتاری که داریم می‌بندیم.
+        accept, account_id = _resolve_account(
+            db, bridge.family_id, sender, row.bank
+        )
+        if not accept:
+            return 0
+        row.account_id = account_id
         db.add(row)
         db.commit()
         return 1

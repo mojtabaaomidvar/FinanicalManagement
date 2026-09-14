@@ -47,6 +47,17 @@ import {
   ParseSmsImportUseCase,
   RecordSmsUseCase,
 } from "./sms/sms.usecases";
+import {
+  AddSmsNumberUseCase,
+  AddSmsSenderUseCase,
+  ListSmsNumbersUseCase,
+  ListSmsSendersUseCase,
+  RemoveSmsNumberUseCase,
+  RemoveSmsSenderUseCase,
+  ResetAccountSmsUseCase,
+  SetAccountSmsEnabledUseCase,
+  SetSmsNumberActiveUseCase,
+} from "./sms/sms-settings.usecases";
 import { CreateBridgeUseCase, GetBridgeUseCase } from "./sms/bridge.usecases";
 import {
   BuildBackupJsonUseCase,
@@ -130,6 +141,16 @@ export interface UseCases {
   listPendingSms: ListPendingSmsUseCase;
   ignoreSms: IgnoreSmsUseCase;
   recordSms: RecordSmsUseCase;
+
+  setAccountSmsEnabled: SetAccountSmsEnabledUseCase;
+  resetAccountSms: ResetAccountSmsUseCase;
+  listSmsSenders: ListSmsSendersUseCase;
+  addSmsSender: AddSmsSenderUseCase;
+  removeSmsSender: RemoveSmsSenderUseCase;
+  listSmsNumbers: ListSmsNumbersUseCase;
+  addSmsNumber: AddSmsNumberUseCase;
+  setSmsNumberActive: SetSmsNumberActiveUseCase;
+  removeSmsNumber: RemoveSmsNumberUseCase;
 
   getFamily: GetFamilyUseCase;
   getMembers: GetMembersUseCase;
@@ -220,6 +241,16 @@ export function createUseCases(c: Container): UseCases {
       c.repos.sms,
       new AddTransactionUseCase(c.repos.transactions),
     ),
+
+    setAccountSmsEnabled: new SetAccountSmsEnabledUseCase(c.repos.smsSettings),
+    resetAccountSms: new ResetAccountSmsUseCase(c.repos.smsSettings),
+    listSmsSenders: new ListSmsSendersUseCase(c.repos.smsSettings),
+    addSmsSender: new AddSmsSenderUseCase(c.repos.smsSettings),
+    removeSmsSender: new RemoveSmsSenderUseCase(c.repos.smsSettings),
+    listSmsNumbers: new ListSmsNumbersUseCase(c.repos.smsSettings),
+    addSmsNumber: new AddSmsNumberUseCase(c.repos.smsSettings),
+    setSmsNumberActive: new SetSmsNumberActiveUseCase(c.repos.smsSettings),
+    removeSmsNumber: new RemoveSmsNumberUseCase(c.repos.smsSettings),
 
     getFamily: new GetFamilyUseCase(c.repos.family),
     getMembers: new GetMembersUseCase(c.repos.family),

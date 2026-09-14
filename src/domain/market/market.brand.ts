@@ -67,6 +67,12 @@ export type Brand = {
   color: string;
   /** شکل نشان — هر کدام در BrandMark/CryptoMark یک مسیر SVG متفاوت دارد */
   shape: CryptoShape | "flag" | "coin" | "bar";
+  /** نماد لاتین رمزارز — کلید جست‌وجوی لوگوی رسمی در cryptoLogos.
+
+      فقط برای رمزارز پر می‌شود و خود brandOf آن را می‌گذارد، چون جدول
+      CRYPTO با همین کلید ایندکس شده؛ نبودش یعنی CryptoMark راهی برای
+      پیداکردن لوگو ندارد و به نشان دست‌کشیده عقب‌نشینی می‌کند. */
+  sym?: string;
   /** نوشتهٔ روی نشان (برای disc/flag/coin) — کوتاه، حداکثر ۴ نویسه */
   glyph?: string;
   /** رنگ دوم پرچم — فقط برای shape="flag" */
@@ -678,12 +684,16 @@ export function brandOf(
   name: string,
 ): Brand {
   if (kind === "crypto") {
-    const hit = CRYPTO[(symbol || "").trim().toUpperCase()];
-    if (hit) return hit;
+    const key = (symbol || "").trim().toUpperCase();
+    const hit = CRYPTO[key];
+    /* sym همین‌جا اضافه می‌شود نه در خود جدول: جدول فقط هویت بصری را
+       نگه می‌دارد و تکرار کلید در مقدارش دو جای قابل‌واگرایی می‌ساخت. */
+    if (hit) return { ...hit, sym: key };
     // رمزارز تازه که هنوز در فهرست نیست
     return {
       color: hashColor(symbol || name),
       shape: "disc",
+      sym: key,
       glyph: (symbol || initials(name)).slice(0, 4).toUpperCase(),
     };
   }

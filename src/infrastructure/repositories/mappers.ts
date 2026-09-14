@@ -63,6 +63,8 @@ export interface SmsRow {
   balance: string | number | null;
   date: string | null;
   status: SmsStatus;
+  sender?: string | null;
+  account_id?: string | null;
   created_at: string;
 }
 
@@ -141,6 +143,8 @@ export function mapSms(r: SmsRow): BankSms {
     balance: r.balance == null ? null : +r.balance,
     date: r.date,
     status: r.status,
+    sender: r.sender ?? null,
+    accountId: r.account_id ?? null,
     createdAt: r.created_at,
   };
 }
@@ -170,6 +174,8 @@ export interface AccountRow {
   bank: string | null;
   card_number: string | null;
   initial_balance?: string | number | null;
+  /* رضایت تشخیص پیامک — سرور قدیمی نفرستد، false پیش‌فرض */
+  sms_enabled?: boolean | null;
   created_at: string;
 }
 
@@ -185,6 +191,7 @@ export function mapAccount(
     bank: r.bank,
     cardNumber: r.card_number,
     initialBalance: Number(r.initial_balance ?? 0),
+    smsEnabled: r.sms_enabled === true,
     createdAt: r.created_at,
   };
 }

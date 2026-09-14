@@ -7,6 +7,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -44,6 +45,11 @@ class Account(Base):
     # موجودی اولیه؛ تراکنش‌ها روی این مبنا جمع می‌شوند (بدون اعشار)
     initial_balance: Mapped[Decimal] = mapped_column(
         Numeric(18, 0), nullable=False, server_default=text("0")
+    )
+    # رضایت صریح کاربر برای تشخیص تراکنش از پیامک — فقط همین حساب.
+    # پیش‌فرض false؛ هیچ حسابی بدون انتخاب کاربر مشمول نمی‌شود.
+    sms_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
     )
 
 

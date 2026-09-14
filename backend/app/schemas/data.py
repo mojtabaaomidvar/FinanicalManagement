@@ -25,7 +25,7 @@ if TYPE_CHECKING:  # فقط تایپ؛ وابستگی زمان‌اجرا به �
     from app.models.category import CategoryBudget, CustomCategory, Subcategory
     from app.models.event import FamilyEvent
     from app.models.holding import Holding
-    from app.models.messaging import SmsBridge, SmsMessage
+    from app.models.messaging import SmsBridge, SmsMessage, SmsNumber, SmsSender
     from app.models.transaction import Transaction, TransactionPhoto
 
 
@@ -55,6 +55,8 @@ class AccountOut(BaseModel):
     card_number: str | None
     initial_balance: Decimal
     created_at: datetime
+    # رضایت صریح برای تشخیص تراکنش از پیامک — فقط همین حساب.
+    sms_enabled: bool = False
 
     @field_serializer("initial_balance")
     def _ser_initial_balance(self, v: Decimal) -> float:
@@ -72,6 +74,7 @@ class AccountOut(BaseModel):
             card_number=a.card_number,
             initial_balance=a.initial_balance,
             created_at=a.created_at,
+            sms_enabled=bool(a.sms_enabled),
         )
 
 
@@ -206,6 +209,9 @@ class SmsOut(BaseModel):
     date: str | None  # میلادی 'YYYY-MM-DD'
     status: str
     created_at: datetime
+    sender: str | None = None
+    # NULL یعنی «نیازمند بررسی» — پذیرفته شده ولی حسابش قطعی نیست.
+    account_id: str | None = None
 
     @field_serializer("amount", "balance")
     def _ser_money(self, v: Decimal | None) -> float | None:
@@ -225,6 +231,8 @@ class SmsOut(BaseModel):
             date=_isodate(s.date),
             status=s.status,
             created_at=s.created_at,
+            sender=s.sender,
+            account_id=_uuid_opt(s.account_id),
         )
 
 
@@ -236,6 +244,39 @@ class BridgeOut(BaseModel):
     @classmethod
     def of(cls, b: SmsBridge) -> BridgeOut:
         return cls(token=b.token, member_id=_uuid(b.member_id))
+
+
+# ── تنظیمات تشخیص پیامک (رضایتِ به‌ازای هر حساب) ────────────
+class SmsSenderOut(BaseModel):
+    id: str
+    account_id: str
+    sender: str
+
+    @classmethod
+    def of(cls, s: SmsSender) -> SmsSenderOut:
+        return cls(id=_uuid(s.id), account_id=_uuid(s.account_id), sender=s.sender)
+
+
+class SmsNumberOut(BaseModel):
+    """شمارهٔ «اضافه». شمارهٔ ثبت‌نام اینجا نیست؛ فرانت آن را از عضو می‌خواند."""
+
+    id: str
+    member_id: str
+    phone: str
+    label: str
+    verified: bool
+    active: bool
+
+    @classmethod
+    def of(cls, n: SmsNumber) -> SmsNumberOut:
+        return cls(
+            id=_uuid(n.id),
+            member_id=_uuid(n.member_id),
+            phone=n.phone,
+            label=n.label,
+            verified=bool(n.verified),
+            active=bool(n.active),
+        )
 
 
 # ── عکس کامل تراکنش (خروجی add_tx_photo؛ معادل to_jsonb(row) قدیمی) ──
@@ -406,6 +447,33 @@ class BridgeIngest(BaseModel):
     token: str | None = None
     text: str | None = None
     sender: str | None = None
+
+
+# ── ورودی‌های تنظیمات تشخیص پیامک ──────────────────────────
+class SmsEnabledSet(BaseModel):
+    """فعال/غیرفعال‌کردن تشخیص برای «یک» حساب. عمداً بولین صریح است، نه toggle:
+    دکمهٔ toggle اگر درخواست دوباره ارسال شود وضعیت را برمی‌گرداند."""
+
+    enabled: bool | None = None
+
+
+class SmsSenderCreate(BaseModel):
+    sender: str | None = None
+
+
+class SmsNumberCreate(BaseModel):
+    phone: str | None = None
+    label: str | None = None
+
+
+class SmsNumberUpdate(BaseModel):
+    """خاموش/روشن‌کردن یک شماره بدون حذفش.
+
+    جدا از حذف است چون کاربر ممکن است بخواهد موقتاً شماره‌ای را از مدار خارج
+    کند و بعد برگرداند، بی‌آنکه دوباره واردش کند.
+    """
+
+    active: bool | None = None
 
 
 class IngestResult(BaseModel):

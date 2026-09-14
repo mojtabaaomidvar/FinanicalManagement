@@ -14,6 +14,14 @@ export interface Account {
   cardNumber: string | null;
   /** موجودی اولیه (پایه — تومان) — تراکنش‌ها روی آن جمع می‌شوند */
   initialBalance: number;
+  /**
+   * رضایت صریح کاربر برای تشخیص تراکنش از پیامک — فقط همین حساب.
+   *
+   * عمدا در AccountInput و AccountPatch نیست: رضایت نباید عارضه جانبی
+   * «ساختن حساب» یا «ویرایش عنوان» باشد. تنها راه تغییرش اندپوینت
+   * اختصاصی خودش است تا هر بار یک تصمیم آگاهانه ثبت شود.
+   */
+  smsEnabled: boolean;
   createdAt: string;
 }
 

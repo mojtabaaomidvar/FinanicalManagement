@@ -8,6 +8,7 @@ import { SupabaseAuthRepository } from "./authRepository";
 import { SupabaseFamilyRepository } from "./familyRepository";
 import { SupabaseTransactionRepository } from "./transactionRepository";
 import { SupabaseSmsRepository } from "./smsRepository";
+import { RestSmsSettingsRepository } from "./smsSettingsRepository";
 import { SupabaseAccountRepository } from "./accountRepository";
 import { SupabaseBridgeRepository } from "./bridgeRepository";
 import { SupabaseSubcategoryRepository } from "./subcategoryRepository";
@@ -23,6 +24,7 @@ export interface Repositories {
   family: SupabaseFamilyRepository;
   transactions: SupabaseTransactionRepository;
   sms: SupabaseSmsRepository;
+  smsSettings: RestSmsSettingsRepository;
   accounts: SupabaseAccountRepository;
   bridges: SupabaseBridgeRepository;
   subcategories: SupabaseSubcategoryRepository;
@@ -58,6 +60,7 @@ export function getContainer(): Promise<Container> {
           family: new SupabaseFamilyRepository(client),
           transactions: new SupabaseTransactionRepository(client),
           sms: new SupabaseSmsRepository(client),
+          smsSettings: new RestSmsSettingsRepository(client),
           accounts: new SupabaseAccountRepository(client),
           bridges: new SupabaseBridgeRepository(client),
           subcategories: new SupabaseSubcategoryRepository(client),

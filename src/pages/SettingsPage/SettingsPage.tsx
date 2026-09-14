@@ -23,6 +23,7 @@ import { CategoriesCard } from "./CategoriesCard";
 import { LabelsCard } from "./LabelsCard";
 import { ScheduledTxsCard } from "./ScheduledTxsCard";
 import { SmsBridgeCard } from "./SmsBridgeCard";
+import { SmsSettingsFeature } from "@/features/sms-settings";
 import { SettingsSubPage } from "./SettingsSubPage";
 import { SettingsCard, SettingsRow, type RowTrailing } from "./SettingsCard";
 import { useTheme } from "@/app/providers/useTheme";
@@ -101,8 +102,9 @@ export function SettingsPage() {
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [budget, setBudget] = useState("");
   const [saving, setSaving] = useState(false);
-  /* کلید پل پیامک ساخته شده یا نه — تعیین‌کننده حالت ردیف (واژه «ساخت کلید») */
-  const [bridgeOn, setBridgeOn] = useState<boolean | null>(null);
+  /* وضعیت «کلید پل پیامک» اینجا دیگر خوانده نمی‌شود: ردیف تنظیمات حالا
+     رضایتِ حساب‌ها را نشان می‌دهد و خودِ کلید پل داخل SmsBridgeCard مدیریت
+     می‌شود. هر دو جا خواندنش یعنی یک درخواست اضافه برای یک عددِ تکراری. */
   /* مقدار خوش‌بینانه کلید «ریال» تا وقتی پاسخ سرور برسد — وگرنه کلید
      تا پایان رفت‌وبرگشت شبکه تکان نمی‌خورد و کاربر دوباره می‌زند */
   const [pendingRial, setPendingRial] = useState<boolean | null>(null);
@@ -112,24 +114,6 @@ export function SettingsPage() {
       family?.budget ? formatAmount(toDisplay(family.budget, cur)) : "",
     );
   }, [family?.budget, cur]);
-
-  /* وضعیت پل پیامک — هربار که به فهرست اصلی برمی‌گردیم تازه می‌شود،
-     چون ممکن است کاربر همین الان در زیرصفحه کلید ساخته باشد */
-  useEffect(() => {
-    if (section !== null || !useCases) return;
-    let alive = true;
-    useCases.getBridge
-      .execute()
-      .then((b) => {
-        if (alive) setBridgeOn(!!b?.token);
-      })
-      .catch(() => {
-        if (alive) setBridgeOn(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [useCases, section]);
 
   /* مجموع بودجهٔ دسته‌ها (پایه: تومان) — سقف ماهانه نباید از آن کمتر بماند */
   const categoryBudgetSum = useMemo(
@@ -324,7 +308,10 @@ export function SettingsPage() {
 
   if (section === "sms") {
     return (
-      <SettingsSubPage title="پیامک خودکار" onBack={back}>
+      <SettingsSubPage title="تشخیص تراکنش از پیامک" onBack={back}>
+        {/* اجازه‌ها بالا، ابزار پل پایین — کاربر اول باید بداند چه چیزی
+            روشن است، بعد اگر خواست فورواردر را تنظیم کند. */}
+        <SmsSettingsFeature />
         <SmsBridgeCard />
       </SettingsSubPage>
     );
@@ -487,13 +474,19 @@ export function SettingsPage() {
     ? { type: "counter", count: accounts.length }
     : { type: "action", label: "افزودن" };
 
-  /* پیامک: تا وقتی وضعیت نیامده، ردیف ساده؛ بعد «فعال» یا «ساخت کلید» */
+  /* حالت این ردیف «رضایت» را نشان می‌دهد، نه وضعیت کلید پل: تنها چیزی که
+     واقعاً تعیین می‌کند پیامکی بررسی می‌شود یا نه، تعداد حساب‌های روشن است.
+     وضعیت کلید پل جای خودش داخل SmsBridgeCard می‌ماند.
+     شرط kind === "bank" عمدی است و باید با فهرست داخل همان زیرصفحه یکی
+     بماند؛ وگرنه یک کیف‌پولِ روشن (دادهٔ قدیمی) اینجا عدد می‌دهد ولی آنجا
+     نشان داده نمی‌شود و کاربر راهی برای خاموش‌کردنش ندارد. */
+  const smsEnabledCount = accounts.filter(
+    (a) => a.kind === "bank" && a.smsEnabled,
+  ).length;
   const smsTrailing: RowTrailing =
-    bridgeOn === null
-      ? { type: "chevron" }
-      : bridgeOn
-        ? { type: "value", value: "فعال" }
-        : { type: "action", label: "ساخت کلید" };
+    smsEnabledCount > 0
+      ? { type: "counter", count: smsEnabledCount }
+      : { type: "value", value: "خاموش" };
 
   return (
     <section className="page active">
@@ -678,8 +671,8 @@ export function SettingsPage() {
           </div>
           <SettingsRow
             icon="sms"
-            label="پیامک خودکار (اندروید)"
-            sub="ثبت خودکار پیامک‌های بانکی"
+            label="تشخیص تراکنش از پیامک"
+            sub="اختیاری — هر تراکنش فقط با تأیید خودتان ثبت می‌شود"
             trailing={smsTrailing}
             onClick={() => setSection("sms")}
           />

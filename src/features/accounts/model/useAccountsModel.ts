@@ -2,7 +2,7 @@
    و زیرصفحه‌ی تنظیمات. هر دو محل همین هوک را صدا می‌زنند تا داده و
    رفتارشان همیشه یکی باشد (قبلاً دو پیاده‌سازی جدا و ناهمگون بودند). */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
 import { useHoldings } from "@/features/holdings";
@@ -63,6 +63,15 @@ export function useAccountsModel() {
   /* تأیید صریح کاربر برای تغییر دستی موجودی */
   const [balanceAck, setBalanceAck] = useState(false);
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
+  /* کلید تشخیص تراکنش از پیامک — وضعیتش از خود حساب می‌آید و مودال فقط
+     آینه‌ی آن است. از فرم جدا نگه داشته می‌شود چون «ذخیره»ی فرم نباید
+     رضایت بسازد یا لغو کند؛ هر بار زدن کلید یک تصمیم مستقل است. */
+  const [smsOn, setSmsOn] = useState(false);
+  const [smsBusy, setSmsBusy] = useState(false);
+  /* کلید پیامک عوض شده و فهرست حساب‌ها هنوز کهنه است؟
+     عمداً ref است نه state: نباید رندر بدهد، فقط باید یادمان بماند که
+     هنگام بستن مودال یک‌بار داده را تازه کنیم. */
+  const smsDirty = useRef(false);
 
   /* موجودی هر حساب = موجودی اولیه + اثر تراکنش‌ها */
   const balances = useMemo(
@@ -148,6 +157,8 @@ export function useAccountsModel() {
     setEditing(null);
     setForm({ ...EMPTY, kind, title });
     setBalanceAck(false);
+    /* حساب تازه هنوز شناسه‌ای ندارد، پس کلید پیامک اینجا معنا ندارد */
+    setSmsOn(false);
     setOpen(true);
   }
 
@@ -165,6 +176,7 @@ export function useAccountsModel() {
       negative: shown < 0,
     });
     setBalanceAck(false);
+    setSmsOn(acc.smsEnabled);
     setOpen(true);
   }
 
@@ -172,6 +184,17 @@ export function useAccountsModel() {
     setOpen(false);
     setEditing(null);
     setBalanceAck(false);
+    setSmsOn(false);
+    /* اگر کلید پیامک عوض شده بود، تازه‌سازی تا همین‌جا عقب انداخته شده.
+       چرا نه همان لحظه‌ی زدن کلید: refreshData موجودی‌ها را از نو می‌سازد،
+       ولی فیلدِ «موجودی فعلی»ِ فرم دوباره پر نمی‌شود. پس اگر عضو دیگری
+       همان لحظه تراکنشی ثبت کرده باشد، عدد داخل فرم ناگهان «تغییر کرده»
+       به نظر می‌رسد و «ذخیره» یک تراکنشِ «تغییر دستی موجودی» می‌سازد که
+       تراکنش آن عضو را بی‌صدا خنثی می‌کند. */
+    if (smsDirty.current) {
+      smsDirty.current = false;
+      void refreshData();
+    }
   }
 
   /** تغییر علامت موجودی (فقط در حالت ویرایش معنا دارد) */
@@ -181,6 +204,33 @@ export function useAccountsModel() {
 
   function patch(p: Partial<FormState>) {
     setForm((f) => ({ ...f, ...p }));
+  }
+
+  /** روشن/خاموش کردن تشخیص تراکنش از پیامک — فقط برای همین حساب.
+      بی‌درنگ ذخیره می‌شود (نه با «ذخیره»ی فرم): رضایت کاربر یک تصمیم
+      مستقل است و نباید عارضه‌ی جانبیِ ویرایش عنوان یا ساختن حساب شود.
+      به همین دلیل «انصراف» هم آن را برنمی‌گرداند. */
+  async function toggleSms(next: boolean) {
+    const acc = editing;
+    if (!acc || acc.kind !== "bank" || smsBusy) return;
+    setSmsBusy(true);
+    try {
+      const updated = await useCases!.setAccountSmsEnabled.execute(acc, next);
+      /* هرچه سرور گفت همان نمایش داده می‌شود، نه آنچه کاربر کلیک کرد */
+      setSmsOn(updated.smsEnabled);
+      show(
+        updated.smsEnabled
+          ? "تشخیص از پیامک برای این حساب روشن شد"
+          : "تشخیص از پیامک برای این حساب خاموش شد",
+      );
+      /* تازه‌سازی به «بستن مودال» موکول می‌شود تا موجودیِ زیرِ دستِ کاربر
+         وسطِ کار عوض نشود — توضیح کامل در close */
+      smsDirty.current = true;
+    } catch (e) {
+      show((e as Error).message || "خطا در تغییر وضعیت پیامک");
+    } finally {
+      setSmsBusy(false);
+    }
   }
 
   /** تغییر شماره کارت + تشخیص خودکار بانک از ۶ رقم اول */
@@ -252,6 +302,8 @@ export function useAccountsModel() {
           form.kind === "wallet" ? "کیف‌پول اضافه شد" : "حساب بانکی اضافه شد",
         );
       }
+      /* این مسیر خودش تازه‌سازی می‌کند؛ پرچم پاک می‌شود تا close دوباره نکند */
+      smsDirty.current = false;
       close();
       await refreshData();
     } catch (e) {
@@ -308,6 +360,10 @@ export function useAccountsModel() {
     setCardNo,
     binError,
     busy,
+    /* کلید تشخیص از پیامک */
+    smsOn,
+    smsBusy,
+    toggleSms,
     balanceChanged,
     balanceAck,
     setBalanceAck,

@@ -1699,6 +1699,8 @@ button:active {
   border-color: transparent;
 }
 .switch input:checked + .slider::before {
+  /* ۲۰ = ۲۲ (فاصلهٔ چپ در حالت خاموش) − ۲ (فاصلهٔ راست)، چون قاب مرجعِ
+     ::before جعبهٔ داخلیِ ۵۰ پیکسلی است نه ۵۲ (بوردر ۱px + border-box) */
   transform: translate(-20px, -50%);
 }
 
@@ -3457,6 +3459,239 @@ button:active {
   height: 16px;
   accent-color: var(--accent);
   flex-shrink: 0;
+}
+
+/* کلید تشخیص از پیامک — انتهای فرم ویرایش حساب بانکی.
+   متن اول و کلید آخر می‌آید تا با ردیف‌های تنظیمات هم‌شکل باشد. */
+.sms-opt {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  margin-bottom: var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--accent-soft) 35%, transparent);
+}
+.sms-opt-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.sms-opt-body b {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+.sms-opt-body span {
+  font-size: 11.5px;
+  line-height: 1.75;
+  color: var(--text-3);
+}
+/* تا وقتی درخواست در راه است، کلید دست‌نخورده ولی غیرفعال می‌ماند */
+.sms-opt .switch input:disabled + .slider {
+  opacity: 0.55;
+}
+
+/* ─────────── زیرصفحه‌ی تشخیص تراکنش از پیامک ───────────
+   ردیف هر حساب خودش کلید است (سطح لمس بزرگ‌تر) و ناحیه‌ی فرستنده‌ها فقط
+   وقتی باز می‌شود که همان حساب روشن باشد — فرستنده‌ی غیرفعال معنا ندارد. */
+.smss-note {
+  margin: 0 0 var(--sp-3);
+  font-size: 12.5px;
+  line-height: 1.9;
+  color: var(--text-2);
+  text-align: right;
+}
+.smss-note:last-child {
+  margin-bottom: 0;
+}
+.smss-note b {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.smss-acc + .smss-acc {
+  margin-top: var(--sp-3);
+}
+.smss-acc-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) 0;
+  background: none;
+  border: 0;
+  text-align: right;
+  cursor: pointer;
+}
+.smss-acc-head:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.smss-acc-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.smss-acc-body b {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+.smss-acc-body > span {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.smss-senders {
+  margin-top: var(--sp-2);
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--card-2);
+}
+.smss-senders-title {
+  display: block;
+  margin-bottom: var(--sp-2);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.smss-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.smss-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--card);
+  font-size: 12px;
+  color: var(--text);
+}
+.smss-chip button {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.smss-chip button svg {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+}
+.smss-chip.add {
+  border-style: dashed;
+  border-color: var(--accent);
+  color: var(--accent);
+  cursor: pointer;
+}
+.smss-chip.add svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+}
+.smss-hint {
+  margin: var(--sp-2) 0 0;
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--text-3);
+  text-align: right;
+}
+/* قفلِ نوشتن سراسری است، پس همه‌ی دکمه‌های چیپ هم‌زمان خاموش می‌شوند */
+.smss-chip button:disabled,
+.smss-chip.add:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+/* دکمه‌ی پاک‌کردن عمداً کم‌رنگ و متنی است: کاری برگشت‌ناپذیر ولی بی‌خطر
+   برای داده‌های مالی (فقط اجازه‌ها پاک می‌شوند، نه تراکنش‌ها). */
+.smss-reset {
+  margin-top: var(--sp-2);
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 11.5px;
+  color: var(--danger);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.smss-reset:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.smss-num {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) 0;
+}
+.smss-num-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.smss-num-body b {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+.smss-num-body span {
+  font-size: 11px;
+  color: var(--text-3);
+}
+/* همان کلید ردیف‌های تنظیمات، این‌بار خودش دکمه است — پس پدینگ پیش‌فرض
+   دکمه صفر می‌شود، وگرنه قاب مرجع گره‌ی کلید جابه‌جا می‌شد. */
+.smss-num .set-switch {
+  padding: 0;
+  cursor: pointer;
+}
+.smss-num-del {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--card-2);
+  color: var(--danger);
+  cursor: pointer;
+}
+.smss-num-del svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+}
+.smss-num-del:disabled,
+.smss-num .set-switch:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 /* ─────────── Toast ─────────── */

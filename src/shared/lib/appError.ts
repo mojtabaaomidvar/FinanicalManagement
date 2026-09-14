@@ -15,6 +15,7 @@ export type AppErrorCode =
   | "INVALID_TX"
   | "INVALID_ACCOUNT"
   | "INVALID_HOLDING"
+  | "INVALID_SMS"
   | "NOT_FOUND"
   | "FORBIDDEN"
   | "CATEGORY_IN_USE"

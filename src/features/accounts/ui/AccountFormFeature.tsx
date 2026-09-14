@@ -11,11 +11,19 @@ import {
   TextInput,
 } from "@/shared/ui";
 import { BANK_NAMES } from "@/shared/lib/banks";
+import { isSmsReaderAvailable } from "@/shared/native/smsReader";
 import type { AccountKind } from "@/domain/account/account.types";
 import type { AccountsModel } from "../model/useAccountsModel";
 import { WALLET_PRESETS } from "../model/useAccountsModel";
 
 export function AccountFormFeature({ m }: { m: AccountsModel }) {
+  /* آیا خواندن خودکار پیامک روی این دستگاه ممکن است؟ روی وب/iOS نه — و متن
+     زیر کلید هم باید همین را بگوید (§۴)، وگرنه چیزی وعده داده می‌شود که
+     خانه‌یار نمی‌تواند انجام دهد. عمداً داخل بدنه‌ی کامپوننت صدا زده می‌شود
+     نه در سطح ماژول: اگر چانک قبل از آماده‌شدن پلِ کپاسیتور اجرا شود،
+     getPlatform هنوز «web» می‌گوید و جوابِ غلط تا پایان عمرِ صفحه می‌ماند
+     (همین قاعده در useNativeSmsReader هم رعایت شده). */
+  const smsNative = isSmsReaderAvailable();
   const editing = m.editing;
   const kind = m.form.kind;
   const isWallet = kind === "wallet";
@@ -155,6 +163,33 @@ export function AccountFormFeature({ m }: { m: AccountsModel }) {
                 onChange={(e) => m.setBalanceAck(e.target.checked)}
               />
               <span>می‌دانم و تأیید می‌کنم</span>
+            </label>
+          </div>
+        ) : null}
+
+        {/* کلید تشخیص از پیامک — فقط برای حساب بانکیِ موجود.
+            کیف‌پول معنا ندارد (§۵) و حساب تازه هنوز شناسه ندارد، پس رضایت
+            کاربر نباید عارضه‌ی جانبیِ ساختن حساب شود. */}
+        {editing !== null && !isWallet ? (
+          <div className="sms-opt" style={{ gridColumn: "1 / -1" }}>
+            <span className="sms-opt-body">
+              <b>تشخیص تراکنش از پیامک</b>
+              <span>
+                {smsNative
+                  ? "پیامک‌های همین حساب خوانده می‌شود و خانه‌یار تراکنش را پیشنهاد می‌دهد."
+                  : "خواندن خودکار پیامک فقط در اپ اندروید ممکن است؛ در نسخهٔ وب متن پیامک را خودتان جای‌گذاری می‌کنید و خانه‌یار تراکنش را پیشنهاد می‌دهد."}{" "}
+                هیچ تراکنشی بدون تأیید شما ثبت نمی‌شود. تغییر این کلید بی‌درنگ
+                ذخیره می‌شود و «انصراف» آن را برنمی‌گرداند.
+              </span>
+            </span>
+            <label className="switch">
+              <input
+                type="checkbox"
+                checked={m.smsOn}
+                disabled={m.smsBusy}
+                onChange={(e) => m.toggleSms(e.target.checked)}
+              />
+              <span className="slider" />
             </label>
           </div>
         ) : null}
