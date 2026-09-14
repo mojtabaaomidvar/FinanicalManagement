@@ -61,7 +61,10 @@ POSTGRES_DB=khaneyar
 DATABASE_URL=postgresql+psycopg://POSTGRES_USER:POSTGRES_PASSWORD@db:5432/khaneyar
 APP_ENV=production
 DEBUG=false
-CORS_ORIGINS=https://khaanehyar.ir,https://www.khaanehyar.ir
+# اپ خودش روی app.khaanehyar.ir سرو می‌شود؛ درخواست‌های API از همان‌جا می‌آیند،
+# پس این زیر‌دامنه باید در CORS باشد وگرنه مرورگر همهٔ درخواست‌ها را می‌بندد.
+# دو دامنهٔ ریشه فقط سایت معرفی‌اند و به API نمی‌زنند، ولی نگه‌داشتنشان بی‌ضرر است.
+CORS_ORIGINS=https://app.khaanehyar.ir,https://khaanehyar.ir,https://www.khaanehyar.ir
 
 # فایل‌ها
 FILE_SIGNING_SECRET=...          # بساز: openssl rand -hex 32

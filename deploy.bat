@@ -85,11 +85,17 @@ REM =============== Config helpers ===============
 set "SSH_TARGET="
 set "SERVER_DIR="
 set "WEB_DIR="
+set "SITE_DIR="
 set "API_URL="
 if exist "deploy-config.bat" call "deploy-config.bat"
 REM Defaults for configs saved before the frontend moved off Vercel,
 REM so an existing deploy-config.bat keeps working without re-running setup.
 if "!WEB_DIR!"=="" set "WEB_DIR=/var/www/khaneyar"
+REM SITE_DIR is new on 2026-09-14: the landing site took over the root domain
+REM and the PWA moved to app.khaanehyar.ir. Older deploy-config.bat files have
+REM no SITE_DIR, so default it here - otherwise the site step would target an
+REM empty path and the swap would run against "/".
+if "!SITE_DIR!"=="" set "SITE_DIR=/var/www/khaneyar-site"
 if "!API_URL!"=="" set "API_URL=https://api.khaanehyar.ir"
 if not "!SSH_TARGET!"=="" if not "!SERVER_DIR!"=="" goto :eof
 echo  First run - server settings are needed. They will be saved
@@ -114,16 +120,20 @@ set "SERVER_DIR="
 set /p SERVER_DIR= Path of backend on server - Enter for /opt/khaneyar/backend :
 if "!SERVER_DIR!"=="" set "SERVER_DIR=/opt/khaneyar/backend"
 set "WEB_DIR="
-set /p WEB_DIR= Web root for the PWA - Enter for /var/www/khaneyar :
+set /p WEB_DIR= Web root for the PWA app.khaanehyar.ir - Enter for /var/www/khaneyar :
 if "!WEB_DIR!"=="" set "WEB_DIR=/var/www/khaneyar"
+set "SITE_DIR="
+set /p SITE_DIR= Web root for the landing site khaanehyar.ir - Enter for /var/www/khaneyar-site :
+if "!SITE_DIR!"=="" set "SITE_DIR=/var/www/khaneyar-site"
 set "API_URL="
 set /p API_URL= Backend URL for the build - Enter for https://api.khaanehyar.ir :
 if "!API_URL!"=="" set "API_URL=https://api.khaanehyar.ir"
 > "deploy-config.bat" echo set "SSH_TARGET=!SSH_TARGET!"
 >>"deploy-config.bat" echo set "SERVER_DIR=!SERVER_DIR!"
 >>"deploy-config.bat" echo set "WEB_DIR=!WEB_DIR!"
+>>"deploy-config.bat" echo set "SITE_DIR=!SITE_DIR!"
 >>"deploy-config.bat" echo set "API_URL=!API_URL!"
-echo  Saved: !SSH_TARGET!  -^>  !SERVER_DIR!  ^|  web: !WEB_DIR!
+echo  Saved: !SSH_TARGET!  -^>  !SERVER_DIR!  ^|  app: !WEB_DIR!  ^|  site: !SITE_DIR!
 echo.
 goto :eof
 
@@ -233,6 +243,66 @@ if errorlevel 1 (
     exit /b 1
 )
 echo  Frontend deployed successfully.
+call :do_site || exit /b 1
+exit /b 0
+
+REM =============== Landing site - upload site/ to the root domain ===============
+REM Added 2026-09-14. Before this, WEB_DIR was the root domain and the PWA was
+REM served there. Now the root domain shows site/ (landing + /download/ + /web/)
+REM and the PWA lives on app.khaanehyar.ir, still out of WEB_DIR. The two never
+REM share a directory, so a frontend deploy can no longer overwrite the landing
+REM page. Runs right after the PWA so one "frontend" deploy ships both.
+:do_site
+if not exist "site\index.html" (
+    echo  [WARN] site\index.html not found - skipping the landing site.
+    exit /b 0
+)
+echo.
+echo  ===== Landing site - upload to VPS =====
+echo  Site dir: !SITE_DIR!
+echo.
+
+REM The APK is served from the site root as /khanehyar.apk - the download page
+REM links to it. It is gitignored - copied in fresh at deploy time so the file
+REM on the site always matches the last release build.
+set "APK_SRC=android\app\release\app-release.apk"
+if exist "!APK_SRC!" (
+    copy /y "!APK_SRC!" "site\khanehyar.apk" >nul
+    echo  APK copied into site\ - served as /khanehyar.apk
+) else (
+    echo  [WARN] !APK_SRC! not found - the download button will 404.
+    echo         Build the release APK in Android Studio, then run this again.
+)
+
+echo  Packing site...
+if exist "site.tgz" del /q "site.tgz"
+tar -czf site.tgz -C site .
+if errorlevel 1 (
+    echo  [ERROR] Could not pack site.
+    exit /b 1
+)
+
+echo  Uploading...
+scp site.tgz !SSH_TARGET!:/tmp/khaneyar-site.tgz
+if errorlevel 1 (
+    echo  [ERROR] Site upload failed - check SSH access.
+    del /q "site.tgz" >nul 2>nul
+    exit /b 1
+)
+del /q "site.tgz" >nul 2>nul
+
+echo  Installing on the server...
+ssh !SSH_TARGET! "set -e && rm -rf '!SITE_DIR!.new' && mkdir -p '!SITE_DIR!.new' && tar -xzf /tmp/khaneyar-site.tgz -C '!SITE_DIR!.new' && rm -f /tmp/khaneyar-site.tgz && rm -rf '!SITE_DIR!.old' && if [ -d '!SITE_DIR!' ]; then mv '!SITE_DIR!' '!SITE_DIR!.old'; fi && mv '!SITE_DIR!.new' '!SITE_DIR!' && chown -R www-data:www-data '!SITE_DIR!' 2>/dev/null || true && nginx -t && systemctl reload nginx && echo === SITE OK ==="
+if errorlevel 1 (
+    echo.
+    echo  [ERROR] Site deploy failed. Common causes:
+    echo   - nginx config test failed: run "nginx -t" on the server
+    echo   - !SITE_DIR! not writable by this SSH user
+    echo   - the server block for khaanehyar.ir does not exist yet -
+    echo     see backend/deploy/nginx/khaneyar.conf
+    exit /b 1
+)
+echo  Landing site deployed successfully.
 exit /b 0
 
 REM =============== GitHub ===============
@@ -325,11 +395,13 @@ echo  ==============================================
 echo  Done!
 echo.
 echo  Backend health: https://api.khaanehyar.ir/api/v1/healthz
-echo  Frontend     : https://khaanehyar.ir
+echo  Landing site : https://khaanehyar.ir
+echo  The app - PWA: https://app.khaanehyar.ir
 echo.
 echo  Frontend looks unchanged? Hard-refresh once - the PWA service
 echo  worker serves the old build until it picks up the new one.
 echo  Rollback: mv !WEB_DIR!.old back over !WEB_DIR! on the server.
+echo            mv !SITE_DIR!.old back over !SITE_DIR! for the site.
 echo.
 echo  Market tile says "not configured"?
 echo  Add BRSAPI_KEY=your-key to the server file:

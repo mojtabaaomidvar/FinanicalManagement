@@ -54,7 +54,7 @@ def _build_namespace() -> dict:
     body += _extract(
         "app/services/messaging.py",
         {"_norm_bank", "_canon_bank", "_BANK_ALIASES", "_bank_matches",
-         "_resolve_account"},
+         "_resolve_account", "_is_transaction"},
     )
     mod = ast.Module(body=body, type_ignores=[])
     ast.fix_missing_locations(mod)
@@ -149,6 +149,40 @@ def main() -> int:
          "بانک ملت", False, "rejected")
     case("حساب با بانکِ خالی هرگز تطبیق نمی‌خورد", [_Acct("")], [], None,
          "بانک ملت", False, "rejected")
+
+    # ── ⑥ بند ۱۰/۸: مبلغ و نوع، هر دو لازم است ──────────────────
+    # اینجا پارسرِ واقعی صدا زده می‌شود (نه بازنویسی‌اش)، پس اگر کسی
+    # sms_parser.py را عوض کند همین‌جا معلوم می‌شود.
+    sys.path.insert(0, str(_BACKEND))
+    from app.services.sms_parser import parse_sms  # noqa: E402
+
+    is_tx = ns["_is_transaction"]
+
+    class _Row:
+        def __init__(self, amount, type_):
+            self.amount, self.type = amount, type_
+
+    def tx_case(label, text, want_store):
+        parsed = parse_sms(text)
+        row = _Row(None, None) if parsed is None else _Row(parsed.amount, parsed.type)
+        got = bool(parsed is not None and is_tx(row))
+        ok = got == want_store
+        mark = "ذخیره" if got else "رد"
+        print(f"  {'✅' if ok else '❌'} {label:<52} → {mark}")
+        results.append(ok)
+
+    print("⑥ بند ۱۰/۸: مسیر خودکار فقط پیامکِ دارای مبلغ و نوع را ذخیره می‌کند")
+    tx_case("برداشت واقعی (مبلغ + نوع)",
+            "بانک ملت\nبرداشت مبلغ 2,500,000 ریال\nموجودی 14,300,000", True)
+    tx_case("واریز واقعی (مبلغ + نوع)",
+            "بانک ملی\nواریز 5,000,000 ریال\nمانده 20,000,000", True)
+    tx_case("رمز یک‌بارمصرف: عدد دارد ولی نوع ندارد",
+            "رمز پویا: 458219\nبانک ملت", False)
+    tx_case("تبلیغاتی: نه مبلغ نه نوع",
+            "بانک ملت در کنار شماست. سامانه 8585", False)
+    tx_case("تبلیغ با عدد بزرگ ولی بی‌جهت",
+            "وام 500,000,000 ریالی بانک ملت ویژه مشتریان", False)
+    tx_case("متن خالی", "   ", False)
 
     passed, total = sum(results), len(results)
     print(f"\nنتیجه: {passed}/{total} " + ("✅ همه گذشت" if passed == total else "❌"))

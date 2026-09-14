@@ -6,7 +6,10 @@ import type { CapacitorConfig } from "@capacitor/cli";
    حذف شود). اپ آنلاین-فقط است (داده‌ها روی سرور) پس نیاز اینترنت عیب نیست. */
 // بازنشسته ۲۰۲۶-۰۹-۱۰: میزبانی قبلی روی vercel بود؛ حالا سرور اختصاصی ایران (khaanehyar.ir).
 // const APP_URL = "https://finanical-management.vercel.app";
-const APP_URL = "https://khaanehyar.ir";
+// بازنشسته ۲۰۲۶-۰۹-۱۴: ریشهٔ khaanehyar.ir حالا «سایت معرفی» است (site/)، نه خود اپ.
+// اگر این مقدار روی ریشه بماند، اپِ نصب‌شده به‌جای برنامه، صفحهٔ تبلیغاتی را باز می‌کند.
+// const APP_URL = "https://khaanehyar.ir";
+const APP_URL = "https://app.khaanehyar.ir";
 
 const config: CapacitorConfig = {
   appId: "ir.khaneyar.app",

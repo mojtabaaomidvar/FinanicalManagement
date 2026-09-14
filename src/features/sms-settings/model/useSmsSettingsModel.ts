@@ -70,6 +70,30 @@ export function useSmsSettingsModel() {
     return m;
   }, [senders]);
 
+  /* سرشماره‌هایی که روی بیش از یک حسابِ «روشن» ثبت شده‌اند.
+
+     در سرور (_resolve_account) این حالت «مبهم» است: پیامک پذیرفته و ذخیره
+     می‌شود ولی account_id خالی می‌ماند و حساب را کاربر هنگام تأیید انتخاب
+     می‌کند. دو کارت از یک بانک حالتِ نادری نیست — سرشماره‌ی بانک برای هر
+     دو یکی است — پس راهنمای صفحه نباید وعده‌ی «به همین حساب نسبت داده
+     می‌شود» بدهد. فقط حساب‌های روشن شمرده می‌شوند، چون سرور هم همان‌ها را
+     می‌شمارد. */
+  const sharedSenders = useMemo(() => {
+    const enabledIds = new Set(
+      bankAccounts.filter((a) => a.smsEnabled).map((a) => a.id),
+    );
+    const owners = new Map<string, Set<string>>();
+    for (const s of senders) {
+      if (!enabledIds.has(s.accountId)) continue;
+      const set = owners.get(s.sender);
+      if (set) set.add(s.accountId);
+      else owners.set(s.sender, new Set([s.accountId]));
+    }
+    const out = new Set<string>();
+    for (const [sender, ids] of owners) if (ids.size > 1) out.add(sender);
+    return out;
+  }, [senders, bankAccounts]);
+
   const load = useCallback(async () => {
     if (!useCases) return;
     try {
@@ -245,6 +269,7 @@ export function useSmsSettingsModel() {
     bankAccounts,
     enabledCount,
     sendersOf,
+    sharedSenders,
     numbers,
     /** شماره‌ی ثبت‌نام — منبع پیش‌فرض و همیشگی (بند ۷)؛ افزودنی نیست */
     primaryPhone: member?.phone ?? null,
