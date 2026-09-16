@@ -7932,6 +7932,246 @@ button.market-row:active {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   صفحه‌ی «افزودن به صفحه‌ی اصلی» (a2hs)
+
+   فقط روی گوشی و فقط در مرورگر دیده می‌شود (شرط‌ها در
+   features/install-prompt/model/useInstallPrompt.ts).
+
+   چیدمان به خواسته‌ی کاربر (بر پایه‌ی نمونه‌ای که فرستاد):
+   آیکون ← عنوان ← شکل ← گام‌ها ← یک دکمه‌ی پهنِ پایین.
+
+   تنها جای جسورِ صفحه، آیکونِ پُررنگِ خانه‌یار داخلِ شکل است؛ خطِ
+   گوشی و کاشی‌ها عمداً نازک و کم‌رنگ‌اند تا چشم برود سرِ همان آیکون
+   و بعد گام‌های زیرش.
+   ═══════════════════════════════════════════════════════════ */
+
+.a2hs {
+  min-height: 100dvh;
+  background: var(--bg);
+}
+.a2hs-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  min-height: 100dvh;
+  max-width: 430px;
+  margin: 0 auto;
+  padding: calc(env(safe-area-inset-top) + var(--sp-5)) var(--sp-5)
+    calc(env(safe-area-inset-bottom) + var(--sp-4));
+}
+
+/* نشانِ اپ — لنگرِ صفحه: همان چیزی که آخرِ کار روی گوشی می‌بیند */
+.a2hs-logo {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  box-shadow: 0 8px 20px rgba(13, 27, 42, 0.22);
+}
+.a2hs-title {
+  margin-top: var(--sp-4);
+  max-width: 22ch;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.5;
+  color: var(--text);
+}
+.a2hs-sub {
+  margin-top: var(--sp-2);
+  max-width: 32ch;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--text-3);
+}
+
+/* ── شکل: صفحه‌ی اصلیِ گوشی با خانه‌های خالی ── */
+.a2hs-art {
+  /* 0 0 auto عمدی است: اگر فلکس اجازه‌ی کوچک‌شدن بدهد، SVG به‌جای
+     کوچک‌شدن letterbox می‌شود (نسبت را نگه می‌دارد) و فقط فضای خالی
+     می‌ماند. برای صفحه‌های کوتاه، مدیا-کوئریِ پایینِ همین بلاک
+     اندازه را کم می‌کند. */
+  flex: 0 0 auto;
+  width: 216px;
+  height: auto;
+  margin-block: var(--sp-4) var(--sp-3);
+  /* شکل باید دقیقاً مثل یک عکس رفتار کند: نه انتخاب، نه منویِ لمسِ طولانی */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  pointer-events: none;
+}
+.a2hs-art-halo {
+  fill: var(--accent-soft);
+}
+.a2hs-art-phone {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  opacity: 0.5;
+}
+.a2hs-art-tile {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  opacity: 0.38;
+}
+/* خانه‌های خالی: نقطه‌چین، چون «هنوز چیزی اینجا نیست» */
+.a2hs-art-empty {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  stroke-dasharray: 3.5 3.5;
+  opacity: 0.55;
+}
+/* آیکونِ تازه: تنها حرکتِ صفحه، یک بار و کوتاه.
+   transform-box/origin لازم است، وگرنه scale حولِ مبدأِ SVG انجام
+   می‌شود و آیکون از کادر پرت می‌شود. */
+.a2hs-art-new {
+  transform-box: fill-box;
+  transform-origin: center;
+  filter: drop-shadow(0 6px 14px rgba(13, 27, 42, 0.28));
+  animation: a2hsLand 620ms var(--ease-spring) both;
+}
+@keyframes a2hsLand {
+  from {
+    opacity: 0;
+    transform: translate(16px, -14px) scale(0.86);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+/* ── پایینِ صفحه: گام‌ها یا هشدار، و بعد دکمه‌ی اصلی ── */
+.a2hs-foot {
+  width: 100%;
+  margin-top: auto;
+  padding-top: var(--sp-4);
+}
+.a2hs-hint {
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--text-3);
+}
+
+/* گام‌های دستی — بدون شماره: نشانه‌ی کنارِ هر گام *همان* چیزی است که
+   کاربر باید در مرورگر پیدا کند، پس شمارنده کارِ اضافه بود. */
+.a2hs-steps {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: start;
+}
+.a2hs-step {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding-block: 9px;
+}
+.a2hs-step p {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: var(--text-2);
+}
+.a2hs-step p b {
+  font-weight: 700;
+  color: var(--text);
+}
+/* نشانه انتهای ردیف می‌نشیند (در RTL یعنی سمت چپ)، همه در یک ستون */
+.a2hs-step-g {
+  flex: 0 0 34px;
+  display: grid;
+  place-items: center;
+  color: var(--accent-strong);
+}
+/* واژه‌ی انگلیسیِ روی دکمه‌ی مرورگر، عیناً */
+.a2hs-step-w {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+/* دکمه‌ی اصلی — در حالتِ گام‌های دستی تنها دکمه‌ی صفحه است */
+.a2hs-cta {
+  width: 100%;
+  margin-top: var(--sp-4);
+  padding-block: 14px;
+  font-size: 15px;
+}
+
+/* ── مرورگرِ داخلِ اپِ دیگر: از اینجا نصب ممکن نیست ── */
+.a2hs-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border: 1px solid var(--warn);
+  border-radius: var(--r-lg);
+  background: var(--warn-soft);
+  text-align: start;
+}
+.a2hs-warn svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--warn);
+}
+.a2hs-warn p {
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--text-2);
+}
+
+/* راهِ فرارِ کم‌رنگ — فقط وقتی دکمه‌ی اصلی کارِ دیگری می‌کند (نصبِ واقعی) */
+.a2hs-skip {
+  display: block;
+  margin: var(--sp-3) auto 0;
+  padding: 8px var(--sp-4);
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: var(--border-strong);
+  cursor: pointer;
+}
+.a2hs-skip:hover {
+  color: var(--text-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .a2hs-art-new {
+    animation: none;
+  }
+}
+
+/* گوشی‌های کوچک (iPhone SE و پایین‌تر): شکل کوچک‌تر، فاصله‌ها کم‌تر */
+@media (max-height: 700px) {
+  .a2hs-logo {
+    width: 46px;
+    height: 46px;
+    border-radius: 13px;
+  }
+  .a2hs-art {
+    width: 168px;
+    margin-block: var(--sp-3) var(--sp-2);
+  }
+  .a2hs-title {
+    font-size: 18px;
+  }
+  .a2hs-step {
+    padding-block: 6px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
    پنل توسعه‌دهنده — فقط در حالت dev رندر می‌شود.
    عمداً «بی‌برند» است (خاکستری تیره، بدون توکن‌های روشن و آرام) تا
    هیچ‌وقت با UI واقعی اپ اشتباه گرفته نشود.

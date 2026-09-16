@@ -3,19 +3,94 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>دریافت اپ اندروید — خانه‌یار</title>
-<meta name="description" content="دانلود مستقیم اپلیکیشن اندروید خانه‌یار به‌همراه راهنمای گام‌به‌گام نصب؛ یا استفاده از نسخهٔ وب بدون نصب.">
+<title>دریافت خانه‌یار — اندروید و آیفون</title>
+<meta name="description" content="خانه‌یار را روی اندروید نصب کنید یا روی آیفون و آیپد در مرورگر باز کنید؛ راهنمای نصب و افزودن به صفحهٔ اصلی.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Cpath fill='%230D1B2A' d='M48 7 85 35H72L48 17 24 35H11L48 7Z'/%3E%3Cpath fill='%230D1B2A' d='M18 37h17v42H18zM61 37h17v42H61z'/%3E%3Cpath fill='%2310B981' d='M39 79V57c0-5 4-9 9-9s9 4 9 9v22H39Z'/%3E%3Cpath fill='%230D1B2A' d='M31 79h34v6H31z'/%3E%3C/svg%3E">
 <link rel="canonical" href="https://khaanehyar.ir/download/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="خانه‌یار">
-<meta property="og:title" content="دریافت اپ اندروید — خانه‌یار">
-<meta property="og:description" content="دانلود مستقیم اپلیکیشن اندروید خانه‌یار به‌همراه راهنمای گام‌به‌گام نصب.">
+<meta property="og:title" content="دریافت خانه‌یار — اندروید و آیفون">
+<meta property="og:description" content="اپ اندروید یا نسخهٔ مرورگر برای آیفون و آیپد.">
 <meta property="og:url" content="https://khaanehyar.ir/download/">
 <meta name="theme-color" content="#0D1B2A">
 <link rel="stylesheet" href="../assets/styles.css">
+<!-- بدون JS، .reveal با opacity:0 می‌ماند و گزینه‌های دریافت نامرئی می‌شوند.
+     اینجا برخلافِ صفحهٔ اصلی، .reveal روی محتوای اصلیِ صفحه است. -->
+<noscript><style>.reveal { opacity: 1 !important; transform: none !important; }</style></noscript>
 </head>
 <body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     نشانِ فروشگاه‌ها — SVG درون‌خطی، بدون تصویر بیرونی
+
+     قاعده (همان قاعدهٔ نشان‌های بازارِ اپ): هر نشان دست‌نویس است تا صفحه
+     به شبکه وابسته نباشد و لوگوی رسمیِ کسی عیناً بازتولید نشود.
+
+     ── چطور یک فروشگاهِ تازه اضافه می‌شود؟ ──
+     ۱. اگر نشانش اینجا نیست، یک <symbol> تازه با شناسهٔ m-… بساز.
+     ۲. در .src-list همان پلتفرم، یک <li class="src"> تازه بگذار و در
+        <span class="src-mark on-…"> به آن symbol ارجاع بده.
+     ۳. رنگِ کفِ نشان را با یک کلاسِ on-… در styles.css تعریف کن.
+     نشان‌های m-play و m-appstore و m-sibapp از حالا آماده‌اند و منتظرِ
+     همان یک <li>؛ تا آن روز اینجا بی‌اثر می‌مانند.
+     ═══════════════════════════════════════════════════════════════════ -->
+<svg class="mark-defs" aria-hidden="true" focusable="false">
+  <!-- اندروید — سرِ ربات -->
+  <symbol id="m-android" viewBox="0 0 24 24">
+    <path fill="#3DDC84" d="M7.6 5.3 6.35 3.15a.52.52 0 0 1 .9-.52L8.52 4.8a8.6 8.6 0 0 1 6.96 0l1.27-2.17a.52.52 0 0 1 .9.52L16.4 5.3a7.4 7.4 0 0 1 3.6 6.1H4a7.4 7.4 0 0 1 3.6-6.1Z"/>
+    <circle cx="9" cy="8.5" r="1" fill="#fff"/>
+    <circle cx="15" cy="8.5" r="1" fill="#fff"/>
+    <rect x="4" y="12.6" width="16" height="7.6" rx="1.8" fill="#3DDC84"/>
+  </symbol>
+
+  <!-- آیفون/آیپد — قابِ دستگاه -->
+  <symbol id="m-ios" viewBox="0 0 24 24">
+    <rect x="5.9" y="2.2" width="12.2" height="19.6" rx="3.2" fill="none" stroke="#0D1B2A" stroke-width="1.8"/>
+    <path d="M10.2 4.9h3.6" fill="none" stroke="#0D1B2A" stroke-width="1.7" stroke-linecap="round"/>
+    <path d="M9.6 19.2h4.8" fill="none" stroke="#0D1B2A" stroke-width="1.7" stroke-linecap="round"/>
+  </symbol>
+
+  <!-- دانلود مستقیم — از سرورِ خودمان -->
+  <symbol id="m-direct" viewBox="0 0 24 24">
+    <path fill="none" stroke="#047857" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 3.2v11.2M7.7 10.1 12 14.4l4.3-4.3M4.6 19.8h14.8"/>
+  </symbol>
+
+  <!-- کافه‌بازار — کیفِ خرید -->
+  <symbol id="m-bazaar" viewBox="0 0 24 24">
+    <path fill="#0FB86E" d="M4.4 7.7h15.2l-1.05 10.9a2.2 2.2 0 0 1-2.2 2H7.65a2.2 2.2 0 0 1-2.2-2L4.4 7.7Z"/>
+    <path fill="none" stroke="#0FB86E" stroke-width="1.9" stroke-linecap="round" d="M8.5 8.3V6.1a3.5 3.5 0 0 1 7 0v2.2"/>
+    <path fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" d="M9.4 12.9a3.1 3.1 0 0 0 5.2 0"/>
+  </symbol>
+
+  <!-- نسخهٔ مرورگر (PWA) — خانه‌یار داخلِ پنجرهٔ مرورگر -->
+  <symbol id="m-pwa" viewBox="0 0 24 24">
+    <rect x="2.4" y="4" width="19.2" height="16" rx="3.2" fill="#0D1B2A"/>
+    <circle cx="5.7" cy="7.3" r=".72" fill="#64748B"/>
+    <circle cx="8" cy="7.3" r=".72" fill="#64748B"/>
+    <circle cx="10.3" cy="7.3" r=".72" fill="#64748B"/>
+    <path fill="#34D399" d="M12 9.5 17.6 14h-1.9v4.1h-2.5v-2.7h-2.4v2.7H8.3V14H6.4L12 9.5Z"/>
+  </symbol>
+
+  <!-- گوگل‌پلی — آماده برای انتشارِ بعدی -->
+  <symbol id="m-play" viewBox="0 0 24 24">
+    <path fill="#0FA958" d="M4.7 2.7 15 12 4.7 21.3a1.6 1.6 0 0 1-.7-1.35V4.05c0-.55.28-1.04.7-1.35Z"/>
+    <path fill="#F5A623" d="M15 12 4.7 21.3c.36.27.85.31 1.27.07l8.2-4.72L15 12Z"/>
+    <path fill="#E0533D" d="M15 12l-.83-4.65-8.2-4.72A1.15 1.15 0 0 0 4.7 2.7L15 12Z"/>
+    <path fill="#1F8FE0" d="m15 12 1.3 1.17 2.9-1.67a1.72 1.72 0 0 0 0-3l-2.9-1.67L15 12Z"/>
+  </symbol>
+
+  <!-- اپ‌استور — آماده برای انتشارِ بعدی -->
+  <symbol id="m-appstore" viewBox="0 0 24 24">
+    <rect x="2.4" y="2.4" width="19.2" height="19.2" rx="4.8" fill="#0D7EF7"/>
+    <path fill="none" stroke="#fff" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M7.9 16.9 12 8.1l4.1 8.8M9.6 14.1h4.8"/>
+  </symbol>
+
+  <!-- سیب‌اپ و بازارهای ایرانیِ iOS — آماده برای انتشارِ بعدی -->
+  <symbol id="m-sibapp" viewBox="0 0 24 24">
+    <path fill="#E8433A" d="M12 7.4c1.45-1.2 3.4-1.3 4.75-.1 1.95 1.7 2 5.2-.25 8.4-1.05 1.5-2.25 3-3.4 3-.6 0-.9-.3-1.1-.3s-.5.3-1.1.3c-1.15 0-2.35-1.5-3.4-3-2.25-3.2-2.2-6.7-.25-8.4 1.35-1.2 3.3-1.1 4.75.1Z"/>
+    <path fill="#2F9E5B" d="M12 7.4c-.25-1.7.75-3.15 2.45-3.65.3 1.8-.7 3.25-2.45 3.65Z"/>
+  </symbol>
+</svg>
 
 <!-- ═══════════ هدر ═══════════ -->
 <header class="site-header">
@@ -37,7 +112,7 @@
       <a href="../#faq">سوالات</a>
     </nav>
     <div class="header-cta">
-      <a class="btn btn-primary" href="../web/">نسخهٔ وب</a>
+      <a class="btn btn-primary" href="https://pwa.khaanehyar.ir">باز کردن خانه‌یار</a>
     </div>
   </div>
 </header>
@@ -51,56 +126,102 @@
       <svg class="ic" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
       بازگشت به صفحهٔ اصلی
     </a>
-    <div class="badge-line">
-      <svg class="ic" viewBox="0 0 24 24"><path d="M5 16V8a7 7 0 0 1 14 0v8"/><path d="M8 21h8"/><path d="M9 5.5L7.5 3M15 5.5L16.5 3"/><circle cx="9.5" cy="10" r=".6" fill="currentColor"/><circle cx="14.5" cy="10" r=".6" fill="currentColor"/></svg>
-      اپ اندروید · نسخهٔ ۱.۱
-    </div>
-    <h1>خانه‌یار را روی گوشی<br>خودتان داشته باشید</h1>
+    <h1>خانه‌یار را روی گوشی<br>خودتان بیاورید</h1>
     <p class="lead">
-      اپ اندروید سبک است و خودش به‌روز می‌شود؛ یک‌بار نصبش کنید و دیگر کاری با نسخه‌ها نداشته باشید.
-      اگر هم نمی‌خواهید چیزی نصب کنید، نسخهٔ وب همین حالا در مرورگر باز می‌شود.
+      روی اندروید اپ را نصب کنید؛ روی آیفون و آیپد خانه‌یار در مرورگر باز می‌شود و
+      می‌توانید به صفحهٔ اصلی اضافه‌اش کنید. هر راهی که بروید یک برنامه است و به یک حساب وصل می‌شود.
     </p>
   </div>
 </section>
 
-<!-- ═══════════ گزینه‌های دریافت ═══════════ -->
-<section class="section" style="padding-top:40px">
+<!-- ═══════════ قفسهٔ پلتفرم‌ها ═══════════ -->
+<section class="section" style="padding-top:44px;padding-bottom:64px">
   <div class="container">
-    <div class="dl-grid">
+    <div class="plat-list reveal">
 
-      <article class="dl-card feature reveal">
-        <span class="dl-card-ic" style="color:var(--t-emerald-fg);background:var(--t-emerald-bg)">
-          <svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
-        </span>
-        <span class="dl-tag">پیشنهاد ما</span>
-        <h3>دانلود مستقیم</h3>
-        <p>
-          فایل نصب را مستقیم از سرور خودمان بگیرید — بدون واسطه و بدون حساب کاربری.
-          نصبش یک‌بار است و بعد از آن به‌روزرسانی‌ها خودکار می‌آید.
-        </p>
-        <a class="btn btn-primary" href="../khanehyar.apk" download>
-          <svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
-          دانلود فایل نصب
-        </a>
-        <span class="dl-meta">حدود ۳.۳ مگابایت · اندروید ۶ به بالا</span>
-      </article>
+      <!-- ── اندروید ── -->
+      <section class="plat" id="android" aria-labelledby="h-android">
+        <header class="plat-head">
+          <svg class="plat-ic" aria-hidden="true"><use href="#m-android"/></svg>
+          <div class="plat-title">
+            <h2 id="h-android">اندروید</h2>
+            <p>گوشی و تبلت اندرویدی، نسخهٔ ۶ به بالا</p>
+          </div>
+          <span class="plat-ver">نسخهٔ ۱.۱</span>
+        </header>
 
-      <article class="dl-card reveal">
-        <span class="dl-card-ic" style="color:var(--t-amber-fg);background:var(--t-amber-bg)">
-          <svg class="ic" viewBox="0 0 24 24"><path d="M3 9h18l-1.5 11a2 2 0 0 1-2 1.8H6.5a2 2 0 0 1-2-1.8L3 9Z"/><path d="M8 9V6a4 4 0 0 1 8 0v3"/></svg>
-        </span>
-        <span class="dl-tag soon">به‌زودی</span>
-        <h3>کافه‌بازار</h3>
-        <p>
-          اگر به نصب از بازار عادت دارید، خانه‌یار به‌زودی آنجا هم منتشر می‌شود.
-          تا آن موقع از دانلود مستقیم استفاده کنید؛ هر دو دقیقاً یک اپ‌اند.
-        </p>
-        <a class="btn btn-ghost" href="https://cafebazaar.ir/app/ir.khaneyar.app" target="_blank" rel="noopener">
-          <svg class="ic" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
-          صفحهٔ بازار
-        </a>
-        <span class="dl-meta">لینک بعد از تأیید بازار فعال می‌شود</span>
-      </article>
+        <ul class="src-list">
+          <li class="src">
+            <span class="src-mark on-direct"><svg class="mark" aria-hidden="true"><use href="#m-direct"/></svg></span>
+            <div class="src-body">
+              <h3>دانلود مستقیم</h3>
+              <p>فایل نصب را بدون واسطه از سرور خودمان بگیرید. حساب کاربری لازم نیست و بعد از نصب، به‌روزرسانی‌ها خودشان می‌آیند.</p>
+            </div>
+            <div class="src-act">
+              <a class="btn btn-primary" href="../khanehyar.apk" download>
+                <svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
+                دریافت فایل نصب
+              </a>
+              <span class="src-note">حدود ۳٫۳ مگابایت</span>
+            </div>
+          </li>
+
+          <li class="src is-soon">
+            <span class="src-mark on-bazaar"><svg class="mark" aria-hidden="true"><use href="#m-bazaar"/></svg></span>
+            <div class="src-body">
+              <h3>کافه‌بازار</h3>
+              <p>اگر به نصب از بازار عادت دارید، خانه‌یار در صفِ انتشار است. همین اپ است، فقط از مسیر بازار.</p>
+            </div>
+            <div class="src-act">
+              <span class="src-state">
+                <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                در حال بررسی
+              </span>
+              <span class="src-note">به‌محض تأیید، همین‌جا فعال می‌شود</span>
+            </div>
+          </li>
+        </ul>
+      </section>
+
+      <!-- ── آیفون و آیپد ── -->
+      <section class="plat" id="ios" aria-labelledby="h-ios">
+        <header class="plat-head">
+          <svg class="plat-ic" aria-hidden="true"><use href="#m-ios"/></svg>
+          <div class="plat-title">
+            <h2 id="h-ios">آیفون و آیپد</h2>
+            <p>و هر دستگاه دیگری که مرورگر دارد</p>
+          </div>
+        </header>
+
+        <ul class="src-list">
+          <li class="src">
+            <span class="src-mark on-pwa"><svg class="mark" aria-hidden="true"><use href="#m-pwa"/></svg></span>
+            <div class="src-body">
+              <h3>نسخهٔ مرورگر</h3>
+              <p>چیزی نصب نمی‌شود و حافظه‌ای اشغال نمی‌کند؛ خانه‌یار در سافاری باز می‌شود و همیشه آخرین نسخه است.</p>
+            </div>
+            <div class="src-act">
+              <a class="btn btn-primary" href="https://pwa.khaanehyar.ir">
+                <svg class="ic" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
+                باز کردن خانه‌یار
+              </a>
+              <span class="src-note">بدون نصب، در همین مرورگر</span>
+            </div>
+          </li>
+        </ul>
+
+        <div class="src-extra">
+          <h4>اگر می‌خواهید مثل یک اپ باز شود</h4>
+          <ol class="mini-steps">
+            <li>خانه‌یار را در <b>سافاری</b> باز کنید.</li>
+            <li>دکمهٔ <code>اشتراک‌گذاری</code> پایین صفحه را بزنید.</li>
+            <li>کمی پایین بروید و <code>Add to Home Screen</code> را انتخاب کنید.</li>
+          </ol>
+          <p class="src-extra-note">
+            بعد از این، خانه‌یار آیکون خودش را روی صفحهٔ اصلی دارد و تمام‌صفحه باز می‌شود — بدون نوار آدرس.
+          </p>
+        </div>
+      </section>
 
     </div>
 
@@ -114,58 +235,13 @@
   </div>
 </section>
 
-<!-- ═══════════ راهنمای نصب ═══════════ -->
-<section class="section alt">
-  <div class="container">
-    <div class="sec-head center reveal">
-      <div class="sec-no"><b>۰۱</b><span>نصب</span></div>
-      <h2>سه قدم تا نصب</h2>
-      <p>اندروید برای فایل‌هایی که از بازارها نمی‌آیند یک‌بار اجازه می‌خواهد؛ همین و تمام.</p>
-    </div>
-
-    <div class="steps reveal">
-      <div class="step">
-        <span class="step-no"></span>
-        <div class="step-body">
-          <h4>فایل را دانلود کنید</h4>
-          <p>روی دکمهٔ «دانلود فایل نصب» بزنید. فایل در پوشهٔ <code>Downloads</code> گوشی ذخیره می‌شود.</p>
-        </div>
-      </div>
-      <div class="step">
-        <span class="step-no"></span>
-        <div class="step-body">
-          <h4>اجازهٔ نصب را بدهید</h4>
-          <p>
-            وقتی فایل را باز کنید، اندروید می‌پرسد که به این برنامه اجازهٔ نصب می‌دهید یا نه.
-            گزینهٔ <code>اجازه دادن</code> یا <code>تنظیمات</code> را بزنید و کلید
-            <code>نصب برنامه‌های ناشناس</code> را برای مرورگرتان روشن کنید. این کار فقط یک‌بار لازم است.
-          </p>
-        </div>
-      </div>
-      <div class="step">
-        <span class="step-no"></span>
-        <div class="step-body">
-          <h4>نصب و ورود</h4>
-          <p>روی <code>نصب</code> بزنید، اپ باز می‌شود و خانه‌تان را همان‌جا می‌سازید.</p>
-        </div>
-      </div>
-    </div>
-
-    <div class="note-box warn">
-      <svg class="ic" viewBox="0 0 24 24"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
-      <p>
-        اگر گوشی‌تان پیام «برنامه نصب نشد» داد، معمولاً یعنی نسخهٔ قدیمی‌تری از خانه‌یار روی گوشی هست.
-        اول آن را حذف کنید و دوباره نصب کنید؛ <b>داده‌هایتان روی سرور است</b> و با حذف اپ پاک نمی‌شود.
-      </p>
-    </div>
-  </div>
-</section>
+<!-- بخشِ «سه قدم تا نصب روی اندروید» در ۱۴۰۵/۰۶/۲۴ به خواستهٔ کاربر حذف شد.
+     خودِ اندروید سرِ باز کردنِ فایل راهنمایی می‌کند، پس تکرارش اینجا اضافه بود. -->
 
 <!-- ═══════════ به‌روزرسانی ═══════════ -->
-<section class="section">
+<section class="section alt">
   <div class="container">
-    <div class="sec-head center reveal">
-      <div class="sec-no"><b>۰۲</b><span>به‌روزرسانی</span></div>
+    <div class="sec-head center">
       <h2>یک‌بار نصب، همیشه تازه</h2>
       <p>لازم نیست هر بار فایل جدید دانلود کنید.</p>
     </div>
@@ -175,12 +251,12 @@
       <p>
         خانه‌یار به‌روزرسانی‌هایش را خودش از اینترنت می‌گیرد. کافی است اپ را ببندید و دوباره باز کنید
         تا آخرین نسخه بالا بیاید. فقط وقتی لازم است دوباره فایل نصب بگیرید که ما صریحاً اعلام کنیم —
-        یعنی وقتی خودِ پوستهٔ اندروید تغییر کرده باشد.
+        یعنی وقتی خودِ پوستهٔ اندروید تغییر کرده باشد. در نسخهٔ مرورگر، این کار هم لازم نیست.
       </p>
     </div>
 
     <p class="alt-line">
-      نمی‌خواهید چیزی نصب کنید؟ <a href="../web/">نسخهٔ وب خانه‌یار</a> بدون نصب، در همین مرورگر باز می‌شود.
+      سؤالی مانده؟ <a href="../#faq">سوالات پرتکرار</a> را ببینید یا از صفحهٔ اصلی شروع کنید.
     </p>
   </div>
 </section>
@@ -213,8 +289,9 @@
       </div>
       <div>
         <h4>دریافت</h4>
-        <a href="./">اپ اندروید</a>
-        <a href="../web/">نسخهٔ وب (PWA)</a>
+        <a href="#android">اپ اندروید</a>
+        <a href="#ios">آیفون و آیپد</a>
+        <a href="https://pwa.khaanehyar.ir">باز کردن در مرورگر</a>
       </div>
       <div>
         <h4>اعتماد</h4>
@@ -230,7 +307,7 @@
 </footer>
 
 <script>
-// ورود تدریجی سکشن‌ها
+// یک ورودِ واحد برای قفسهٔ پلتفرم‌ها — بقیهٔ صفحه بی‌حرکت است.
 const io = new IntersectionObserver(
   (entries) => {
     for (const e of entries) if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }

@@ -92,7 +92,7 @@ REM Defaults for configs saved before the frontend moved off Vercel,
 REM so an existing deploy-config.bat keeps working without re-running setup.
 if "!WEB_DIR!"=="" set "WEB_DIR=/var/www/khaneyar"
 REM SITE_DIR is new on 2026-09-14: the landing site took over the root domain
-REM and the PWA moved to app.khaanehyar.ir. Older deploy-config.bat files have
+REM and the PWA moved to pwa.khaanehyar.ir. Older deploy-config.bat files have
 REM no SITE_DIR, so default it here - otherwise the site step would target an
 REM empty path and the swap would run against "/".
 if "!SITE_DIR!"=="" set "SITE_DIR=/var/www/khaneyar-site"
@@ -120,7 +120,7 @@ set "SERVER_DIR="
 set /p SERVER_DIR= Path of backend on server - Enter for /opt/khaneyar/backend :
 if "!SERVER_DIR!"=="" set "SERVER_DIR=/opt/khaneyar/backend"
 set "WEB_DIR="
-set /p WEB_DIR= Web root for the PWA app.khaanehyar.ir - Enter for /var/www/khaneyar :
+set /p WEB_DIR= Web root for the PWA pwa.khaanehyar.ir - Enter for /var/www/khaneyar :
 if "!WEB_DIR!"=="" set "WEB_DIR=/var/www/khaneyar"
 set "SITE_DIR="
 set /p SITE_DIR= Web root for the landing site khaanehyar.ir - Enter for /var/www/khaneyar-site :
@@ -248,8 +248,8 @@ exit /b 0
 
 REM =============== Landing site - upload site/ to the root domain ===============
 REM Added 2026-09-14. Before this, WEB_DIR was the root domain and the PWA was
-REM served there. Now the root domain shows site/ (landing + /download/ + /web/)
-REM and the PWA lives on app.khaanehyar.ir, still out of WEB_DIR. The two never
+REM served there. Now the root domain shows site/ (landing + /download/)
+REM and the PWA lives on pwa.khaanehyar.ir, still out of WEB_DIR. The two never
 REM share a directory, so a frontend deploy can no longer overwrite the landing
 REM page. Runs right after the PWA so one "frontend" deploy ships both.
 :do_site
@@ -396,7 +396,7 @@ echo  Done!
 echo.
 echo  Backend health: https://api.khaanehyar.ir/api/v1/healthz
 echo  Landing site : https://khaanehyar.ir
-echo  The app - PWA: https://app.khaanehyar.ir
+echo  The app - PWA: https://pwa.khaanehyar.ir
 echo.
 echo  Frontend looks unchanged? Hard-refresh once - the PWA service
 echo  worker serves the old build until it picks up the new one.

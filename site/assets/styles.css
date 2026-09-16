@@ -49,6 +49,37 @@
 
   --r-btn: 8px;
   --r-card: 12px;
+  --r-pill: 999px;
+
+  /* نردبان فاصله — هیچ عدد خامی در padding/margin/gap نوشته نشود
+     ۱–۲ داخل یک جزء · ۳–۴ بین اجزای یک گروه · ۵–۶ padding کارت
+     ۷–۸ بین گروه‌ها · ۹–۱۰ بین بخش‌های صفحه */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-7: 32px;
+  --sp-8: 44px;
+  --sp-9: 64px;
+  --sp-10: 96px;
+
+  /* نردبان تایپ — h1 تنها استثناست و clamp() می‌گیرد
+     بلوک تازه فقط از اینها بردارد؛ بلوک قدیمی هنگام دست‌زدن گِرد شود */
+  --fs-1: 11.5px; /* ریزنوشت زیر دکمه */
+  --fs-2: 13px;   /* توضیح فرعی */
+  --fs-3: 14px;   /* برچسب، متن کوتاه */
+  --fs-4: 16px;   /* متن اصلی */
+  --fs-5: 18px;   /* لید پاراگراف، تیتر کارت */
+  --fs-6: 21px;   /* h2 */
+  --fs-7: 26px;   /* h3 بزرگ، عدد شاخص */
+
+  /* حرکت — فقط transform و opacity؛ prefers-reduced-motion سراسری هندل شده */
+  --dur-fast: 160ms;
+  --dur-med: 280ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
   --shadow-sm: 0 1px 2px rgba(13, 27, 42, 0.05);
   --shadow-md: 0 10px 30px rgba(13, 27, 42, 0.08);
@@ -125,7 +156,7 @@ button { font: inherit; cursor: pointer; }
 /* ─────────── سرفصل ادیتوریال بخش‌ها ─────────── */
 .sec-no {
   display: flex; align-items: center; gap: 12px;
-  font-size: 12.5px; font-weight: 700; color: var(--text-3); letter-spacing: 0.4px;
+  font-size: 12.5px; font-weight: 700; color: var(--text-3);
 }
 .sec-no b { color: var(--coral); font-weight: 800; }
 .sec-no::after { content: ""; width: 46px; height: 1px; background: var(--border-strong); }
@@ -143,7 +174,7 @@ button { font: inherit; cursor: pointer; }
 .hero-badge .ic { width: 16px; height: 16px; }
 .hero h1 {
   font-size: clamp(36px, 5vw, 60px); font-weight: 900; line-height: 1.4;
-  margin: 24px 0 18px; letter-spacing: -0.6px;
+  margin: 24px 0 18px;
 }
 /* خط موجی دست‌کشیده زیر کلمهٔ کلیدی */
 .hw { position: relative; white-space: nowrap; }
@@ -196,6 +227,13 @@ button { font: inherit; cursor: pointer; }
   position: relative; z-index: 5;
   width: 336px; padding: 10px;
   border-radius: 60px;
+  /* ماکاپ یک «عکس» است نه محتوا (role="img" هم همین را می‌گوید): متنِ
+     داخلش نباید انتخاب و کپی شود، و نگه‌داشتنِ انگشت روی گوشی نباید
+     منوی کپی/اشتراک بیاورد. سه اعلان لازم است چون سافاریِ iOS هنوز
+     پیشوند می‌خواهد و منوی لمسیِ طولانی جدا خاموش می‌شود. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
   background: linear-gradient(150deg, #565b63 0%, #23262b 28%, #101215 55%, #3d4148 100%);
   box-shadow:
     var(--shadow-lg),
@@ -241,10 +279,15 @@ button { font: inherit; cursor: pointer; }
   background: rgba(13, 27, 42, 0.28); z-index: 45; pointer-events: none;
 }
 
+/* نوار وضعیت مالِ خودِ گوشی است نه مالِ خانه‌یار، پس مثل یک گوشیِ واقعی
+   انگلیسی و چپ‌به‌راست است: ساعت سمت چپ، نمادها سمت راست. بدون این
+   direction، ترتیبِ فلکس در قالبِ RTLِ صفحه برعکس می‌شد. */
 .p-status {
+  direction: ltr;
   display: flex; justify-content: space-between; align-items: center;
   padding: 17px 30px 6px; font-size: 14px; font-weight: 700; color: var(--text);
   flex: none;
+  font-variant-numeric: tabular-nums;
 }
 .p-status .p-icons { display: flex; gap: 6px; align-items: center; color: var(--text); }
 .p-status .p-icons .ic { width: 16px; height: 16px; }
@@ -445,7 +488,7 @@ button { font: inherit; cursor: pointer; }
 .section.alt { background: var(--card); border-block: 1px solid var(--border); }
 .sec-head { max-width: 680px; margin-bottom: 52px; }
 .sec-head.center { margin-inline: auto; text-align: center; }
-.sec-head h2 { font-size: clamp(27px, 3.6vw, 40px); font-weight: 900; line-height: 1.45; margin: 16px 0 12px; letter-spacing: -0.4px; }
+.sec-head h2 { font-size: clamp(27px, 3.6vw, 40px); font-weight: 900; line-height: 1.45; margin: 16px 0 12px; }
 .sec-head p { color: var(--text-2); font-size: 16px; }
 /* دایرهٔ دست‌کشیدهٔ دور عبارت */
 .hc { position: relative; padding: 0 8px; white-space: nowrap; }
@@ -611,7 +654,7 @@ button { font: inherit; cursor: pointer; }
 }
 
 /* ═══════════════════════════════════════════════════════════
-   صفحات داخلی — دانلود اپ و نسخهٔ وب
+   صفحهٔ داخلی — دریافت اپ (/download/)
    ═══════════════════════════════════════════════════════════ */
 
 /* ─────────── هیروی صفحهٔ داخلی ─────────── */
@@ -633,26 +676,92 @@ button { font: inherit; cursor: pointer; }
 .page-hero h1 { font-size: clamp(30px, 4.4vw, 46px); font-weight: 900; line-height: 1.4; letter-spacing: -0.6px; }
 .page-hero .lead { color: var(--text-2); font-size: 17px; max-width: 40em; margin: 16px auto 0; line-height: 1.9; }
 
-/* ─────────── کارت‌های گزینهٔ دانلود ─────────── */
-.dl-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 48px; }
-.dl-card {
-  background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-  padding: 32px 28px; display: flex; flex-direction: column; gap: 14px;
-  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+/* ─────────── قفسهٔ پلتفرم‌ها (اندروید / آیفون) ───────────
+   ساختار: .plat-list  →  .plat (یک پلتفرم)  →  .src-list  →  .src (یک منبعِ دریافت)
+   افزودنِ فروشگاهِ تازه فقط یک <li class="src"> است؛ نه چیدمانِ تازه می‌خواهد
+   نه شکستنِ ستون‌ها. سه ستونِ هر ردیف: نشان · متن · کنش.
+   قاعدهٔ رنگ: منابعِ خودمان (مستقیم/مرورگر) رنگِ برندِ خانه‌یار،
+   فروشگاه‌های دیگران رنگِ برندِ خودشان. رنگ اینجا اطلاعات است نه تزئین. */
+
+/* شناسه‌های SVG فقط تعریف‌اند؛ خودِ گره نباید جایی اشغال کند. */
+.mark-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+.plat-list { display: flex; flex-direction: column; gap: 28px; margin-top: 8px; }
+
+.plat {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 18px; overflow: hidden;
 }
-.dl-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--border-strong); }
-.dl-card.feature { border-color: rgba(16,185,129,.35); box-shadow: 0 0 0 1px rgba(16,185,129,.18); }
-.dl-card-ic { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; }
-.dl-card-ic .ic { width: 27px; height: 27px; }
-.dl-card h3 { font-size: 19px; font-weight: 800; }
-.dl-card p { font-size: 14px; color: var(--text-2); line-height: 1.95; flex: 1; }
-.dl-tag {
-  align-self: flex-start; font-size: 11.5px; font-weight: 800; padding: 4px 10px; border-radius: 999px;
-  color: var(--t-emerald-fg); background: var(--t-emerald-bg);
+
+.plat-head {
+  display: flex; align-items: center; gap: 16px;
+  padding: 22px 26px;
+  background: linear-gradient(to bottom, rgba(13, 27, 42, 0.028), transparent);
+  border-bottom: 1px solid var(--border);
 }
-.dl-tag.soon { color: var(--t-amber-fg); background: var(--t-amber-bg); }
-.dl-card .btn { width: 100%; margin-top: 4px; }
-.dl-meta { font-size: 12px; color: var(--text-3); text-align: center; }
+.plat-ic { width: 34px; height: 34px; flex: none; }
+.plat-title h2 { font-size: 21px; font-weight: 900; letter-spacing: -0.3px; line-height: 1.5; }
+.plat-title p { font-size: 13px; color: var(--text-3); line-height: 1.6; }
+.plat-ver {
+  margin-inline-start: auto; flex: none;
+  font-size: 12.5px; font-weight: 800; color: var(--green-strong);
+  background: var(--surface); padding: 6px 14px; border-radius: 999px;
+}
+
+.src-list { list-style: none; }
+.src {
+  display: flex; align-items: center; gap: 18px;
+  padding: 24px 26px;
+  border-top: 1px solid var(--border);
+}
+.src:first-child { border-top: 0; }
+
+/* کفِ نشان: مربعِ نرم با رنگِ کم‌مایهٔ همان برند */
+.src-mark {
+  flex: none; width: 54px; height: 54px; border-radius: 15px;
+  display: flex; align-items: center; justify-content: center;
+}
+.src-mark .mark { width: 30px; height: 30px; }
+.src-mark.on-direct  { background: var(--t-emerald-bg); }
+.src-mark.on-bazaar  { background: #dff5ea; }
+.src-mark.on-pwa     { background: #e3e8ef; }
+/* آمادهٔ فروشگاه‌های بعدی */
+.src-mark.on-play    { background: #e8f1e8; }
+.src-mark.on-appstore{ background: var(--t-sky-bg); }
+.src-mark.on-sibapp  { background: var(--t-rose-bg); }
+
+.src-body { flex: 1; min-width: 0; }
+.src-body h3 { font-size: 17px; font-weight: 800; margin-bottom: 3px; }
+.src-body p { font-size: 13.5px; color: var(--text-2); line-height: 1.9; max-width: 46em; }
+
+.src-act { flex: none; display: flex; flex-direction: column; align-items: stretch; gap: 8px; width: 216px; }
+.src-act .btn { width: 100%; }
+.src-note { font-size: 11.5px; color: var(--text-3); text-align: center; line-height: 1.6; }
+
+/* منبعی که هنوز فعال نیست: حالتِ خوانا به‌جای دکمهٔ غیرفعال */
+.src.is-soon .src-body h3 { color: var(--text-2); }
+.src-state {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 13px 20px; border-radius: var(--r-btn);
+  font-size: 14px; font-weight: 700;
+  color: var(--t-amber-fg); background: var(--t-amber-bg);
+}
+.src-state .ic { width: 17px; height: 17px; stroke-width: 2; }
+
+/* راهنمای کوتاهِ زیرِ یک پلتفرم (افزودن به صفحهٔ اصلی) */
+.src-extra {
+  padding: 22px 26px 26px; border-top: 1px solid var(--border);
+  background: rgba(13, 27, 42, 0.016);
+}
+.src-extra h4 { font-size: 14.5px; font-weight: 800; margin-bottom: 12px; }
+.mini-steps { padding-inline-start: 20px; display: flex; flex-direction: column; gap: 7px; }
+.mini-steps li { font-size: 13.5px; color: var(--text-2); line-height: 1.9; }
+.mini-steps li::marker { color: var(--green-strong); font-weight: 800; }
+.mini-steps code {
+  font-family: inherit; font-weight: 700; font-size: 12.5px; color: var(--navy);
+  background: var(--card-2); padding: 2px 8px; border-radius: 6px;
+}
+.src-extra-note { margin-top: 12px; font-size: 12.5px; color: var(--text-3); line-height: 1.85; }
 
 /* ─────────── جعبهٔ راهنما/هشدار ─────────── */
 .note-box {
@@ -666,24 +775,24 @@ button { font: inherit; cursor: pointer; }
 .note-box.warn .ic { color: var(--coral); }
 .note-box b { color: var(--text); font-weight: 700; }
 
-/* ─────────── گام‌های نصب (فهرست شماره‌دار) ─────────── */
-.steps { max-width: 720px; margin: 44px auto 0; display: flex; flex-direction: column; gap: 4px; counter-reset: step; }
-.step { display: flex; gap: 18px; padding: 20px 4px; border-bottom: 1px solid var(--border); }
-.step:last-child { border-bottom: 0; }
-.step-no {
-  counter-increment: step; flex: none;
-  width: 38px; height: 38px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 900; font-size: 16px; color: var(--green-strong);
-  background: var(--surface);
-}
-.step-no::before { content: counter(step); }
-.step-body h4 { font-size: 16px; font-weight: 800; margin-bottom: 4px; }
-.step-body p { font-size: 14px; color: var(--text-2); line-height: 1.9; }
-.step-body code {
-  font-family: inherit; font-weight: 700; font-size: 13px; color: var(--navy);
-  background: var(--card-2); padding: 2px 8px; border-radius: 6px;
-}
+/* ─────────── گام‌های نصب (فهرست شماره‌دار) — بازنشسته ───────────
+   تنها مصرف‌کننده‌اش بخشِ «سه قدم تا نصب روی اندروید» در /download/ بود که
+   در ۱۴۰۵/۰۶/۲۴ حذف شد. راهنمای گام‌به‌گامِ باقی‌مانده (افزودن به صفحهٔ اصلی)
+   از `.mini-steps` استفاده می‌کند، نه این. اگر صفحهٔ تازه‌ای گامِ شماره‌دار
+   خواست، این بلاک را برگردان به‌جای نوشتنِ دوباره:
+
+   .steps { max-width: 720px; margin: 44px auto 0; display: flex; flex-direction: column; gap: 4px; counter-reset: step; }
+   .step { display: flex; gap: 18px; padding: 20px 4px; border-bottom: 1px solid var(--border); }
+   .step:last-child { border-bottom: 0; }
+   .step-no { counter-increment: step; flex: none; width: 38px; height: 38px; border-radius: 50%;
+     display: flex; align-items: center; justify-content: center;
+     font-weight: 900; font-size: 16px; color: var(--green-strong); background: var(--surface); }
+   .step-no::before { content: counter(step); }
+   .step-body h4 { font-size: 16px; font-weight: 800; margin-bottom: 4px; }
+   .step-body p { font-size: 14px; color: var(--text-2); line-height: 1.9; }
+   .step-body code { font-family: inherit; font-weight: 700; font-size: 13px; color: var(--navy);
+     background: var(--card-2); padding: 2px 8px; border-radius: 6px; }
+   ─────────────────────────────────────────────────────────────── */
 
 /* ─────────── گزینهٔ جایگزین (پاورقی صفحه) ─────────── */
 .alt-line {
@@ -695,7 +804,20 @@ button { font: inherit; cursor: pointer; }
 .alt-line a:hover { text-decoration: underline; }
 
 /* ─────────── واکنش‌گرا (صفحات داخلی) ─────────── */
+@media (max-width: 860px) {
+  /* ستونِ کنش زیرِ متن می‌رود، ولی نشان کنارِ عنوان می‌ماند تا ردیف خوانا بماند. */
+  .src { flex-wrap: wrap; row-gap: 16px; }
+  .src-body { flex-basis: calc(100% - 72px); }
+  .src-act { width: 100%; }
+  .src-note { text-align: start; }
+}
 @media (max-width: 720px) {
-  .dl-grid { grid-template-columns: 1fr; }
   .page-hero { padding-top: 52px; }
+  .plat-head { padding: 18px 18px; gap: 13px; }
+  .plat-ver { font-size: 11.5px; padding: 5px 11px; }
+  .src { padding: 20px 18px; }
+  .src-mark { width: 46px; height: 46px; border-radius: 13px; }
+  .src-mark .mark { width: 26px; height: 26px; }
+  .src-body { flex-basis: calc(100% - 64px); }
+  .src-extra { padding: 20px 18px 22px; }
 }

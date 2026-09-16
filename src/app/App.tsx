@@ -23,6 +23,10 @@ import {
   useTxFormModel,
 } from "@/features/transaction-form";
 import { PendingSmsFeature } from "@/features/pending-sms";
+import {
+  InstallPromptFeature,
+  useInstallPrompt,
+} from "@/features/install-prompt";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { HubPage } from "@/pages/HubPage";
 import { TransactionsPage } from "@/pages/TransactionsPage";
@@ -60,6 +64,10 @@ function AppBody() {
   const [filterSignal, setFilterSignal] = useState(0);
   const { show } = useToast();
   const { updateReady, applyUpdate } = usePwaUpdateState();
+  /* «خانه‌یار را به صفحه‌ی اصلی اضافه کن» — فقط گوشی، فقط مرورگر.
+     همیشه صدا زده می‌شود (قاعده‌ی هوک‌ها)؛ خودش تصمیم می‌گیرد که
+     visible باشد یا نه. */
+  const install = useInstallPrompt();
 
   useTheme(member, useCases);
 
@@ -136,6 +144,26 @@ function AppBody() {
           <InviteAcceptFeature token={inviteToken ?? "dev-preview"} />
         ) : null;
       }
+      if (devOverride === "a2hs") {
+        /* روی لپ‌تاپ، دروازه‌ی «گوشی بودن» بسته است و این صفحه هرگز
+           دیده نمی‌شود؛ visible را دستی باز می‌کنیم تا ظاهرش وارسی شود.
+           گام‌های نمایش‌داده‌شده همان‌هایی است که مرورگرِ فعلی می‌گیرد،
+           پس برای دیدنِ گام‌های iOS باید حالت دستگاه را در devtools
+           روی آیفون گذاشت. */
+        return <InstallPromptFeature m={{ ...install, visible: true }} />;
+      }
+    }
+
+    /* صفحه‌ی «افزودن به صفحه‌ی اصلی» — پیش از هر چیز دیگری، چون خواسته
+       این بود که *اولین* چیزی باشد که کاربرِ گوشی می‌بیند؛ حتی پیش از
+       بارگذاری. شرط‌های نمایش (گوشی بودن، مرورگر بودن، نصب‌نبودن) داخل
+       خودِ هوک است.
+
+       یک استثنا: لینکِ دعوت. کسی که با ?invite=… آمده برای پذیرشِ دعوت
+       آمده، و مهم‌تر اینکه آیکونِ نصب‌شده start_url را بدونِ این پارامتر
+       باز می‌کند — یعنی اگر اول نصب کند، توکن دعوت گم می‌شود. */
+    if (install.visible && !inviteToken) {
+      return <InstallPromptFeature m={install} />;
     }
 
     if (phase === "boot") {

@@ -18,7 +18,8 @@ export type DevOverride =
   | "intro"
   | "auth-login"
   | "auth-register"
-  | "invite";
+  | "invite"
+  | "a2hs";
 
 const ROUTE_LABELS: { route: Route; label: string }[] = [
   { route: "hub", label: "هاب (خانه)" },
@@ -37,7 +38,17 @@ const OVERRIDE_LABELS: { value: Exclude<DevOverride, null>; label: string }[] =
     { value: "auth-login", label: "فرم ورود" },
     { value: "auth-register", label: "فرم ثبت‌نام" },
     { value: "invite", label: "پذیرش دعوت" },
+    /* روی لپ‌تاپ هرگز خودش نمی‌آید (دروازه‌ی «گوشی بودن») */
+    { value: "a2hs", label: "افزودن به صفحه‌ی اصلی" },
   ];
+
+/* افزودنِ کلیدهای فلگ‌دار به ابزارِ «پاک‌کردن» — هر فلگی که جریان را
+   یک‌بار-مصرف می‌کند باید اینجا هم پاک شود، وگرنه تستِ دستی نمی‌شود. */
+const FLAG_KEYS = [
+  "khaneyar.intro.seen",
+  "khaneyar.intro.draft",
+  "khaneyar.a2hs.installed",
+];
 
 export function DevPanel({
   route,
@@ -75,12 +86,11 @@ export function DevPanel({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  /* پاک‌کردن فقط کلیدهای قیف — عمداً localStorage.clear() نیست تا از
+  /* پاک‌کردن فقط فلگ‌های جریان — عمداً localStorage.clear() نیست تا از
      اپ بیرون نیفتی و نشستت حفظ شود */
   function resetIntro() {
     try {
-      localStorage.removeItem("khaneyar.intro.seen");
-      localStorage.removeItem("khaneyar.intro.draft");
+      for (const k of FLAG_KEYS) localStorage.removeItem(k);
     } catch {
       /* بی‌خطر */
     }
@@ -159,7 +169,7 @@ export function DevPanel({
       <div className="dev-group">
         <span className="dev-label">ابزار</span>
         <button type="button" className="dev-btn" onClick={resetIntro}>
-          پاک‌کردن فلگ آنبوردینگ و بارگذاری دوباره
+          پاک‌کردن فلگ‌های آنبوردینگ/نصب و بارگذاری دوباره
         </button>
       </div>
     </div>
