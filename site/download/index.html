@@ -1,320 +1,797 @@
 <!doctype html>
 <html lang="fa" dir="rtl">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>دریافت خانه‌یار — اندروید و آیفون</title>
-<meta name="description" content="خانه‌یار را روی اندروید نصب کنید یا روی آیفون و آیپد در مرورگر باز کنید؛ راهنمای نصب و افزودن به صفحهٔ اصلی.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Cpath fill='%230D1B2A' d='M48 7 85 35H72L48 17 24 35H11L48 7Z'/%3E%3Cpath fill='%230D1B2A' d='M18 37h17v42H18zM61 37h17v42H61z'/%3E%3Cpath fill='%2310B981' d='M39 79V57c0-5 4-9 9-9s9 4 9 9v22H39Z'/%3E%3Cpath fill='%230D1B2A' d='M31 79h34v6H31z'/%3E%3C/svg%3E">
-<link rel="canonical" href="https://khaanehyar.ir/download/">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="خانه‌یار">
-<meta property="og:title" content="دریافت خانه‌یار — اندروید و آیفون">
-<meta property="og:description" content="اپ اندروید یا نسخهٔ مرورگر برای آیفون و آیپد.">
-<meta property="og:url" content="https://khaanehyar.ir/download/">
-<meta name="theme-color" content="#0D1B2A">
-<link rel="stylesheet" href="../assets/styles.css">
-<!-- بدون JS، .reveal با opacity:0 می‌ماند و گزینه‌های دریافت نامرئی می‌شوند.
-     اینجا برخلافِ صفحهٔ اصلی، .reveal روی محتوای اصلیِ صفحه است. -->
-<noscript><style>.reveal { opacity: 1 !important; transform: none !important; }</style></noscript>
-</head>
-<body>
-
-<!-- ═══════════════════════════════════════════════════════════════════════
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>دریافت خانه‌یار — اندروید و آیفون</title>
+    <meta
+      name="description"
+      content="خانه‌یار را روی اندروید نصب کنید یا روی آیفون و آیپد در مرورگر باز کنید؛ راهنمای نصب و افزودن به صفحهٔ اصلی."
+    />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Cpath fill='%230D1B2A' d='M48 7 85 35H72L48 17 24 35H11L48 7Z'/%3E%3Cpath fill='%230D1B2A' d='M18 37h17v42H18zM61 37h17v42H61z'/%3E%3Cpath fill='%2310B981' d='M39 79V57c0-5 4-9 9-9s9 4 9 9v22H39Z'/%3E%3Cpath fill='%230D1B2A' d='M31 79h34v6H31z'/%3E%3C/svg%3E"
+    />
+    <link rel="canonical" href="https://khaanehyar.ir/download/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="خانه‌یار" />
+    <meta property="og:title" content="دریافت خانه‌یار — اندروید و آیفون" />
+    <meta
+      property="og:description"
+      content="نرم افزار اندروید یا نسخهٔ مرورگر برای آیفون و آیپد."
+    />
+    <meta property="og:url" content="https://khaanehyar.ir/download/" />
+    <meta name="theme-color" content="#0D1B2A" />
+    <link rel="stylesheet" href="../assets/styles.css" />
+    <!-- بدون JS دو چیز باید جبران شود:
+     ۱. .reveal با opacity:0 می‌ماند (این صفحه فعلاً مصرف‌کننده‌ای ندارد، ولی می‌ماند).
+     ۲. کلیدِ دوتایی بی‌معنی است، چون عوض‌کردنِ پنل کارِ جاوااسکریپت است؛
+        پس پنهانش می‌کنیم و هر دو پنل باز می‌مانند. -->
+    <noscript
+      ><style>
+        .reveal {
+          opacity: 1 !important;
+          transform: none !important;
+        }
+        .dl-seg {
+          display: none;
+        }
+      </style></noscript
+    >
+  </head>
+  <body>
+    <!-- ═══════════════════════════════════════════════════════════════════════
      نشانِ فروشگاه‌ها — SVG درون‌خطی، بدون تصویر بیرونی
 
-     قاعده (همان قاعدهٔ نشان‌های بازارِ اپ): هر نشان دست‌نویس است تا صفحه
+     قاعده (همان قاعدهٔ نشان‌های بازارِ نرم افزار): هر نشان دست‌نویس است تا صفحه
      به شبکه وابسته نباشد و لوگوی رسمیِ کسی عیناً بازتولید نشود.
 
      ── چطور یک فروشگاهِ تازه اضافه می‌شود؟ ──
      ۱. اگر نشانش اینجا نیست، یک <symbol> تازه با شناسهٔ m-… بساز.
-     ۲. در .src-list همان پلتفرم، یک <li class="src"> تازه بگذار و در
-        <span class="src-mark on-…"> به آن symbol ارجاع بده.
+     ۲. داخل .dl-alt همان پنل، یک <div class="dl-alt-row"> تازه بگذار و در
+        <span class="dl-alt-mark on-…"> به آن symbol ارجاع بده.
      ۳. رنگِ کفِ نشان را با یک کلاسِ on-… در styles.css تعریف کن.
      نشان‌های m-play و m-appstore و m-sibapp از حالا آماده‌اند و منتظرِ
-     همان یک <li>؛ تا آن روز اینجا بی‌اثر می‌مانند.
+     همان یک ردیف؛ تا آن روز اینجا بی‌اثر می‌مانند. m-direct و m-pwa و m-ios
+     هم پس از بازطراحیِ ۱۴۰۵/۰۶/۲۵ فعلاً بی‌مصرف‌اند (دکمهٔ اصلی آیکونِ
+     درون‌خطیِ خودش را دارد)، ولی برای صفحه‌های بعدی نگه داشته شده‌اند.
      ═══════════════════════════════════════════════════════════════════ -->
-<svg class="mark-defs" aria-hidden="true" focusable="false">
-  <!-- اندروید — سرِ ربات -->
-  <symbol id="m-android" viewBox="0 0 24 24">
-    <path fill="#3DDC84" d="M7.6 5.3 6.35 3.15a.52.52 0 0 1 .9-.52L8.52 4.8a8.6 8.6 0 0 1 6.96 0l1.27-2.17a.52.52 0 0 1 .9.52L16.4 5.3a7.4 7.4 0 0 1 3.6 6.1H4a7.4 7.4 0 0 1 3.6-6.1Z"/>
-    <circle cx="9" cy="8.5" r="1" fill="#fff"/>
-    <circle cx="15" cy="8.5" r="1" fill="#fff"/>
-    <rect x="4" y="12.6" width="16" height="7.6" rx="1.8" fill="#3DDC84"/>
-  </symbol>
+    <svg class="mark-defs" aria-hidden="true" focusable="false">
+      <!-- اندروید — سرِ ربات -->
+      <symbol id="m-android" viewBox="0 0 24 24">
+        <path
+          fill="#3DDC84"
+          d="M7.6 5.3 6.35 3.15a.52.52 0 0 1 .9-.52L8.52 4.8a8.6 8.6 0 0 1 6.96 0l1.27-2.17a.52.52 0 0 1 .9.52L16.4 5.3a7.4 7.4 0 0 1 3.6 6.1H4a7.4 7.4 0 0 1 3.6-6.1Z"
+        />
+        <circle cx="9" cy="8.5" r="1" fill="#fff" />
+        <circle cx="15" cy="8.5" r="1" fill="#fff" />
+        <rect x="4" y="12.6" width="16" height="7.6" rx="1.8" fill="#3DDC84" />
+      </symbol>
 
-  <!-- آیفون/آیپد — قابِ دستگاه -->
-  <symbol id="m-ios" viewBox="0 0 24 24">
-    <rect x="5.9" y="2.2" width="12.2" height="19.6" rx="3.2" fill="none" stroke="#0D1B2A" stroke-width="1.8"/>
-    <path d="M10.2 4.9h3.6" fill="none" stroke="#0D1B2A" stroke-width="1.7" stroke-linecap="round"/>
-    <path d="M9.6 19.2h4.8" fill="none" stroke="#0D1B2A" stroke-width="1.7" stroke-linecap="round"/>
-  </symbol>
+      <!-- آیفون/آیپد — قابِ دستگاه -->
+      <symbol id="m-ios" viewBox="0 0 24 24">
+        <rect
+          x="5.9"
+          y="2.2"
+          width="12.2"
+          height="19.6"
+          rx="3.2"
+          fill="none"
+          stroke="#0D1B2A"
+          stroke-width="1.8"
+        />
+        <path
+          d="M10.2 4.9h3.6"
+          fill="none"
+          stroke="#0D1B2A"
+          stroke-width="1.7"
+          stroke-linecap="round"
+        />
+        <path
+          d="M9.6 19.2h4.8"
+          fill="none"
+          stroke="#0D1B2A"
+          stroke-width="1.7"
+          stroke-linecap="round"
+        />
+      </symbol>
 
-  <!-- دانلود مستقیم — از سرورِ خودمان -->
-  <symbol id="m-direct" viewBox="0 0 24 24">
-    <path fill="none" stroke="#047857" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 3.2v11.2M7.7 10.1 12 14.4l4.3-4.3M4.6 19.8h14.8"/>
-  </symbol>
+      <!-- همان قاب، با خطِ سفید — برای سرستونِ سرمه‌ایِ کارت.
+       m-ios خطش سرمه‌ای است و روی زمینهٔ سرمه‌ای دیده نمی‌شود. -->
+      <symbol id="m-ios-w" viewBox="0 0 24 24">
+        <rect
+          x="5.9"
+          y="2.2"
+          width="12.2"
+          height="19.6"
+          rx="3.2"
+          fill="none"
+          stroke="#FFFFFF"
+          stroke-width="1.8"
+        />
+        <path
+          d="M10.2 4.9h3.6"
+          fill="none"
+          stroke="#FFFFFF"
+          stroke-width="1.7"
+          stroke-linecap="round"
+        />
+        <path
+          d="M9.6 19.2h4.8"
+          fill="none"
+          stroke="#FFFFFF"
+          stroke-width="1.7"
+          stroke-linecap="round"
+        />
+      </symbol>
 
-  <!-- کافه‌بازار — کیفِ خرید -->
-  <symbol id="m-bazaar" viewBox="0 0 24 24">
-    <path fill="#0FB86E" d="M4.4 7.7h15.2l-1.05 10.9a2.2 2.2 0 0 1-2.2 2H7.65a2.2 2.2 0 0 1-2.2-2L4.4 7.7Z"/>
-    <path fill="none" stroke="#0FB86E" stroke-width="1.9" stroke-linecap="round" d="M8.5 8.3V6.1a3.5 3.5 0 0 1 7 0v2.2"/>
-    <path fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" d="M9.4 12.9a3.1 3.1 0 0 0 5.2 0"/>
-  </symbol>
+      <!-- دانلود مستقیم — از سرورِ خودمان -->
+      <symbol id="m-direct" viewBox="0 0 24 24">
+        <path
+          fill="none"
+          stroke="#047857"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M12 3.2v11.2M7.7 10.1 12 14.4l4.3-4.3M4.6 19.8h14.8"
+        />
+      </symbol>
 
-  <!-- نسخهٔ مرورگر (PWA) — خانه‌یار داخلِ پنجرهٔ مرورگر -->
-  <symbol id="m-pwa" viewBox="0 0 24 24">
-    <rect x="2.4" y="4" width="19.2" height="16" rx="3.2" fill="#0D1B2A"/>
-    <circle cx="5.7" cy="7.3" r=".72" fill="#64748B"/>
-    <circle cx="8" cy="7.3" r=".72" fill="#64748B"/>
-    <circle cx="10.3" cy="7.3" r=".72" fill="#64748B"/>
-    <path fill="#34D399" d="M12 9.5 17.6 14h-1.9v4.1h-2.5v-2.7h-2.4v2.7H8.3V14H6.4L12 9.5Z"/>
-  </symbol>
+      <!-- کافه‌بازار — کیفِ خرید -->
+      <symbol id="m-bazaar" viewBox="0 0 24 24">
+        <path
+          fill="#0FB86E"
+          d="M4.4 7.7h15.2l-1.05 10.9a2.2 2.2 0 0 1-2.2 2H7.65a2.2 2.2 0 0 1-2.2-2L4.4 7.7Z"
+        />
+        <path
+          fill="none"
+          stroke="#0FB86E"
+          stroke-width="1.9"
+          stroke-linecap="round"
+          d="M8.5 8.3V6.1a3.5 3.5 0 0 1 7 0v2.2"
+        />
+        <path
+          fill="none"
+          stroke="#fff"
+          stroke-width="1.7"
+          stroke-linecap="round"
+          d="M9.4 12.9a3.1 3.1 0 0 0 5.2 0"
+        />
+      </symbol>
 
-  <!-- گوگل‌پلی — آماده برای انتشارِ بعدی -->
-  <symbol id="m-play" viewBox="0 0 24 24">
-    <path fill="#0FA958" d="M4.7 2.7 15 12 4.7 21.3a1.6 1.6 0 0 1-.7-1.35V4.05c0-.55.28-1.04.7-1.35Z"/>
-    <path fill="#F5A623" d="M15 12 4.7 21.3c.36.27.85.31 1.27.07l8.2-4.72L15 12Z"/>
-    <path fill="#E0533D" d="M15 12l-.83-4.65-8.2-4.72A1.15 1.15 0 0 0 4.7 2.7L15 12Z"/>
-    <path fill="#1F8FE0" d="m15 12 1.3 1.17 2.9-1.67a1.72 1.72 0 0 0 0-3l-2.9-1.67L15 12Z"/>
-  </symbol>
+      <!-- نسخهٔ مرورگر (PWA) — خانه‌یار داخلِ پنجرهٔ مرورگر -->
+      <symbol id="m-pwa" viewBox="0 0 24 24">
+        <rect x="2.4" y="4" width="19.2" height="16" rx="3.2" fill="#0D1B2A" />
+        <circle cx="5.7" cy="7.3" r=".72" fill="#64748B" />
+        <circle cx="8" cy="7.3" r=".72" fill="#64748B" />
+        <circle cx="10.3" cy="7.3" r=".72" fill="#64748B" />
+        <path
+          fill="#34D399"
+          d="M12 9.5 17.6 14h-1.9v4.1h-2.5v-2.7h-2.4v2.7H8.3V14H6.4L12 9.5Z"
+        />
+      </symbol>
 
-  <!-- اپ‌استور — آماده برای انتشارِ بعدی -->
-  <symbol id="m-appstore" viewBox="0 0 24 24">
-    <rect x="2.4" y="2.4" width="19.2" height="19.2" rx="4.8" fill="#0D7EF7"/>
-    <path fill="none" stroke="#fff" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M7.9 16.9 12 8.1l4.1 8.8M9.6 14.1h4.8"/>
-  </symbol>
+      <!-- گوگل‌پلی — آماده برای انتشارِ بعدی -->
+      <symbol id="m-play" viewBox="0 0 24 24">
+        <path
+          fill="#0FA958"
+          d="M4.7 2.7 15 12 4.7 21.3a1.6 1.6 0 0 1-.7-1.35V4.05c0-.55.28-1.04.7-1.35Z"
+        />
+        <path
+          fill="#F5A623"
+          d="M15 12 4.7 21.3c.36.27.85.31 1.27.07l8.2-4.72L15 12Z"
+        />
+        <path
+          fill="#E0533D"
+          d="M15 12l-.83-4.65-8.2-4.72A1.15 1.15 0 0 0 4.7 2.7L15 12Z"
+        />
+        <path
+          fill="#1F8FE0"
+          d="m15 12 1.3 1.17 2.9-1.67a1.72 1.72 0 0 0 0-3l-2.9-1.67L15 12Z"
+        />
+      </symbol>
 
-  <!-- سیب‌اپ و بازارهای ایرانیِ iOS — آماده برای انتشارِ بعدی -->
-  <symbol id="m-sibapp" viewBox="0 0 24 24">
-    <path fill="#E8433A" d="M12 7.4c1.45-1.2 3.4-1.3 4.75-.1 1.95 1.7 2 5.2-.25 8.4-1.05 1.5-2.25 3-3.4 3-.6 0-.9-.3-1.1-.3s-.5.3-1.1.3c-1.15 0-2.35-1.5-3.4-3-2.25-3.2-2.2-6.7-.25-8.4 1.35-1.2 3.3-1.1 4.75.1Z"/>
-    <path fill="#2F9E5B" d="M12 7.4c-.25-1.7.75-3.15 2.45-3.65.3 1.8-.7 3.25-2.45 3.65Z"/>
-  </symbol>
-</svg>
+      <!-- نرم افزار‌استور — آماده برای انتشارِ بعدی -->
+      <symbol id="m-appstore" viewBox="0 0 24 24">
+        <rect
+          x="2.4"
+          y="2.4"
+          width="19.2"
+          height="19.2"
+          rx="4.8"
+          fill="#0D7EF7"
+        />
+        <path
+          fill="none"
+          stroke="#fff"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M7.9 16.9 12 8.1l4.1 8.8M9.6 14.1h4.8"
+        />
+      </symbol>
 
-<!-- ═══════════ هدر ═══════════ -->
-<header class="site-header">
-  <div class="container header-inner">
-    <a class="brand" href="../" aria-label="خانه‌یار">
-      <svg viewBox="0 0 96 96" role="img" aria-hidden="true">
-        <path fill="#0D1B2A" d="M48 7 85 35H72L48 17 24 35H11L48 7Z"/>
-        <path fill="#0D1B2A" d="M18 37h17v42H18zM61 37h17v42H61z"/>
-        <path fill="#10B981" d="M39 79V57c0-5 4-9 9-9s9 4 9 9v22H39Z"/>
-        <path fill="#34D399" d="M44 43h8l-4-5-4 5Z"/>
-        <path fill="#0D1B2A" d="M31 79h34v6H31z"/>
-      </svg>
-      <span class="brand-name">خانه‌یار<small>دستیار مالی و مدیریتی خانواده</small></span>
-    </a>
-    <nav class="main-nav" aria-label="منوی اصلی">
-      <a href="../#features">امکانات</a>
-      <a href="../#app">نمای اپ</a>
-      <a href="../#security">امنیت</a>
-      <a href="../#faq">سوالات</a>
-    </nav>
-    <div class="header-cta">
-      <a class="btn btn-primary" href="https://pwa.khaanehyar.ir">باز کردن خانه‌یار</a>
-    </div>
-  </div>
-</header>
+      <!-- سیب‌نرم افزار و بازارهای ایرانیِ iOS — آماده برای انتشارِ بعدی -->
+      <symbol id="m-sibapp" viewBox="0 0 24 24">
+        <path
+          fill="#E8433A"
+          d="M12 7.4c1.45-1.2 3.4-1.3 4.75-.1 1.95 1.7 2 5.2-.25 8.4-1.05 1.5-2.25 3-3.4 3-.6 0-.9-.3-1.1-.3s-.5.3-1.1.3c-1.15 0-2.35-1.5-3.4-3-2.25-3.2-2.2-6.7-.25-8.4 1.35-1.2 3.3-1.1 4.75.1Z"
+        />
+        <path
+          fill="#2F9E5B"
+          d="M12 7.4c-.25-1.7.75-3.15 2.45-3.65.3 1.8-.7 3.25-2.45 3.65Z"
+        />
+      </symbol>
+    </svg>
 
-<main>
+    <!-- ═══════════ هدر ═══════════ -->
+    <header class="site-header">
+      <div class="container header-inner">
+        <a class="brand" href="../" aria-label="خانه‌یار">
+          <svg viewBox="0 0 96 96" role="img" aria-hidden="true">
+            <path fill="#0D1B2A" d="M48 7 85 35H72L48 17 24 35H11L48 7Z" />
+            <path fill="#0D1B2A" d="M18 37h17v42H18zM61 37h17v42H61z" />
+            <path fill="#10B981" d="M39 79V57c0-5 4-9 9-9s9 4 9 9v22H39Z" />
+            <path fill="#34D399" d="M44 43h8l-4-5-4 5Z" />
+            <path fill="#0D1B2A" d="M31 79h34v6H31z" />
+          </svg>
+          <span class="brand-name"
+            >خانه‌یار<small>دستیار مالی و مدیریتی خانواده</small></span
+          >
+        </a>
+        <nav class="main-nav" aria-label="منوی اصلی">
+          <a href="../#features">امکانات</a>
+          <a href="../#app">نمای نرم افزار</a>
+          <a href="../#security">امنیت</a>
+          <a href="../#faq">سوالات</a>
+        </nav>
+        <div class="header-cta">
+          <a class="btn btn-primary" href="https://pwa.khaanehyar.ir"
+            >باز کردن خانه‌یار</a
+          >
+        </div>
+      </div>
+    </header>
 
-<!-- ═══════════ هیرو ═══════════ -->
-<section class="page-hero">
-  <div class="container">
-    <a class="crumb" href="../">
-      <svg class="ic" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
-      بازگشت به صفحهٔ اصلی
-    </a>
-    <h1>خانه‌یار را روی گوشی<br>خودتان بیاورید</h1>
-    <p class="lead">
-      روی اندروید اپ را نصب کنید؛ روی آیفون و آیپد خانه‌یار در مرورگر باز می‌شود و
-      می‌توانید به صفحهٔ اصلی اضافه‌اش کنید. هر راهی که بروید یک برنامه است و به یک حساب وصل می‌شود.
-    </p>
-  </div>
-</section>
-
-<!-- ═══════════ قفسهٔ پلتفرم‌ها ═══════════ -->
-<section class="section" style="padding-top:44px;padding-bottom:64px">
-  <div class="container">
-    <div class="plat-list reveal">
-
-      <!-- ── اندروید ── -->
-      <section class="plat" id="android" aria-labelledby="h-android">
-        <header class="plat-head">
-          <svg class="plat-ic" aria-hidden="true"><use href="#m-android"/></svg>
-          <div class="plat-title">
-            <h2 id="h-android">اندروید</h2>
-            <p>گوشی و تبلت اندرویدی، نسخهٔ ۶ به بالا</p>
-          </div>
-          <span class="plat-ver">نسخهٔ ۱.۱</span>
-        </header>
-
-        <ul class="src-list">
-          <li class="src">
-            <span class="src-mark on-direct"><svg class="mark" aria-hidden="true"><use href="#m-direct"/></svg></span>
-            <div class="src-body">
-              <h3>دانلود مستقیم</h3>
-              <p>فایل نصب را بدون واسطه از سرور خودمان بگیرید. حساب کاربری لازم نیست و بعد از نصب، به‌روزرسانی‌ها خودشان می‌آیند.</p>
-            </div>
-            <div class="src-act">
-              <a class="btn btn-primary" href="../khanehyar.apk" download>
-                <svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
-                دریافت فایل نصب
+    <main>
+      <!-- ═══════════ هیرو + انتخابِ پلتفرم ═══════════
+     یک بخش، سه فرزند. ترتیبِ DOM همان ترتیبِ خواندن روی موبایل است:
+     تیتر → لید → گوشی → کلید → کارت. روی دسکتنرم افزار (۹۲۰ به بالا) گوشی
+     به ستون دوم می‌رود و هر دو ردیف را می‌گیرد. -->
+      <section class="page-hero">
+        <div class="container">
+          <div class="dl-grid">
+            <div class="dl-head">
+              <a class="crumb" href="../">
+                <svg class="ic" viewBox="0 0 24 24">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+                بازگشت به صفحهٔ اصلی
               </a>
-              <span class="src-note">حدود ۳٫۳ مگابایت</span>
+              <h1>خانه‌یار را روی گوشی<br />خودتان بیاورید</h1>
+              <p class="lead">
+                روی اندروید نرم افزار را نصب کنید؛ روی آیفون و آیپد خانه‌یار در
+                مرورگر باز می‌شود و می‌توانید به صفحهٔ اصلی اضافه‌اش کنید. هر
+                راهی که بروید یک برنامه است و به یک حساب وصل می‌شود.
+              </p>
             </div>
-          </li>
 
-          <li class="src is-soon">
-            <span class="src-mark on-bazaar"><svg class="mark" aria-hidden="true"><use href="#m-bazaar"/></svg></span>
-            <div class="src-body">
-              <h3>کافه‌بازار</h3>
-              <p>اگر به نصب از بازار عادت دارید، خانه‌یار در صفِ انتشار است. همین اپ است، فقط از مسیر بازار.</p>
-            </div>
-            <div class="src-act">
-              <span class="src-state">
-                <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-                در حال بررسی
-              </span>
-              <span class="src-note">به‌محض تأیید، همین‌جا فعال می‌شود</span>
-            </div>
-          </li>
-        </ul>
-      </section>
+            <!-- ماکنرم افزار گوشی — همان داشبوردِ صفحهٔ اصلی، تا هر دو صفحه یک چیز را نشان دهند.
+                 قابْ دو حالت دارد: با کلاسِ .android قابِ سامسونگ (سوراخِ وسط، هر دو
+                 کلید روی لبهٔ راست، نوارِ وضعیتِ اندرویدی) و بدونِ آن قابِ آیفون
+                 (جزیره، کلیدِ اکشن و صدا روی لبهٔ چپ). محتوای صفحه یکی می‌ماند چون
+                 خودِ نرم افزار یکی است. جابه‌جایی را همان اسکریپتِ تب‌ها انجام می‌دهد؛ اینجا
+                 پیش‌فرض اندروید است تا با تبِ پیش‌فرضِ HTML بخواند. -->
+            <div class="dl-aside">
+              <div
+                class="phone android"
+                id="dl-phone"
+                role="img"
+                aria-label="داشبورد اصلی خانه‌یار روی گوشی اندروید"
+              >
+                <span class="side power"></span>
+                <span class="side action"></span>
+                <span class="side vol1"></span>
+                <span class="side vol2"></span>
+                <span class="side a-vol"></span>
+                <span class="side a-power"></span>
+                <div class="phone-screen">
+                  <span class="island"></span>
+                  <span class="punch"></span>
+                  <div class="p-status">
+                    <b>9:41</b>
+                    <span class="p-icons st-ios">
+                      <svg class="ic" viewBox="0 0 24 24">
+                        <path d="M2 20h.01M7 20v-4M12 20v-8M17 20V8M22 20V4" />
+                      </svg>
+                      <svg class="ic" viewBox="0 0 24 24">
+                        <rect x="2" y="7" width="18" height="10" rx="2" />
+                        <path d="M22 11v2" />
+                      </svg>
+                    </span>
+                    <span class="p-icons st-android">
+                      <svg class="ic" viewBox="0 0 24 24">
+                        <path d="M3.5 10.4a13 13 0 0 1 17 0" />
+                        <path d="M7 14a8.4 8.4 0 0 1 10 0" />
+                        <path d="M12 19.6h.01" />
+                      </svg>
+                      <svg class="ic" viewBox="0 0 24 24">
+                        <path d="M4 20v-3M9 20v-6M14 20v-9M19 20v-12" />
+                      </svg>
+                      <b class="p-batt">87</b>
+                      <svg class="ic" viewBox="0 0 24 24">
+                        <rect x="7" y="5" width="10" height="16" rx="3" />
+                        <path d="M10 3.2h4" />
+                        <rect
+                          class="ic-fill"
+                          x="9"
+                          y="10"
+                          width="6"
+                          height="9"
+                          rx="1.5"
+                        />
+                      </svg>
+                    </span>
+                  </div>
 
-      <!-- ── آیفون و آیپد ── -->
-      <section class="plat" id="ios" aria-labelledby="h-ios">
-        <header class="plat-head">
-          <svg class="plat-ic" aria-hidden="true"><use href="#m-ios"/></svg>
-          <div class="plat-title">
-            <h2 id="h-ios">آیفون و آیپد</h2>
-            <p>و هر دستگاه دیگری که مرورگر دارد</p>
+                  <div class="p-hub">
+                    <header class="p-hub-head">
+                      <div class="p-app-title">
+                        <h1>خانهٔ احمدی</h1>
+                        <p>سلام، علی 👋</p>
+                      </div>
+                      <span class="p-avatar">ع</span>
+                    </header>
+                    <p class="p-date">شنبه، ۲۳ شهریور</p>
+
+                    <div class="p-hub-add">
+                      <span class="p-hub-add-ic"
+                        ><svg class="ic" viewBox="0 0 24 24">
+                          <path d="M12 5v14M5 12h14" /></svg
+                      ></span>
+                      <span class="p-hub-add-txt">
+                        <b>ثبت سریع خرج یا کار</b>
+                        <span>سریع‌ترین راه برای ثبت یک مورد جدید</span>
+                      </span>
+                    </div>
+
+                    <div class="p-tiles">
+                      <div class="p-tile">
+                        <div class="p-tile-top">
+                          <b>قبض‌ها</b
+                          ><span class="p-tile-ic tone-amber"
+                            ><svg class="ic" viewBox="0 0 24 24">
+                              <path
+                                d="M5 3h14v18l-2.5-1.5L14 21l-2-1.5L10 21l-2.5-1.5L5 21V3z"
+                              />
+                              <path d="M9 8h6M9 12h4" /></svg
+                          ></span>
+                        </div>
+                        <span class="p-tile-val">۳ روز</span>
+                        <span class="p-tile-sub">تا سررسید قبض برق</span>
+                      </div>
+                      <div class="p-tile">
+                        <div class="p-tile-top">
+                          <b>کارها</b
+                          ><span class="p-tile-ic tone-rose"
+                            ><svg class="ic" viewBox="0 0 24 24">
+                              <circle cx="12" cy="12" r="9" />
+                              <path d="M8.5 12.5l2.5 2.5 4.5-5" /></svg
+                          ></span>
+                        </div>
+                        <span class="p-tile-val">۲ کار</span>
+                        <span class="p-tile-sub">عقب‌افتادهٔ امروز</span>
+                      </div>
+                      <div class="p-tile">
+                        <div class="p-tile-top">
+                          <b>تعمیرات</b
+                          ><span class="p-tile-ic tone-sky"
+                            ><svg class="ic" viewBox="0 0 24 24">
+                              <path
+                                d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
+                              /></svg
+                          ></span>
+                        </div>
+                        <span class="p-tile-val">۱۰ روز</span>
+                        <span class="p-tile-sub">تا سرویس دوره‌ای کولر</span>
+                      </div>
+                      <div class="p-tile">
+                        <div class="p-tile-top">
+                          <b>بودجه</b
+                          ><span class="p-tile-ic tone-emerald"
+                            ><svg class="ic" viewBox="0 0 24 24">
+                              <path d="M7 4v13M7 17l-3-3M7 17l3-3" />
+                              <path d="M17 20V7M17 7l3 3M17 7l-3 3" /></svg
+                          ></span>
+                        </div>
+                        <span class="p-tile-bar"
+                          ><i style="width: 75%"></i
+                        ></span>
+                        <span class="p-tile-sub"
+                          >بودجهٔ شهریور — ۷۵٪ مصرف شده</span
+                        >
+                      </div>
+                      <div class="p-tile">
+                        <div class="p-tile-top">
+                          <b>رویدادها</b
+                          ><span class="p-tile-ic tone-violet"
+                            ><svg class="ic" viewBox="0 0 24 24">
+                              <rect x="3" y="5" width="18" height="16" rx="3" />
+                              <path d="M8 3v4M16 3v4M3 11h18" /></svg
+                          ></span>
+                        </div>
+                        <span class="p-tile-val">جمعه</span>
+                        <span class="p-tile-sub">تولد سارا 🎂</span>
+                      </div>
+                      <div class="p-tile">
+                        <div class="p-tile-top">
+                          <b>انبار خانه</b
+                          ><span class="p-tile-ic tone-teal"
+                            ><svg class="ic" viewBox="0 0 24 24">
+                              <circle cx="9" cy="21" r="1.6" />
+                              <circle cx="19" cy="21" r="1.6" />
+                              <path
+                                d="M2.5 3h2l2.4 12.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L22 7H6"
+                              /></svg
+                          ></span>
+                        </div>
+                        <span class="p-tile-val">۲ قلم</span>
+                        <span class="p-tile-sub"
+                          >رو به اتمام — ظرفشویی، مایع دستشویی</span
+                        >
+                      </div>
+                    </div>
+                  </div>
+
+                  <span class="p-home-bar"></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- ستونِ کنش: کلیدِ دوتایی، کارتِ پلتفرم، QR دسکتنرم افزار، هشدارِ منبع -->
+            <div class="dl-pick">
+              <div class="dl-seg" role="tablist" aria-label="انتخاب سیستم‌عامل">
+                <button
+                  type="button"
+                  class="dl-seg-btn"
+                  role="tab"
+                  id="seg-android"
+                  aria-controls="android"
+                  aria-selected="true"
+                  tabindex="0"
+                >
+                  Android
+                </button>
+                <button
+                  type="button"
+                  class="dl-seg-btn"
+                  role="tab"
+                  id="seg-ios"
+                  aria-controls="ios"
+                  aria-selected="false"
+                  tabindex="-1"
+                >
+                  IOS
+                </button>
+              </div>
+
+              <!-- ── اندروید ── -->
+              <section
+                class="dl-card"
+                id="android"
+                role="tabpanel"
+                aria-labelledby="seg-android"
+              >
+                <header class="dl-card-head">
+                  <span class="dl-mark"
+                    ><svg class="mark" aria-hidden="true">
+                      <use href="#m-android" /></svg
+                  ></span>
+                  <div>
+                    <h2>نسخه مخصوص اندروید</h2>
+                    <p>اندروید ۶ به بالا</p>
+                  </div>
+                  <span class="dl-ver">نسخهٔ ۱.۱</span>
+                </header>
+
+                <div class="dl-body">
+                  <a class="btn btn-primary" href="../khanehyar.apk" download>
+                    <svg class="ic" viewBox="0 0 24 24">
+                      <path d="M12 3v12" />
+                      <path d="M7 10l5 5 5-5" />
+                      <path d="M4 21h16" />
+                    </svg>
+                    دریافت فایل
+                  </a>
+                </div>
+
+                <div class="dl-alt">
+                  <div class="dl-alt-row">
+                    <span class="dl-alt-mark on-bazaar"
+                      ><svg class="mark" aria-hidden="true">
+                        <use href="#m-bazaar" /></svg
+                    ></span>
+                    <div class="dl-alt-body">
+                      <b>کافه‌بازار</b>
+                    </div>
+                    <span class="dl-state">
+                      <svg class="ic" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 7v5l3 2" />
+                      </svg>
+                      Soon
+                    </span>
+                  </div>
+                </div>
+              </section>
+
+              <!-- ── آیفون و آیپد ── -->
+              <section
+                class="dl-card"
+                id="ios"
+                role="tabpanel"
+                aria-labelledby="seg-ios"
+              >
+                <header class="dl-card-head">
+                  <span class="dl-mark"
+                    ><svg class="mark" aria-hidden="true">
+                      <use href="#m-ios-w" /></svg
+                  ></span>
+                  <div>
+                    <h2>آیفون و آیپد</h2>
+                  </div>
+                </header>
+
+                <div class="dl-body">
+                  <a class="btn btn-primary" href="https://pwa.khaanehyar.ir">
+                    <svg class="ic" viewBox="0 0 24 24">
+                      <path
+                        d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+                      />
+                      <path d="M15 3h6v6" />
+                      <path d="M10 14L21 3" />
+                    </svg>
+                    مشاهده نسخه تحت وب
+                  </a>
+                </div>
+
+                <div class="dl-steps">
+                  <h4>
+                    اگر می‌خواهید مثل یک نرم افزار برروی گوشی خود داشته باشید
+                  </h4>
+                  <ol class="mini-steps">
+                    <li>خانه‌یار را در <b>سافاری</b> باز کنید.</li>
+                    <li>
+                      دکمهٔ <code>اشتراک‌گذاری</code> پایین صفحه را بزنید.
+                    </li>
+                    <li>
+                      کمی پایین بروید و
+                      <code dir="ltr">Add to Home Screen</code> را انتخاب کنید.
+                    </li>
+                  </ol>
+                  <p>
+                    بعد از این، خانه‌یار آیکون خودش را روی صفحهٔ اصلی دارد و
+                    تمام‌صفحه باز می‌شود — بدون نوار آدرس.
+                  </p>
+                </div>
+              </section>
+
+              <!-- کد QR — فقط دسکتنرم افزار (CSS زیرِ ۹۲۰ پنهانش می‌کند).
+             SVG را `node tools/make-qr.cjs` می‌سازد و دقیقاً بینِ دو نشانهٔ
+             زیر جای‌گذاری می‌شود. تا آن موقع جعبه فقط نشانی را می‌گوید و
+             دروغ نمی‌گوید — «کد را اسکن کنید» ننوشته‌ایم. -->
+              <div class="dl-qr">
+                <!-- QR:BEGIN -->
+                <!-- QR:END -->
+              </div>
+
+              <div class="note-box">
+                <svg class="ic" viewBox="0 0 24 24">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+                  <path d="M9 12l2 2 4-4" />
+                </svg>
+                <p>
+                  فایل نصب فقط از <b>khaanehyar.ir</b> منتشر می‌شود. اگر
+                  خانه‌یار را از جای دیگری دانلود کردید، آن را نصب نکنید — ما
+                  هیچ نسخه‌ای را در هیچ شبکه اجتماعی و یا وبسایت دیگری منتشر
+                  نمیکنیم.
+                </p>
+              </div>
+            </div>
           </div>
-        </header>
-
-        <ul class="src-list">
-          <li class="src">
-            <span class="src-mark on-pwa"><svg class="mark" aria-hidden="true"><use href="#m-pwa"/></svg></span>
-            <div class="src-body">
-              <h3>نسخهٔ مرورگر</h3>
-              <p>چیزی نصب نمی‌شود و حافظه‌ای اشغال نمی‌کند؛ خانه‌یار در سافاری باز می‌شود و همیشه آخرین نسخه است.</p>
-            </div>
-            <div class="src-act">
-              <a class="btn btn-primary" href="https://pwa.khaanehyar.ir">
-                <svg class="ic" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
-                باز کردن خانه‌یار
-              </a>
-              <span class="src-note">بدون نصب، در همین مرورگر</span>
-            </div>
-          </li>
-        </ul>
-
-        <div class="src-extra">
-          <h4>اگر می‌خواهید مثل یک اپ باز شود</h4>
-          <ol class="mini-steps">
-            <li>خانه‌یار را در <b>سافاری</b> باز کنید.</li>
-            <li>دکمهٔ <code>اشتراک‌گذاری</code> پایین صفحه را بزنید.</li>
-            <li>کمی پایین بروید و <code>Add to Home Screen</code> را انتخاب کنید.</li>
-          </ol>
-          <p class="src-extra-note">
-            بعد از این، خانه‌یار آیکون خودش را روی صفحهٔ اصلی دارد و تمام‌صفحه باز می‌شود — بدون نوار آدرس.
-          </p>
         </div>
       </section>
 
-    </div>
+      <script>
+        // کلیدِ دوتایی. اولویتِ انتخاب: نشانیِ #android/#ios ← تشخیصِ خودکارِ سیستم‌عامل ← اندروید.
+        // این اسکریپت عمداً همین‌جاست و نه ته صفحه، تا پنلِ اضافی یک لحظه هم دیده نشود.
+        (function () {
+          var TABS = ["android", "ios"];
+          var btn = {
+            android: document.getElementById("seg-android"),
+            ios: document.getElementById("seg-ios"),
+          };
+          var panel = {
+            android: document.getElementById("android"),
+            ios: document.getElementById("ios"),
+          };
+          if (!btn.android || !btn.ios || !panel.android || !panel.ios) return;
 
-    <div class="note-box">
-      <svg class="ic" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M9 12l2 2 4-4"/></svg>
-      <p>
-        فایل نصب فقط از <b>khaanehyar.ir</b> منتشر می‌شود. اگر خانه‌یار را از جای دیگری دانلود کردید،
-        نصبش نکنید — ما هیچ نسخه‌ای را در کانال یا سایت دیگری نمی‌گذاریم.
-      </p>
-    </div>
-  </div>
-</section>
+          function select(name, focus) {
+            if (TABS.indexOf(name) < 0) return;
+            for (var i = 0; i < TABS.length; i++) {
+              var t = TABS[i],
+                on = t === name;
+              btn[t].setAttribute("aria-selected", on ? "true" : "false");
+              btn[t].tabIndex = on ? 0 : -1;
+              panel[t].hidden = !on;
+            }
+            if (focus) btn[name].focus();
+          }
 
-<!-- بخشِ «سه قدم تا نصب روی اندروید» در ۱۴۰۵/۰۶/۲۴ به خواستهٔ کاربر حذف شد.
+          function fromHash() {
+            var h = location.hash.replace("#", "");
+            return TABS.indexOf(h) < 0 ? "" : h;
+          }
+
+          function detect() {
+            var ua = navigator.userAgent;
+            // آیپدِ نسخهٔ ۱۳ به بعد خودش را مک معرفی می‌کند؛ لمسی‌بودن تنها تفاوتِ قابل اتکاست.
+            var isIOS =
+              /iPad|iPhone|iPod/.test(ua) ||
+              (navigator.platform === "MacIntel" &&
+                navigator.maxTouchPoints > 1);
+            // مکِ دسکتنرم افزار هم به پنلِ مرورگر می‌رود، چون APK به دردش نمی‌خورد.
+            return isIOS || /Macintosh/.test(ua) ? "ios" : "android";
+          }
+
+          select(fromHash() || detect(), false);
+
+          btn.android.addEventListener("click", function () {
+            select("android", false);
+          });
+          btn.ios.addEventListener("click", function () {
+            select("ios", false);
+          });
+
+          // فقط دو تب داریم، پس هر کلیدِ جهت یعنی «آن یکی» — چپ و راست در RTL جا عوض می‌کنند.
+          document
+            .querySelector(".dl-seg")
+            .addEventListener("keydown", function (e) {
+              if (["ArrowLeft", "ArrowRight", "Home", "End"].indexOf(e.key) < 0)
+                return;
+              e.preventDefault();
+              if (e.key === "Home") return select("android", true);
+              if (e.key === "End") return select("ios", true);
+              var cur =
+                btn.android.getAttribute("aria-selected") === "true"
+                  ? "android"
+                  : "ios";
+              select(cur === "android" ? "ios" : "android", true);
+            });
+
+          // لینک‌های فوترِ همین صفحه به #android و #ios می‌روند؛ پنلِ بسته باید باز شود.
+          window.addEventListener("hashchange", function () {
+            var h = fromHash();
+            if (h) select(h, true);
+          });
+        })();
+      </script>
+
+      <!-- بخشِ «سه قدم تا نصب روی اندروید» در ۱۴۰۵/۰۶/۲۴ به خواستهٔ کاربر حذف شد.
      خودِ اندروید سرِ باز کردنِ فایل راهنمایی می‌کند، پس تکرارش اینجا اضافه بود. -->
 
-<!-- ═══════════ به‌روزرسانی ═══════════ -->
-<section class="section alt">
-  <div class="container">
-    <div class="sec-head center">
-      <h2>یک‌بار نصب، همیشه تازه</h2>
-      <p>لازم نیست هر بار فایل جدید دانلود کنید.</p>
-    </div>
+      <!-- ═══════════ به‌روزرسانی ═══════════ -->
+      <section class="section alt">
+        <div class="container">
+          <div class="sec-head center">
+            <h2>یک‌بار نصب، همیشه تازه</h2>
+            <p>لازم نیست هر بار فایل جدید دانلود کنید.</p>
+          </div>
 
-    <div class="note-box" style="max-width:720px;margin-inline:auto">
-      <svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
-      <p>
-        خانه‌یار به‌روزرسانی‌هایش را خودش از اینترنت می‌گیرد. کافی است اپ را ببندید و دوباره باز کنید
-        تا آخرین نسخه بالا بیاید. فقط وقتی لازم است دوباره فایل نصب بگیرید که ما صریحاً اعلام کنیم —
-        یعنی وقتی خودِ پوستهٔ اندروید تغییر کرده باشد. در نسخهٔ مرورگر، این کار هم لازم نیست.
-      </p>
-    </div>
+          <div class="note-box" style="max-width: 720px; margin-inline: auto">
+            <svg class="ic" viewBox="0 0 24 24">
+              <path d="M21 12a9 9 0 1 1-2.6-6.4" />
+              <path d="M21 3v6h-6" />
+            </svg>
+            <p>
+              خانه‌یار به‌روزرسانی‌هایش را خودش از اینترنت می‌گیرد. کافی است نرم
+              افزار را ببندید و دوباره باز کنید تا آخرین نسخه بالا بیاید. فقط
+              وقتی لازم است دوباره فایل نصب بگیرید که ما صریحاً اعلام کنیم —
+              یعنی وقتی خودِ پوستهٔ اندروید تغییر کرده باشد. در نسخهٔ مرورگر،
+              این کار هم لازم نیست.
+            </p>
+          </div>
 
-    <p class="alt-line">
-      سؤالی مانده؟ <a href="../#faq">سوالات پرتکرار</a> را ببینید یا از صفحهٔ اصلی شروع کنید.
-    </p>
-  </div>
-</section>
+          <p class="alt-line">
+            سؤالی مانده؟ <a href="../#faq">سوالات پرتکرار</a> را ببینید یا از
+            صفحهٔ اصلی شروع کنید.
+          </p>
+        </div>
+      </section>
+    </main>
 
-</main>
-
-<!-- ═══════════ فوتر ═══════════ -->
-<footer class="site-footer">
-  <div class="container footer-inner">
-    <div class="footer-brand">
-      <svg viewBox="0 0 300 96" role="img" aria-label="خانه‌یار">
-        <g transform="translate(204 0)">
-          <path fill="#FFFFFF" d="M48 7 85 35H72L48 17 24 35H11L48 7Z"/>
-          <path fill="#FFFFFF" d="M18 37h17v42H18zM61 37h17v42H61z"/>
-          <path fill="#34D399" d="M39 79V57c0-5 4-9 9-9s9 4 9 9v22H39Z"/>
-          <path fill="#10B981" d="M44 43h8l-4-5-4 5Z"/>
-          <path fill="#FFFFFF" d="M31 79h34v6H31z"/>
-        </g>
-        <text x="188" y="52" text-anchor="end" font-family="Vazirmatn, sans-serif" font-size="30" font-weight="700" fill="#F4F6F9">خانه‌یار</text>
-        <text x="188" y="76" text-anchor="end" font-family="Vazirmatn, sans-serif" font-size="12.5" fill="#A8B0BD">دستیار مالی و مدیریتی خانواده</text>
-      </svg>
-      <p>از پول خرج ماه تا سرویس کولر؛ هر چیزی که خانه لازم دارد، یک‌جا و ساده.</p>
-    </div>
-    <nav class="footer-links" aria-label="لینک‌های فوتر">
-      <div>
-        <h4>معرفی</h4>
-        <a href="../#features">امکانات</a>
-        <a href="../#app">نمای اپ</a>
-        <a href="../#start-guide">شروع</a>
+    <!-- ═══════════ فوتر ═══════════ -->
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <div class="footer-brand">
+          <svg viewBox="0 0 300 96" role="img" aria-label="خانه‌یار">
+            <g transform="translate(204 0)">
+              <path fill="#FFFFFF" d="M48 7 85 35H72L48 17 24 35H11L48 7Z" />
+              <path fill="#FFFFFF" d="M18 37h17v42H18zM61 37h17v42H61z" />
+              <path fill="#34D399" d="M39 79V57c0-5 4-9 9-9s9 4 9 9v22H39Z" />
+              <path fill="#10B981" d="M44 43h8l-4-5-4 5Z" />
+              <path fill="#FFFFFF" d="M31 79h34v6H31z" />
+            </g>
+            <text
+              x="188"
+              y="52"
+              text-anchor="end"
+              font-family="Vazirmatn, sans-serif"
+              font-size="30"
+              font-weight="700"
+              fill="#F4F6F9"
+            >
+              خانه‌یار
+            </text>
+            <text
+              x="188"
+              y="76"
+              text-anchor="end"
+              font-family="Vazirmatn, sans-serif"
+              font-size="12.5"
+              fill="#A8B0BD"
+            >
+              دستیار مالی و مدیریتی خانواده
+            </text>
+          </svg>
+          <p>
+            از پول خرج ماه تا سرویس کولر؛ هر چیزی که خانه لازم دارد، یک‌جا و
+            ساده.
+          </p>
+        </div>
+        <nav class="footer-links" aria-label="لینک‌های فوتر">
+          <div>
+            <h4>معرفی</h4>
+            <a href="../#features">امکانات</a>
+            <a href="../#app">نمای نرم افزار</a>
+            <a href="../#start-guide">شروع</a>
+          </div>
+          <div>
+            <h4>دریافت</h4>
+            <a href="#android">نرم افزار اندروید</a>
+            <a href="#ios">آیفون و آیپد</a>
+            <a href="https://pwa.khaanehyar.ir">باز کردن در مرورگر</a>
+          </div>
+          <div>
+            <h4>اعتماد</h4>
+            <a href="../#security">امنیت و حریم خصوصی</a>
+            <a href="../#faq">سوالات پرتکرار</a>
+          </div>
+        </nav>
       </div>
-      <div>
-        <h4>دریافت</h4>
-        <a href="#android">اپ اندروید</a>
-        <a href="#ios">آیفون و آیپد</a>
-        <a href="https://pwa.khaanehyar.ir">باز کردن در مرورگر</a>
+      <div class="container footer-bottom">
+        <span>© ۱۴۰۵ خانه‌یار — تمام حقوق محفوظ است.</span>
+        <span
+          >ساخته‌شده با <span class="heart">♥</span> برای خانه‌های ایران</span
+        >
       </div>
-      <div>
-        <h4>اعتماد</h4>
-        <a href="../#security">امنیت و حریم خصوصی</a>
-        <a href="../#faq">سوالات پرتکرار</a>
-      </div>
-    </nav>
-  </div>
-  <div class="container footer-bottom">
-    <span>© ۱۴۰۵ خانه‌یار — تمام حقوق محفوظ است.</span>
-    <span>ساخته‌شده با <span class="heart">♥</span> برای خانه‌های ایران</span>
-  </div>
-</footer>
+    </footer>
 
-<script>
-// یک ورودِ واحد برای قفسهٔ پلتفرم‌ها — بقیهٔ صفحه بی‌حرکت است.
-const io = new IntersectionObserver(
-  (entries) => {
-    for (const e of entries) if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
-  },
-  { threshold: 0.12 }
-);
-document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
-</script>
-</body>
+    <script>
+      // این صفحه فعلاً بلوکِ .reveal ندارد (محتوای اصلی بالای خط است و باید فوری دیده شود).
+      // ناظر می‌ماند تا اگر بعداً بخشی با .reveal اضافه شد، خودبه‌خود کار کند.
+      const io = new IntersectionObserver(
+        (entries) => {
+          for (const e of entries)
+            if (e.isIntersecting) {
+              e.target.classList.add("in");
+              io.unobserve(e.target);
+            }
+        },
+        { threshold: 0.12 },
+      );
+      document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
+    </script>
+  </body>
 </html>

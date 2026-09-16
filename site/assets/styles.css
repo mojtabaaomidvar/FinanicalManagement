@@ -279,6 +279,62 @@ button { font: inherit; cursor: pointer; }
   background: rgba(13, 27, 42, 0.28); z-index: 45; pointer-events: none;
 }
 
+/* ─────────── قابِ اندروید (الگوی گوشی‌های سامسونگ) ───────────
+   محتوای صفحه یکی است چون خودِ اپ یکی است؛ فرق در خودِ دستگاه است و
+   عمداً کم‌شمار و واقعی نگه داشته شده:
+     · گوشهٔ تیزتر (گردیِ درشتِ آیفون را ندارد) و بدنهٔ روشن‌ترِ فلزی
+     · دوربینِ سوراخ‌وسط به‌جای جزیرهٔ کشیده
+     · هر دو کلید روی لبهٔ راست — کلیدِ صدا بالا، روشن/خاموش پایین
+     · نوار وضعیتِ اندرویدی: آنتن پلکانی، وای‌فای، و درصدِ باتری به عدد
+   کلاسِ .android را جاوااسکریپتِ صفحهٔ دانلود همراهِ تبِ فعال جابه‌جا
+   می‌کند؛ بدون جاوااسکریپت همان حالتِ اندروید (پیش‌فرضِ HTML) می‌ماند. */
+/* width و padding عمداً دست‌نخورده می‌مانند: قاب با عوض‌شدنِ تب نباید
+   بالا/پایین یا چپ/راست بپرد. تفاوت فقط در گردیِ گوشه و رنگِ بدنه است،
+   که از نازکیِ حاشیه هم چشمگیرتر است. */
+.phone.android {
+  border-radius: 40px;
+  background: linear-gradient(150deg, #9aa0a9 0%, #4f545c 30%, #24272c 58%, #737a84 100%);
+}
+.phone.android::before { border-radius: 35px; }
+.phone.android .phone-screen { border-radius: 30px; }
+
+/* دوربینِ سوراخ‌وسط */
+.punch {
+  position: absolute; top: 13px; left: 50%; transform: translateX(-50%);
+  width: 11px; height: 11px; border-radius: 50%; z-index: 45;
+  background: radial-gradient(circle at 34% 30%, #22344a 0 20%, #05070a 62%);
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.85);
+}
+/* کلیدهای لبهٔ راست — چپ/راستِ فیزیکی عمدی است: جای کلیدهای گوشیِ
+   واقعی با راست‌به‌چپ بودنِ صفحه عوض نمی‌شود. */
+.side.a-vol { right: -3.5px; top: 150px; height: 86px; }
+.side.a-power { right: -3.5px; top: 252px; height: 52px; }
+
+/* کدام جزء در کدام قاب دیده می‌شود */
+.phone .punch,
+.phone .side.a-vol,
+.phone .side.a-power,
+.phone .p-icons.st-android { display: none; }
+.phone.android .island,
+.phone.android .side.power,
+.phone.android .side.action,
+.phone.android .side.vol1,
+.phone.android .side.vol2,
+.phone.android .p-icons.st-ios { display: none; }
+.phone.android .punch { display: block; }
+.phone.android .side.a-vol,
+.phone.android .side.a-power { display: block; }
+.phone.android .p-icons.st-android { display: flex; }
+/* نوارِ اشارهٔ اندروید کمی باریک‌تر و پایین‌تر از آیفون است */
+.phone.android .p-home-bar { width: 98px; height: 4px; bottom: 9px; background: rgba(13, 27, 42, 0.34); }
+/* line-height: 1 لازم است وگرنه همین یک عدد می‌تواند ارتفاعِ نوار وضعیت را
+   نسبت به حالتِ آیفون چند دهم پیکسل جابه‌جا کند. */
+.p-batt { font-size: 11px; font-weight: 800; letter-spacing: 0; line-height: 1; }
+/* خطِ ۱٫۸پیکسلیِ .ic برای نشان‌دادنِ شارژِ داخلِ باتری کافی نیست و باید پر شود.
+   چون .ic رنگش را از CSS می‌گیرد، صفتِ fill روی خودِ تگ بی‌اثر است (CSS همیشه
+   بر صفتِ ارائه‌ای می‌چربد) — پس اینجا کلاس شده است. */
+.p-icons .ic-fill { fill: currentColor; stroke: none; }
+
 /* نوار وضعیت مالِ خودِ گوشی است نه مالِ خانه‌یار، پس مثل یک گوشیِ واقعی
    انگلیسی و چپ‌به‌راست است: ساعت سمت چپ، نمادها سمت راست. بدون این
    direction، ترتیبِ فلکس در قالبِ RTLِ صفحه برعکس می‌شد. */
@@ -331,7 +387,9 @@ button { font: inherit; cursor: pointer; }
 /* ─────────── داشبورد (هیرو) ─────────── */
 .p-hub { display: flex; flex-direction: column; flex: 1; overflow: hidden; padding: 0 16px; }
 .p-hub-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0 4px; flex: none; }
-.p-hub-head h1 { font-size: 21px; font-weight: 800; line-height: 1.35; }
+/* نامِ خانواده عمداً کوچک‌تر از تیترِ صفحه است: داخلِ یک گوشیِ ۳۳۶ پیکسلی،
+   ۲۱ پیکسل داد می‌زد و کاشی‌ها را زیرِ خودش گم می‌کرد. */
+.p-hub-head h1 { font-size: var(--fs-4); font-weight: 800; line-height: 1.4; }
 .p-hub-head p { font-size: 12px; color: var(--text-3); margin-top: 1px; }
 .p-date { font-size: 10.5px; color: var(--text-3); padding: 2px 2px 10px; flex: none; }
 
@@ -657,24 +715,150 @@ button { font: inherit; cursor: pointer; }
    صفحهٔ داخلی — دریافت اپ (/download/)
    ═══════════════════════════════════════════════════════════ */
 
-/* ─────────── هیروی صفحهٔ داخلی ─────────── */
-.page-hero { padding: 72px 0 8px; text-align: center; }
+/* ─────────── هیروی صفحهٔ داخلی ───────────
+   در صفحهٔ دانلود این هیرو دو ستون می‌شود: ستونِ آغاز متن+انتخاب+کارت،
+   ستونِ پایان ماکاپِ گوشی. زیرِ ۹۲۰ پیکسل یک ستون می‌شود و ترتیبِ DOM
+   همان ترتیبِ خواندن است: تیتر → لید → گوشی → انتخاب → کارت. */
+.page-hero { padding: 56px 0 var(--sp-9); }
 .page-hero .crumb {
-  display: inline-flex; align-items: center; gap: 7px; margin-bottom: 22px;
-  font-size: 13px; font-weight: 700; color: var(--text-2);
-  padding: 7px 14px; border: 1px solid var(--border); border-radius: 999px;
-  background: var(--card); transition: border-color .15s ease, color .15s ease;
+  display: inline-flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-6);
+  font-size: var(--fs-2); font-weight: 700; color: var(--text-2);
+  padding: 7px 14px; border: 1px solid var(--border); border-radius: var(--r-pill);
+  background: var(--card); transition: border-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
 .page-hero .crumb:hover { border-color: var(--border-strong); color: var(--text); }
 .page-hero .crumb .ic { width: 15px; height: 15px; }
 .page-hero .badge-line {
-  display: inline-flex; align-items: center; gap: 8px; margin-bottom: 18px;
-  font-size: 13.5px; font-weight: 800; color: var(--green-strong);
-  padding: 8px 16px; border-radius: 999px; background: var(--surface);
+  display: inline-flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-4);
+  font-size: var(--fs-3); font-weight: 800; color: var(--green-strong);
+  padding: var(--sp-2) var(--sp-4); border-radius: var(--r-pill); background: var(--surface);
 }
 .page-hero .badge-line .ic { width: 17px; height: 17px; stroke-width: 2; }
-.page-hero h1 { font-size: clamp(30px, 4.4vw, 46px); font-weight: 900; line-height: 1.4; letter-spacing: -0.6px; }
-.page-hero .lead { color: var(--text-2); font-size: 17px; max-width: 40em; margin: 16px auto 0; line-height: 1.9; }
+.page-hero h1 { font-size: clamp(30px, 4.4vw, 46px); font-weight: 900; line-height: 1.4; }
+.page-hero .lead { color: var(--text-2); font-size: var(--fs-5); max-width: 40em; margin-top: var(--sp-4); line-height: 1.9; }
+
+/* ─────────── چیدمانِ دوستونیِ صفحهٔ دانلود ─────────── */
+.dl-grid { display: grid; gap: var(--sp-7); }
+.dl-aside { display: flex; justify-content: center; }
+@media (min-width: 920px) {
+  .dl-grid {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    column-gap: var(--sp-9); align-items: start;
+  }
+  .dl-head  { grid-area: 1 / 1; }
+  .dl-pick  { grid-area: 2 / 1; }
+  /* start و نه center: دو کارتِ اندروید و iOS قدِ یکسان ندارند، و با
+     align-self: center قابِ گوشی با هر بار عوض‌کردنِ تب بالا/پایین
+     می‌پرید. حالا سرِ گوشی همیشه هم‌تراز سرِ تیتر است و سرِ جایش می‌ماند. */
+  .dl-aside { grid-area: 1 / 2 / span 2 / auto; align-self: start; }
+}
+
+/* ─────────── کلیدِ دوتایی اندروید / iOS ───────────
+   سیستم‌عاملِ بازدیدکننده خودکار تشخیص داده می‌شود و همان تبِ درست باز
+   می‌شود؛ ولی کلید سرِ جایش می‌ماند تا هر کسی دستی عوض کند. بدونِ
+   جاوااسکریپت کلید پنهان می‌شود و هر دو پنل باز می‌مانند (noscript در head). */
+.dl-seg {
+  display: inline-flex; gap: 4px; padding: 4px;
+  background: var(--card-2); border-radius: var(--r-pill); margin-bottom: var(--sp-5);
+}
+.dl-seg-btn {
+  appearance: none; border: 0; cursor: pointer; font: inherit;
+  min-height: 44px; padding: 0 var(--sp-6); border-radius: var(--r-pill);
+  font-size: var(--fs-3); font-weight: 800; color: var(--text-2); background: transparent;
+  transition: color var(--dur-fast) ease, background var(--dur-fast) ease;
+}
+.dl-seg-btn:hover { color: var(--text); }
+.dl-seg-btn[aria-selected="true"] {
+  background: var(--card); color: var(--navy); box-shadow: var(--shadow-sm);
+}
+
+/* ─────────── کارتِ دانلود — قهرمانِ صفحه ───────────
+   تنها جسارتِ بصریِ این صفحه همین کارت است: سرستونِ سرمه‌ای، بدنهٔ سفید،
+   یک دکمهٔ زمردیِ تمام‌عرض. هر چیزِ دیگری روی صفحه عمداً ساکت است. */
+.dl-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-card); overflow: hidden; box-shadow: var(--shadow-md);
+}
+.dl-card[hidden] { display: none; }
+
+.dl-card-head {
+  display: flex; align-items: center; gap: var(--sp-4);
+  flex-wrap: wrap; row-gap: var(--sp-2);
+  padding: var(--sp-5) var(--sp-6); background: var(--navy);
+}
+.dl-mark {
+  flex: none; width: 46px; height: 46px; border-radius: var(--r-btn);
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+}
+.dl-mark .mark { width: 26px; height: 26px; }
+.dl-card-head h2 { font-size: var(--fs-5); font-weight: 800; line-height: 1.5; color: var(--on-navy); }
+.dl-card-head p { font-size: var(--fs-2); color: var(--on-navy-2); line-height: 1.7; }
+.dl-ver {
+  margin-inline-start: auto; flex: none;
+  font-size: var(--fs-1); font-weight: 800; color: var(--mint);
+  background: rgba(52, 211, 153, 0.14); padding: 6px 12px; border-radius: var(--r-pill);
+}
+
+.dl-body { padding: var(--sp-6); }
+.dl-body .btn { width: 100%; min-height: 52px; font-size: var(--fs-4); }
+/* فرادادهٔ فایل: سه قلمِ کوتاه با جداکنندهٔ مویی، نه سه کارتِ جدا */
+.dl-meta {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-2) var(--sp-4);
+  margin-top: var(--sp-4); font-size: var(--fs-1); color: var(--text-3); line-height: 1.7;
+}
+.dl-meta span { display: inline-flex; align-items: center; gap: 6px; }
+.dl-meta span + span::before {
+  content: ""; width: 1px; height: 11px; background: var(--border-strong);
+  margin-inline-end: var(--sp-2);
+}
+
+/* منابعِ جانبیِ همان پلتفرم (فروشگاه‌ها) — ردیفِ مویی، نه کارت */
+.dl-alt { border-top: 1px solid var(--border); }
+.dl-alt-row {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-6); border-top: 1px solid var(--border);
+}
+.dl-alt-row:first-child { border-top: 0; }
+.dl-alt-mark {
+  flex: none; width: 38px; height: 38px; border-radius: var(--r-btn);
+  display: flex; align-items: center; justify-content: center;
+}
+.dl-alt-mark .mark { width: 22px; height: 22px; }
+.dl-alt-mark.on-bazaar { background: #dff5ea; }
+.dl-alt-mark.on-play { background: #e8f1e8; }
+.dl-alt-mark.on-appstore { background: var(--t-sky-bg); }
+.dl-alt-mark.on-sibapp { background: var(--t-rose-bg); }
+.dl-alt-body { flex: 1; min-width: 0; }
+.dl-alt-body b { display: block; font-size: var(--fs-3); font-weight: 800; color: var(--text-2); }
+.dl-alt-body span { font-size: var(--fs-1); color: var(--text-3); line-height: 1.7; }
+.dl-state {
+  flex: none; display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 13px; border-radius: var(--r-pill);
+  font-size: var(--fs-1); font-weight: 800;
+  color: var(--t-amber-fg); background: var(--t-amber-bg);
+}
+.dl-state .ic { width: 14px; height: 14px; stroke-width: 2.2; }
+
+/* راهنمای «افزودن به صفحهٔ اصلی» زیرِ پنلِ iOS */
+.dl-steps { padding: var(--sp-5) var(--sp-6) var(--sp-6); border-top: 1px solid var(--border); background: rgba(13, 27, 42, 0.016); }
+.dl-steps h4 { font-size: var(--fs-3); font-weight: 800; margin-bottom: var(--sp-3); }
+.dl-steps p { margin-top: var(--sp-3); font-size: var(--fs-1); color: var(--text-3); line-height: 1.9; }
+
+/* ─────────── کد QR — فقط دسکتاپ ───────────
+   روی دسکتاپ فایل نصب به کار نمی‌آید، پس راهِ رسیدن به گوشی همین است.
+   SVG درون‌خطی است (ساختهٔ tools/make-qr.cjs) تا صفحه به شبکه وابسته نشود. */
+.dl-qr { display: none; }
+@media (min-width: 920px) {
+  .dl-qr {
+    display: flex; align-items: center; gap: var(--sp-4);
+    margin-top: var(--sp-5); padding: var(--sp-4);
+    border: 1px dashed var(--border-strong); border-radius: var(--r-card);
+  }
+  .dl-qr svg { flex: none; width: 92px; height: 92px; border-radius: 6px; }
+  .dl-qr b { display: block; font-size: var(--fs-3); font-weight: 800; margin-bottom: 3px; }
+  .dl-qr p { font-size: var(--fs-1); color: var(--text-3); line-height: 1.8; }
+}
 
 /* ─────────── قفسهٔ پلتفرم‌ها (اندروید / آیفون) ───────────
    ساختار: .plat-list  →  .plat (یک پلتفرم)  →  .src-list  →  .src (یک منبعِ دریافت)
@@ -683,8 +867,20 @@ button { font: inherit; cursor: pointer; }
    قاعدهٔ رنگ: منابعِ خودمان (مستقیم/مرورگر) رنگِ برندِ خانه‌یار،
    فروشگاه‌های دیگران رنگِ برندِ خودشان. رنگ اینجا اطلاعات است نه تزئین. */
 
-/* شناسه‌های SVG فقط تعریف‌اند؛ خودِ گره نباید جایی اشغال کند. */
+/* شناسه‌های SVG فقط تعریف‌اند؛ خودِ گره نباید جایی اشغال کند. — فعال */
 .mark-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* ─────────── قفسهٔ پلتفرم‌ها (.plat-* و .src-*) — بازنشسته ───────────
+   چیدمانِ قبلیِ صفحهٔ دانلود بود: دو کارتِ بزرگِ اندروید/iOS، هر کدام با
+   فهرستی از منابعِ دریافت در سه ستون (نشان · متن · کنش). در ۱۴۰۵/۰۶/۲۵
+   جایش را به `.dl-*` داد — کلیدِ دوتایی + یک کارتِ قهرمان + ماکاپ + QR —
+   چون کاربر باید یک کنشِ روشن ببیند، نه شش گزینهٔ هم‌وزن.
+
+   دست‌نخورده می‌ماند چون: (۱) قاعدهٔ پروژه حذفِ کد نیست، (۲) اگر روزی
+   صفحه‌ای لازم شد که واقعاً چند فروشگاهِ فعال را کنار هم بگذارد، این
+   چیدمان همان است و دوباره نوشتنش هدر است.
+   هیچ HTML ای الان از اینها استفاده نمی‌کند. ــ`.mini-steps` استثناست و
+   پایینِ همین بلوک فعال است. */
 
 .plat-list { display: flex; flex-direction: column; gap: 28px; margin-top: 8px; }
 
@@ -700,7 +896,7 @@ button { font: inherit; cursor: pointer; }
   border-bottom: 1px solid var(--border);
 }
 .plat-ic { width: 34px; height: 34px; flex: none; }
-.plat-title h2 { font-size: 21px; font-weight: 900; letter-spacing: -0.3px; line-height: 1.5; }
+.plat-title h2 { font-size: 21px; font-weight: 900; line-height: 1.5; }
 .plat-title p { font-size: 13px; color: var(--text-3); line-height: 1.6; }
 .plat-ver {
   margin-inline-start: auto; flex: none;
@@ -748,17 +944,20 @@ button { font: inherit; cursor: pointer; }
 }
 .src-state .ic { width: 17px; height: 17px; stroke-width: 2; }
 
-/* راهنمای کوتاهِ زیرِ یک پلتفرم (افزودن به صفحهٔ اصلی) */
+/* راهنمای کوتاهِ زیرِ یک پلتفرم — .src-extra بازنشسته، .mini-steps فعال */
 .src-extra {
   padding: 22px 26px 26px; border-top: 1px solid var(--border);
   background: rgba(13, 27, 42, 0.016);
 }
 .src-extra h4 { font-size: 14.5px; font-weight: 800; margin-bottom: 12px; }
-.mini-steps { padding-inline-start: 20px; display: flex; flex-direction: column; gap: 7px; }
-.mini-steps li { font-size: 13.5px; color: var(--text-2); line-height: 1.9; }
+
+/* ↓ فعال: داخلِ .dl-steps استفاده می‌شود. عددِ خامش هنگام همین دست‌زدن
+   به نردبان گِرد شد (۱۳٫۵ → --fs-3، ۱۲٫۵ → --fs-2). */
+.mini-steps { padding-inline-start: 20px; display: flex; flex-direction: column; gap: var(--sp-2); }
+.mini-steps li { font-size: var(--fs-3); color: var(--text-2); line-height: 1.9; }
 .mini-steps li::marker { color: var(--green-strong); font-weight: 800; }
 .mini-steps code {
-  font-family: inherit; font-weight: 700; font-size: 12.5px; color: var(--navy);
+  font-family: inherit; font-weight: 700; font-size: var(--fs-2); color: var(--navy);
   background: var(--card-2); padding: 2px 8px; border-radius: 6px;
 }
 .src-extra-note { margin-top: 12px; font-size: 12.5px; color: var(--text-3); line-height: 1.85; }

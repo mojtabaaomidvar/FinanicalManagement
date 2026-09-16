@@ -28,6 +28,7 @@
     "@web3icons/core": "^4.0.55",
     "cryptocurrency-icons": "^0.18.1",
     "playwright": "^1.63.0",
+    "qrcode": "^1.5.4",
     "typescript": "^5.7.2",
     "vite": "^6.3.5",
     "vite-plugin-pwa": "^0.21.2",
