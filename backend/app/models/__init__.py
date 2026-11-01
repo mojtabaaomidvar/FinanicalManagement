@@ -14,12 +14,16 @@ from app.models.auth import (
     OtpCode,
     Session,
 )
+from app.models.bill import Bill
 from app.models.category import CategoryBudget, CustomCategory, Subcategory
 from app.models.event import FamilyEvent
 from app.models.family import Family, Member
 from app.models.holding import Holding
+from app.models.join_request import JoinRequest
 from app.models.messaging import SmsBridge, SmsMessage, SmsNumber, SmsSender
+from app.models.notification import NotificationDismissal
 from app.models.settings import AppSetting
+from app.models.shopping import InventoryItem, ShoppingItem, ShoppingList
 from app.models.transaction import Transaction, TransactionPhoto
 
 __all__ = [
@@ -45,4 +49,10 @@ __all__ = [
     "FamilyEvent",
     "AppSetting",
     "Holding",
+    "JoinRequest",
+    "NotificationDismissal",
+    "Bill",
+    "ShoppingList",
+    "ShoppingItem",
+    "InventoryItem",
 ]

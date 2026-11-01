@@ -10,7 +10,11 @@ import { useToast } from "@/app/providers/ToastProvider";
 import { Card, Field, Modal, Select, TextInput } from "@/shared/ui";
 import { normalizePhone } from "@/domain/auth/auth.rules";
 import { MEMBER_RELATIONS, type Member } from "@/domain/family/family.types";
-import { canEditRelation, relationLabel } from "@/domain/family/family.rules";
+import {
+  canEditRelation,
+  membershipLabel,
+  relationLabel,
+} from "@/domain/family/family.rules";
 import { toEn } from "@/shared/lib/digits";
 import { InviteFeature } from "@/features/invite";
 
@@ -134,6 +138,16 @@ export function MembersCard() {
                       ثبت‌نام تکمیل نشده
                     </span>
                   ) : null}
+                  {/* §۲.۶ — محورِ دومِ عضویت. با نشانِ بالا جمع‌شدنی است و
+                      باید هم باشد: «ثبت‌نام تکمیل نشده» یعنی خودش نیامده، و
+                      «منتظر تأیید مدیر» یعنی آمده ولی تصمیمی نگرفته‌اید.
+                      پیش از این فقط اولی نشان داده می‌شد و متقاضیِ
+                      تأییدنشده در این فهرست «سالم» دیده می‌شد. */}
+                  {membershipLabel(m) ? (
+                    <span className="member-status-badge">
+                      {membershipLabel(m)}
+                    </span>
+                  ) : null}
                 </p>
               </div>
               {editable ? (
@@ -161,9 +175,7 @@ export function MembersCard() {
 
       <Modal open={open} onClose={() => setOpen(false)} title="افزودن عضو جدید">
         <p className="modal-sub">
-          پس از تکمیل مشخصات عضو محترم خانواده‌تون در چارچوب فرم زیر، با تکمیل
-          ثبت نام با همین شماره‌ای که معرفی میکنید ایشون به خانواده شما در نرم
-          افزار اضافه میشن
+          {"مشخصات عضو خانواده را در فرم زیر کامل کنید. هر وقت با همان شماره‌ای که اینجا می‌نویسید ثبت‌نام کرد، به خانوادهٔ شما در نرم‌افزار اضافه می‌شود."}
         </p>
         <div className="form-grid">
           <div className="form-row full">

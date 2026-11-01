@@ -10,6 +10,8 @@ import {
   isValidPassword,
   isValidOtpCode,
   cleanOtpCode,
+  cleanFamilyCode,
+  isValidFamilyCode,
 } from "@/domain/auth/auth.rules";
 import { toEn } from "@/shared/lib/digits";
 import { AppError } from "@/shared/lib/appError";
@@ -21,6 +23,10 @@ export interface OtpFlow {
   familyName?: string;
   memberName?: string;
   inviteToken?: string;
+  /** کدِ ۶ رقمیِ خانواده — فقط در جریانِ «پیوستن با کد» (mode === "join").
+      عمداً جدا از inviteToken نگه داشته می‌شود: لینکِ دعوت تک‌مصرف است و
+      کدِ خانواده نیست، پس اندپوینتشان و معنایشان یکی نیست. */
+  familyCode?: string;
   /** نسبت با مدیر خانواده — در جریان دعوت لازم است */
   relation?: string;
 }
@@ -41,7 +47,9 @@ export function useAuthModel(
   const [mode, setMode] = useState<"login" | "register">(
     prefill?.mode ?? "login",
   );
-  const [step, setStep] = useState<"form" | "otp">("form");
+  const [step, setStep] = useState<
+    "form" | "otp" | "pending" | "join" | "reset" | "reset-code"
+  >("form");
 
   /* فرم ورود */
   const [loginPhone, setLoginPhone] = useState("");
@@ -68,8 +76,42 @@ export function useAuthModel(
   const [invPassword, setInvPassword] = useState("");
   const [invRelation, setInvRelation] = useState("");
 
+  /* §۲.۶ — «پیوستن با کدِ خانواده»، راهِ دومِ ورود به یک خانوادهٔ موجود.
+     با دعوت یک تفاوتِ بنیادی دارد: لینکِ دعوت تک‌مصرف است و خودش گواهیِ
+     «مدیر مرا خواسته» را با خود دارد، ولی کدِ خانواده ثابت است و دست‌به‌دست
+     می‌چرخد. برای همین این مسیر با همان تأییدِ مدیر تمام می‌شود و نه نشست.
+     حالتِ خودش را دارد و از متغیرهای inv* استفاده نمی‌کند: دو مسیرِ هم‌زمان
+     روی یک state باعث می‌شد نیمهٔ پرشدهٔ یکی در دیگری دیده شود. */
+  const [joinCode, setJoinCode] = useState("");
+  const [joinName, setJoinName] = useState("");
+  const [joinPhone, setJoinPhone] = useState("");
+  const [joinPassword, setJoinPassword] = useState("");
+  const [joinRelation, setJoinRelation] = useState("");
+
+  /* §۲.۶ — درخواست عضویت ثبت شد و منتظر تأیید مدیر است (بدون نشست).
+     تا وقتی این مقدار پر است، صفحه دعوت به‌جای فرم، پیام انتظار را نشان می‌دهد. */
+  const [joinPending, setJoinPending] = useState<{ familyName: string } | null>(
+    null,
+  );
+
   /* وضعیت OTP از تنظیمات سرور — null = هنوز نامشخص */
   const [otpEnabled, setOtpEnabled] = useState<boolean | null>(null);
+
+  /* §۹.۵ — آیا سرور می‌تواند کد بازیابی بفرستد؟ پیش‌فرض false است تا روی سرورِ
+     بی‌درگاهِ پیامک (یا وقتی خواندنِ پیکربندی شکست خورد) دکمهٔ «فراموشی رمز»
+     اصلاً دیده نشود؛ دکمه‌ای که فقط ۵۰۳ می‌دهد بدتر از نبودنش است. */
+  const [passwordResetEnabled, setPasswordResetEnabled] = useState(false);
+
+  /* فراموشی رمز — شماره از فرم ورود پیش‌پر می‌شود */
+  const [resetPhone, setResetPhone] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [resetPassword, setResetPassword] = useState("");
+
+  /* ثانیه‌های ماندهٔ «ارسال مجدد» — هم‌اندازهٔ کول‌داونِ ۶۰ ثانیه‌ایِ سرور.
+     سرور عمداً در کول‌داون خطا نمی‌دهد (وگرنه «۴۲۹ فقط برای شمارهٔ ثبت‌شده»
+     خودش اوراکلِ شمارشِ حساب می‌شد)، پس بدون این شمارنده کاربر دکمه را می‌زند،
+     پیام «ارسال شد» می‌بیند و هیچ پیامکی نمی‌آید. */
+  const [resetWait, setResetWait] = useState(0);
 
   /* عضو پیش‌ثبت‌شده توسط مدیر — خانواده در فرم قفل می‌شود
      (سرور نام عضو را برنمی‌گرداند تا با پیمایش شماره‌ها قابل استخراج نباشد) */
@@ -98,18 +140,33 @@ export function useAuthModel(
     useCases.getPublicConfig
       .execute()
       .then((c) => {
-        if (alive) setOtpEnabled(c.otpEnabled);
+        if (!alive) return;
+        setOtpEnabled(c.otpEnabled);
+        setPasswordResetEnabled(c.passwordResetEnabled);
       })
       .catch(() => {
-        if (alive) setOtpEnabled(false);
+        if (!alive) return;
+        setOtpEnabled(false);
+        setPasswordResetEnabled(false);
       });
     return () => {
       alive = false;
     };
   }, [useCases]);
 
+  /* شمارشِ معکوسِ «ارسال مجدد» — timeoutِ خودبازنشان (نه interval) تا با
+     unmount خودش پاک شود و تیکِ سرگردان نماند. */
+  useEffect(() => {
+    if (resetWait <= 0) return;
+    const t = window.setTimeout(() => setResetWait((s) => s - 1), 1000);
+    return () => window.clearTimeout(t);
+  }, [resetWait]);
+
   function resetOtp() {
-    setStep("form");
+    /* بازگشت به همان فرمی که از آن آمده‌ایم. اگر همیشه به "form" می‌رفت،
+       کاربرِ جریانِ «پیوستن با کد» سر از فرمِ ورود درمی‌آورد و باید دوباره
+       دنبالِ آن لینکِ کوچکِ پایینِ صفحه می‌گشت. */
+    setStep(flow?.mode === "join" ? "join" : "form");
     setOtpCode("");
     setDevCode(null);
   }
@@ -232,7 +289,8 @@ export function useAuthModel(
     });
   }
 
-  async function submitInvite(onDone: () => void | Promise<void>) {
+  /** §۲.۶ — پذیرش دعوت نشست نمی‌دهد، پس callback پایان ندارد. */
+  async function submitInvite() {
     const phone = normalizePhone(toEn(invPhone));
     if (!invName.trim()) return notify("نام خود را وارد کنید");
     if (!phone) return notify("شماره موبایل معتبر نیست (مثل ۰۹۱۲۳۴۵۶۷۸۹)");
@@ -248,18 +306,16 @@ export function useAuthModel(
       relation: invRelation,
     };
 
-    /* OTP غیرفعال یا نامشخص → عضویت مستقیم */
+    /* OTP غیرفعال یا نامشخص → ثبت مستقیم درخواست عضویت */
     if (otpEnabled !== true) {
       setBusy(true);
       try {
-        const r = await useCases.acceptInvite.execute(input, null);
-        notify("به خانواده خوش آمدید");
-        await useCases.saveSession.execute(r);
-        await onDone();
+        const p = await useCases.acceptInvite.execute(input, null);
+        markJoinPending(p.familyName);
         return;
       } catch (e) {
         if (!(e instanceof AppError && e.code === "INVALID_OTP")) {
-          notify((e as Error).message || "خطا در عضویت");
+          notify((e as Error).message || "خطا در ارسال درخواست عضویت");
           return;
         }
         /* OTP روی سرور فعال است → ادامه با جریان کد */
@@ -278,33 +334,91 @@ export function useAuthModel(
     });
   }
 
-  async function verifyOtp(onDone: () => void) {
+  /** پایان مشترک مسیر دعوت: صفحه انتظار به‌جای نشست. */
+  function markJoinPending(familyName: string) {
+    setJoinPending({ familyName: familyName || inviteFamilyName });
+    setStep("pending");
+    notify("درخواست عضویت ثبت شد — منتظر تأیید مدیر خانواده");
+  }
+
+  /* ── §۲.۶ پیوستن با کدِ خانواده ────────────────────────────────
+     دوقلوی submitInvite با یک تفاوت: به‌جای توکنِ لینک، کدِ ۶ رقمی می‌رود و
+     نامِ خانواده را از پیش نمی‌دانیم (لینک آن را می‌داد، کد نمی‌دهد). پس
+     نامِ خانواده فقط در پاسخِ سرور دیده می‌شود، و همین هم خوب است: اگر کاربر
+     کدِ اشتباهی زده باشد، در صفحهٔ انتظار نامِ خانوادهٔ غریبه را می‌بیند. */
+
+  function startJoinByCode() {
+    /* شماره از فرمِ ورود می‌آید اگر پرش کرده باشد — کسی که اول «ورود» را
+       امتحان کرده و نشده، شمارهٔ خودش را دوباره نمی‌نویسد. */
+    if (!joinPhone && loginPhone) setJoinPhone(loginPhone);
+    setStep("join");
+  }
+
+  function cancelJoinByCode() {
+    /* رمز پاک می‌شود، بقیه نه: انصرافِ اتفاقی نباید فرمِ نیمه‌پرشده را از بین
+       ببرد، ولی رمز در state ماندنی نیست. */
+    setJoinPassword("");
+    setStep("form");
+  }
+
+  async function submitJoinByCode() {
+    const code = cleanFamilyCode(joinCode);
+    const phone = normalizePhone(toEn(joinPhone));
+    if (!isValidFamilyCode(code)) return notify("کد خانواده ۶ رقمی است");
+    if (!joinName.trim()) return notify("نام خود را وارد کنید");
+    if (!phone) return notify("شماره موبایل معتبر نیست (مثل ۰۹۱۲۳۴۵۶۷۸۹)");
+    if (!isValidPassword(joinPassword))
+      return notify("رمز عبور حداقل ۸ کاراکتر باشد");
+    if (!joinRelation) return notify("نسبت خود با مدیر خانواده را انتخاب کنید");
+
+    const input = {
+      code,
+      memberName: joinName.trim(),
+      phone,
+      password: joinPassword,
+      relation: joinRelation,
+    };
+
+    /* OTP غیرفعال یا نامشخص → ثبت مستقیم درخواست عضویت */
+    if (otpEnabled !== true) {
+      setBusy(true);
+      try {
+        const p = await useCases.joinByCode.execute(input, null);
+        markJoinPending(p.familyName);
+        return;
+      } catch (e) {
+        if (!(e instanceof AppError && e.code === "INVALID_OTP")) {
+          notify((e as Error).message || "خطا در ارسال درخواست عضویت");
+          return;
+        }
+        /* OTP روی سرور فعال است → ادامه با جریان کد */
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    await sendOtp({
+      mode: "join",
+      phone,
+      password: joinPassword,
+      memberName: input.memberName,
+      familyCode: input.code,
+      relation: input.relation,
+    });
+  }
+
+  /** onDone فقط برای مسیرهای نشست‌دار (ورود/ثبت‌نام) صدا زده می‌شود؛
+      مسیر دعوت نشست نمی‌سازد و به صفحه انتظار می‌رود. */
+  async function verifyOtp(onDone?: () => void) {
     if (!flow) return resetOtp();
     const code = cleanOtpCode(otpCode);
     if (!isValidOtpCode(code)) return notify("کد ۶ رقمی را وارد کنید");
 
     setBusy(true);
     try {
-      let result = null;
-      if (flow.mode === "login") {
-        result = await useCases.loginWithOtp.execute(
-          flow.phone,
-          flow.password,
-          code,
-        );
-      } else if (flow.mode === "register") {
-        result = await useCases.register.execute(
-          {
-            familyName: flow.familyName!,
-            memberName: flow.memberName!,
-            phone: flow.phone,
-            password: flow.password,
-          },
-          code,
-        );
-        notify("خانواده ساخته شد — خوش آمدید");
-      } else {
-        result = await useCases.acceptInvite.execute(
+      /* §۲.۶ — دعوت: خروجی «در انتظار تأیید» است، نه نشست. */
+      if (flow.mode === "invite") {
+        const p = await useCases.acceptInvite.execute(
           {
             inviteToken: flow.inviteToken!,
             memberName: flow.memberName!,
@@ -314,13 +428,131 @@ export function useAuthModel(
           },
           code,
         );
-        notify("به خانواده خوش آمدید");
+        markJoinPending(p.familyName);
+        return;
       }
 
+      /* §۲.۶ — پیوستن با کد: همان پایانِ دعوت، اندپوینتِ دیگر. جدا نگه داشتن
+         این شاخه لازم است، نه تزئینی: اگر با invite یکی گرفته می‌شد،
+         inviteToken خالی به سرور می‌رفت و کاربر یک «لینکِ نامعتبر» می‌گرفت
+         در حالی که هیچ لینکی در کار نبوده. */
+      if (flow.mode === "join") {
+        const p = await useCases.joinByCode.execute(
+          {
+            code: flow.familyCode!,
+            memberName: flow.memberName!,
+            phone: flow.phone,
+            password: flow.password,
+            relation: flow.relation,
+          },
+          code,
+        );
+        markJoinPending(p.familyName);
+        return;
+      }
+
+      const result =
+        flow.mode === "login"
+          ? await useCases.loginWithOtp.execute(flow.phone, flow.password, code)
+          : await useCases.register.execute(
+              {
+                familyName: flow.familyName!,
+                memberName: flow.memberName!,
+                phone: flow.phone,
+                password: flow.password,
+              },
+              code,
+            );
+      if (flow.mode === "register") notify("خانواده ساخته شد — خوش آمدید");
+
       await useCases.saveSession.execute(result);
-      onDone();
+      onDone?.();
     } catch (e) {
       notify((e as Error).message || "خطا در تأیید کد");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /* ── §۹.۵ فراموشیِ رمز ────────────────────────────────────────
+     دو گام: درخواستِ کد (بی‌هیچ خبری از وجود یا نبودِ شماره) → کد + رمزِ تازه.
+     پایانِ موفق نشست نمی‌دهد: سرور همهٔ نشست‌های آن عضو را باطل می‌کند و کاربر
+     از همان فرمِ ورود با رمزِ تازه می‌آید، تا گیتِ وضعیتِ عضویت (§۲.۶) هم سرِ
+     جای خودش اعمال شود.
+
+     نکتهٔ حالتِ توسعه: اینجا `devCode` نداریم. مسیرِ بازیابی عمداً کد را در
+     پاسخ برنمی‌گرداند (همان چیزی که آن را از اوراکلِ شمارشِ حساب جدا می‌کند)؛
+     روی سرورِ بی‌کلید کد در لاگِ سرور می‌نشیند. این را «کم‌بود» نبینید و با
+     برگرداندنِ کد در پاسخ «درست» نکنید. */
+
+  function startPasswordReset() {
+    /* شمارهٔ فرمِ ورود پیش‌پر می‌شود — خامش را نگه می‌داریم تا کاربر بتواند
+       اصلاحش کند؛ اعتبارسنجی در گامِ ارسال است، نه اینجا.
+       `resetWait` عمداً صفر نمی‌شود: اگر تازه کدی گرفته باشد، شمارنده باید
+       همان‌قدر که مانده بماند. */
+    setResetPhone(loginPhone);
+    setResetCode("");
+    setResetPassword("");
+    setStep("reset");
+  }
+
+  function cancelPasswordReset() {
+    setStep("form");
+    setResetCode("");
+    /* رمزِ خام را بیش از نیازِ لحظه در حافظه نگه نمی‌داریم */
+    setResetPassword("");
+  }
+
+  /** گامِ ۱ — درخواستِ کد. `resend` از صفحهٔ کد صدا زده می‌شود و به شمارنده
+      مقید است؛ ارسالِ نخست مقید نیست تا کاربری که شماره را غلط زده بتواند
+      بی‌معطلی با شمارهٔ درست دوباره تلاش کند (کول‌داونِ سرور per-phone است). */
+  async function sendResetCode({ resend = false }: { resend?: boolean } = {}) {
+    const phone = normalizePhone(toEn(resetPhone));
+    if (!phone) return notify("شماره موبایل معتبر نیست (مثل ۰۹۱۲۳۴۵۶۷۸۹)");
+    if (resend && resetWait > 0) return;
+
+    setBusy(true);
+    try {
+      await useCases.requestPasswordReset.execute(phone);
+      /* شمارهٔ نرمال‌شده را جای ورودیِ خام می‌نشانیم: صفحهٔ بعد همین را نشان
+         می‌دهد و پس از موفقیت هم همین در فرمِ ورود پیش‌پر می‌شود. */
+      setResetPhone(phone);
+      setStep("reset-code");
+      setResetWait(60);
+      /* متن عمداً شرطی است: پاسخِ سرور برای شمارهٔ ثبت‌نشده هم همین است، پس
+         حق نداریم چیزی بیش از این ادعا کنیم. */
+      notify("اگر این شماره ثبت شده باشد، کد بازیابی برایش پیامک شد");
+    } catch (e) {
+      notify((e as Error).message || "خطا در ارسال کد بازیابی");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** گامِ ۲ — کد + رمزِ تازه. موفقیت = بازگشت به فرمِ ورود با شمارهٔ پیش‌پر. */
+  async function submitPasswordReset() {
+    const phone = normalizePhone(toEn(resetPhone));
+    const code = cleanOtpCode(resetCode);
+    if (!phone) return notify("شماره موبایل معتبر نیست (مثل ۰۹۱۲۳۴۵۶۷۸۹)");
+    if (!isValidOtpCode(code)) return notify("کد ۶ رقمی را وارد کنید");
+    /* طولِ رمز پیش از فرستادن بررسی می‌شود تا یک رمزِ کوتاه کدِ درست را
+       نسوزاند — همان ترتیبی که سرور هم دارد. */
+    if (!isValidPassword(resetPassword))
+      return notify("رمز عبور حداقل ۸ کاراکتر باشد");
+
+    setBusy(true);
+    try {
+      await useCases.confirmPasswordReset.execute(phone, code, resetPassword);
+      setMode("login");
+      setLoginPhone(phone);
+      setLoginPassword("");
+      setResetCode("");
+      setResetPassword("");
+      setResetWait(0);
+      setStep("form");
+      notify("رمز عبور عوض شد — با رمز تازه وارد شوید");
+    } catch (e) {
+      notify((e as Error).message || "خطا در تغییر رمز");
     } finally {
       setBusy(false);
     }
@@ -374,6 +606,32 @@ export function useAuthModel(
     setInvPassword,
     invRelation,
     setInvRelation,
+    joinPending,
+    joinCode,
+    setJoinCode,
+    joinName,
+    setJoinName,
+    joinPhone,
+    setJoinPhone,
+    joinPassword,
+    setJoinPassword,
+    joinRelation,
+    setJoinRelation,
+    startJoinByCode,
+    cancelJoinByCode,
+    submitJoinByCode,
+    passwordResetEnabled,
+    resetPhone,
+    setResetPhone,
+    resetCode,
+    setResetCode,
+    resetPassword,
+    setResetPassword,
+    resetWait,
+    startPasswordReset,
+    cancelPasswordReset,
+    sendResetCode,
+    submitPasswordReset,
     resetOtp,
     submitLogin,
     submitRegister,

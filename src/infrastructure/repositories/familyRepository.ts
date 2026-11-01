@@ -9,14 +9,17 @@
 import type { FamilyRepository } from "@/domain/family/family.repository";
 import type {
   Family,
+  JoinRequest,
   Member,
   ProfileInput,
 } from "@/domain/family/family.types";
 import type { RestClient } from "@/infrastructure/api/restClient";
 import {
   mapFamily,
+  mapJoinRequest,
   mapMember,
   type FamilyRow,
+  type JoinRequestRow,
   type MemberRow,
 } from "./mappers";
 
@@ -85,5 +88,25 @@ export class SupabaseFamilyRepository implements FamilyRepository {
       { relation },
     );
     return mapMember(row);
+  }
+
+  /* ── §۲.۶ تأییدِ عضویت — زیرِ /auth/* چون require_admin_tenant لازم دارند ── */
+
+  async listJoinRequests(): Promise<JoinRequest[]> {
+    const rows = await this.client.get<JoinRequestRow[]>("/auth/join-requests");
+    return (rows ?? []).map(mapJoinRequest);
+  }
+
+  async approveJoinRequest(requestId: string): Promise<Member> {
+    const row = await this.client.post<MemberRow>(
+      `/auth/join-requests/${encodeURIComponent(requestId)}/approve`,
+    );
+    return mapMember(row);
+  }
+
+  async rejectJoinRequest(requestId: string): Promise<void> {
+    await this.client.post<{ ok: boolean }>(
+      `/auth/join-requests/${encodeURIComponent(requestId)}/reject`,
+    );
   }
 }

@@ -3,6 +3,7 @@
 import type { FamilyRepository } from "@/domain/family/family.repository";
 import type {
   Family,
+  JoinRequest,
   Member,
   ProfileInput,
 } from "@/domain/family/family.types";
@@ -109,6 +110,40 @@ export class RemoveMemberUseCase {
   constructor(private readonly repo: FamilyRepository) {}
   execute(memberId: string): Promise<void> {
     return this.repo.removeMember(memberId);
+  }
+}
+
+/* ── §۲.۶ تأییدِ عضویت ────────────────────────────────────────
+   هیچ‌کدام گاردِ «آیا مدیرم؟» ندارند و نباید داشته باشند: تصمیمِ مجاز‌بودن
+   سمتِ سرور (require_admin_tenant) گرفته می‌شود و تکرارِ آن اینجا فقط
+   این توهم را می‌سازد که پنهان‌کردنِ دکمه کافی است. */
+
+export class ListJoinRequestsUseCase {
+  constructor(private readonly repo: FamilyRepository) {}
+  execute(): Promise<JoinRequest[]> {
+    return this.repo.listJoinRequests();
+  }
+}
+
+/** تأیید — عضوِ به‌روزشده را برمی‌گرداند تا فهرستِ اعضا بدون بارگیریِ
+    دوباره درست شود. */
+export class ApproveJoinRequestUseCase {
+  constructor(private readonly repo: FamilyRepository) {}
+  execute(requestId: string): Promise<Member> {
+    if (!requestId) {
+      throw new AppError("INVALID_TX", "شناسهٔ درخواست نامعتبر است");
+    }
+    return this.repo.approveJoinRequest(requestId);
+  }
+}
+
+export class RejectJoinRequestUseCase {
+  constructor(private readonly repo: FamilyRepository) {}
+  execute(requestId: string): Promise<void> {
+    if (!requestId) {
+      throw new AppError("INVALID_TX", "شناسهٔ درخواست نامعتبر است");
+    }
+    return this.repo.rejectJoinRequest(requestId);
   }
 }
 

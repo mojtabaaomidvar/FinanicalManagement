@@ -12,18 +12,7 @@ import {
   formatLong,
 } from "@/shared/lib/jalali";
 
-/** رویدادهای رایج خانواده‌های ایرانی — قابل انتخاب یا تایپ دلخواه */
-const EVENT_PRESETS = [
-  "تولد",
-  "سالگرد ازدواج",
-  "ورود به مدرسه",
-  "فارغ‌التحصیلی",
-  "جشن نامزدی",
-  "خرید خانه",
-  "خرید خودرو",
-  "شروع کار",
-  "بازنشستگی",
-] as const;
+import { EVENT_PRESETS } from "@/domain/event/event.types";
 
 export function EventsCard() {
   const { events, useCases, refreshData, member } = useApp();

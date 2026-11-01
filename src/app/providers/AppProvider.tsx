@@ -17,6 +17,11 @@ import type { Subcategory } from "@/domain/category/subcategory.types";
 import type { CustomCategory } from "@/domain/category/custom-category.types";
 import type { CategoryBudget } from "@/domain/category/category-budget.types";
 import type { FamilyEvent } from "@/domain/event/event.types";
+import type { Bill } from "@/domain/bill/bill.types";
+import type {
+  InventoryItem,
+  ShoppingList,
+} from "@/domain/shopping/shopping.types";
 
 type Phase = "boot" | "auth" | "ready";
 
@@ -30,6 +35,12 @@ interface AppState {
   subcategories: Subcategory[];
   customCategories: CustomCategory[];
   events: FamilyEvent[];
+  bills: Bill[];
+  /** §۱.۸ — لیست‌های خرید با اقلامِ نخریده‌شان */
+  shoppingLists: ShoppingList[];
+  /** §۱.۸ — انبار خانه. این‌جا در حالتِ سراسری است چون اعلانِ کمبودِ §۷
+      از آن مشتق می‌شود و نباید منتظرِ بازشدنِ صفحهٔ انبار بماند. */
+  inventory: InventoryItem[];
   budgets: CategoryBudget[];
   /** واحد پول نمایشی کاربر فعلی (v5.8) — شخصی است، نه خانوادگی.
       تنها منبع مجاز برای toDisplay/fromDisplay در سراسر UI. */
@@ -61,6 +72,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [],
   );
   const [events, setEvents] = useState<FamilyEvent[]>([]);
+  const [bills, setBills] = useState<Bill[]>([]);
+  const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [budgets, setBudgets] = useState<CategoryBudget[]>([]);
   const [useCases, setUseCases] = useState<UseCases | null>(null);
 
@@ -102,6 +116,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         customCatRows,
         eventRows,
         budgetRows,
+        billRows,
+        shoppingRows,
+        inventoryRows,
       ] = await Promise.all([
         useCases.getFamily.execute(),
         useCases.getMembers.execute(),
@@ -112,6 +129,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         useCases.listEvents.execute(),
         /* RPC جدید — تا زمان اجرای schema.sql روی سرور ممکن است نباشد */
         useCases.listCategoryBudgets.execute().catch(() => []),
+        /* §۱.۹ قبوض — تا اجرای مهاجرتِ 0010 روی سرور ممکن است ۴۰۴/۵۰۰ بدهد.
+           همان الگوی بودجهٔ دسته: خطا فهرستِ خالی می‌شود تا نرم‌افزارِ
+           به‌روزشده روی سرورِ به‌روزنشده هم بالا بیاید، نه اینکه کلِ
+           بارگذاریِ داده بشکند. */
+        useCases.listBills.execute().catch(() => []),
+        /* §۱.۸ خرید و انبار — همان الگو، برای مهاجرتِ 0011 */
+        useCases.listShoppingLists.execute().catch(() => []),
+        useCases.listInventory.execute().catch(() => []),
       ]);
       setFamily(familyRow);
       setMembers(memberRows);
@@ -121,6 +146,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setCustomCategories(customCatRows);
       setEvents(eventRows);
       setBudgets(budgetRows);
+      setBills(billRows);
+      setShoppingLists(shoppingRows);
+      setInventory(inventoryRows);
     },
     [useCases],
   );
@@ -137,6 +165,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       customCategories,
       events,
       budgets,
+      bills,
+      shoppingLists,
+      inventory,
       cur: member?.currency === "ریال" ? "ریال" : "تومان",
       useCases,
       refreshData,
@@ -163,6 +194,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setCustomCategories([]);
         setEvents([]);
         setBudgets([]);
+        setBills([]);
         setPhase("auth");
       },
     }),
@@ -177,6 +209,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       customCategories,
       events,
       budgets,
+      bills,
+      shoppingLists,
+      inventory,
       useCases,
       refreshData,
     ],

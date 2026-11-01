@@ -28,6 +28,7 @@ from app.models.family import Member
 from app.models.holding import Holding
 from app.schemas.data import HoldingCreate, HoldingListOut, HoldingOut, HoldingUpdate
 from app.services import market as market_service
+from app.services.common import is_admin
 
 _KINDS = ("gold", "currency", "crypto", "stock")
 # سقف مقدار — هم‌ارز ستون Numeric(18,6): ۱۲ رقم صحیح.
@@ -141,7 +142,7 @@ def _own(db: Session, actor: Member, holding_id: uuid.UUID) -> Holding:
     stmt = select(Holding).where(
         Holding.id == holding_id, Holding.family_id == actor.family_id
     )
-    if actor.role != "owner":
+    if not is_admin(actor):
         stmt = stmt.where(Holding.member_id == actor.id)
     row = db.execute(stmt).scalar_one_or_none()
     if row is None:

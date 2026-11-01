@@ -15,7 +15,7 @@ import secrets
 
 import bcrypt
 from argon2 import PasswordHasher
-from argon2.exceptions import InvalidHashError, VerifyMismatchError
+from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 
 from app.core.config import settings
 
@@ -91,6 +91,38 @@ def _looks_like_sha256_hex(value: str) -> bool:
     except ValueError:
         return False
     return True
+
+
+# ── مهارِ اوراکلِ زمانی ──────────────────────────────────────
+_DUMMY_PASSWORD = "sokht-e-zamani-not-a-real-password"
+_dummy_hash: str | None = None
+
+
+def burn_verify_cost() -> None:
+    """هزینهٔ یک تأییدِ Argon2id را می‌سوزاند، بی‌آنکه چیزی را تأیید کند.
+
+    چرا لازم است: `verify_password` فقط وقتی صدا زده می‌شود که عضو **وجود
+    داشته باشد و هش داشته باشد**. پس روی یک اندپوینتِ بی‌احراز، شمارهٔ
+    ثبت‌شده حدودِ صدها میلی‌ثانیه و شمارهٔ ثبت‌نشده حدودِ یک میلی‌ثانیه طول
+    می‌کشد — یعنی *زمانِ پاسخ* خودش فاش می‌کند که این شماره ثبت شده است.
+
+    این همان شمارشِ حساب است که §۵.۱۱ ممنوع کرده، و بدونِ این مهار، همهٔ
+    زحمتِ «پاسخِ بایت‌به‌بایت یکسانِ» §۹.۵ بی‌اثر می‌شود: مهاجم به‌جای مسیرِ
+    بازیابی، از `/auth/check-password` می‌پرسد و همان جواب را می‌گیرد.
+
+    هشِ ساختگی تنبل ساخته و کش می‌شود تا بالا‌آمدنِ سرور هزینه ندهد؛ همان
+    نمونهٔ `_ph` است، پس هزینه‌اش با مسیرِ واقعی هم‌سان می‌ماند.
+    """
+    global _dummy_hash
+    if _dummy_hash is None:
+        _dummy_hash = _ph.hash(_DUMMY_PASSWORD)
+    try:
+        _ph.verify(_dummy_hash, "")
+    except (VerificationError, InvalidHashError):
+        # مسیرِ همیشگی: رمز نمی‌خواند. چیزی برای گزارش نیست — کارِ این تابع
+        # سوزاندنِ زمان است، نه تأیید. عمداً خطا بالا نمی‌رود تا نتواند
+        # مسیرِ ورود را بشکند.
+        pass
 
 
 # ── توکن نشست ──────────────────────────────────────────────

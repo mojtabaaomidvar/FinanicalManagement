@@ -3694,6 +3694,609 @@ button:active {
   cursor: default;
 }
 
+/* ─────────── §۸.۶ نوار «اتصال نیست» ───────────
+   جای همان داکِ بازنشسته را گرفته (۱۲px + safe-area) چون آن پایین حالا خالی
+   است و این‌طور با هیچ هدرِ صفحه‌ای تصادم نمی‌کند. عرض و مرکزش هم‌اندازهٔ
+   ستونِ .content است تا روی لپ‌تاپ تمام‌عرض کشیده نشود.
+
+   z-index از tabbar-dock (۵۰) بالاتر و از toast (۲۰۰) و date-picker (۱۲۰)
+   پایین‌تر است: پیامِ گذرا و انتخاب‌گرِ تاریخ باید رویش بنشینند.
+
+   pointer-events: none — نوار دکمه‌ای ندارد و خودش با برگشتِ اتصال می‌رود،
+   پس نباید لمسِ محتوای زیرش را بگیرد. */
+.offline-bar {
+  position: fixed;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  left: 12px;
+  right: 12px;
+  max-width: 520px;
+  margin-inline: auto;
+  z-index: 60;
+  pointer-events: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px var(--sp-4);
+  border-radius: var(--r-lg);
+  background: var(--card);
+  border: 1px solid var(--warn);
+  box-shadow: var(--shadow);
+  animation: fadeIn var(--dur-fast) ease;
+}
+.offline-bar svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--warn);
+}
+.offline-bar b {
+  display: block;
+  font-size: 13px;
+  color: var(--text);
+}
+.offline-bar p {
+  margin: 2px 0 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text-3);
+}
+
+/* §۱.۹ — قبوض و شارژ */
+.bill-summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+.bill-summary-label {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-3);
+}
+.bill-summary-amount {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--expense);
+}
+.bill-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.bill-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  /* مرزِ رنگیِ سمتِ شروع، حالت را بی‌نیاز به خواندنِ متن می‌رساند — همان
+     قاعدهٔ ردیف‌های مرکزِ اعلان. */
+  border-inline-start-width: 3px;
+  border-inline-start-color: var(--border);
+  background: var(--card);
+  cursor: pointer;
+  transition: transform var(--dur-fast) ease;
+}
+.bill-item:active {
+  transform: scale(0.99);
+}
+.bill-item.is-overdue {
+  border-inline-start-color: var(--danger);
+}
+/* قبضِ لغوشده کم‌رنگ می‌شود ولی پاک نمی‌شود: سند می‌ماند */
+.bill-item.is-cancelled {
+  opacity: 0.6;
+}
+.bill-ic {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+.bill-item.is-overdue .bill-ic {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.bill-info {
+  flex: 1;
+  min-width: 0;
+}
+.bill-info b {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  /* عنوانِ بلند نباید ردیف را بکشد */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bill-info p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.bill-side {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--sp-1);
+}
+.bill-amount {
+  font-size: 14px;
+  font-weight: 800;
+}
+.bill-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.bill-actions button {
+  padding: 5px 9px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  font-family: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.bill-actions button:disabled {
+  opacity: 0.5;
+}
+.bill-pay {
+  border-color: var(--accent) !important;
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+.bill-undo,
+.bill-skip {
+  color: var(--text-3);
+}
+.bill-del {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0 !important;
+  color: var(--danger);
+}
+
+/* یادداشتِ کوچکِ راهنما داخلِ کارت/فرم.
+   این کلاس از قبل در EventsCard استفاده می‌شد ولی **هیچ‌جا تعریف نشده
+   بود** — یعنی متنِ حالتِ خالی با استایلِ پیش‌فرضِ <p> رندر می‌شد. با
+   ساختِ صفحهٔ تقویم پیدا شد (۱۴۰۵/۰۷/۱۹). */
+.form-note {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.8;
+  color: var(--text-3);
+}
+
+/* §۱.۱۰ — تقویم ماهانهٔ جلالی */
+.cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+.cal-nav-btn {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.cal-nav-btn:active {
+  transform: scale(0.94);
+}
+.cal-month {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+/* هفت ستون — ردیفِ آخرِ ناقص مشکلی ندارد، پس خانهٔ خالیِ پایانی نمی‌سازیم */
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.cal-head {
+  margin-bottom: 4px;
+}
+.cal-wd {
+  display: grid;
+  place-items: center;
+  height: 24px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+.cal-cell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background var(--dur-fast) ease;
+}
+/* خانهٔ خالیِ ابتدای ماه — نه قابلِ کلیک، نه دیده‌شدنی */
+.cal-cell.is-pad {
+  pointer-events: none;
+}
+.cal-cell:active {
+  transform: scale(0.92);
+}
+.cal-cell.is-today {
+  border-color: var(--accent);
+  font-weight: 800;
+  color: var(--accent-strong);
+}
+.cal-cell.is-selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: 800;
+}
+/* نقطهٔ «این روز رویداد دارد» */
+.cal-dot {
+  position: absolute;
+  bottom: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+}
+.cal-cell.is-selected .cal-dot {
+  background: var(--accent-text);
+}
+
+/* §۱.۸ — لیست خرید */
+
+/* چیپ‌های لیست — افقی و قابلِ اسکرول، چون نامِ لیست‌ها دلخواه است و
+   «سوپرمارکتِ سرِ کوچه» جا نمی‌شود. */
+.shop-tabs {
+  display: flex;
+  gap: var(--sp-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+  margin-bottom: var(--sp-3);
+}
+.shop-tabs::-webkit-scrollbar {
+  display: none;
+}
+.shop-tab {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.shop-tab.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+.shop-tab.is-add {
+  width: 36px;
+  padding: 0;
+  justify-content: center;
+  color: var(--accent-strong);
+}
+.shop-tab-n {
+  min-width: 18px;
+  padding: 0 4px;
+  border-radius: var(--r-pill);
+  background: var(--border);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+.shop-tab.active .shop-tab-n {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+/* افزودنِ سریع — ورودی باید بزرگ‌ترین چیزِ ردیف باشد */
+.shop-add {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+.shop-add > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.shop-add-btn {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  border: none;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.shop-add-btn:disabled {
+  opacity: 0.45;
+}
+.shop-add-more {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.shop-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.shop-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 4px var(--sp-2) 4px 0;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+/* تیک‌خورده کم‌رنگ می‌شود ولی خط نمی‌خورد: هنوز در لیست است و تا
+   «خرید انجام شد» برگشت‌پذیر است. */
+.shop-item.is-checked {
+  opacity: 0.62;
+}
+.shop-item.is-checked .shop-body b {
+  text-decoration: line-through;
+}
+
+/* هدفِ لمسِ ۴۴ پیکسلی — کسی که وسطِ فروشگاه ایستاده نباید دنبالِ
+   چک‌باکسِ ریز بگردد (توضیحِ کاملش بالای ShoppingPage.tsx). */
+.shop-check {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+.shop-check:disabled {
+  opacity: 0.5;
+}
+.shop-box {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--r-sm);
+  border: 1.5px solid var(--border-strong);
+  color: var(--accent-text);
+}
+.shop-item.is-checked .shop-box {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.shop-body {
+  flex: 1;
+  min-width: 0;
+  padding: var(--sp-2) 0;
+  cursor: pointer;
+}
+.shop-body b {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shop-body p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.shop-side {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.shop-price {
+  font-size: 13px;
+  font-weight: 800;
+}
+.shop-del {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-pill);
+  border: none;
+  background: transparent;
+  color: var(--danger);
+  cursor: pointer;
+}
+.shop-del:disabled {
+  opacity: 0.5;
+}
+
+.shop-foot {
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+}
+.shop-foot-sum {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.shop-foot-sum b {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--expense);
+}
+.shop-list-actions {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+.shop-list-actions > button {
+  flex: 1;
+}
+
+/* §۱.۸ — انبار خانه */
+.inv-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.inv-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  border-inline-start-width: 3px;
+  border-inline-start-color: var(--border);
+  background: var(--card);
+}
+/* مرزِ رنگیِ سمتِ شروع، «دارد تمام می‌شود» را بی‌نیاز به خواندنِ متن
+   می‌رساند — همان قاعدهٔ ردیفِ قبض. */
+.inv-item.is-low {
+  border-inline-start-color: var(--warn);
+}
+.inv-body {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 0;
+  cursor: pointer;
+}
+.inv-body b {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inv-body p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.inv-side {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.inv-step {
+  display: flex;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.inv-step button {
+  width: 32px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.inv-step button:disabled {
+  opacity: 0.35;
+}
+.inv-step button + button {
+  border-inline-start: 1px solid var(--border);
+}
+.inv-send {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 9px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent-strong);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.inv-send:disabled {
+  opacity: 0.5;
+}
+/* قلمی که از قبل در لیست خرید است دکمه نمی‌گیرد، برچسب می‌گیرد */
+.inv-queued {
+  padding: 5px 9px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.inv-del {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-pill);
+  border: none;
+  background: transparent;
+  color: var(--danger);
+  cursor: pointer;
+}
+.inv-del:disabled {
+  opacity: 0.5;
+}
+
+
 /* ─────────── Toast ─────────── */
 .toast {
   position: fixed;
@@ -4646,6 +5249,54 @@ button:active {
   margin: 2px 0 0;
 }
 
+/* «رمز را فراموش کرده‌اید؟» — §۹.۵، زیرِ دکمهٔ ورود.
+   خودش دکمه است نه <a>: ناوبری نمی‌کند و فقط گامِ بازیابی را باز می‌کند. */
+.auth-forgot {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 0 0;
+  text-align: center;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.auth-forgot:hover {
+  color: var(--accent);
+}
+
+/* §۲.۶ راهِ سومِ صفحهٔ ورود: «پیوستن با کد خانواده».
+   بیرونِ تراکِ اسلایدیِ دو فرم می‌نشیند، پس در هر دو حالتِ سوییچر دیده
+   می‌شود. max-width هم‌اندازهٔ auth-otp/auth-wrap است تا با عرضِ فرم‌ها
+   هم‌تراز بماند. */
+.auth-third {
+  width: 100%;
+  max-width: 340px;
+  margin-top: var(--sp-4);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-3);
+  text-align: center;
+}
+.auth-third button {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 /* مرحله OTP */
 .auth-otp {
   width: 100%;
@@ -4725,6 +5376,15 @@ button:active {
   font-weight: 600;
   line-height: 1.8;
   text-align: center;
+}
+
+/* پنل «در انتظار تأیید مدیر» — پس از ثبتِ درخواستِ عضویت با لینک دعوت (§۲.۶).
+   ثبتِ فرم نشست نمی‌سازد؛ کاربر تا تأییدِ مدیر بیرون می‌ماند. */
+.auth-pending .prereg-banner {
+  margin-bottom: var(--sp-4);
+}
+.auth-pending .btn-primary {
+  margin-top: var(--sp-5);
 }
 
 /* ─────────── فیلد تاریخ (کلیک → تقویم) ─────────── */
@@ -5534,6 +6194,31 @@ button.set-row:active {
   cursor: pointer;
   padding: 4px 8px;
   margin-right: auto;
+}
+
+/* ─────────── §۲.۶ درخواست‌های عضویت (سمت مدیر) ─────────── */
+/* دو دکمه‌ی تصمیم ستونی‌اند نه کنار هم: ردیف سه سطر متن دارد و کنار هم
+   گذاشتنشان روی گوشی باریک نامِ متقاضی را له می‌کرد.
+   انتخاب‌گر عمداً «.settings-member > .jr-actions» است، نه «.jr-actions»:
+   قاعده‌ی موجودِ «.settings-member > div { flex: 1 }» ویژگی بالاتری دارد و
+   وگرنه ستونِ دکمه‌ها هم مثل بلوکِ متن کشیده می‌شد. */
+.settings-member > .jr-actions {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+/* دکمه‌های کوچکِ درون‌ردیفی: سایه‌ی سبزِ btn-primary برای یک دکمه‌ی تمام‌عرض
+   طراحی شده و در این اندازه فقط شلوغی است. */
+.jr-actions button {
+  padding: 7px 14px;
+  font-size: 12px;
+  box-shadow: none;
+  white-space: nowrap;
+}
+.jr-actions button:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -6700,6 +7385,146 @@ button.set-row:active {
 }
 .hub-avatar:active {
   transform: scale(0.94);
+}
+
+/* §۷ — زنگِ اعلان کنارِ آواتار.
+   کنارِ هم در یک ظرف نشستند تا هدر در عرضِ کم نشکند؛ آواتار از قبل
+   flex-shrink: 0 دارد و زنگ هم همان را می‌گیرد. */
+.hub-head-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.hub-bell {
+  position: relative;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+  transition: transform var(--dur-fast) ease;
+}
+.hub-bell:active {
+  transform: scale(0.94);
+}
+/* نشانِ شمارش. فقط وقتی count > 0 رندر می‌شود (در TSX)، پس این‌جا هیچ
+   حالتِ «۰» نداریم که لازم باشد پنهانش کنیم. */
+.hub-bell-dot {
+  position: absolute;
+  top: -2px;
+  inset-inline-end: -2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: var(--r-pill);
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--bg);
+}
+
+/* §۷ — فهرستِ مرکزِ اعلان (درونِ Modal) */
+.notif-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.notif-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.notif-group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+.notif-group-title span {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-3);
+}
+.notif-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--card);
+  /* مرزِ رنگیِ سمتِ شروع، شدت را بی‌نیاز به متن می‌رساند */
+  border-inline-start-width: 3px;
+}
+.notif-item[role="button"] {
+  cursor: pointer;
+}
+.notif-item[role="button"]:active {
+  transform: scale(0.99);
+}
+.notif-item.sev-overdue {
+  border-inline-start-color: var(--danger);
+}
+.notif-item.sev-pending {
+  border-inline-start-color: var(--warn);
+}
+.notif-item.sev-soon {
+  border-inline-start-color: var(--accent);
+}
+.notif-ic {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+.notif-txt {
+  flex: 1;
+  min-width: 0;
+}
+.notif-txt b {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  /* عنوانِ بلند نباید ردیف را بکشد — یادداشتِ تراکنش می‌تواند هر طولی باشد */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.notif-txt p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.notif-skip {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-3);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.notif-skip:disabled {
+  opacity: 0.5;
 }
 
 /* بنرهای زمینه‌ای — نوار افقی snap با نقطه‌ها */

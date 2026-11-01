@@ -21,7 +21,15 @@ const RUN_TIMEOUT_MS = 15000;
    «کد» تطبیق می‌دهیم (نه پیام). کدهای نگاشت‌نشده به پیام فارسی خود سرور با کد عمومی
    SERVER سقوط می‌کنند؛ پس حتی کد ناشناخته هم پیام درست نشان می‌دهد. UI فعلی فقط روی
    NETWORK/TOO_SOON/INVALID_OTP بر اساس .code شاخه می‌زند؛ بقیه صرفاً .message را نشان می‌دهند. */
-const REST_ERROR_MAP: { re: RegExp; code: AppErrorCode; msg: string }[] = [
+const REST_ERROR_MAP: {
+  re: RegExp;
+  code: AppErrorCode;
+  msg: string;
+  /* پیامِ سرور را مقدم بدار (msg فقط پشتیبانِ حالتی است که سرور پیام نفرستد).
+     برای کدهایی لازم است که یک کد، چند علتِ متفاوت دارد و سرور خودش دقیق‌تر
+     می‌داند کدام‌یک رخ داده — نگاشتِ ثابتِ این‌سو ناچار دروغ می‌گفت. */
+  keepServerMsg?: true;
+}[] = [
   // نشست: UNAUTHORIZED/INVALID_TOKEN هم به SESSION_EXPIRED نگاشته می‌شوند تا ورود دوباره راه بیفتد
   {
     re: /SESSION_EXPIRED|UNAUTHORIZED|INVALID_TOKEN/,
@@ -44,9 +52,14 @@ const REST_ERROR_MAP: { re: RegExp; code: AppErrorCode; msg: string }[] = [
     msg: "کد قبلاً ارسال شده — یک دقیقه صبر کنید",
   },
   {
+    /* یک کد، دو علتِ متفاوت: (الف) قفلِ حسابِ ۱۵دقیقه‌ای بر اثرِ رمزِ اشتباه، و
+       (ب) سقفِ نرخِ ۶۰ثانیه‌ایِ per-IP روی مسیرهای عمومی. پیامِ ثابتِ قبلی
+       («۱۵ دقیقه بعد») برای حالتِ دوم غلط بود — کاربری که هیچ تلاشِ ناموفقی
+       نداشته، «تلاش ناموفق زیاد» می‌دید. سرور برای هر دو حالت پیامِ دقیق دارد. */
     re: /TOO_MANY_ATTEMPTS/,
     code: "TOO_MANY_ATTEMPTS",
-    msg: "تلاش‌های ناموفق زیاد بوده — ۱۵ دقیقه بعد امتحان کنید",
+    msg: "درخواست‌ها زیاد بوده — کمی بعد دوباره تلاش کنید",
+    keepServerMsg: true,
   },
   {
     re: /PHONE_EXISTS/,
@@ -235,7 +248,10 @@ async function fetchWithTimeout(
 function mapError(code: string, message: string, status: number): AppError {
   const probe = code || message; // کد را مقدم می‌گیریم؛ اگر کدی نبود، روی پیام هم می‌سنجیم
   for (const m of REST_ERROR_MAP) {
-    if (m.re.test(probe)) return new AppError(m.code, m.msg);
+    if (m.re.test(probe)) {
+      // keepServerMsg: پیامِ سرور دقیق‌تر است (یک کد، چند علت) → همان را نشان بده
+      return new AppError(m.code, m.keepServerMsg && message ? message : m.msg);
+    }
   }
   // کد نگاشت‌نشده ولی پیام فارسی سرور موجود → همان پیام با کد عمومی SERVER
   if (message) return new AppError("SERVER", message);

@@ -25,7 +25,7 @@ export function InviteFeature() {
         <p className="invite-title">دعوت عضو جدید</p>
         <p className="invite-sub">
           لینک دعوت زیر را برای عضو خانوادتون بفرتسین تا به جمع خانواده شما تو
-          نرم افزار اضافه بشه
+          نرم‌افزار اضافه بشه
         </p>
         <div className="invite-actions">
           <button className="action-btn" disabled={m.busy} onClick={m.create}>

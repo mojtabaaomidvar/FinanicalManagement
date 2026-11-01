@@ -2,6 +2,7 @@
    UI فقط از طریق این container به مخازن دسترسی دارد. */
 
 import { createSecureStorage } from "@/infrastructure/storage/secureStorage.adapter";
+import { BrowserOfflineCache } from "@/infrastructure/storage/offlineCache.adapter";
 import { RestClient } from "@/infrastructure/api/restClient";
 import { SessionRepository } from "./sessionRepository";
 import { SupabaseAuthRepository } from "./authRepository";
@@ -17,6 +18,12 @@ import { SupabaseEventRepository } from "./eventRepository";
 import { SupabaseCategoryBudgetRepository } from "./categoryBudgetRepository";
 import { RestMarketRepository } from "./marketRepository";
 import { RestHoldingRepository } from "./holdingRepository";
+import { RestNotificationRepository } from "./notificationRepository";
+import { RestBillRepository } from "./billRepository";
+import {
+  RestInventoryRepository,
+  RestShoppingRepository,
+} from "./shoppingRepository";
 import type { SecureStorage } from "@/infrastructure/storage/secureStorage.adapter";
 
 export interface Repositories {
@@ -33,11 +40,17 @@ export interface Repositories {
   categoryBudgets: SupabaseCategoryBudgetRepository;
   market: RestMarketRepository;
   holdings: RestHoldingRepository;
+  notifications: RestNotificationRepository;
+  bills: RestBillRepository;
+  shopping: RestShoppingRepository;
+  inventory: RestInventoryRepository;
 }
 
 export interface Container {
   storage: SecureStorage;
   session: SessionRepository;
+  /** §۸.۵ — پاک‌کنندهٔ کشِ آفلاین؛ LogoutUseCase هنگامِ خروج صدایش می‌زند */
+  offlineCache: BrowserOfflineCache;
   repos: Repositories;
 }
 
@@ -55,6 +68,7 @@ export function getContainer(): Promise<Container> {
       return {
         storage,
         session,
+        offlineCache: new BrowserOfflineCache(),
         repos: {
           auth: new SupabaseAuthRepository(client),
           family: new SupabaseFamilyRepository(client),
@@ -69,6 +83,10 @@ export function getContainer(): Promise<Container> {
           categoryBudgets: new SupabaseCategoryBudgetRepository(client),
           market: new RestMarketRepository(client),
           holdings: new RestHoldingRepository(client),
+          notifications: new RestNotificationRepository(client),
+          bills: new RestBillRepository(client),
+          shopping: new RestShoppingRepository(client),
+          inventory: new RestInventoryRepository(client),
         },
       };
     })();

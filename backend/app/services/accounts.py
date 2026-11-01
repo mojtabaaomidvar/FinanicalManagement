@@ -18,7 +18,7 @@ from app.core.errors import AppError
 from app.models.account import Account, CardBin
 from app.models.family import Member
 from app.schemas.data import AccountCreate, AccountUpdate
-from app.services.common import to_uuid
+from app.services.common import is_admin, to_uuid
 
 _MAX_BALANCE = 999999999999999  # ۱۵ نُه — هم‌سان با add/update_account قدیمی
 
@@ -115,7 +115,7 @@ def update(db: Session, actor: Member, account_id: uuid.UUID, req: AccountUpdate
     stmt = select(Account).where(
         Account.id == account_id, Account.family_id == actor.family_id
     )
-    if actor.role != "owner":
+    if not is_admin(actor):
         stmt = stmt.where(Account.member_id == actor.id)
     row = db.execute(stmt).scalar_one_or_none()
     if row is None:
@@ -145,7 +145,7 @@ def delete(db: Session, actor: Member, account_id: uuid.UUID) -> None:
     stmt = select(Account).where(
         Account.id == account_id, Account.family_id == actor.family_id
     )
-    if actor.role != "owner":
+    if not is_admin(actor):
         stmt = stmt.where(Account.member_id == actor.id)
     row = db.execute(stmt).scalar_one_or_none()
     if row is None:

@@ -32,3 +32,18 @@ export function isValidOtpCode(code: string): boolean {
 export function cleanOtpCode(code: string): string {
   return toEn(code).replace(/\D/g, "");
 }
+
+/* ── §۲.۶ کدِ خانواده ─────────────────────────────────────────
+   امروز هم ۶ رقم است، دقیقاً مثل کدِ OTP، ولی عمداً تابعِ خودش را دارد و از
+   cleanOtpCode/isValidOtpCode استفاده نمی‌کند: این دو چیزِ بی‌ربط‌اند که
+   اتفاقاً یک شکل دارند. اگر فردا طولِ کدِ یک‌بارمصرف عوض شود، نباید بی‌صدا
+   اعتبارسنجیِ کدِ خانواده را هم عوض کند.
+   الگو باید با Field(pattern=r"^\d{6}$") در JoinByCodeRequest یکی بماند. */
+
+export function cleanFamilyCode(code: string): string {
+  return toEn(code).replace(/\D/g, "");
+}
+
+export function isValidFamilyCode(code: string): boolean {
+  return /^\d{6}$/.test(cleanFamilyCode(code));
+}

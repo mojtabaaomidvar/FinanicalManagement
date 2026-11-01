@@ -29,3 +29,50 @@ export function canEditRelation(
   if (target.role === "owner") return false;
   return actor.role === "owner" || actor.id === target.id;
 }
+
+/* ── §۲.۵/§۲.۶ وضعیتِ عضویت ───────────────────────────────────
+   این بخش دربارهٔ محورِ `membershipState` است، نه `status`. تفاوتشان در
+   family.types.ts نوشته شده و اشتباه‌گرفتنشان همان چیزی بود که باعث شد
+   عضوِ تأییدنشده در فهرستِ اعضا «سالم» دیده شود. */
+
+/** برچسبِ وضعیتِ عضویت — `null` یعنی «نشانی لازم نیست».
+ *
+ *  متن‌ها عمداً از نگاهِ «مدیر» نوشته نشده‌اند («منتظر تأیید مدیر»، نه «منتظر
+ *  تأیید شما»)، چون همین فهرست را اعضای عادی هم می‌بینند.
+ *
+ *  `active` و `null` هر دو `null` برمی‌گردانند ولی به دو دلیلِ متفاوت:
+ *  اولی «تأییدشده است» و دومی «سرور نگفته». هیچ‌کدام نباید نشانی بگیرند —
+ *  یکی چون خبری نیست، دیگری چون خبری نداریم. */
+export function membershipLabel(
+  m: Pick<Member, "membershipState">,
+): string | null {
+  switch (m.membershipState) {
+    case "pending":
+      return "منتظر تأیید مدیر";
+    case "rejected":
+      return "عضویت رد شد";
+    case "expired":
+      return "عضویت منقضی شد";
+    case "suspended":
+      return "عضویت معلق شد";
+    case "removed":
+      return "از خانواده حذف شد";
+    case "active":
+    case null:
+    case undefined:
+      return null;
+  }
+}
+
+/** شمارِ اعضایی که منتظرِ تصمیمِ مدیرند — نشانِ ردیفِ «درخواست‌های عضویت».
+ *
+ *  از روی `members` (که از قبل در حافظه است) شمرده می‌شود تا باز‌کردنِ
+ *  تنظیمات یک درخواستِ شبکهٔ دیگر نیاورد. عمداً «تقریبِ محافظه‌کار» است:
+ *  اگر ردیفِ عضوی حذف شده باشد ولی درخواستش مانده باشد، اینجا شمرده
+ *  نمی‌شود. برای همین ردیفِ تنظیمات همیشه — حتی با شمارِ صفر — برای مدیر
+ *  باز می‌ماند؛ فهرستِ معتبر همان چیزی است که خودِ زیرصفحه از سرور می‌گیرد. */
+export function pendingApprovalCount(
+  members: Pick<Member, "membershipState">[],
+): number {
+  return members.filter((m) => m.membershipState === "pending").length;
+}

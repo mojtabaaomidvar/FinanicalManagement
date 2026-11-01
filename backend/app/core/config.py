@@ -39,15 +39,43 @@ class Settings(BaseSettings):
     brute_force_max_fails: int = 10
     brute_force_window_minutes: int = 15
 
+    # ── سقفِ نرخِ per-IP روی مسیرهای عمومیِ احراز (§5.11 — رفعِ شکافِ #۱۵) ──
+    # چرا per-IP و نه فقط per-phone؟ شمارندهٔ auth_attempts با «شماره» کلید می‌خورد،
+    # پس مهاجمی که یک رمزِ رایج را روی هزار شمارهٔ مختلف می‌آزماید (credential
+    # stuffing) هیچ‌وقت به سقف نمی‌خورد. این سقف‌ها آن محور را می‌بندند.
+    #
+    # نشانیِ IP خام هرگز ذخیره نمی‌شود؛ فقط HMAC-SHA256ِ نمک‌خورده (سرویس ratelimit).
+    rate_limit_salt: str = ""              # «راز»؛ خالی = برگشت به file_signing_secret
+    trusted_proxy_ips: str = ""            # خالی = اعتماد به peerِ loopback/خصوصی
+    rl_window_seconds: int = 60            # پنجرهٔ همهٔ سقف‌های per-IP زیر
+    rl_login_per_ip: int = 30              # POST /auth/login
+    rl_check_password_per_ip: int = 30     # POST /auth/check-password (اوراکلِ رمز)
+    rl_pre_registered_per_ip: int = 10     # POST /auth/pre-registered (اوراکلِ شماره)
+    rl_join_per_ip: int = 8                # POST /auth/join — کدِ ۶رقمی حدس‌زدنی است
+    rl_register_per_ip: int = 5            # POST /auth/register
+    rl_otp_request_per_ip: int = 5         # POST /auth/otp/request
+    rl_password_reset_per_ip: int = 5      # مسیرِ فراموشیِ رمز (§9.5)
+
     # ── Argon2id ──────────────────────────────────────────
     argon2_time_cost: int = 3
     argon2_memory_cost: int = 65536        # کیلوبایت (۶۴ مگابایت)
     argon2_parallelism: int = 4
 
-    # ── پیامک ─────────────────────────────────────────────
-    sms_provider: str = ""                 # خالی = حالت توسعه (بدون ارسال واقعی)
-    sms_api_key: str = ""
-    sms_sender: str = ""
+    # ── پیامک (خروجی — کدِ یک‌بارمصرف) ─────────────────────
+    # تا وقتی sms_api_key خالی است، فرستنده «خنثی» است: چیزی ارسال نمی‌شود، هیچ
+    # خطایی هم بالا نمی‌رود (فقط لاگِ بی‌نامِ رخداد). فعال‌سازی فقط با پرکردنِ
+    # این چهار کلید در .envِ تولید — هیچ کلیدی در مخزن نوشته نمی‌شود.
+    sms_provider: str = ""                 # خالی = خنثی. مقدارِ شناخته‌شده: kavenegar
+    sms_api_key: str = ""                  # «راز» — کاوه‌نگار آن را در *مسیرِ URL* می‌گذارد
+    sms_sender: str = ""                   # خطِ ارسال؛ فقط برای پیامکِ متنِ آزاد
+    sms_template: str = ""                 # نامِ قالبِ verify/lookup؛ پرشده = مسیرِ ترجیحی
+    sms_timeout_seconds: float = 6.0       # هم‌سان با تایم‌اوتِ market
+
+    # ── بازیابیِ رمز (§9.5) ────────────────────────────────
+    # چرا جدا از otp_ttl_seconds؟ ۵ دقیقه برای «پیامک را ببین، به نرم‌افزار برگرد،
+    # کد را بزن، رمزِ تازه را دو بار بنویس» تنگ است و کاربر را به تکرارِ درخواست
+    # می‌اندازد. ۱۵ دقیقه هم برای کدِ ۶رقمی با سقفِ ۵ حدس امن است.
+    password_reset_ttl_seconds: int = 900
 
     # ── بازار (BrsApi — طلا/ارز و شاخص بورس) ───────────────
     brsapi_key: str = ""                  # خالی = ماژول بازار غیرفعال
@@ -76,6 +104,11 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> list[str]:
         """فهرست منشأهای مجاز CORS از رشتهٔ کامایی."""
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def trusted_proxy_list(self) -> list[str]:
+        """فهرست IPهای پروکسیِ مورد اعتماد (برای خواندنِ X-Real-IP)."""
+        return [p.strip() for p in self.trusted_proxy_ips.split(",") if p.strip()]
 
     @property
     def is_production(self) -> bool:

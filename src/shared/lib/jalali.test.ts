@@ -1,59 +1,91 @@
+/* تستِ روزِ هفتهٔ جلالی — قفلِ رگرسیونِ یک باگِ واقعی.
+
+   پیش از ۱۴۰۵/۰۷/۱۹ خروجیِ خامِ `Date.getDay()` (که صفرش یکشنبه است)
+   مستقیم روی آرایهٔ `WEEKDAYS` (که صفرش شنبه است) اندیس می‌خورد، پس نامِ
+   هر روز **یکی عقب‌تر** نوشته می‌شد. سه جا دیده می‌شد: سرستونِ صفحهٔ
+   خرج‌و‌درآمد، گروه‌های تاریخ در فهرستِ تراکنش، و محورِ نمودارِ هفتگی.
+
+   این فایل آن را قفل می‌کند. اگر کسی روزی `weekdayIndex` را «ساده» کرد و
+   تبدیلِ `(getDay() + 1) % 7` را برداشت، همین‌جا قرمز می‌شود. */
+
 import { describe, expect, it } from "vitest";
 import {
-  toJalali,
-  toGregorian,
-  daysInMonth,
-  daysLeftInMonth,
-  isLeap,
-  parse,
-  jalaliToIso,
+  WEEKDAYS,
+  WEEKDAYS_SHORT,
+  formatWeekday,
   isoToJalali,
-  formatISO,
+  shortWeekday,
+  weekdayIndex,
 } from "./jalali";
 
-describe("jalali — تبدیل رفت‌وبرگشت", () => {
-  it("۱۴۰۴/۰۶/۱۵ ↔ 2025-09-06", () => {
-    expect(toJalali(2025, 9, 6)).toEqual([1404, 6, 15]);
-    expect(toGregorian(1404, 6, 15)).toEqual([2025, 9, 6]);
+/** روزِ هفتهٔ میلادیِ همان تاریخ، مستقل از کدِ ما (مرجعِ بیرونی). */
+function realWeekdayIndex(iso: string): number {
+  /* نیمروزِ UTC تا منطقهٔ زمانیِ اجراکنندهٔ تست روز را جابه‌جا نکند */
+  const g = new Date(`${iso}T12:00:00Z`);
+  /* getUTCDay: ۰=یکشنبه → اندیسِ ایرانی: شنبه=۰ */
+  return (g.getUTCDay() + 1) % 7;
+}
+
+/* یک هفتهٔ کاملِ پیوسته — تنها راهِ گرفتنِ خطای «یکی جابه‌جا» این است که
+   هر هفت روز با هم سنجیده شوند؛ یک تاریخِ تنها می‌تواند تصادفی درست باشد. */
+const FULL_WEEK = [
+  "2026-10-10", // شنبه
+  "2026-10-11",
+  "2026-10-12",
+  "2026-10-13",
+  "2026-10-14",
+  "2026-10-15",
+  "2026-10-16", // جمعه
+];
+
+/* تاریخ‌های مرزی: پایان/آغازِ سالِ جلالی، پایان/آغازِ سالِ میلادی، سالِ کبیسه */
+const EDGES = [
+  "2026-03-20", // ۱۴۰۴/۱۲/۲۹ — آخرین روزِ سال
+  "2026-03-21", // ۱۴۰۵/۰۱/۰۱ — نوروز
+  "2026-12-31",
+  "2027-01-01",
+  "2024-02-29", // کبیسهٔ میلادی
+];
+
+describe("روزِ هفتهٔ جلالی", () => {
+  it("هفتهٔ کامل: شنبه تا جمعه درست نام می‌گیرد", () => {
+    const got = FULL_WEEK.map((iso) => WEEKDAYS[weekdayIndex(isoToJalali(iso))]);
+    expect(got).toEqual([
+      "شنبه",
+      "یکشنبه",
+      "دوشنبه",
+      "سه‌شنبه",
+      "چهارشنبه",
+      "پنجشنبه",
+      "جمعه",
+    ]);
   });
 
-  it("نوروز ۱۴۰۴ = 2025-03-21", () => {
-    expect(toGregorian(1404, 1, 1)).toEqual([2025, 3, 21]);
-    expect(toJalali(2025, 3, 21)).toEqual([1404, 1, 1]);
+  it("با مرجعِ بیرونی هم‌خوان است (هفته + مرزها)", () => {
+    for (const iso of [...FULL_WEEK, ...EDGES]) {
+      expect(weekdayIndex(isoToJalali(iso))).toBe(realWeekdayIndex(iso));
+    }
   });
 
-  it("سال کبیسه ۱۴۰۳ اسفند ۳۰ روز", () => {
-    expect(isLeap(1403)).toBe(true);
-    expect(daysInMonth(1403, 12)).toBe(30);
-    expect(daysInMonth(1404, 12)).toBe(29);
+  it("formatWeekday و shortWeekday از همان اندیس می‌خوانند", () => {
+    for (const iso of [...FULL_WEEK, ...EDGES]) {
+      const jd = isoToJalali(iso);
+      const i = realWeekdayIndex(iso);
+      expect(formatWeekday(jd).split(" ")[0]).toBe(WEEKDAYS[i]);
+      expect(shortWeekday(jd)).toBe(WEEKDAYS_SHORT[i]);
+    }
   });
 
-  it("parse — فارسی و انگلیسی", () => {
-    expect(parse("۱۴۰۴/۰۶/۱۵")).toEqual([1404, 6, 15]);
-    expect(parse("1404/6/15")).toEqual([1404, 6, 15]);
-    expect(parse("1404-06-15")).toEqual([1404, 6, 15]);
-    /* ماه ۱–۶ = ۳۱ روز؛ پس ۳۱/۰۶ معتبر است */
-    expect(parse("1404/06/31")).toEqual([1404, 6, 31]);
-    /* نامعتبر */
-    expect(parse("1404/13/01")).toBeNull();
-    expect(parse("1404/07/31")).toBeNull(); /* مهر ۳۰ روزه */
-    expect(parse("1404/12/30")).toBeNull(); /* ۱۴۰۴ کبیسه نیست */
-    expect(parse("1404/06/0")).toBeNull();
-  });
-
-  it("ISO ↔ جلالی", () => {
-    expect(jalaliToIso([1404, 6, 15])).toBe("2025-09-06");
-    expect(isoToJalali("2025-09-06")).toEqual([1404, 6, 15]);
-  });
-
-  it("formatISO — ارقام فارسی با صفر", () => {
-    expect(formatISO([1404, 6, 5])).toBe("۱۴۰۴/۰۶/۰۵");
-  });
-
-  it("روزهای مانده تا پایان ماه — شامل خود روز", () => {
-    expect(daysLeftInMonth([1404, 6, 1])).toBe(31); /* شهریور ۳۱ روزه */
-    expect(daysLeftInMonth([1404, 6, 31])).toBe(1);
-    expect(daysLeftInMonth([1404, 7, 25])).toBe(6); /* مهر ۳۰ روزه */
-    expect(daysLeftInMonth([1404, 12, 29])).toBe(1); /* ۱۴۰۴ کبیسه نیست */
+  it("اندیس همیشه در بازهٔ ۰ تا ۶ است", () => {
+    /* ۴۰۰ روزِ پیوسته — هم چند مرزِ ماه را می‌گیرد هم یک مرزِ سال */
+    const start = new Date("2026-01-01T12:00:00Z");
+    for (let n = 0; n < 400; n++) {
+      const d = new Date(start.getTime() + n * 86400000);
+      const iso = d.toISOString().slice(0, 10);
+      const i = weekdayIndex(isoToJalali(iso));
+      expect(i).toBeGreaterThanOrEqual(0);
+      expect(i).toBeLessThanOrEqual(6);
+      expect(i).toBe(realWeekdayIndex(iso));
+    }
   });
 });

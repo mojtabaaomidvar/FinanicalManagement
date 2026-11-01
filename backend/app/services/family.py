@@ -11,31 +11,56 @@ import uuid
 from datetime import timedelta
 from decimal import Decimal
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.errors import AppError
 from app.core.security import hash_password
+from app.db.rls import bind_family_to_session
 from app.models.auth import FamilyInvite, Session as SessionModel
 from app.models.family import Family, Member
+from app.models.join_request import JoinRequest
 from app.schemas.auth import (
     AcceptInviteRequest,
-    AuthResult,
     FamilyOut,
     InviteInfo,
+    JoinByCodeRequest,
+    JoinPendingResult,
+    JoinRequestOut,
     MemberPublic,
     SessionPayload,
 )
 from app.schemas.data import FamilySettingsUpdate, MemberProfileUpdate
 from app.services import otp as otp_service
-from app.services import sessions
+from app.services import ratelimit
 from app.services.clock import utcnow
+from app.services.common import is_admin
 
 _INVITE_TTL_DAYS = 30
 _INVITE_TOKEN_LEN = 40
 _THEMES = {"light", "dark", "auto"}
 _CURRENCIES = {"تومان", "ریال"}
 _MEMBER_NAME_MAX = 40
+_MAX_ADMINS = 2  # §2.3 — حداکثر دو مدیر در هر خانواده
+
+# IPِ نامعلوم (فراخوانیِ درون‌فرایندی) → سطلِ مشترک، یعنی سقفِ سخت‌گیرانه‌تر.
+_UNKNOWN_IP = "unknown"
+
+
+def _limit_join_probe(db: Session, ip: str) -> None:
+    """سقفِ per-IP روی هر سه مسیرِ «پیوستن» — رفعِ شکافِ #۱۵ (§5.11).
+
+    چرا یک سطلِ مشترک برای لینک و کد؟ چون حفرهٔ اصلی **کدِ ۶ رقمیِ خانواده** است:
+    فضای جست‌وجو فقط یک‌میلیون است و `POST /auth/join` هیچ گیتی نداشت، پس یک
+    اسکریپت می‌توانست کدها را بشمارد تا به خانوادهٔ واقعی برسد. سقفِ per-phone
+    (`auth_attempts`) اینجا بی‌اثر است چون مهاجم شمارهٔ خودش را می‌فرستد و کد را
+    عوض می‌کند.
+
+    `get_invite` هم در همین سطل است تا مهاجم نتواند با «فقط خواندنِ» اطلاعاتِ دعوت،
+    نامِ خانواده‌ها را برداشت کند.
+    """
+    ratelimit.hit(db, "join", ip, limit=settings.rl_join_per_ip)
 
 
 # ── خواندن خانواده/اعضا ──────────────────────────────────────
@@ -103,48 +128,240 @@ def _active_invite(db: Session, token: str) -> FamilyInvite:
     return inv
 
 
-def get_invite(db: Session, token: str) -> InviteInfo:
+def get_invite(db: Session, token: str, *, ip: str = _UNKNOWN_IP) -> InviteInfo:
+    _limit_join_probe(db, ip)
     inv = _active_invite(db, token)
     family = family_of(db, inv.family_id)
     return InviteInfo(family_name=family.name)
 
 
-def accept_invite(db: Session, req: AcceptInviteRequest) -> AuthResult:
-    if req.password is None or len(req.password) < 8:
-        raise AppError("WEAK_PASSWORD", "رمز عبور باید حداقل ۸ کاراکتر باشد.", 422)
+def _register_pending_joiner(
+    db: Session,
+    *,
+    family_id: uuid.UUID,
+    member_name: str,
+    phone: str,
+    password: str | None,
+    otp_code: str | None,
+    relation: str | None,
+    via: str,
+    invite_id: uuid.UUID | None,
+) -> Member:
+    """کارِ مشترکِ «پیوستن» (لینک یا کد): ساختِ عضوِ pending + یک join_request.
 
-    relation = (req.relation or "").strip()
-    if not relation:
+    عضو با membership_state='pending' ساخته می‌شود و **نشست نمی‌گیرد** (§2.6 — رفعِ
+    #۲). زمینهٔ خانواده از منبعِ سرور-تأییدشده (دعوت/کد) صریح بسته می‌شود تا INSERTِ
+    join_request زیرِ RLS رد نشود. commit به‌عهدهٔ صداکننده است.
+    """
+    if password is None or len(password) < 8:
+        raise AppError("WEAK_PASSWORD", "رمز عبور باید حداقل ۸ کاراکتر باشد.", 422)
+    name = (member_name or "").strip()
+    if not (1 <= len(name) <= _MEMBER_NAME_MAX):
+        raise AppError("INVALID_NAME", "نام باید ۱ تا ۴۰ کاراکتر باشد.", 422)
+    rel = (relation or "").strip()
+    if not rel:
         raise AppError("EMPTY_RELATION", "نسبت را مشخص کنید.", 422)
 
-    otp_service.consume_otp(db, req.phone, req.otp_code)
-
-    inv = _active_invite(db, req.invite_token)
+    otp_service.consume_otp(db, phone, otp_code)
 
     exists = db.execute(
-        select(Member.id).where(Member.phone == req.phone).limit(1)
+        select(Member.id).where(Member.phone == phone).limit(1)
     ).first()
     if exists is not None:
         raise AppError("PHONE_EXISTS", "این شماره قبلاً ثبت شده است.", 409)
 
+    # زمینهٔ خانواده از توکنِ سرور-تأییدشده (نه از کلاینت) → WITH CHECK برقرار می‌ماند.
+    bind_family_to_session(db, family_id)
+
     member = Member(
-        family_id=inv.family_id,
-        name=req.member_name,
+        family_id=family_id,
+        name=name,
         role="member",
-        phone=req.phone,
-        password_hash=hash_password(req.password),
-        relation=relation,
+        phone=phone,
+        password_hash=hash_password(password),
+        relation=rel,
+        membership_state="pending",  # status پیش‌فرض 'active' = خودش ثبت‌نام کرده
     )
     db.add(member)
+    db.flush()  # برای در دست داشتن member.id
+    db.add(
+        JoinRequest(
+            family_id=family_id,
+            member_id=member.id,
+            via=via,
+            invite_id=invite_id,
+            state="pending",
+        )
+    )
+    return member
+
+
+def accept_invite(
+    db: Session, req: AcceptInviteRequest, *, ip: str = _UNKNOWN_IP
+) -> JoinPendingResult:
+    """پذیرشِ لینکِ دعوت: درخواستِ pending می‌سازد، توکن را می‌سوزاند، **نشست نمی‌دهد**."""
+    _limit_join_probe(db, ip)
+    inv = _active_invite(db, req.invite_token)
+    member = _register_pending_joiner(
+        db,
+        family_id=inv.family_id,
+        member_name=req.member_name,
+        phone=req.phone,
+        password=req.password,
+        otp_code=req.otp_code,
+        relation=req.relation,
+        via="link",
+        invite_id=inv.id,
+    )
+    # تک‌مصرفه‌سازی (رفعِ #۳): لینک سوزانده می‌شود.
+    inv.active = False
+    inv.used_at = utcnow()
+    inv.used_by = member.id
+    db.commit()
+    family = family_of(db, inv.family_id)
+    return JoinPendingResult(family_name=family.name)
+
+
+def join_by_code(
+    db: Session, req: JoinByCodeRequest, *, ip: str = _UNKNOWN_IP
+) -> JoinPendingResult:
+    """پیوستن با کدِ ۶ رقمیِ خانواده (§2.6): جریانِ pending، بدونِ نشست."""
+    _limit_join_probe(db, ip)
+    family = db.execute(
+        select(Family).where(Family.code == req.code).limit(1)
+    ).scalar_one_or_none()
+    if family is None:
+        raise AppError("INVALID_CODE", "کد خانواده نامعتبر است.", 404)
+    _register_pending_joiner(
+        db,
+        family_id=family.id,
+        member_name=req.member_name,
+        phone=req.phone,
+        password=req.password,
+        otp_code=req.otp_code,
+        relation=req.relation,
+        via="code",
+        invite_id=None,
+    )
+    db.commit()
+    return JoinPendingResult(family_name=family.name)
+
+
+# ── تأییدِ عضویت (فقط مدیر؛ زمینهٔ RLS بسته است) ──────────────
+def list_join_requests(db: Session, actor: Member) -> list[JoinRequestOut]:
+    """درخواست‌های پیوستنِ در انتظارِ خانواده — با نام/شماره/نسبتِ متقاضی."""
+    rows = db.execute(
+        select(JoinRequest, Member)
+        .join(Member, Member.id == JoinRequest.member_id, isouter=True)
+        .where(
+            JoinRequest.family_id == actor.family_id,
+            JoinRequest.state == "pending",
+        )
+        .order_by(JoinRequest.requested_at.asc())
+    ).all()
+    out: list[JoinRequestOut] = []
+    for jr, m in rows:
+        out.append(
+            JoinRequestOut(
+                id=str(jr.id),
+                member_id=str(jr.member_id) if jr.member_id else None,
+                member_name=m.name if m else None,
+                phone=m.phone if m else None,
+                relation=m.relation if m else None,
+                via=jr.via,
+                state=jr.state,
+                requested_at=jr.requested_at,
+            )
+        )
+    return out
+
+
+def _pending_request(db: Session, actor: Member, request_id: uuid.UUID) -> JoinRequest:
+    jr = db.get(JoinRequest, request_id)  # زیرِ RLS: فقط همان خانواده دیده می‌شود
+    if jr is None or jr.family_id != actor.family_id:
+        raise AppError("NOT_FOUND", "درخواست یافت نشد.", 404)
+    if jr.state != "pending":
+        raise AppError("ALREADY_DECIDED", "این درخواست قبلاً بررسی شده است.", 409)
+    return jr
+
+
+def approve_join_request(db: Session, actor: Member, request_id: uuid.UUID) -> MemberPublic:
+    """تأیید: عضویتِ متقاضی ACTIVE می‌شود؛ از این پس می‌تواند وارد شود."""
+    jr = _pending_request(db, actor, request_id)
+    member = db.get(Member, jr.member_id) if jr.member_id else None
+    if member is None or member.family_id != actor.family_id:
+        raise AppError("NOT_FOUND", "عضو یافت نشد.", 404)
+    member.membership_state = "active"
+    jr.state = "approved"
+    jr.decided_by = actor.id
+    jr.decided_at = utcnow()
+    db.commit()
+    db.refresh(member)
+    return MemberPublic.of(member)
+
+
+def reject_join_request(db: Session, actor: Member, request_id: uuid.UUID) -> None:
+    """رد: عضویت rejected می‌شود (ورود ممنوع؛ ردیف برای ممیزی می‌ماند)."""
+    jr = _pending_request(db, actor, request_id)
+    member = db.get(Member, jr.member_id) if jr.member_id else None
+    if member is not None and member.family_id == actor.family_id:
+        member.membership_state = "rejected"
+    jr.state = "rejected"
+    jr.decided_by = actor.id
+    jr.decided_at = utcnow()
     db.commit()
 
-    family = family_of(db, inv.family_id)
-    token = sessions.create_session(db, member.id)
-    return AuthResult(
-        member=MemberPublic.of(member),
-        family=FamilyOut.of(family),
-        session_token=token,
+
+# ── نقشِ مدیر: ارتقا/تنزل (§2.3/§2.4) ─────────────────────────
+def _active_admin_count(db: Session, family_id: uuid.UUID) -> int:
+    return int(
+        db.execute(
+            select(func.count())
+            .select_from(Member)
+            .where(
+                Member.family_id == family_id,
+                Member.role.in_(("owner", "admin")),
+                Member.membership_state == "active",
+            )
+        ).scalar_one()
     )
+
+
+def promote_member(db: Session, actor: Member, member_id: uuid.UUID) -> MemberPublic:
+    """ارتقای یک عضوِ ACTIVE به مدیر (admin) — با گاردِ حداکثر ۲ مدیر."""
+    if not is_admin(actor):
+        raise AppError("FORBIDDEN", "فقط مدیر خانواده مجاز است.", 403)
+    target = db.get(Member, member_id)
+    if target is None or target.family_id != actor.family_id:
+        raise AppError("NOT_FOUND", "عضو یافت نشد.", 404)
+    if target.membership_state != "active":
+        raise AppError("MEMBER_NOT_ACTIVE", "فقط عضوِ فعال می‌تواند مدیر شود.", 409)
+    if is_admin(target):
+        return MemberPublic.of(target)  # از قبل مدیر است (idempotent)
+    if _active_admin_count(db, actor.family_id) >= _MAX_ADMINS:
+        raise AppError("TOO_MANY_ADMINS", "حداکثر دو مدیر در هر خانواده مجاز است.", 409)
+    target.role = "admin"
+    db.commit()
+    db.refresh(target)
+    return MemberPublic.of(target)
+
+
+def demote_member(db: Session, actor: Member, member_id: uuid.UUID) -> MemberPublic:
+    """تنزلِ یک مدیرِ دوم به عضوِ عادی. سازنده (created_by) قابل تنزل نیست."""
+    if not is_admin(actor):
+        raise AppError("FORBIDDEN", "فقط مدیر خانواده مجاز است.", 403)
+    family = family_of(db, actor.family_id)
+    target = db.get(Member, member_id)
+    if target is None or target.family_id != actor.family_id:
+        raise AppError("NOT_FOUND", "عضو یافت نشد.", 404)
+    if family.created_by is not None and target.id == family.created_by:
+        raise AppError("CANNOT_DEMOTE_CREATOR", "سازندهٔ خانواده قابل تنزل نیست.", 409)
+    if not is_admin(target):
+        return MemberPublic.of(target)  # از قبل عضوِ عادی است (idempotent)
+    target.role = "member"
+    db.commit()
+    db.refresh(target)
+    return MemberPublic.of(target)
 
 
 # ── مدیریت اعضا (فقط مدیر) ───────────────────────────────────
@@ -152,7 +369,7 @@ def add_member_by_manager(
     db: Session, actor: Member, name: str, phone: str, relation: str
 ) -> MemberPublic:
     """افزودن عضو pending (اسم/شماره/نسبت) — تا خودش ثبت‌نام کند. فقط مدیر."""
-    if actor.role != "owner":
+    if not is_admin(actor):
         raise AppError("FORBIDDEN", "فقط مدیر خانواده مجاز است.", 403)
 
     name = (name or "").strip()
@@ -186,7 +403,7 @@ def remove_member(db: Session, actor: Member, member_id: uuid.UUID) -> None:
     target = db.get(Member, member_id)
     if target is None or target.family_id != actor.family_id:
         raise AppError("NOT_FOUND", "عضو یافت نشد.", 404)
-    if actor.role != "owner":
+    if not is_admin(actor):
         raise AppError("FORBIDDEN", "فقط مدیر خانواده مجاز است.", 403)
     if target.role == "owner":
         raise AppError("CANNOT_REMOVE_OWNER", "مدیر خانواده قابل حذف نیست.", 409)
@@ -206,7 +423,7 @@ def update_family_settings(db: Session, owner: Member, req: FamilySettingsUpdate
     فقط budget اعمال می‌شود (منفی/None → صفر)؛ currency/dark عمداً نادیده گرفته
     می‌شوند چون واحد پول و تم اکنون «شخصی»‌اند (هم‌سان با update_family_settings v5.8).
     """
-    if owner.role != "owner":
+    if not is_admin(owner):
         raise AppError("FORBIDDEN", "فقط مدیر خانواده مجاز است.", 403)
     family = family_of(db, owner.family_id)
     val = req.budget if req.budget is not None else Decimal(0)
@@ -269,7 +486,7 @@ def set_member_relation(
         raise AppError("NOT_FOUND", "عضو یافت نشد.", 404)
     if target.role == "owner":
         raise AppError("OWNER_RELATION_FIXED", "نسبت مدیر خانواده ثابت است.", 409)
-    if actor.role != "owner" and target.id != actor.id:
+    if not is_admin(actor) and target.id != actor.id:
         raise AppError("FORBIDDEN", "اجازهٔ تغییر نسبت این عضو را ندارید.", 403)
     rel = (relation or "").strip()
     if not rel:

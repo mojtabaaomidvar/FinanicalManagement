@@ -4,8 +4,6 @@ import type { CapacitorConfig } from "@capacitor/cli";
    (scp dist → khaanehyar.ir) در اجرای بعدی اپ خودکار اعمال می‌شود، بدون بازساخت APK.
    بسته‌ی محلی dist همچنان به‌عنوان fallback در APK هست (وقتی server.url
    حذف شود). اپ آنلاین-فقط است (داده‌ها روی سرور) پس نیاز اینترنت عیب نیست. */
-// بازنشسته ۲۰۲۶-۰۹-۱۰: میزبانی قبلی روی vercel بود؛ حالا سرور اختصاصی ایران (khaanehyar.ir).
-// const APP_URL = "https://finanical-management.vercel.app";
 // بازنشسته ۲۰۲۶-۰۹-۱۴: ریشهٔ khaanehyar.ir حالا «سایت معرفی» است (site/)، نه خود اپ.
 // اگر این مقدار روی ریشه بماند، اپِ نصب‌شده به‌جای برنامه، صفحهٔ تبلیغاتی را باز می‌کند.
 // const APP_URL = "https://khaanehyar.ir";

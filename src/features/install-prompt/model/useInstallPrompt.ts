@@ -5,9 +5,9 @@
 
    چهار دروازه، همه باید باز باشند تا صفحه دیده شود:
 
-   ۱. اپِ نیتیو نباشد. خیلی مهم: طبق capacitor.config.ts، WebViewِ اندروید
+   ۱. نرم‌افزارِ نیتیو نباشد. خیلی مهم: طبق capacitor.config.ts، WebViewِ اندروید
       *همین آدرس* (pwa.khaanehyar.ir) را لود می‌کند. پس بدون این شرط، همان
-      کسی که اپ را نصب کرده داخل اپ می‌بیند «اپ را نصب کن».
+      کسی که نرم‌افزار را نصب کرده داخل نرم‌افزار می‌بیند «نرم‌افزار را نصب کن».
       دو لایه گارد داریم چون یکی کافی نیست:
         • Capacitor.isNativePlatform() — راه اصلی
         • «; wv» در User-Agent — تورِ ایمنی. اگر پلِ کپاسیتور دیر تزریق شود
@@ -58,7 +58,7 @@ function safeSet(key: string, value: string): void {
   }
 }
 
-/** داخل اپِ نصب‌شده‌ی اندروید (یا هر WebViewِ دیگری) اجرا می‌شویم؟ */
+/** داخل نرم‌افزارِ نصب‌شده‌ی اندروید (یا هر WebViewِ دیگری) اجرا می‌شویم؟ */
 function isInsideWebView(): boolean {
   try {
     if (Capacitor.isNativePlatform()) return true;
@@ -71,7 +71,9 @@ function isInsideWebView(): boolean {
 /** از روی آیکونِ صفحه‌ی اصلی باز شده یا قبلاً نصب شده؟ */
 function isAlreadyInstalled(): boolean {
   const displayModes = ["standalone", "fullscreen", "minimal-ui"];
-  if (displayModes.some((m) => window.matchMedia(`(display-mode: ${m})`).matches))
+  if (
+    displayModes.some((m) => window.matchMedia(`(display-mode: ${m})`).matches)
+  )
     return true;
   /* سافاری iOS: تنها راهِ تشخیصش همین پرچمِ غیراستاندارد است */
   if ((navigator as Navigator & { standalone?: boolean }).standalone === true)
@@ -96,7 +98,7 @@ function detectPlatform(): InstallPlatform {
   return "other";
 }
 
-/** مرورگرِ داخلِ یک اپ دیگر (اینستاگرام، تلگرام، …) — نصب از آنجا کار نمی‌کند. */
+/** مرورگرِ داخلِ یک نرم‌افزار دیگر (اینستاگرام، تلگرام، …) — نصب از آنجا کار نمی‌کند. */
 function isInAppBrowser(): boolean {
   return /FBAN|FBAV|Instagram|Line\/|MicroMessenger|Twitter|OKApp/i.test(
     navigator.userAgent,
@@ -114,7 +116,7 @@ export interface InstallPromptModel {
   /** صفحه را نشان بده؟ */
   visible: boolean;
   platform: InstallPlatform;
-  /** مرورگرِ داخلِ اپِ دیگری است و باید اول در مرورگرِ اصلی باز شود */
+  /** مرورگرِ داخلِ نرم‌افزارِ دیگری است و باید اول در مرورگرِ اصلی باز شود */
   inAppBrowser: boolean;
   /** کروم اجازه‌ی نصبِ یک‌کلیکه داده است */
   canOneTap: boolean;

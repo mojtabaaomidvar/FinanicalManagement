@@ -9,6 +9,8 @@ import type {
   AuthResult,
   InviteAcceptInput,
   InviteInfo,
+  JoinByCodeInput,
+  JoinPendingResult,
   OtpRequestResult,
   PublicAppConfig,
   RegisterInput,
@@ -41,8 +43,17 @@ export class SupabaseAuthRepository implements AuthRepository {
   }
 
   async getPublicConfig(): Promise<PublicAppConfig> {
-    const r = await this.client.get<{ otp_enabled?: boolean }>("/auth/config");
-    return { otpEnabled: !!r?.otp_enabled };
+    /* هر دو پرچم با `!!` سخت‌گیرانه خوانده می‌شوند: سرورِ قدیمی‌تر (پیش از
+       افزودنِ password_reset_enabled) کلید را ندارد و نتیجه false می‌شود —
+       یعنی دکمهٔ بازیابی پنهان می‌ماند، که حالتِ ایمن است. */
+    const r = await this.client.get<{
+      otp_enabled?: boolean;
+      password_reset_enabled?: boolean;
+    }>("/auth/config");
+    return {
+      otpEnabled: !!r?.otp_enabled,
+      passwordResetEnabled: !!r?.password_reset_enabled,
+    };
   }
 
   async checkPreRegistered(phone: string): Promise<{
@@ -123,16 +134,42 @@ export class SupabaseAuthRepository implements AuthRepository {
   async acceptInvite(
     input: InviteAcceptInput,
     otpCode: string | null,
-  ): Promise<AuthResult> {
-    const r = await this.client.post<AuthResultRow>("/auth/accept-invite", {
-      invite_token: input.inviteToken,
-      member_name: input.memberName,
-      phone: input.phone,
-      password: input.password,
-      otp_code: otpCode,
-      relation: input.relation ?? "سایر",
-    });
-    return this.mapAuth(r);
+  ): Promise<JoinPendingResult> {
+    /* §۲.۶ — پاسخ سرور عمداً نشست ندارد: فقط نام خانواده و state='pending'.
+       هرگز از mapAuth رد نشود؛ member/family/session_token اینجا وجود ندارند. */
+    const r = await this.client.post<{ family_name: string; state?: string }>(
+      "/auth/accept-invite",
+      {
+        invite_token: input.inviteToken,
+        member_name: input.memberName,
+        phone: input.phone,
+        password: input.password,
+        otp_code: otpCode,
+        relation: input.relation ?? "سایر",
+      },
+    );
+    return { familyName: r.family_name, state: "pending" };
+  }
+
+  async joinByCode(
+    input: JoinByCodeInput,
+    otpCode: string | null,
+  ): Promise<JoinPendingResult> {
+    /* §۲.۶ — دوقلوی acceptInvite با اندپوینتِ دیگر. همان قاعده: نه mapAuth،
+       نه نشست. سرور کد را با `^\d{6}$` می‌سنجد، پس کد باید پیش از رسیدن به
+       اینجا لاتین شده باشد (toEn در لایهٔ فیچر). */
+    const r = await this.client.post<{ family_name: string; state?: string }>(
+      "/auth/join",
+      {
+        code: input.code,
+        member_name: input.memberName,
+        phone: input.phone,
+        password: input.password,
+        otp_code: otpCode,
+        relation: input.relation ?? "سایر",
+      },
+    );
+    return { familyName: r.family_name, state: "pending" };
   }
 
   async getInvite(token: string): Promise<InviteInfo> {
@@ -182,5 +219,26 @@ export class SupabaseAuthRepository implements AuthRepository {
       { current_password: currentPassword, new_password: newPassword },
       { bearer: token },
     );
+  }
+
+  async requestPasswordReset(phone: string): Promise<void> {
+    /* §۹.۵ — پاسخ همیشه {"ok": true} است، چه شماره ثبت شده باشد چه نه. عمداً
+       هیچ مقداری برنمی‌گرداند: اگر مثلاً `sent` را از بدنه می‌خواندیم، لایه‌های
+       بالا وسوسه می‌شدند رویش شاخه بزنند و همان می‌شد اوراکلِ شمارشِ حساب که
+       بک‌اند با زحمت بسته است. */
+    await this.client.post("/auth/password-reset/request", { phone });
+  }
+
+  async confirmPasswordReset(
+    phone: string,
+    code: string,
+    newPassword: string,
+  ): Promise<void> {
+    /* کد نادرست/منقضی → INVALID_OTP (همان پیامی که شمارهٔ ثبت‌نشده می‌گیرد). */
+    await this.client.post("/auth/password-reset/confirm", {
+      phone,
+      code,
+      new_password: newPassword,
+    });
   }
 }

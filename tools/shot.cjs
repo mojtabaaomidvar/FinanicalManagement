@@ -66,12 +66,16 @@ function serve() {
         res.writeHead(404).end("not found");
         return;
       }
-      res.writeHead(200, { "content-type": MIME[path.extname(file)] || "application/octet-stream" });
+      res.writeHead(200, {
+        "content-type": MIME[path.extname(file)] || "application/octet-stream",
+      });
       res.end(buf);
     });
   });
   return new Promise((resolve) => {
-    server.listen(0, "127.0.0.1", () => resolve({ server, port: server.address().port }));
+    server.listen(0, "127.0.0.1", () =>
+      resolve({ server, port: server.address().port }),
+    );
   });
 }
 
@@ -84,11 +88,13 @@ async function launch(chromium) {
       console.log(`مرورگر: ${opts.channel || "chromium همراهِ playwright"}`);
       return b;
     } catch (e) {
-      console.log(`  ${opts.channel || "chromium"} نشد: ${String(e.message).split("\n")[0]}`);
+      console.log(
+        `  ${opts.channel || "chromium"} نشد: ${String(e.message).split("\n")[0]}`,
+      );
     }
   }
   throw new Error(
-    "هیچ مرورگری پیدا نشد. Edge یا Chrome روی ویندوز باید نصب باشد."
+    "هیچ مرورگری پیدا نشد. Edge یا Chrome روی ویندوز باید نصب باشد.",
   );
 }
 
@@ -100,12 +106,24 @@ async function main() {
   const wantWidth = argv.find((a) => /^\d+$/.test(a));
 
   const pages = Object.entries(PAGES).filter(
-    ([name, url]) => !wantPage || name === wantPage || url === wantPage || url === `/${wantPage}/`
+    ([name, url]) =>
+      !wantPage ||
+      name === wantPage ||
+      url === wantPage ||
+      url === `/${wantPage}/`,
   );
-  const views = VIEWPORTS.filter((v) => !wantWidth || String(v.w) === wantWidth);
+  const views = VIEWPORTS.filter(
+    (v) => !wantWidth || String(v.w) === wantWidth,
+  );
 
-  if (!pages.length) throw new Error(`صفحهٔ «${wantPage}» را نمی‌شناسم. یکی از: ${Object.keys(PAGES).join(", ")}`);
-  if (!views.length) throw new Error(`عرضِ ${wantWidth} در فهرست نیست: ${VIEWPORTS.map((v) => v.w).join(", ")}`);
+  if (!pages.length)
+    throw new Error(
+      `صفحهٔ «${wantPage}» را نمی‌شناسم. یکی از: ${Object.keys(PAGES).join(", ")}`,
+    );
+  if (!views.length)
+    throw new Error(
+      `عرضِ ${wantWidth} در فهرست نیست: ${VIEWPORTS.map((v) => v.w).join(", ")}`,
+    );
 
   fs.mkdirSync(OUT, { recursive: true });
   const { server, port } = await serve();
@@ -122,13 +140,20 @@ async function main() {
         });
         const page = await ctx.newPage();
         page.on("console", (m) => {
-          if (m.type() === "error") problems.push(`[${name} ${w}] console: ${m.text()}`);
+          if (m.type() === "error")
+            problems.push(`[${name} ${w}] console: ${m.text()}`);
         });
-        page.on("requestfailed", (r) => problems.push(`[${name} ${w}] بارنشد: ${r.url()}`));
+        page.on("requestfailed", (r) =>
+          problems.push(`[${name} ${w}] بارنشد: ${r.url()}`),
+        );
 
-        await page.goto(`http://127.0.0.1:${port}${url}`, { waitUntil: "load" });
+        await page.goto(`http://127.0.0.1:${port}${url}`, {
+          waitUntil: "load",
+        });
         await page.evaluate(async () => {
-          document.querySelectorAll(".reveal").forEach((el) => el.classList.add("in"));
+          document
+            .querySelectorAll(".reveal")
+            .forEach((el) => el.classList.add("in"));
           if (document.fonts) await document.fonts.ready;
         });
         await page.waitForTimeout(450);

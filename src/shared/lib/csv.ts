@@ -2,6 +2,7 @@
 
 import type { Transaction } from "@/domain/transaction/transaction.types";
 import { toEn } from "./digits";
+import { currencyLabel, toDisplay } from "./currency";
 
 function esc(v: string | number | null): string {
   const s = String(v ?? "");
@@ -22,12 +23,27 @@ export interface CsvCategory {
   name: string;
 }
 
+/* ── §۶ واحدِ پولِ خروجی ───────────────────────────────────────────
+   مبالغ در پایگاه‌داده تومان‌اند، ولی کاربرِ ریالی همه‌جای نرم‌افزار عددِ ریالی
+   می‌بیند. پیش از این خروجی همیشه تومان بود؛ یعنی کسی که واحدش ریال است
+   فایلی می‌گرفت که هیچ عددش با صفحهٔ تراکنش‌هایش جور نبود و تطبیق‌دادنشان
+   دستی بود.
+
+   `currency` عمداً پارامترِ الزامی است و مقدارِ پیش‌فرض ندارد: اگر پیش‌فرضِ
+   «تومان» می‌گذاشتیم، یک صداکنندهٔ تازه می‌توانست بی‌صدا فایلی با واحدِ اشتباه
+   بسازد و هیچ خطایی هم نگیرد. حالا TypeScript مجبورش می‌کند تصمیم بگیرد.
+
+   نکتهٔ مهم: عددها خامِ ماشین‌خوان می‌مانند (ارقامِ لاتین، بدونِ جداکنندهٔ
+   هزار). formatAmount اینجا به‌کار نمی‌رود چون اکسل «۱۵۰٬۰۰۰» را عدد
+   نمی‌فهمد و ستون را متنی می‌کند. */
+
 /** CSV با ستون‌های فارسی؛ sep= برای Excel فارسی */
 export function transactionsToCsv(
   txs: Transaction[],
   members: CsvMember[],
   categories: CsvCategory[],
   accountNameOf: (id: string | null) => string,
+  currency: string | null | undefined,
 ): string {
   const mName = new Map(members.map((m) => [m.id, m.name]));
   const cName = new Map(categories.map((c) => [c.id, c.name]));
@@ -49,7 +65,7 @@ export function transactionsToCsv(
     "نوع",
     "دسته",
     "زیردسته/شرح",
-    "مبلغ (تومان)",
+    `مبلغ (${currencyLabel(currency)})`,
     "عضو",
     "از حساب",
     "به حساب",
@@ -61,7 +77,7 @@ export function transactionsToCsv(
     fa(typeFa[t.type]),
     fa(cName.get(t.category) ?? t.category),
     fa(t.note ?? ""),
-    fa(toEn(String(t.amount))),
+    fa(toEn(String(toDisplay(t.amount, currency)))),
     fa(mName.get(t.memberId) ?? "—"),
     fa(accountNameOf(t.accountId)),
     fa(t.type === "transfer" ? accountNameOf(t.toAccountId) : ""),
@@ -96,6 +112,7 @@ export function transactionsToExcelXml(
   members: CsvMember[],
   categories: CsvCategory[],
   accountNameOf: (id: string | null) => string,
+  currency: string | null | undefined,
 ): string {
   const mName = new Map(members.map((m) => [m.id, m.name]));
   const cName = new Map(categories.map((c) => [c.id, c.name]));
@@ -116,7 +133,7 @@ export function transactionsToExcelXml(
         `<Cell><Data ss:Type="String">${x(typeFa[t.type])}</Data></Cell>`,
         `<Cell><Data ss:Type="String">${x(cName.get(t.category) ?? t.category)}</Data></Cell>`,
         `<Cell><Data ss:Type="String">${x(t.note ?? "")}</Data></Cell>`,
-        `<Cell><Data ss:Type="Number">${t.amount}</Data></Cell>`,
+        `<Cell><Data ss:Type="Number">${toDisplay(t.amount, currency)}</Data></Cell>`,
         `<Cell><Data ss:Type="String">${x(mName.get(t.memberId) ?? "—")}</Data></Cell>`,
         `<Cell><Data ss:Type="String">${x(accountNameOf(t.accountId))}</Data></Cell>`,
       ];
@@ -136,7 +153,7 @@ export function transactionsToExcelXml(
 <Cell><Data ss:Type="String">نوع</Data></Cell>
 <Cell><Data ss:Type="String">دسته</Data></Cell>
 <Cell><Data ss:Type="String">شرح</Data></Cell>
-<Cell><Data ss:Type="String">مبلغ (تومان)</Data></Cell>
+<Cell><Data ss:Type="String">${x(`مبلغ (${currencyLabel(currency)})`)}</Data></Cell>
 <Cell><Data ss:Type="String">عضو</Data></Cell>
 <Cell><Data ss:Type="String">حساب</Data></Cell>
 </Row>

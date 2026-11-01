@@ -24,8 +24,10 @@ import { LabelsCard } from "./LabelsCard";
 import { ScheduledTxsCard } from "./ScheduledTxsCard";
 import { SmsBridgeCard } from "./SmsBridgeCard";
 import { SmsSettingsFeature } from "@/features/sms-settings";
+import { JoinRequestsFeature } from "@/features/join-requests";
 import { SettingsSubPage } from "./SettingsSubPage";
 import { SettingsCard, SettingsRow, type RowTrailing } from "./SettingsCard";
+import { NotificationSettingsFeature } from "@/features/notifications";
 import { useTheme } from "@/app/providers/useTheme";
 import { usePwaUpdateState } from "@/app/pwaUpdate.tsx";
 import { APP_VERSION, buildId } from "@/shared/config/version";
@@ -41,12 +43,16 @@ import {
 import { sortTxDesc } from "@/domain/transaction/transaction.rules";
 import { CATEGORIES } from "@/domain/category/category.catalog";
 import type { ThemeMode } from "@/domain/family/family.types";
-import { relationLabel } from "@/domain/family/family.rules";
+import {
+  pendingApprovalCount,
+  relationLabel,
+} from "@/domain/family/family.rules";
 
-type SettingsSection =
+export type SettingsSection =
   | "profile"
   | "premium"
   | "family"
+  | "joinRequests"
   | "events"
   | "accounts"
   | "scheduled"
@@ -54,6 +60,7 @@ type SettingsSection =
   | "labels"
   | "export"
   | "sms"
+  | "notifications"
   | "about";
 
 /* ترتیب سگمنت «ظاهر» — روشن → خودکار → تیره */
@@ -70,7 +77,22 @@ const THEME_ICON: Record<ThemeMode, string> = {
   dark: "moon",
 };
 
-export function SettingsPage() {
+/* `initialSection` برای ورودِ مستقیم از بیرون — مثلاً لمسِ اعلانِ
+   «درخواست عضویت» در مرکزِ اعلان که باید *همان* زیرصفحه را باز کند، نه
+   فهرستِ تنظیمات را. فقط مقدارِ اولیهٔ state است و همین کافی است، چون
+   MainShell با `key={route}` این درخت را در هر جابه‌جاییِ مسیر از نو
+   می‌سازد؛ پس هر بار که از جای دیگری به تنظیمات می‌آییم تازه خوانده
+   می‌شود. */
+export function SettingsPage({
+  initialSection,
+  onNotificationPrefsChanged,
+}: {
+  initialSection?: SettingsSection | null;
+  /* §۷ — پس از تغییرِ ترجیحاتِ اعلان صدا زده می‌شود تا زنگِ هاب دوباره
+     بخواند. MainShell زنگ را نگه می‌دارد و با جابه‌جاییِ مسیر remount
+     نمی‌شود، پس بی این فراخوان نشانِ قرمز کهنه می‌ماند. */
+  onNotificationPrefsChanged?: () => void;
+} = {}) {
   const {
     useCases,
     family,
@@ -91,12 +113,20 @@ export function SettingsPage() {
   const { themeMode, changeTheme } = useTheme(member, useCases);
   const { updateReady, applyUpdate, checkForUpdate } = usePwaUpdateState();
 
-  const [section, setSection] = useState<SettingsSection | null>(null);
+  const [section, setSection] = useState<SettingsSection | null>(
+    initialSection ?? null,
+  );
   /* بررسی به‌روزرسانی درجا انجام می‌شود (بدون زیرصفحه) — این کلید فقط
      برای نمایش «در حال بررسی…» روی همان ردیف است */
   const [checkingUpdate, setCheckingUpdate] = useState(false);
 
   const isOwner = member?.role === "owner";
+
+  /* §۲.۶ — شمارِ متقاضیانِ منتظر، از روی members که از قبل در حافظه است.
+     تقریبِ محافظه‌کارانه است (درخواستی که ردیفِ عضوش حذف شده باشد شمرده
+     نمی‌شود)، پس ردیفِ تنظیمات حتی با عددِ صفر هم برای مدیر باز می‌ماند و
+     فهرستِ معتبر همان چیزی است که خودِ زیرصفحه از سرور می‌گیرد. */
+  const pendingJoins = pendingApprovalCount(members);
 
   /* بودجه ماهانه دیگر زیرصفحه ندارد — فقط همین مودال ورود/ویرایش مبلغ */
   const [budgetOpen, setBudgetOpen] = useState(false);
@@ -194,8 +224,19 @@ export function SettingsPage() {
   }
 
   /* §۶.۲ — تابع wipeDevice بازنشسته شد (ردیفش از UI حذف شد چون با «حذف
-     حساب» اشتباه گرفته می‌شد). کد بدون حذف نگه داشته می‌شود تا اگر بعداً
-     «پاک‌سازی دستگاه» لازم شد، از همین‌جا بازگردد:
+     حساب» اشتباه گرفته می‌شد).
+
+     §۸.۵ (۱۴۰۵/۰۷/۱۱): «پاک‌شدنِ کشِ دستگاه هنگامِ خروج» دیگر به این ردیف
+     وابسته نیست — خودِ LogoutUseCase آن را انجام می‌دهد (درزِ
+     OfflineCacheStore، پیاده‌سازی در infrastructure/storage/
+     offlineCache.adapter.ts). پس این ردیف را برای برآورده‌کردنِ §۸.۵
+     برنگردانید؛ تنها تفاوتِ باقی‌ماندهٔ wipeDevice با خروجِ امروز دو چیزِ
+     *عمداً انجام‌نشده* است: پاک‌کردنِ localStorage (که فلگِ قیفِ آغازین و
+     تنظیماتِ دستگاه را هم می‌بُرد) و unregister کردنِ سرویس‌ورکر (که کانالِ
+     به‌روزرسانیِ نسخهٔ اندروید است).
+
+     کد بدون حذف نگه داشته می‌شود تا اگر روزی «پاک‌سازیِ کاملِ دستگاه» —
+     که چیزِ دیگری جز خروج است — لازم شد، از همین‌جا بازگردد:
 
      async function wipeDevice() {
        if (!confirm("خروج + پاک‌کردن حافظه موقت و نسخه آفلاین این دستگاه؛
@@ -266,6 +307,17 @@ export function SettingsPage() {
     );
   }
 
+  /* §۲.۶ — زیرصفحه‌ی جدا، نه بخشی از «خانواده»: تصمیمِ تأیید از جنسِ
+     «فهرستِ اعضا» نیست و قاطی‌کردنشان باعث می‌شد ردیفِ یک متقاضیِ
+     تأییدنشده کنارِ اعضای واقعی دیده شود. */
+  if (section === "joinRequests") {
+    return (
+      <SettingsSubPage title="درخواست‌های عضویت" onBack={back}>
+        <JoinRequestsFeature />
+      </SettingsSubPage>
+    );
+  }
+
   if (section === "events") {
     return (
       <SettingsSubPage title="رویدادهای مهم" onBack={back}>
@@ -313,6 +365,14 @@ export function SettingsPage() {
             روشن است، بعد اگر خواست فورواردر را تنظیم کند. */}
         <SmsSettingsFeature />
         <SmsBridgeCard />
+      </SettingsSubPage>
+    );
+  }
+
+  if (section === "notifications") {
+    return (
+      <SettingsSubPage title="اعلان‌ها" onBack={back}>
+        <NotificationSettingsFeature onChanged={onNotificationPrefsChanged} />
       </SettingsSubPage>
     );
   }
@@ -365,6 +425,7 @@ export function SettingsPage() {
                     })),
                   ],
                   (id) => accounts.find((a) => a.id === id)?.title ?? "",
+                  cur,
                 );
                 downloadTextFile(csv, "khaneyar-transactions.csv");
                 show("فایل CSV دانلود شد");
@@ -389,6 +450,7 @@ export function SettingsPage() {
                     })),
                   ],
                   (id) => accounts.find((a) => a.id === id)?.title ?? "",
+                  cur,
                 );
                 downloadTextFile(
                   xml,
@@ -404,8 +466,15 @@ export function SettingsPage() {
               Excel
             </button>
           </div>
+          {/* §۶ — این یادداشت پیش از این می‌گفت «مبالغ در همه فرمت‌ها به تومان
+              است» که بعد از ارزی‌شدنِ CSV/Excel دیگر درست نبود. تفاوتِ JSON
+              عمدی است: آن فایلِ بازگردانی است، نه گزارش؛ اگر واحدش به ریال
+              تغییر می‌کرد، بازگرداندنِ پشتیبانِ یک کاربرِ ریالی مبالغ را
+              ده‌برابر می‌نوشت. */}
           <p className="modal-sub" style={{ marginTop: 10 }}>
-            مبالغ در همه فرمت‌ها به تومان (ارز پایه) است.
+            مبالغ CSV و Excel به <b>{cur}</b> است (همان واحدی که در نرم‌افزار
+            می‌بینید). پشتیبان JSON همیشه به تومان — ارز پایه — ذخیره می‌شود تا
+            بازگردانی‌اش سالم بماند.
           </p>
         </Card>
       </SettingsSubPage>
@@ -552,6 +621,29 @@ export function SettingsPage() {
             trailing={{ type: "counter", count: events.length }}
             onClick={() => setSection("events")}
           />
+          {/* §۲.۶ — فقط مدیر: اندپوینت‌ها require_admin_tenant دارند و برای
+              عضو عادی این ردیف فقط یک ۴۰۳ بود. پنهان‌کردنش امنیت نیست،
+              تمیزیِ تجربه است.
+              شمارنده با عدد صفر «۰» چاپ می‌کرد، پس در آن حالت فلشِ ساده
+              نشان داده می‌شود — ردیف باز می‌ماند چون شمارِ درون‌حافظه‌ای
+              تقریبی است و ممکن است درخواستی باشد که اینجا دیده نشود. */}
+          {isOwner ? (
+            <SettingsRow
+              icon="shield"
+              label="درخواست‌های عضویت"
+              sub={
+                pendingJoins > 0
+                  ? "تا تأیید نکنید نمی‌توانند وارد شوند"
+                  : undefined
+              }
+              trailing={
+                pendingJoins > 0
+                  ? { type: "counter", count: pendingJoins }
+                  : { type: "chevron" }
+              }
+              onClick={() => setSection("joinRequests")}
+            />
+          ) : null}
         </SettingsCard>
 
         {/* ── پول و بودجه ── */}
@@ -676,6 +768,15 @@ export function SettingsPage() {
             trailing={smsTrailing}
             onClick={() => setSection("sms")}
           />
+          {/* §۷ — اعلان‌ها. کنارِ «پیامک» نشست چون هر دو «چه چیزی به من
+              خبر بدهد»اند، و هر دو زیرصفحهٔ خودشان را دارند. */}
+          <SettingsRow
+            icon="bell"
+            label="اعلان‌ها"
+            sub="سررسیدها، رویدادها و درخواست‌های عضویت"
+            trailing={{ type: "chevron" }}
+            onClick={() => setSection("notifications")}
+          />
           {/* به‌روزرسانی و درباره دو ردیف جدا شدند (§۶.۱). بررسی/نصب همه
               درجا روی همین ردیف انجام می‌شود — دیگر زیرصفحه‌ای باز نمی‌شود.
               نسخه و شناسهٔ ساخت هم زیر همین ردیف نوشته شده تا هنگام OTA
@@ -714,7 +815,12 @@ export function SettingsPage() {
         {/* §۶.۲ — ردیف «پاک‌کردن داده‌های این دستگاه» حذف شد: کاربران آن
             را با «حذف حساب» اشتباه می‌گرفتند و بی‌دلیل نگران می‌شدند.
             «خروج از حساب» بالا برای پایان نشست کافی است. تابع wipeDevice
-            بازنشسته شد (بدون حذف کد — رجوع به تعریفش). */}
+            بازنشسته شد (بدون حذف کد — رجوع به تعریفش).
+
+            §۸.۵ (۱۴۰۵/۰۷/۱۱): و حالا کافی‌تر هم شده — همان دکمهٔ «خروج از
+            حساب» کشِ سرویس‌ورکر را هم پاک می‌کند، پس برای برآورده‌کردنِ
+            §۸.۵ ردیفی لازم نیست. متنِ ردیف هم عوض نشد: کاربر «خروج» را
+            می‌فهمد و پاک‌شدنِ کش چیزی نیست که باید دربارهٔ آن تصمیم بگیرد. */}
 
         <p className="set-version">نسخه {toFa(APP_VERSION)}</p>
       </div>

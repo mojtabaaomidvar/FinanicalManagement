@@ -6,7 +6,7 @@
    «مالی» دیگر کل اپ نیست؛ یکی از کاشی‌هاست. زیرنویس کاشی‌های فعال
    از داده‌ی واقعی همین لحظه ساخته می‌شود (نه متن تزئینی). */
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { Icon } from "@/shared/ui";
 import { toFa } from "@/shared/lib/digits";
@@ -17,8 +17,9 @@ import { monthTotals, totalBalance } from "@/domain/report/report.rules";
 import { monthCategorySpend, budgetStatus } from "@/domain/budget/budget.rules";
 import { buildCategoryResolver } from "@/domain/category/resolve";
 import { findDollar } from "@/domain/market/market.rules";
+import { lowItems, totalPending } from "@/domain/shopping/shopping.rules";
 import { useMarket } from "@/features/market";
-import { today } from "@/shared/lib/jalali";
+import { cmp, isoToJalali, jalaliToIso, today } from "@/shared/lib/jalali";
 import type { Route } from "@/app/router";
 import { ACTIVE_MODULES, SOON_MODULES, type HubModule } from "./modules";
 
@@ -35,9 +36,15 @@ type Banner = {
 export function HubPage({
   onNav,
   onAddTransaction,
+  bell,
 }: {
   onNav: (r: Route) => void;
   onAddTransaction: () => void;
+  /* زنگِ اعلان — به‌صورتِ نود تزریق می‌شود نه ساخته‌شده در همین صفحه.
+     دلیل: مرکزِ اعلان به TxFormModel و به ناوبریِ زیرصفحهٔ تنظیمات نیاز
+     دارد و هر دو در MainShell زندگی می‌کنند؛ ساختنش این‌جا یعنی کشیدنِ آن
+     دو تا داخلِ صفحه‌ای که کارش فقط کاشی‌هاست. */
+  bell?: ReactNode;
 }) {
   const {
     member,
@@ -48,6 +55,10 @@ export function HubPage({
     budgets,
     customCategories,
     cur,
+    bills,
+    events,
+    shoppingLists,
+    inventory,
   } = useApp();
 
   /* قیمت لحظه‌ای دلار برای زیرنویس کاشی بازار — با صفحه‌ی بازار کش مشترک دارد */
@@ -56,11 +67,25 @@ export function HubPage({
 
   /* ارقام زنده‌ی همین ماه — یک‌بار حساب می‌شوند و بین زیرنویس‌ها و بنرها مشترک‌اند */
   const stats = useMemo(() => {
-    const [jy, jm] = today();
+    const now = today();
+    const [jy, jm] = now;
     const monthTxs = txsInJalaliMonth(txs, jy, jm);
     const totals = monthTotals(monthTxs);
     const spend = monthCategorySpend(txs, jy, jm);
     const resolve = buildCategoryResolver(customCategories);
+    const unpaid = bills.filter((b) => b.state === "unpaid");
+    /* نزدیک‌ترین رویدادِ آینده. فهرست از سرور مرتب می‌آید (آینده صعودی)،
+       پس اولین موردی که گذشته نیست همان نزدیک‌ترین است — نیازی به مرتب‌سازی
+       دوباره نداریم. */
+    const nextEv = events.find((e) => cmp(isoToJalali(e.date), now) >= 0);
+    /* فاصله را روی تاریخِ **میلادی** حساب می‌کنیم چون `FamilyEvent.date`
+       همان است و تفریقِ روزِ میلادی بی‌دردسر است؛ تبدیل به جلالی فقط برای
+       مقایسهٔ «گذشته یا آینده» لازم بود. */
+    const nextEventDays = nextEv
+      ? Math.round(
+          (Date.parse(nextEv.date) - Date.parse(jalaliToIso(now))) / 86400000,
+        )
+      : 0;
 
     let overBudget: string | null = null;
     let warnBudget: string | null = null;
@@ -78,8 +103,17 @@ export function HubPage({
       balance: totalBalance(txs),
       overBudget,
       warnBudget,
+      unpaidBills: unpaid.length,
+      unpaidTotal: unpaid.reduce((s, b) => s + b.amount, 0),
+      nextEvent: nextEv?.title ?? null,
+      nextEventDays,
+      /* §۱.۸ — اقلامِ نخریده در همهٔ لیست‌ها، و اقلامِ زیرِ آستانهٔ انبار */
+      shoppingPending: totalPending(shoppingLists),
+      shoppingLists: shoppingLists.length,
+      lowStock: lowItems(inventory).length,
+      stockCount: inventory.length,
     };
-  }, [txs, budgets, customCategories]);
+  }, [txs, budgets, customCategories, bills, events, shoppingLists, inventory]);
 
   const money = (n: number) => `${formatAmount(toDisplay(n, cur))} ${cur}`;
 
@@ -100,6 +134,30 @@ export function HubPage({
       : market.loading
         ? "در حال دریافت قیمت‌ها…"
         : "قیمت‌ها موقتاً در دسترس نیست",
+    /* §۱.۹ — زیرنویسِ واقعی، نه تزئینی: اگر بدهی هست مبلغش را می‌گوید.
+       همان قاعدهٔ بقیهٔ کاشی‌ها. */
+    bills: stats.unpaidBills
+      ? `${toFa(stats.unpaidBills)} قبض · ${money(stats.unpaidTotal)}`
+      : "قبض پرداخت‌نشده‌ای نداری",
+    /* §۱.۱۰ — نزدیک‌ترین رویداد، نه شمارشِ خشک: «۳ رویداد» چیزی نمی‌گوید،
+       «تولد نسیم ۵ روز دیگر» می‌گوید. */
+    calendar: stats.nextEvent
+      ? stats.nextEventDays === 0
+        ? `${stats.nextEvent} — امروز`
+        : `${stats.nextEvent} — ${toFa(stats.nextEventDays)} روز دیگر`
+      : "رویداد نزدیکی نداری",
+    /* §۱.۸ — کارِ باقی‌مانده، نه شمارشِ لیست‌ها: «۲ لیست» چیزی نمی‌گوید،
+       «۷ قلم مانده» می‌گوید. */
+    shopping: stats.shoppingPending
+      ? `${toFa(stats.shoppingPending)} قلم مانده`
+      : stats.shoppingLists
+        ? "لیست‌ها خالی‌اند"
+        : "اولین لیست را بساز",
+    inventory: stats.lowStock
+      ? `${toFa(stats.lowStock)} قلم دارد تمام می‌شود`
+      : stats.stockCount
+        ? `${toFa(stats.stockCount)} قلم · همه به‌اندازه`
+        : "انبار خانه را بچین",
     reports: "نمودار و گزارش ماهانه",
   };
 
@@ -185,14 +243,17 @@ export function HubPage({
             {member ? ` · ${member.name}` : ""}
           </p>
         </div>
-        <button
-          type="button"
-          className="hub-avatar"
-          aria-label="تنظیمات"
-          onClick={() => onNav("settings")}
-        >
-          {initial}
-        </button>
+        <div className="hub-head-actions">
+          {bell}
+          <button
+            type="button"
+            className="hub-avatar"
+            aria-label="تنظیمات"
+            onClick={() => onNav("settings")}
+          >
+            {initial}
+          </button>
+        </div>
       </header>
 
       {banners.length ? (

@@ -62,6 +62,34 @@ export const ACTIVE_MODULES: HubModule[] = [
     route: "budgets",
   },
   {
+    id: "bills",
+    title: "قبوض و شارژ",
+    icon: "i-bill",
+    tone: "rose",
+    route: "bills",
+  },
+  {
+    id: "calendar",
+    title: "تقویم و مناسبت‌ها",
+    icon: "i-clock",
+    tone: "sky",
+    route: "calendar",
+  },
+  {
+    id: "shopping",
+    title: "لیست خرید",
+    icon: "i-cart",
+    tone: "lime",
+    route: "shopping",
+  },
+  {
+    id: "inventory",
+    title: "انبار خانه",
+    icon: "i-grid4",
+    tone: "teal",
+    route: "inventory",
+  },
+  {
     id: "market",
     title: "ارز و بورس",
     icon: "i-trend",
@@ -85,11 +113,10 @@ export const ACTIVE_MODULES: HubModule[] = [
   },
 ];
 
-/* نقشه‌ی راه — دیده می‌شوند تا مسیر محصول روشن باشد، ولی غیرفعال‌اند */
+/* نقشه‌ی راه — دیده می‌شوند تا مسیر محصول روشن باشد، ولی غیرفعال‌اند.
+   «قبوض و شارژ» و «تقویم و مناسبت‌ها» و «لیست خرید»/«انبار خانه» از این
+   فهرست به ACTIVE_MODULES رفتند (۱۴۰۵/۰۷/۱۸ و ۱۴۰۵/۰۷/۱۹ و ۱۴۰۵/۰۷/۲۱). */
 export const SOON_MODULES: HubModule[] = [
-  { id: "bills", title: "قبوض و شارژ", icon: "i-bill", tone: "rose" },
-  { id: "shopping", title: "لیست خرید", icon: "i-cart", tone: "lime" },
-  { id: "calendar", title: "تقویم و مناسبت‌ها", icon: "i-clock", tone: "sky" },
   { id: "chores", title: "کارهای خانه", icon: "i-check", tone: "emerald" },
   { id: "docs", title: "اسناد خانه", icon: "i-briefcase", tone: "indigo" },
   { id: "meals", title: "برنامه‌ی غذایی", icon: "i-food", tone: "amber" },

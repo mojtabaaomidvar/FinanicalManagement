@@ -3,7 +3,6 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import { fileURLToPath, URL } from "node:url";
-import { devApiPlugin } from "./scripts/dev-api";
 
 /* شناسه ساخت — هر بار که build اجرا شود عوض می‌شود، پس هر انتشار
    خودبه‌خود یکتاست و لازم نیست یادتان باشد عدد نسخه را دستی جلو ببرید.
@@ -16,7 +15,6 @@ export default defineConfig({
   },
   plugins: [
     react(),
-    devApiPlugin(),
     VitePWA({
       registerType: "prompt",
       includeAssets: [
@@ -48,9 +46,30 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: "/index.html",
+        /* ناوبری به مسیرهای API نباید پوستهٔ نرم‌افزار را برگرداند. بدون این
+           فهرست، باز کردنِ مستقیمِ یک آدرسِ API در مرورگر به‌جای پاسخِ سرور
+           (یا خطای شفاف) صفحهٔ خانه‌یار را نشان می‌داد — که دیباگ را گمراه
+           می‌کند. درخواست‌های fetch اصلاً mode: "navigate" ندارند، پس این
+           قاعده روی کارِ خودِ نرم‌افزار اثری نمی‌گذارد. */
+        navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+            /* §۵.۲۷ و §۸.۵ — دادهٔ خانواده هرگز در کش نمی‌نشیند.
+               این قاعده جایگزینِ قاعدهٔ قبلیِ `*.supabase.co` شد. آن الگو از
+               زمانِ کوچِ بک‌اند به api.khaanehyar.ir دیگر هیچ درخواستی را
+               نمی‌گرفت — یعنی محافظتی که در کانفیگ «دیده» می‌شد عملاً مرده
+               بود و خواننده را به اشتباه مطمئن می‌کرد.
+
+               تطبیق روی *مسیر* است نه میزبان، چون میزبان در زمانِ ساخت
+               معلوم نیست: apiUrl.ts بر پایهٔ VITE_API_URL یا هم‌مبدأ («/api/v1»)
+               یا مطلق (api.khaanehyar.ir) یا localhost می‌سازد. پیشوندِ
+               «/api/v1/» تنها چیزی است که در هر سه حالت ثابت است.
+
+               لنگرِ ^https?:// عمدی و لازم است: RegExpRoute برای درخواستِ
+               cross-origin فقط وقتی تطبیق می‌دهد که تطابق از نویسهٔ صفرِ
+               url.href شروع شود (workbox-routing/RegExpRoute.js). الگوی
+               بی‌لنگرِ /\/api\/v1\// روی api.khaanehyar.ir بی‌صدا رد می‌شد. */
+            urlPattern: /^https?:\/\/[^/]+\/api\/v1\//i,
             handler: "NetworkOnly",
           },
         ],

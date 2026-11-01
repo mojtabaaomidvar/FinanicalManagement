@@ -1,6 +1,11 @@
 /* اینترفیس مخزن خانواده — پیاده‌سازی در infrastructure/repositories */
 
-import type { Family, Member, ProfileInput } from "./family.types";
+import type {
+  Family,
+  JoinRequest,
+  Member,
+  ProfileInput,
+} from "./family.types";
 
 export interface FamilyRepository {
   getFamily(): Promise<Family>;
@@ -21,4 +26,15 @@ export interface FamilyRepository {
   setCurrency(currency: string): Promise<Member>;
   /** تغییر نسبت یک عضو با مدیر خانواده — مدیر همه، عضو فقط خودش */
   setMemberRelation(memberId: string, relation: string): Promise<Member>;
+
+  /* ── §۲.۶ تأییدِ عضویت — هر سه فقط برای مدیر ──────────────────
+     سرور با require_admin_tenant می‌بندد؛ پنهان‌کردنِ دکمه در UI فقط
+     برای تمیزیِ تجربه است و هیچ نقشِ امنیتی ندارد. */
+
+  /** درخواست‌های پیوستنِ در‌انتظارِ این خانواده (به‌ترتیبِ قدیمی به تازه) */
+  listJoinRequests(): Promise<JoinRequest[]>;
+  /** تأیید — عضویتِ متقاضی active می‌شود و از آن پس می‌تواند وارد شود */
+  approveJoinRequest(requestId: string): Promise<Member>;
+  /** رد — عضویت rejected می‌شود؛ ردیف برای ممیزی می‌ماند و پاک نمی‌شود */
+  rejectJoinRequest(requestId: string): Promise<void>;
 }

@@ -16,7 +16,7 @@ from __future__ import annotations
 from datetime import date as _date
 from datetime import datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, field_serializer
 
@@ -535,6 +535,194 @@ class CurrencyUpdate(BaseModel):
 
 class RelationUpdate(BaseModel):
     relation: str | None = None
+
+
+# ── §۷ اعلان‌ها ──────────────────────────────────────────────
+#
+# دو بخشِ ترجیح عمداً در یک مدل‌اند ولی هر دو اختیاری: UI می‌تواند فقط کلیدِ
+# کلی را بزند بی‌آنکه نقشهٔ دامنه‌ها را دوباره بفرستد، و برعکس. `None` یعنی
+# «دست نزن»، نه «خالی کن» — بی این تفکیک، خاموش‌کردنِ کلیدِ کلی نقشهٔ
+# دامنه‌ها را هم پاک می‌کرد.
+class NotificationPrefsUpdate(BaseModel):
+    enabled: bool | None = None
+    domains: dict[str, bool] | None = None
+    # ⚠️ عمداً `Any` و نه `int`: اعتبارسنجیِ عدد در سرویس انجام می‌شود
+    # (`_clean_lead`)، نه این‌جا.
+    #
+    # دلیل: در پایتون `True` یک `int` است. اگر این فیلد `dict[str, int]` بود،
+    # سرنوشتِ `{"event": true}` به رفتارِ نسخهٔ pydantic گره می‌خورد — یکی
+    # ردش می‌کند و دیگری به `1` تبدیلش می‌کند، یعنی «یک روز پیش‌هنگام»ی که
+    # کاربر هرگز نخواسته. با `Any`، تصمیم یک‌جا و قطعی است و به ارتقای
+    # کتابخانه حساس نیست.
+    lead_days: dict[str, Any] | None = None
+
+
+class NotificationPrefsOut(BaseModel):
+    enabled: bool
+    domains: dict[str, bool]
+    lead_days: dict[str, int]
+    # شناسه‌های نادیده‌گرفته‌شده — همان‌جا برمی‌گردند تا کلاینت با یک
+    # درخواست همه‌چیزِ لازم برای مشتق‌سازی را داشته باشد.
+    dismissed: list[str]
+
+
+class DismissalCreate(BaseModel):
+    key: str
+
+
+# ── §۱.۹ قبوض و شارژ ─────────────────────────────────────────
+class BillWrite(BaseModel):
+    """ورودیِ افزودن/ویرایشِ قبض.
+
+    `state` این‌جا **نیست** و عمدی است: حالتِ قبض فقط از راهِ کنش عوض
+    می‌شود (`/bills/{id}/pay` یا `/cancel`)، نه با یک PATCHِ آزاد. وگرنه
+    کلاینت می‌توانست قبض را «پرداخت‌شده» کند بی‌آنکه تراکنشی ساخته شود —
+    یعنی دقیقاً همان شمارشِ غلطی که کلِ طرح برای پرهیز از آن است.
+    """
+
+    kind: str | None = None
+    title: str | None = None
+    amount: Decimal | None = None
+    due_date: _date | None = None
+    bill_no: str | None = None
+    payment_no: str | None = None
+    note: str | None = None
+
+
+class BillPay(BaseModel):
+    """پرداختِ قبض → بستنِ قبض + ساختِ تراکنشِ هزینه.
+
+    `account_id` اختیاری است چون در تراکنش هم اختیاری است (قبض ممکن است
+    نقدی پرداخت شده باشد). `date` هم اختیاری: نبودش یعنی «امروز».
+    """
+
+    account_id: str | None = None
+    date: _date | None = None
+
+
+class BillOut(BaseModel):
+    id: str
+    kind: str
+    title: str
+    amount: Decimal
+    due_date: str  # قالب 'YYYY-MM-DD' میلادی — جلالی در کلاینت
+    bill_no: str | None
+    payment_no: str | None
+    state: str
+    paid_at: datetime | None
+    paid_by_member_id: str | None
+    transaction_id: str | None
+    note: str | None
+    created_by: str | None
+    created_at: datetime
+
+
+# ── §۱.۸ خرید و انبار خانه ───────────────────────────────────
+class ShoppingListWrite(BaseModel):
+    title: str | None = None
+
+
+class ShoppingItemWrite(BaseModel):
+    """افزودن/ویرایشِ قلمِ لیست.
+
+    `checked` و `bought_at` این‌جا **نیستند** و عمدی است — همان قاعدهٔ
+    `BillWrite`: حالت فقط با کنش عوض می‌شود (`/check` و `/complete`)، وگرنه
+    کلاینت می‌توانست قلم را «خریده‌شده» بنویسد بی‌آنکه خرجی ثبت شود یا
+    موجودیِ انبار بالا برود.
+    """
+
+    title: str | None = None
+    qty: Decimal | None = None
+    unit: str | None = None
+    price: Decimal | None = None
+    note: str | None = None
+    inventory_item_id: str | None = None
+
+
+class ShoppingItemCheck(BaseModel):
+    checked: bool
+
+
+class ShoppingItemOut(BaseModel):
+    id: str
+    list_id: str
+    title: str
+    qty: Decimal
+    unit: str | None
+    price: Decimal | None
+    checked: bool
+    bought_at: datetime | None
+    bought_by_member_id: str | None
+    transaction_id: str | None
+    inventory_item_id: str | None
+    note: str | None
+    created_by: str | None
+    created_at: datetime
+
+
+class ShoppingListOut(BaseModel):
+    """لیست به‌همراهِ اقلامِ **نخریده‌اش**.
+
+    اقلامِ خریده‌شده عمداً این‌جا نمی‌آیند: لیستِ خرید جایِ «چه بخریم»
+    است و سابقهٔ خرید در خودِ تراکنشِ مالی می‌نشیند. ردیف‌هایشان در
+    دیتابیس می‌مانند (پیوندِ `transaction_id`)، فقط از این پاسخ بیرون‌اند.
+    """
+
+    id: str
+    title: str
+    created_by: str | None
+    created_at: datetime
+    items: list[ShoppingItemOut]
+
+
+class TripComplete(BaseModel):
+    """«خرید انجام شد» — بستنِ اقلامِ تیک‌خوردهٔ یک لیست.
+
+    `account_id` و `date` مثلِ `BillPay` اختیاری‌اند. `create_transaction`
+    اجازه می‌دهد سفرِ بی‌خرج هم بسته شود (مثلاً خریدی که کسِ دیگری حساب
+    کرده)؛ جمعِ صفر هم خودبه‌خود تراکنشی نمی‌سازد.
+    """
+
+    account_id: str | None = None
+    date: _date | None = None
+    create_transaction: bool = True
+
+
+class TripResult(BaseModel):
+    list: ShoppingListOut
+    total: Decimal
+    item_count: int
+    transaction_id: str | None
+
+
+class InventoryWrite(BaseModel):
+    title: str | None = None
+    unit: str | None = None
+    quantity: Decimal | None = None
+    threshold: Decimal | None = None
+    note: str | None = None
+
+
+class InventoryAdjust(BaseModel):
+    """تغییرِ نسبیِ موجودی (+۱ / −۱).
+
+    نسبی است نه مطلق، چون دو نفر هم‌زمان می‌توانند انبار را دست بزنند و
+    «بگذار روی ۳» آخرین‌نویسنده-برنده است، ولی «یکی کم کن» نیست.
+    """
+
+    delta: Decimal
+
+
+class InventoryOut(BaseModel):
+    id: str
+    title: str
+    unit: str | None
+    quantity: Decimal
+    threshold: Decimal
+    note: str | None
+    created_by: str | None
+    created_at: datetime
+    updated_at: datetime
 
 
 # ── دارایی‌های بازاری ────────────────────────────────────────

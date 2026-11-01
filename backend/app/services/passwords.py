@@ -6,6 +6,10 @@ auth_check_password را دور می‌زد (حدس نامحدود + هزینه�
 
 مهاجرت شفاف هش: هش‌های قدیمی bcrypt یا legacy sha256(phone:password) پس از تأیید
 موفق، به Argon2id ارتقا می‌یابند (رفع D-2 سمت سرور).
+
+هم‌زمانیِ زمانی (۲۰۲۶-۰۹-۲۸): مسیرِ «عضو نیست» هم هزینهٔ یک تأییدِ Argon2id را
+می‌سوزاند. بی‌آن، این تابع اوراکلِ شمارشِ حساب بود و §۹.۵ را دور می‌زد — شرحِ
+کامل در `core/security.burn_verify_cost`.
 """
 
 from __future__ import annotations
@@ -13,7 +17,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.security import verify_password
+from app.core.security import burn_verify_cost, verify_password
 from app.models.family import Member
 from app.services import attempts
 
@@ -35,6 +39,11 @@ def check_password_gated(db: Session, phone: str, password: str) -> bool:
         ok, new_hash = verify_password(member.password_hash, password, phone=phone)
         if ok and new_hash:
             member.password_hash = new_hash  # ارتقا به Argon2id (با commit همین‌جا پایدار می‌شود)
+    else:
+        # شمارهٔ ناشناس (یا عضوِ بی‌رمز) باید همان‌قدر طول بکشد که شمارهٔ واقعی.
+        # وگرنه *زمانِ پاسخِ* همین اندپوینتِ بی‌احراز می‌گوید کدام شماره ثبت
+        # شده — و مسیرِ ضدِ شمارشِ §۹.۵ از این‌جا دور زده می‌شود.
+        burn_verify_cost()
 
     # ثبت تلاش (و در صورت موفقیت، پاک‌سازی خطاهای قبلی) — شامل commit
     attempts.record_attempt(db, phone, ok=ok)

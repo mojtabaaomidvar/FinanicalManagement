@@ -31,6 +31,7 @@ from app.core.errors import AppError
 from app.models.account import Account
 from app.models.family import Member
 from app.models.messaging import SmsNumber, SmsSender
+from app.services.common import is_admin
 
 # سرشماره‌های بانکی ایران کوتاه و عددی‌اند (۶۰۰۰…، ۱۰۰۰…، ۳۰۰۰…) ولی بعضی
 # اپراتورها نامِ حرفی هم می‌فرستند (BANKMELLAT). پس هر دو را می‌پذیریم و فقط
@@ -102,7 +103,7 @@ def _owned_account(db: Session, actor: Member, account_id: uuid.UUID) -> Account
     stmt = select(Account).where(
         Account.id == account_id, Account.family_id == actor.family_id
     )
-    if actor.role != "owner":
+    if not is_admin(actor):
         stmt = stmt.where(Account.member_id == actor.id)
     row = db.execute(stmt).scalar_one_or_none()
     if row is None:

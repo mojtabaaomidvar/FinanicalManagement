@@ -27,14 +27,23 @@ import {
   InstallPromptFeature,
   useInstallPrompt,
 } from "@/features/install-prompt";
+import {
+  NotificationCenterFeature,
+  useNotificationsModel,
+} from "@/features/notifications";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { HubPage } from "@/pages/HubPage";
 import { TransactionsPage } from "@/pages/TransactionsPage";
 import { ReportsPage } from "@/pages/ReportsPage";
 import { AccountsPage } from "@/pages/AccountsPage";
 import { BudgetsPage } from "@/pages/BudgetsPage";
+import { BillsPage } from "@/pages/BillsPage";
+import { CalendarPage } from "@/pages/CalendarPage";
+import { ShoppingPage } from "@/pages/ShoppingPage";
+import { InventoryPage } from "@/pages/InventoryPage";
 import { MarketPage } from "@/pages/MarketPage";
-import { SettingsPage } from "@/pages/SettingsPage";
+import { SettingsPage, type SettingsSection } from "@/pages/SettingsPage";
+import { OfflineBar } from "@/shared/ui";
 import { useToast } from "./providers/ToastProvider";
 import { DevPanel, type DevOverride } from "./dev/DevPanel";
 
@@ -221,6 +230,11 @@ function AppBody() {
   return (
     <>
       {content()}
+      {/* §۸.۶ — بیرونِ content() و بی‌قیدِ phase: کسی که آفلاین است و روی
+          صفحهٔ ورود گیر کرده بیشتر از همه به این خبر نیاز دارد، چون بدونش
+          «رمزم غلط است» برداشت می‌کند. خودش وقتی چیزی برای گفتن نداشته
+          باشد null برمی‌گردد. */}
+      <OfflineBar />
       {import.meta.env.DEV ? (
         <DevPanel
           route={route}
@@ -272,9 +286,34 @@ function MainShell({
     subcategories,
   );
 
+  /* §۷ — اعلان‌ها. این‌جا زندگی می‌کند نه در HubPage، چون به `form` نیاز
+     دارد (لمسِ سررسید فرمِ تراکنش را باز می‌کند) و به ناوبریِ زیرصفحهٔ
+     تنظیمات. refreshKey را می‌گیرد تا پس از هر رفرشِ داده دوباره بخواند. */
+  const notif = useNotificationsModel(refreshKey);
+
+  /* مقصدِ اعلانِ «درخواست عضویت» — باید *همان* زیرصفحه باز شود، نه فهرستِ
+     تنظیمات. با key={route} در پایین، SettingsPage در هر ورود از نو ساخته
+     می‌شود و initialSection تازه خوانده می‌شود. */
+  const [settingsSection, setSettingsSection] =
+    useState<SettingsSection | null>(null);
+
   const nav = useCallback(
     (r: Route) => {
       setRoute(r);
+      /* هر ناوبریِ معمولی مقصدِ زیرصفحهٔ تنظیمات را پاک می‌کند، وگرنه
+         دفعهٔ بعد که کاربر خودش روی «تنظیمات» می‌زند، باز هم همان
+         زیرصفحهٔ قبلی باز می‌شد. */
+      setSettingsSection(null);
+      window.scrollTo({ top: 0 });
+    },
+    [setRoute],
+  );
+
+  /* ورودِ مستقیم به یک زیرصفحهٔ تنظیمات (از مرکزِ اعلان) */
+  const navSettingsSection = useCallback(
+    (s: SettingsSection) => {
+      setSettingsSection(s);
+      setRoute("settings");
       window.scrollTo({ top: 0 });
     },
     [setRoute],
@@ -301,7 +340,20 @@ function MainShell({
     <>
       <div key={route} className="page-anim">
         {route === "hub" ? (
-          <HubPage onNav={nav} onAddTransaction={() => form.openNew()} />
+          <HubPage
+            onNav={nav}
+            onAddTransaction={() => form.openNew()}
+            bell={
+              <NotificationCenterFeature
+                m={notif}
+                form={form}
+                joinRequests={notif.joinRequests}
+                onOpenJoinRequests={() => navSettingsSection("joinRequests")}
+                onOpenBills={() => nav("bills")}
+                onOpenInventory={() => nav("inventory")}
+              />
+            }
+          />
         ) : null}
         {route === "dashboard" ? (
           <DashboardPage
@@ -323,8 +375,17 @@ function MainShell({
         {route === "reports" ? <ReportsPage /> : null}
         {route === "accounts" ? <AccountsPage /> : null}
         {route === "budgets" ? <BudgetsPage /> : null}
+        {route === "bills" ? <BillsPage /> : null}
+        {route === "calendar" ? <CalendarPage /> : null}
+        {route === "shopping" ? <ShoppingPage /> : null}
+        {route === "inventory" ? <InventoryPage /> : null}
         {route === "market" ? <MarketPage /> : null}
-        {route === "settings" ? <SettingsPage /> : null}
+        {route === "settings" ? (
+          <SettingsPage
+            initialSection={settingsSection}
+            onNotificationPrefsChanged={() => void notif.reload()}
+          />
+        ) : null}
       </div>
 
       <TransactionFormFeature form={form} onImported={bumpRefresh} />

@@ -9,7 +9,7 @@ import { MEMBER_RELATIONS } from "@/domain/family/family.types";
 import { toFa } from "@/shared/lib/digits";
 
 export function InviteAcceptFeature({ token }: { token: string }) {
-  const { useCases, onAuthenticated, refreshData } = useApp();
+  const { useCases } = useApp();
   const { show } = useToast();
   const m = useAuthModel(useCases!, show);
 
@@ -19,10 +19,44 @@ export function InviteAcceptFeature({ token }: { token: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  async function finish() {
-    const restored = await useCases!.restoreSession.execute();
-    if (restored) onAuthenticated(restored);
-    await refreshData();
+  /* §۲.۶ — درخواست ثبت شد و منتظر تأیید مدیر است. اینجا عمداً هیچ نشستی
+     ذخیره نمی‌شود و کاربر وارد نرم‌افزار نمی‌شود؛ پس از تأیید، از مسیر
+     عادی «ورود» وارد می‌شود. */
+  if (m.step === "pending") {
+    return (
+      <section className="page auth-page active">
+        <div className="auth-wrap auth-pending">
+          <div className="auth-logo">
+            <svg>
+              <use href="#i-clock" />
+            </svg>
+          </div>
+          <h1>درخواست شما ثبت شد</h1>
+          <p className="auth-sub">
+            درخواست عضویت شما در خانواده «{m.joinPending?.familyName}» برای مدیر
+            خانواده فرستاده شد.
+          </p>
+
+          <div className="prereg-banner">
+            تا وقتی مدیر خانواده تأیید نکند، امکان ورود وجود ندارد.
+          </div>
+
+          <p className="auth-hint">
+            بعد از تأیید، با همین شماره موبایل و رمزی که انتخاب کردید وارد شوید.
+          </p>
+
+          <button
+            type="button"
+            className="btn-primary btn-block"
+            onClick={() => {
+              window.location.replace("/");
+            }}
+          >
+            رفتن به صفحه ورود
+          </button>
+        </div>
+      </section>
+    );
   }
 
   return (
@@ -44,7 +78,7 @@ export function InviteAcceptFeature({ token }: { token: string }) {
           className="auth-form"
           onSubmit={(e) => {
             e.preventDefault();
-            m.submitInvite(finish);
+            m.submitInvite();
           }}
         >
           <Field label="نام شما">
@@ -94,7 +128,7 @@ export function InviteAcceptFeature({ token }: { token: string }) {
             className="btn-primary btn-block"
             disabled={m.busy}
           >
-            عضویت در خانواده
+            ارسال درخواست عضویت
           </button>
         </form>
 
@@ -103,7 +137,8 @@ export function InviteAcceptFeature({ token }: { token: string }) {
             className="auth-form"
             onSubmit={(e) => {
               e.preventDefault();
-              m.verifyOtp(finish);
+              /* §۲.۶ — بدون callback: این مسیر نشست نمی‌سازد و به صفحه انتظار می‌رود */
+              m.verifyOtp();
             }}
           >
             <p className="otp-desc">
@@ -133,10 +168,11 @@ export function InviteAcceptFeature({ token }: { token: string }) {
             </button>
           </form>
         ) : (
+          /* §۲.۶ — صداقتِ متن: ثبتِ فرم عضویت نمی‌دهد، فقط درخواست می‌سازد */
           <p className="auth-hint">
             {m.otpEnabled === false
-              ? "با ثبت اطلاعات، عضو خانواده می‌شوید."
-              : "بعد از ثبت‌نام، کد تأیید پیامکی برای شما ارسال می‌شود."}
+              ? "درخواست شما برای مدیر خانواده فرستاده می‌شود و پس از تأیید او می‌توانید وارد شوید."
+              : "ابتدا کد تأیید پیامکی برای شما ارسال می‌شود؛ سپس درخواست عضویت برای تأیید مدیر خانواده ثبت می‌گردد."}
           </p>
         )}
       </div>

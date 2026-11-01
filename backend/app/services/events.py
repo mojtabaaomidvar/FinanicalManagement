@@ -27,17 +27,45 @@ from app.core.errors import AppError
 from app.models.event import FamilyEvent
 from app.models.family import Member
 from app.schemas.data import EventCreate
-from app.services.common import to_uuid_opt
+from app.services.common import is_admin, to_uuid_opt
+
+
+def _event_sort_key(ev: FamilyEvent, today: _date) -> tuple[int, int, float]:
+    """کلیدِ ترتیب: آینده اول (صعودی)، بعد گذشته (نزولی).
+
+    در پایتون مرتب می‌شود نه در SQL — عمدی است. همان کار با `ORDER BY` و یک
+    `CASE` شدنی بود، ولی این‌جا بی‌نیاز از دیتابیس قابلِ آزمون است و هیچ
+    ریسکی از بابتِ تفاوتِ نسخهٔ SQLAlchemy ندارد. تعدادِ رویدادهای یک
+    خانواده در حدِ ده‌هاست، پس هزینه‌اش صفر است.
+
+    «امروز» جزوِ آینده است: رویدادِ امروز باید بالا باشد نه در گذشته.
+    """
+    future = ev.date >= today
+    created = ev.created_at.timestamp() if ev.created_at else 0.0
+    if future:
+        return (0, ev.date.toordinal(), -created)
+    # گذشته: نزولی → با منفی‌کردنِ ordinal، تازه‌ترین اول می‌آید
+    return (1, -ev.date.toordinal(), -created)
 
 
 def list_for_family(db: Session, family_id: uuid.UUID) -> list[FamilyEvent]:
-    return list(
+    """رویدادها — **نزدیک‌ترینِ آینده اول**، بعد گذشته‌ها (تازه‌ترین اول).
+
+    پیش از این `date DESC` بود، یعنی دورترین آیندهٔ ممکن اولِ فهرست می‌نشست
+    و رویدادِ همین هفته جایی وسط لیست گم می‌شد. برای تقویم و برای کارتِ
+    «رویدادهای مهم» هر دو، آن‌چه کاربر می‌خواهد «چه چیزی دارد می‌رسد» است.
+
+    ترتیب این‌جا تعیین می‌شود نه در UI — تا صفحهٔ تقویم، کارتِ تنظیمات و
+    هستهٔ اعلانِ §۷ یک فهرستِ یکسان ببینند (همان قاعدهٔ `services/bills.py`).
+    """
+    today = _date.today()
+    rows = list(
         db.execute(
-            select(FamilyEvent)
-            .where(FamilyEvent.family_id == family_id)
-            .order_by(FamilyEvent.date.desc(), FamilyEvent.created_at.desc())
+            select(FamilyEvent).where(FamilyEvent.family_id == family_id)
         ).scalars()
     )
+    rows.sort(key=lambda ev: _event_sort_key(ev, today))
+    return rows
 
 
 # ── نوشتن (فاز ۷) ────────────────────────────────────────────
@@ -64,7 +92,7 @@ def add_event(db: Session, actor: Member, req: EventCreate) -> FamilyEvent:
     member_id = to_uuid_opt(req.member_id, "INVALID_MEMBER", "عضو نامعتبر است.")
     if member_id is None:
         member_id = actor.id
-    elif member_id != actor.id and actor.role != "owner":
+    elif member_id != actor.id and not is_admin(actor):
         raise AppError("FORBIDDEN", "فقط مدیر می‌تواند رویداد را به عضو دیگری نسبت دهد.", 403)
     if db.execute(
         select(Member.id).where(
@@ -113,7 +141,7 @@ def delete_event(db: Session, actor: Member, event_id: uuid.UUID) -> None:
     stmt = select(FamilyEvent).where(
         FamilyEvent.id == event_id, FamilyEvent.family_id == actor.family_id
     )
-    if actor.role != "owner":
+    if not is_admin(actor):
         stmt = stmt.where(FamilyEvent.member_id == actor.id)
     row = db.execute(stmt).scalar_one_or_none()
     if row is None:

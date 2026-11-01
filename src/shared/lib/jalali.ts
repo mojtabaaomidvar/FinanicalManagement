@@ -147,9 +147,7 @@ export function formatLong([jy, jm, jd]: JDate): string {
 
 /* "شنبه ۱۵ شهریور" */
 export function formatWeekday([jy, jm, jd]: JDate): string {
-  const [gy, gm, gd] = toGregorian(jy, jm, jd);
-  const wd = new Date(gy, gm - 1, gd).getDay();
-  return `${WEEKDAYS[wd]} ${toFa(jd)} ${MONTHS[jm - 1]}`;
+  return `${WEEKDAYS[weekdayIndex([jy, jm, jd])]} ${toFa(jd)} ${MONTHS[jm - 1]}`;
 }
 
 /* "شهریور ۱۴۰۴" */
@@ -170,7 +168,22 @@ export function parse(str: string): JDate | null {
   return [jy, jm, jd];
 }
 
-/* ── کلید ذخیره‌سازی: "1404-06" ── */
+/* ── شناسهٔ «همین ماهِ جلالی» — مثل "1404-06" ──
+
+   نامِ قبلیِ این کامنت «کلید ذخیره‌سازی» بود و گمراه‌کننده: هیچ‌جا ذخیره
+   نمی‌شود. نه ستونی در پایگاه‌داده دارد، نه کلیدی در localStorage، نه فیلدی
+   در API. فقط در حافظه ساخته می‌شود تا دو تاریخ را با === مقایسه کنیم؛ تنها
+   مصرف‌کننده‌اش monthCategorySpend در domain/budget/budget.rules.ts است.
+   صفرِ ابتدای ماه هم برای همین مقایسه است، نه برای مرتب‌سازی یا ذخیره.
+
+   تلهٔ اصلی: این رشته شبیهِ هفت نویسهٔ اولِ یک تاریخ است، ولی جایگزینِ
+   tx.date.slice(0, 7) نیست. Transaction.date تاریخِ میلادی است، پس آن برش
+   ماهِ میلادی را می‌دهد و هر ماهِ میلادی روی دو ماهِ جلالی می‌افتد (نیمهٔ
+   ۲۰۲۶-۰۹ شهریور است و نیمهٔ دیگرش مهر). به همین دلیل budget.rules.ts اول
+   isoToJalali می‌زند و بعد این تابع را صدا می‌کند.
+
+   خروجی هم با parse خوانده نمی‌شود: parse سه بخش می‌خواهد و برای این رشته
+   null می‌دهد. */
 export function monthKey(jy: number, jm: number): string {
   return `${jy}-${String(jm).padStart(2, "0")}`;
 }
@@ -196,6 +209,23 @@ export function isoToJalali(iso: string): JDate {
   return toJalali(gy, gm, gd);
 }
 
+/* ── مهرِ زمانیِ کاملِ میلادی ("2026-09-30T08:12:34Z") → جلالیِ محلی ──
+
+   با isoToJalali اشتباه نشود. آن عمداً ساده است و فقط "YYYY-MM-DD" می‌گیرد؛
+   اگر یک مهرِ زمانیِ کامل به آن بدهید، روزِ ماه را "30T08:12:34Z" می‌خواند و
+   بی‌صدا NaN برمی‌گرداند. هر جا فیلدی از سرور «T» دارد، این تابع درست است.
+
+   تبدیل از روی Date انجام می‌شود، پس منطقهٔ زمانیِ دستگاه اعمال می‌گردد —
+   مهرِ UTCِ ۲۱:۳۰ در تهران «فردا» است و باید هم همین دیده شود.
+
+   خروجیِ null یعنی رشته تاریخِ معتبری نبود؛ صداکننده باید همین حالت را
+   نشان بدهد، نه اینکه با «۰/۰۰/۰۰» بپوشاندش. */
+export function timestampToJalali(ts: string): JDate | null {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return null;
+  return toJalali(d.getFullYear(), d.getMonth() + 1, d.getDate());
+}
+
 /* ── جلالی → تاریخ میلادی ISO ("2025-09-06") ── */
 export function jalaliToIso([jy, jm, jd]: JDate): string {
   const [gy, gm, gd] = toGregorian(jy, jm, jd);
@@ -209,10 +239,30 @@ export function addDays(d: JDate, n: number): JDate {
   return toJalali(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
 }
 
-/* ── حرف روز هفته (getDay: ۰=یکشنبه … ۶=شنبه) ── */
+/* ── روزِ هفته ──
+
+   ⚠️ تلهٔ یکی‌جابه‌جا — اینجا یک باگِ واقعی بود (رفع ۱۴۰۵/۰۷/۱۹).
+
+   `Date.getDay()` صفرش **یکشنبه** است، ولی هفتهٔ ایرانی از **شنبه** شروع
+   می‌شود و آرایه‌های `WEEKDAYS`/`WEEKDAYS_SHORT` هم اندیسِ ۰ را شنبه
+   گرفته‌اند. پیش از این خروجیِ خامِ `getDay()` مستقیم روی همان آرایه‌ها
+   اندیس می‌خورد، پس **نامِ هر روز یکی عقب‌تر** نوشته می‌شد: شنبه «جمعه»
+   خوانده می‌شد و جمعه «پنجشنبه».
+
+   سه جا دیده می‌شد: سرستونِ صفحهٔ خرج‌و‌درآمد، برچسبِ گروه‌های تاریخ در
+   فهرستِ تراکنش، و محورِ نمودارِ هفتگی (یعنی خرجِ هر روز زیرِ نامِ روزِ
+   قبلش می‌نشست).
+
+   هر کدِ تازه‌ای که نامِ روز می‌خواهد باید از همین تابع بگذرد، نه از
+   `getDay()` خام. */
+export function weekdayIndex(d: JDate): number {
+  const [gy, gm, gd] = toGregorian(d[0], d[1], d[2]);
+  /* شنبه(۶) → ۰ · یکشنبه(۰) → ۱ · … · جمعه(۵) → ۶ */
+  return (new Date(gy, gm - 1, gd).getDay() + 1) % 7;
+}
+
 export const WEEKDAYS_SHORT = ["ش", "ی", "د", "س", "چ", "پ", "ج"] as const;
 
 export function shortWeekday(d: JDate): string {
-  const [gy, gm, gd] = toGregorian(d[0], d[1], d[2]);
-  return WEEKDAYS_SHORT[new Date(gy, gm - 1, gd).getDay()];
+  return WEEKDAYS_SHORT[weekdayIndex(d)];
 }

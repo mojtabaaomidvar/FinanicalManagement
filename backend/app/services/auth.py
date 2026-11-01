@@ -7,14 +7,13 @@
 from __future__ import annotations
 
 import secrets
-from datetime import timedelta
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.errors import AppError
 from app.core.security import hash_password
-from app.models.auth import LookupAttempt
 from app.models.family import Family, Member
 from app.schemas.auth import (
     AuthResult,
@@ -25,25 +24,69 @@ from app.schemas.auth import (
     RegisterRequest,
 )
 from app.services import otp as otp_service
-from app.services import passwords, sessions
-from app.services.clock import utcnow
+from app.services import password_reset, passwords, ratelimit, sessions
 
 _MIN_PASSWORD = 8
 _PRE_REG_MAX_PER_MINUTE = 60  # سطل سراسری (نه per-phone) — ضد «شمارش شماره‌ها»
 
+# مقدارِ پیش‌فرضِ IP برای فراخوانی‌های درون‌فرایندی (تست‌ها، اسکریپت‌ها). یک سطلِ
+# مشترک می‌سازد، پس سقف سخت‌گیرانه‌تر می‌شود نه بازتر.
+_UNKNOWN_IP = "unknown"
+
 
 # ── پیکربندی عمومی ───────────────────────────────────────────
 def public_config(db: Session) -> PublicConfig:
-    return PublicConfig(otp_enabled=otp_service.is_otp_enabled(db))
+    return PublicConfig(
+        otp_enabled=otp_service.is_otp_enabled(db),
+        password_reset_enabled=password_reset.is_available(),
+    )
 
 
 # ── بررسی رمز (مرحلهٔ ۱ فرم ورود) ────────────────────────────
-def check_password(db: Session, phone: str, password: str) -> bool:
+def check_password(db: Session, phone: str, password: str, *, ip: str = _UNKNOWN_IP) -> bool:
+    """بررسیِ رمز بی‌ساختِ نشست (قدمِ اولِ فرمِ ورود).
+
+    سقفِ per-IP اینجا هم لازم است: `check_password_gated` با **شماره** کلید می‌خورد،
+    پس مهاجمی که یک رمزِ رایج را روی هزار شمارهٔ مختلف می‌آزماید هیچ‌گاه به قفلِ
+    per-phone نمی‌خورد (§5.11 — «credential-stuffing protection»).
+    """
+    ratelimit.hit(db, "check_password", ip, limit=settings.rl_check_password_per_ip)
     return passwords.check_password_gated(db, phone, password)
 
 
+# ── گیتِ عضویت هنگام ورود (§2.5/§2.6) ─────────────────────────
+# فقط عضوِ ACTIVE نشست می‌گیرد. عضوی که با لینک/کد «پیوسته» ولی هنوز تأیید نشده
+# status='active' دارد (خودش ثبت‌نام کرده) امّا membership_state='pending' است؛ پس
+# همین گیت جلوی ورودش را تا تأییدِ مدیر می‌گیرد. اعضای پیش از مهاجرت همه 'active'
+# بک‌فیل شدند، پس رفتارشان تغییری نمی‌کند.
+_LOGIN_MEMBERSHIP_MESSAGES: dict[str, tuple[str, str]] = {
+    "pending": (
+        "MEMBERSHIP_PENDING",
+        "عضویت شما هنوز تأیید نشده است؛ لطفاً منتظرِ تأییدِ مدیرِ خانواده بمانید.",
+    ),
+    "rejected": ("MEMBERSHIP_REJECTED", "درخواستِ عضویتِ شما رد شده است."),
+}
+
+
+def _ensure_can_login(member: Member) -> None:
+    """فقط عضوِ ACTIVE می‌تواند نشست بگیرد؛ pending/rejected/… مسدودند."""
+    state = member.membership_state
+    if state == "active":
+        return
+    code, message = _LOGIN_MEMBERSHIP_MESSAGES.get(
+        state, ("MEMBERSHIP_INACTIVE", "عضویت شما در خانواده فعال نیست.")
+    )
+    raise AppError(code, message, 403)
+
+
 # ── ورود ─────────────────────────────────────────────────────
-def login(db: Session, phone: str, password: str, code: str | None) -> AuthResult:
+def login(
+    db: Session, phone: str, password: str, code: str | None, *, ip: str = _UNKNOWN_IP
+) -> AuthResult:
+    # سقفِ مبدأ پیش از هر کارِ گران‌قیمت (هشِ Argon2id ده‌ها میلی‌ثانیه CPU می‌برد؛
+    # بی این سقف، خودِ ورود به اهرمِ DoS بدل می‌شود).
+    ratelimit.hit(db, "login", ip, limit=settings.rl_login_per_ip)
+
     if not passwords.check_password_gated(db, phone, password):
         raise AppError("INVALID_CREDENTIALS", "شماره یا رمز عبور نادرست است.", 401)
 
@@ -54,6 +97,8 @@ def login(db: Session, phone: str, password: str, code: str | None) -> AuthResul
     ).scalar_one_or_none()
     if member is None:
         raise AppError("NO_MEMBER", "کاربری با این شماره یافت نشد.", 404)
+
+    _ensure_can_login(member)
 
     family = db.get(Family, member.family_id)
     token = sessions.create_session(db, member.id)
@@ -76,7 +121,11 @@ def _generate_family_code(db: Session) -> str:
             return code
 
 
-def register(db: Session, req: RegisterRequest) -> AuthResult:
+def register(db: Session, req: RegisterRequest, *, ip: str = _UNKNOWN_IP) -> AuthResult:
+    # سقفِ مبدأ: بی آن، یک اسکریپت می‌تواند هزاران «خانواده» بسازد و جدولِ families
+    # را پر کند (هر ثبت‌نام یک هشِ Argon2id هم هست).
+    ratelimit.hit(db, "register", ip, limit=settings.rl_register_per_ip)
+
     if req.password is None or len(req.password) < _MIN_PASSWORD:
         raise AppError("WEAK_PASSWORD", "رمز عبور باید حداقل ۸ کاراکتر باشد.", 422)
 
@@ -121,6 +170,8 @@ def register(db: Session, req: RegisterRequest) -> AuthResult:
         relation="خودم",
     )
     db.add(owner)
+    db.flush()  # برای در دست داشتن owner.id
+    family.created_by = owner.id  # سازندهٔ خانواده (§2.4) — جدا از نقش، غیرقابلِ تنزل
     db.commit()
 
     token = sessions.create_session(db, owner.id)
@@ -157,27 +208,26 @@ def change_password(
 
 
 # ── عضو پیش‌ثبت‌شده توسط مدیر ─────────────────────────────────
-def check_pre_registered(db: Session, phone: str) -> PreRegisteredResult:
+def check_pre_registered(
+    db: Session, phone: str, *, ip: str = _UNKNOWN_IP
+) -> PreRegisteredResult:
     """آیا این شماره توسط مدیری به‌عنوان عضو pending معرفی شده؟ (بدون احراز هویت).
 
-    محدودیت‌ها: نام عضو برنمی‌گردد (فقط نام خانواده)؛ سقف سراسری ۶۰ جست‌وجو در دقیقه.
-    شماره ذخیره نمی‌شود تا این جدول به فهرست شماره‌های آزموده‌شده تبدیل نشود.
+    این اندپوینت یک «اوراکل» است: با شماره‌ای که نداری می‌توانی بپرسی آیا آن شماره
+    در سامانه دعوت شده. پس سه مهار روی آن هست:
+
+    ۱) نامِ عضو برنمی‌گردد — فقط نامِ خانواده (که لازمهٔ متنِ «به خانوادهٔ … دعوت
+       شده‌اید» است).
+    ۲) سقفِ per-IP (رفعِ #۱۵): سطلِ ناشناسِ هر مبدأ. پیش از این فقط سقفِ سراسری بود،
+       و همان سقف خودش تبدیل به سلاحِ DoS می‌شد: مهاجم با ۶۰ درخواست در دقیقه
+       اندپوینت را برای همهٔ کاربرانِ واقعی می‌بست.
+    ۳) سقفِ سراسری به‌عنوان دفاعِ عمقی در برابرِ مهاجمِ توزیع‌شده.
+
+    شمارهٔ پرسیده‌شده ذخیره نمی‌شود تا این جدول به فهرستِ شماره‌های آزموده‌شده بدل
+    نشود؛ کلیدِ سطل هم هشِ نمک‌خوردهٔ IP است نه خودش.
     """
-    db.execute(
-        delete(LookupAttempt).where(LookupAttempt.created_at < utcnow() - timedelta(hours=1))
-    )
-    probes = db.execute(
-        select(func.count())
-        .select_from(LookupAttempt)
-        .where(
-            LookupAttempt.kind == "pre_reg",
-            LookupAttempt.created_at > utcnow() - timedelta(minutes=1),
-        )
-    ).scalar_one()
-    if int(probes) >= _PRE_REG_MAX_PER_MINUTE:
-        raise AppError("TOO_MANY_ATTEMPTS", "تعداد درخواست‌ها زیاد است؛ کمی بعد.", 429)
-    db.add(LookupAttempt(kind="pre_reg"))
-    db.commit()
+    ratelimit.hit(db, "pre_reg", ip, limit=settings.rl_pre_registered_per_ip)
+    ratelimit.global_hit(db, "pre_reg", limit=_PRE_REG_MAX_PER_MINUTE)
 
     row = db.execute(
         select(Family.name)

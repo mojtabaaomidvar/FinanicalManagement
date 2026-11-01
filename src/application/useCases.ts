@@ -3,9 +3,11 @@
 import type { Container } from "@/infrastructure/repositories/container";
 import {
   AcceptInviteUseCase,
+  JoinByCodeUseCase,
   ChangePasswordUseCase,
   CheckPasswordUseCase,
   CheckPreRegisteredUseCase,
+  ConfirmPasswordResetUseCase,
   CreateInviteUseCase,
   GetInviteUseCase,
   GetPublicConfigUseCase,
@@ -14,6 +16,7 @@ import {
   LogoutUseCase,
   RegisterUseCase,
   RequestOtpUseCase,
+  RequestPasswordResetUseCase,
   RestoreSessionUseCase,
   SaveSessionUseCase,
   UploadAvatarUseCase,
@@ -71,6 +74,9 @@ import {
   SetThemeUseCase,
   SetCurrencyUseCase,
   SetMemberRelationUseCase,
+  ListJoinRequestsUseCase,
+  ApproveJoinRequestUseCase,
+  RejectJoinRequestUseCase,
 } from "./family/family.usecases";
 import {
   AddAccountUseCase,
@@ -103,6 +109,37 @@ import {
   ListHoldingsUseCase,
   UpdateHoldingUseCase,
 } from "./holding/holding.usecases";
+import {
+  DismissNotificationUseCase,
+  GetNotificationStateUseCase,
+  UndismissNotificationUseCase,
+  UpdateNotificationPrefsUseCase,
+} from "./notification/notification.usecases";
+import {
+  AddBillUseCase,
+  CancelBillUseCase,
+  DeleteBillUseCase,
+  ListBillsUseCase,
+  PayBillUseCase,
+  UnpayBillUseCase,
+  UpdateBillUseCase,
+} from "./bill/bill.usecases";
+import {
+  AddInventoryItemUseCase,
+  AddShoppingItemUseCase,
+  AddShoppingListUseCase,
+  AdjustInventoryUseCase,
+  CheckShoppingItemUseCase,
+  CompleteTripUseCase,
+  DeleteInventoryItemUseCase,
+  DeleteShoppingItemUseCase,
+  DeleteShoppingListUseCase,
+  ListInventoryUseCase,
+  ListShoppingListsUseCase,
+  RenameShoppingListUseCase,
+  UpdateInventoryItemUseCase,
+  UpdateShoppingItemUseCase,
+} from "./shopping/shopping.usecases";
 
 export interface UseCases {
   getPublicConfig: GetPublicConfigUseCase;
@@ -113,6 +150,7 @@ export interface UseCases {
   loginWithOtp: LoginWithOtpUseCase;
   register: RegisterUseCase;
   acceptInvite: AcceptInviteUseCase;
+  joinByCode: JoinByCodeUseCase;
   getInvite: GetInviteUseCase;
   createInvite: CreateInviteUseCase;
   saveSession: SaveSessionUseCase;
@@ -120,6 +158,8 @@ export interface UseCases {
   logout: LogoutUseCase;
   logoutAll: LogoutAllUseCase;
   changePassword: ChangePasswordUseCase;
+  requestPasswordReset: RequestPasswordResetUseCase;
+  confirmPasswordReset: ConfirmPasswordResetUseCase;
 
   listTransactions: ListTransactionsUseCase;
   addTransaction: AddTransactionUseCase;
@@ -156,6 +196,9 @@ export interface UseCases {
   getMembers: GetMembersUseCase;
   setMonthlyBudget: SetMonthlyBudgetUseCase;
   removeMember: RemoveMemberUseCase;
+  listJoinRequests: ListJoinRequestsUseCase;
+  approveJoinRequest: ApproveJoinRequestUseCase;
+  rejectJoinRequest: RejectJoinRequestUseCase;
   updateOwnProfile: UpdateOwnProfileUseCase;
   addMemberByManager: AddMemberByManagerUseCase;
   setTheme: SetThemeUseCase;
@@ -196,6 +239,40 @@ export interface UseCases {
   addHolding: AddHoldingUseCase;
   updateHolding: UpdateHoldingUseCase;
   deleteHolding: DeleteHoldingUseCase;
+
+  /* §۷ — ساختِ فهرستِ اعلان use-case ندارد: تابعِ خالصِ
+     domain/notification/deriveNotifications است. این چهار تا فقط ماندگاری‌اند. */
+  getNotificationState: GetNotificationStateUseCase;
+  updateNotificationPrefs: UpdateNotificationPrefsUseCase;
+  dismissNotification: DismissNotificationUseCase;
+  undismissNotification: UndismissNotificationUseCase;
+
+  /* §۱.۹ قبوض — «پرداخت» و «برگرداندنِ پرداخت» تراکنش هم دست می‌زنند، پس
+     فراخوان باید بعدشان refreshData بزند. */
+  listBills: ListBillsUseCase;
+  addBill: AddBillUseCase;
+  updateBill: UpdateBillUseCase;
+  deleteBill: DeleteBillUseCase;
+  payBill: PayBillUseCase;
+  unpayBill: UnpayBillUseCase;
+  cancelBill: CancelBillUseCase;
+
+  /* §۱.۸ خرید و انبار — «خرید انجام شد» هم تراکنش می‌سازد و هم موجودیِ
+     انبار را بالا می‌برد، پس فراخوانش هم refreshData می‌خواهد. */
+  listShoppingLists: ListShoppingListsUseCase;
+  addShoppingList: AddShoppingListUseCase;
+  renameShoppingList: RenameShoppingListUseCase;
+  deleteShoppingList: DeleteShoppingListUseCase;
+  addShoppingItem: AddShoppingItemUseCase;
+  updateShoppingItem: UpdateShoppingItemUseCase;
+  checkShoppingItem: CheckShoppingItemUseCase;
+  deleteShoppingItem: DeleteShoppingItemUseCase;
+  completeTrip: CompleteTripUseCase;
+  listInventory: ListInventoryUseCase;
+  addInventoryItem: AddInventoryItemUseCase;
+  updateInventoryItem: UpdateInventoryItemUseCase;
+  adjustInventory: AdjustInventoryUseCase;
+  deleteInventoryItem: DeleteInventoryItemUseCase;
 }
 
 export function createUseCases(c: Container): UseCases {
@@ -208,13 +285,19 @@ export function createUseCases(c: Container): UseCases {
     loginWithOtp: new LoginWithOtpUseCase(c.repos.auth),
     register: new RegisterUseCase(c.repos.auth),
     acceptInvite: new AcceptInviteUseCase(c.repos.auth),
+    joinByCode: new JoinByCodeUseCase(c.repos.auth),
     getInvite: new GetInviteUseCase(c.repos.auth),
     createInvite: new CreateInviteUseCase(c.repos.auth),
     saveSession: new SaveSessionUseCase(c.session),
     restoreSession: new RestoreSessionUseCase(c.session, c.repos.auth),
-    logout: new LogoutUseCase(c.session, c.repos.auth),
-    logoutAll: new LogoutAllUseCase(c.session, c.repos.auth),
+    logout: new LogoutUseCase(c.session, c.repos.auth, c.offlineCache),
+    logoutAll: new LogoutAllUseCase(c.session, c.repos.auth, c.offlineCache),
     changePassword: new ChangePasswordUseCase(c.session, c.repos.auth),
+    requestPasswordReset: new RequestPasswordResetUseCase(c.repos.auth),
+    confirmPasswordReset: new ConfirmPasswordResetUseCase(
+      c.session,
+      c.repos.auth,
+    ),
 
     listTransactions: new ListTransactionsUseCase(c.repos.transactions),
     addTransaction: new AddTransactionUseCase(c.repos.transactions),
@@ -256,6 +339,9 @@ export function createUseCases(c: Container): UseCases {
     getMembers: new GetMembersUseCase(c.repos.family),
     setMonthlyBudget: new SetMonthlyBudgetUseCase(c.repos.family),
     removeMember: new RemoveMemberUseCase(c.repos.family),
+    listJoinRequests: new ListJoinRequestsUseCase(c.repos.family),
+    approveJoinRequest: new ApproveJoinRequestUseCase(c.repos.family),
+    rejectJoinRequest: new RejectJoinRequestUseCase(c.repos.family),
     updateOwnProfile: new UpdateOwnProfileUseCase(c.repos.family),
     addMemberByManager: new AddMemberByManagerUseCase(c.repos.family),
     setTheme: new SetThemeUseCase(c.repos.family),
@@ -304,5 +390,37 @@ export function createUseCases(c: Container): UseCases {
     addHolding: new AddHoldingUseCase(c.repos.holdings),
     updateHolding: new UpdateHoldingUseCase(c.repos.holdings),
     deleteHolding: new DeleteHoldingUseCase(c.repos.holdings),
+
+    getNotificationState: new GetNotificationStateUseCase(c.repos.notifications),
+    updateNotificationPrefs: new UpdateNotificationPrefsUseCase(
+      c.repos.notifications,
+    ),
+    dismissNotification: new DismissNotificationUseCase(c.repos.notifications),
+    undismissNotification: new UndismissNotificationUseCase(
+      c.repos.notifications,
+    ),
+
+    listBills: new ListBillsUseCase(c.repos.bills),
+    addBill: new AddBillUseCase(c.repos.bills),
+    updateBill: new UpdateBillUseCase(c.repos.bills),
+    deleteBill: new DeleteBillUseCase(c.repos.bills),
+    payBill: new PayBillUseCase(c.repos.bills),
+    unpayBill: new UnpayBillUseCase(c.repos.bills),
+    cancelBill: new CancelBillUseCase(c.repos.bills),
+
+    listShoppingLists: new ListShoppingListsUseCase(c.repos.shopping),
+    addShoppingList: new AddShoppingListUseCase(c.repos.shopping),
+    renameShoppingList: new RenameShoppingListUseCase(c.repos.shopping),
+    deleteShoppingList: new DeleteShoppingListUseCase(c.repos.shopping),
+    addShoppingItem: new AddShoppingItemUseCase(c.repos.shopping),
+    updateShoppingItem: new UpdateShoppingItemUseCase(c.repos.shopping),
+    checkShoppingItem: new CheckShoppingItemUseCase(c.repos.shopping),
+    deleteShoppingItem: new DeleteShoppingItemUseCase(c.repos.shopping),
+    completeTrip: new CompleteTripUseCase(c.repos.shopping),
+    listInventory: new ListInventoryUseCase(c.repos.inventory),
+    addInventoryItem: new AddInventoryItemUseCase(c.repos.inventory),
+    updateInventoryItem: new UpdateInventoryItemUseCase(c.repos.inventory),
+    adjustInventory: new AdjustInventoryUseCase(c.repos.inventory),
+    deleteInventoryItem: new DeleteInventoryItemUseCase(c.repos.inventory),
   };
 }

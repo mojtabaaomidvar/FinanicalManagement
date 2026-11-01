@@ -24,7 +24,7 @@ from app.models.category import CustomCategory, Subcategory
 from app.models.family import Member
 from app.models.transaction import Transaction, TransactionPhoto
 from app.schemas.data import PhotoCreate, TransactionWrite
-from app.services.common import to_uuid, to_uuid_opt
+from app.services.common import is_admin, to_uuid, to_uuid_opt
 
 _TIME_RE = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
 _REPEATS = {"none", "weekly", "monthly", "yearly"}
@@ -156,6 +156,31 @@ def _prepare(db: Session, family_id: uuid.UUID, req: TransactionWrite) -> dict:
 
 
 # ── افزودن / ویرایش / حذف ────────────────────────────────────
+def create_uncommitted(
+    db: Session, family_id: uuid.UUID, req: TransactionWrite
+) -> Transaction:
+    """تراکنش را می‌سازد و `flush` می‌کند — **بدون commit**.
+
+    برای فراخوانی که باید تراکنش را داخلِ واحدِ کارِ خودش بسازد. امروز تنها
+    مصرف‌کننده‌اش `services/bills.pay` است و دلیلش اتمیک‌بودن است: اگر پرداخت
+    با `create()` (که خودش commit می‌کند) ساخته می‌شد، بینِ دو commit پنجره‌ای
+    می‌ماند که تراکنشِ هزینه وجود دارد ولی قبض هنوز «پرداخت‌نشده» است. شکستِ
+    commitِ دوم یعنی یک هزینهٔ یتیم در گزارش‌ها — همان شمارشِ دوبلی که کلِ
+    تصمیمِ «پرداخت خودش تراکنش بسازد» برای پرهیز از آن گرفته شد.
+
+    `flush` لازم است تا `row.id` پیش از بازگشت مقدار بگیرد (قبض باید آن را
+    در `transaction_id` بنشاند).
+
+    همهٔ اعتبارسنجی‌ها از `_prepare` می‌آید، پس هیچ قاعده‌ای دوباره نوشته
+    نمی‌شود: یک موتورِ قاعده، یک commit.
+    """
+    values = _prepare(db, family_id, req)
+    row = Transaction(family_id=family_id, **values)
+    db.add(row)
+    db.flush()
+    return row
+
+
 def create(db: Session, family_id: uuid.UUID, req: TransactionWrite) -> Transaction:
     values = _prepare(db, family_id, req)
     row = Transaction(family_id=family_id, **values)
@@ -177,23 +202,34 @@ def update(db: Session, family_id: uuid.UUID, tx_id: uuid.UUID, req: Transaction
     db.commit()
 
 
-def delete(db: Session, actor: Member, tx_id: uuid.UUID) -> None:
-    """حذف: مدیر هر تراکنش خانواده؛ عضو فقط تراکنش خودش."""
+def delete_uncommitted(db: Session, actor: Member, tx_id: uuid.UUID) -> None:
+    """مثل `delete` ولی **بدون commit** — برای فراخوانی که واحدِ کارِ خودش را دارد.
+
+    قاعدهٔ مجوز (مدیر هر تراکنش، عضو فقط تراکنشِ خودش) این‌جاست و `delete`
+    خودش از همین عبور می‌کند، تا دو نسخهٔ مجوز وجود نداشته باشد.
+    امروز تنها مصرف‌کنندهٔ بیرونی‌اش `services/bills.unpay` است.
+    """
     stmt = select(Transaction).where(
         Transaction.id == tx_id, Transaction.family_id == actor.family_id
     )
-    if actor.role != "owner":
+    if not is_admin(actor):
         stmt = stmt.where(Transaction.member_id == actor.id)
     row = db.execute(stmt).scalar_one_or_none()
     if row is None:
         raise AppError("NOT_FOUND", "تراکنش یافت نشد.", 404)
     db.delete(row)
+    db.flush()
+
+
+def delete(db: Session, actor: Member, tx_id: uuid.UUID) -> None:
+    """حذف: مدیر هر تراکنش خانواده؛ عضو فقط تراکنش خودش."""
+    delete_uncommitted(db, actor, tx_id)
     db.commit()
 
 
 def mark_occurrence(db: Session, actor: Member, tx_id: uuid.UUID, due_date: _date | None) -> None:
     """ثبت رسیدگی به یک سررسید تراکنش تکرارشونده (فقط مدیر؛ idempotent)."""
-    if actor.role != "owner":
+    if not is_admin(actor):
         raise AppError("FORBIDDEN", "فقط مدیر خانواده مجاز است.", 403)
     if due_date is None:
         raise AppError("INVALID_DATE", "تاریخ سررسید نامعتبر است.", 422)
@@ -213,7 +249,7 @@ def mark_occurrence(db: Session, actor: Member, tx_id: uuid.UUID, due_date: _dat
 # ── عکس‌های تراکنش ───────────────────────────────────────────
 def _photo_permitted(db: Session, actor: Member, photo: TransactionPhoto) -> bool:
     """مجاز: مدیر، آپلودر، یا سازندهٔ تراکنش همان عکس."""
-    if actor.role == "owner" or photo.member_id == actor.id:
+    if is_admin(actor) or photo.member_id == actor.id:
         return True
     creator = db.execute(
         select(Transaction.member_id).where(

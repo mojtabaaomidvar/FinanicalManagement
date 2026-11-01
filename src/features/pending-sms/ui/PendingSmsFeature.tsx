@@ -4,7 +4,14 @@ import { useEffect } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
 import { usePendingSmsModel } from "../model/usePendingSmsModel";
-import { AmountInput, Field, JalaliDateInput, Modal, Select, TextInput } from "@/shared/ui";
+import {
+  AmountInput,
+  Field,
+  JalaliDateInput,
+  Modal,
+  Select,
+  TextInput,
+} from "@/shared/ui";
 import { categoriesFor } from "@/domain/category/category.catalog";
 import { toFa } from "@/shared/lib/digits";
 
@@ -12,18 +19,13 @@ export function PendingSmsFeature({ refreshKey }: { refreshKey: number }) {
   const { useCases, member, cur, accounts, subcategories, refreshData } =
     useApp();
   const { show } = useToast();
-  const m = usePendingSmsModel(
-    useCases!,
-    member?.id ?? "",
-    show,
-    cur,
-  );
+  const m = usePendingSmsModel(useCases!, member?.id ?? "", show, cur);
 
   const subsOfCategory = subcategories.filter(
     (s) => s.category === m.categoryId,
   );
 
-  /* بارگذاری پیامک‌های pending هنگام ورود به اپ و پس از هر تغییر داده */
+  /* بارگذاری پیامک‌های pending هنگام ورود به نرم‌افزار و پس از هر تغییر داده */
   useEffect(() => {
     if (!m.open) void m.load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -42,7 +44,9 @@ export function PendingSmsFeature({ refreshKey }: { refreshKey: number }) {
         <div className="pending-progress">
           <div
             className="pending-progress-fill"
-            style={{ width: `${((m.idx + 1) / Math.max(m.list.length, 1)) * 100}%` }}
+            style={{
+              width: `${((m.idx + 1) / Math.max(m.list.length, 1)) * 100}%`,
+            }}
           />
         </div>
         <div className="pending-card">
@@ -102,7 +106,10 @@ export function PendingSmsFeature({ refreshKey }: { refreshKey: number }) {
                 value={m.accountId}
                 onChange={m.setAccountId}
                 options={[
-                  { value: "", label: accounts.length ? "انتخاب کنید…" : "کارتی ثبت نشده" },
+                  {
+                    value: "",
+                    label: accounts.length ? "انتخاب کنید…" : "کارتی ثبت نشده",
+                  },
                   ...accounts.map((a) => ({
                     value: a.id,
                     label: a.title + (a.bank ? " · " + a.bank : ""),

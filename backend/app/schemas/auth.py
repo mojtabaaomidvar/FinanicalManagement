@@ -37,6 +37,11 @@ class MemberPublic(BaseModel):
     # national_id حذف شد (درخواست مالک ۲۰۲۶-۰۹-۰۸): کدملی دیگر در هیچ پاسخی برنمی‌گردد.
     avatar_url: str | None
     status: str
+    # membership_state افزوده شد (۲۰۲۶-۰۹-۳۰، رفعِ #۱۷): محورِ دومِ §۲.۶ که
+    # _ensure_can_login روی آن گیت می‌زند. بدونِ آن، کلاینت نمی‌توانست عضوِ
+    # «ثبت‌نام‌کرده ولی تأییدنشده» را از عضوِ سالم تشخیص بدهد و در فهرستِ اعضا
+    # سالم نشانش می‌داد. حساس نیست: هم‌خانواده‌ها این را باید ببینند.
+    membership_state: str
     theme: str
     relation: str
     currency: str
@@ -54,6 +59,7 @@ class MemberPublic(BaseModel):
             birth_date=m.birth_date.isoformat() if isinstance(m.birth_date, date) else None,
             avatar_url=m.avatar_url,
             status=m.status,
+            membership_state=m.membership_state,
             theme=m.theme,
             relation=m.relation,
             currency=m.currency,
@@ -107,7 +113,16 @@ class SessionPayload(BaseModel):
 
 
 class PublicConfig(BaseModel):
+    """پرچم‌هایی که کلاینتِ بی‌نشست هم لازم دارد تا UI را درست بچیند.
+
+    `password_reset_enabled` عمداً وضعیتِ *سرور* را می‌گوید (کلیدِ پیامک هست یا
+    نه)، نه چیزی دربارهٔ کاربر؛ وگرنه همین پرچم می‌شد اوراکلِ شمارشِ حساب. کار
+    ما این است که دکمهٔ «فراموشی رمز» وقتی هیچ کدی از سرور بیرون نمی‌آید
+    نمایش داده نشود.
+    """
+
     otp_enabled: bool
+    password_reset_enabled: bool
 
 
 class OkResult(BaseModel):
@@ -125,6 +140,26 @@ class InviteInfo(BaseModel):
 
 class InviteToken(BaseModel):
     token: str
+
+
+class JoinPendingResult(BaseModel):
+    """خروجی پیوستن (لینک/کد): درخواست ثبت شد و منتظرِ تأییدِ مدیر است — بدونِ نشست."""
+
+    family_name: str
+    state: str = "pending"
+
+
+class JoinRequestOut(BaseModel):
+    """یک درخواستِ پیوستنِ در انتظار — برای فهرستِ مدیر."""
+
+    id: str
+    member_id: str | None
+    member_name: str | None
+    phone: str | None
+    relation: str | None
+    via: str
+    state: str
+    requested_at: datetime
 
 
 # ── بدنه‌های ورودی ───────────────────────────────────────────
@@ -172,8 +207,46 @@ class AcceptInviteRequest(BaseModel):
     relation: str = Field(default="سایر", min_length=1)
 
 
+class JoinByCodeRequest(BaseModel):
+    """پیوستن با «کدِ خانواده» (۶ رقمی) به‌جای لینکِ دعوت — جریانِ مشابه، پیش‌از‌احراز."""
+
+    # رمز trim نمی‌شود؛ نام‌ها/نسبت در لایهٔ سرویس strip می‌شوند.
+    code: str = Field(pattern=r"^\d{6}$")
+    member_name: str = Field(min_length=1, max_length=40)
+    phone: str = Field(pattern=PHONE_PATTERN)
+    password: str = Field(min_length=_MIN_PASSWORD)  # تعیین رمز → حداقل ۸
+    otp_code: str | None = None
+    relation: str = Field(default="سایر", min_length=1)
+
+
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=_MIN_PASSWORD)  # تعیین رمز → حداقل ۸
+
+
+class PasswordResetRequest(BaseModel):
+    """گامِ ۱ فراموشیِ رمز (§9.5) — فقط شماره.
+
+    پاسخ همیشه یکسان است (ثبت‌شده یا نه)، پس اینجا هیچ فیلدِ دیگری نمی‌گیریم که
+    بتواند شکلِ پاسخ را عوض کند.
+    """
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    phone: str = Field(pattern=PHONE_PATTERN)
+
+
+class PasswordResetConfirmRequest(BaseModel):
+    """گامِ ۲ فراموشیِ رمز — شماره + کدِ پیامک‌شده + رمزِ تازه.
+
+    اعتبارسنجیِ طولِ رمز عمداً *در همین لایه* است تا کدِ درستِ کاربر با یک رمزِ
+    کوتاه سوزانده نشود؛ سرویس هم دوباره بررسی می‌کند (دفاعِ لایه‌ای).
+
+    مثلِ `LoginRequest` اینجا `str_strip_whitespace` نداریم، چون تنظیمِ Pydantic
+    مدل‌گستر است و رمز را هم trim می‌کرد. خودِ الگوها فاصله را رد می‌کنند.
+    """
+    phone: str = Field(pattern=PHONE_PATTERN)
+    code: str = Field(pattern=r"^\d{6}$")
     new_password: str = Field(min_length=_MIN_PASSWORD)  # تعیین رمز → حداقل ۸
 
 

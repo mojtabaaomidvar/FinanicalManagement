@@ -1,14 +1,14 @@
 # استقرار خانه‌یار روی «سرور ابری» (VPS) — راهنمای گام‌به‌گام
 
-مسیر ارزان: یک سرور کوچک، همه‌چیز رویش (اپ + Postgres + فایل) با `docker-compose`،
+مسیر ارزان: یک سرور کوچک، همه‌چیز رویش (نرم‌افزار + Postgres + فایل) با `docker-compose`،
 و nginx برای دامنه و SSL. **بکاپ به عهدهٔ توست** — بخش ۹ را جدی بگیر.
 
 فایل‌های این پوشه: `docker-compose.yml`، `nginx/khaneyar.conf`، `backup.sh`،
-`restore.sh`. ایمیج اپ از `../Dockerfile` ساخته می‌شود.
+`restore.sh`. ایمیج نرم‌افزار از `../Dockerfile` ساخته می‌شود.
 
 > این سند فقط **نام** متغیرها را می‌گوید؛ هیچ مقدار محرمانه‌ای اینجا نیست.
 
-نقشه: `api.khaanehyar.ir` → اپ · `khaanehyar.ir`/`www` → PWA (اختیاری، همین سرور).
+نقشه: `api.khaanehyar.ir` → نرم‌افزار · `khaanehyar.ir`/`www` → PWA (اختیاری، همین سرور).
 
 ---
 
@@ -57,11 +57,11 @@ POSTGRES_USER=...
 POSTGRES_PASSWORD=...            # رمز قوی
 POSTGRES_DB=khaneyar
 
-# اپ — نکته: هاست دیتابیس همان نام سرویس یعنی «db» است
+# نرم‌افزار — نکته: هاست دیتابیس همان نام سرویس یعنی «db» است
 DATABASE_URL=postgresql+psycopg://POSTGRES_USER:POSTGRES_PASSWORD@db:5432/khaneyar
 APP_ENV=production
 DEBUG=false
-# اپ خودش روی pwa.khaanehyar.ir سرو می‌شود؛ درخواست‌های API از همان‌جا می‌آیند،
+# نرم‌افزار خودش روی pwa.khaanehyar.ir سرو می‌شود؛ درخواست‌های API از همان‌جا می‌آیند،
 # پس این زیر‌دامنه باید در CORS باشد وگرنه مرورگر همهٔ درخواست‌ها را می‌بندد.
 # دو دامنهٔ ریشه فقط سایت معرفی‌اند و به API نمی‌زنند، ولی نگه‌داشتنشان بی‌ضرر است.
 CORS_ORIGINS=https://pwa.khaanehyar.ir,https://khaanehyar.ir,https://www.khaanehyar.ir
@@ -231,9 +231,9 @@ docker compose run --rm api alembic upgrade head
 
 - [ ] فایروال: فقط ۲۲ (SSH)، ۸۰، ۴۴۳ باز باشد
       `bash
-    sudo ufw allow OpenSSH && sudo ufw allow 'Nginx Full' && sudo ufw enable
-    `
-- [ ] پورت Postgres (۵۴۳۲) و اپ (۸۰۰۰) فقط روی `127.0.0.1` باشند (در compose همین‌طور است) — به اینترنت باز نشوند
+  sudo ufw allow OpenSSH && sudo ufw allow 'Nginx Full' && sudo ufw enable
+  `
+- [ ] پورت Postgres (۵۴۳۲) و نرم‌افزار (۸۰۰۰) فقط روی `127.0.0.1` باشند (در compose همین‌طور است) — به اینترنت باز نشوند
 - [ ] `DEBUG=false` و `APP_ENV=production`
 - [ ] `FILE_SIGNING_SECRET` ست شده و `.env` در git نیست
 - [ ] بکاپ شبانه کار می‌کند و `restore` تست شده

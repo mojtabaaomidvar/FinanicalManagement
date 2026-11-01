@@ -30,6 +30,7 @@ from app.models.category import CategoryBudget, CustomCategory, Subcategory
 from app.models.family import Member
 from app.models.transaction import Transaction
 from app.schemas.data import CategoryBudgetSet, CustomCategoryCreate, SubcategoryCreate
+from app.services.common import is_admin
 
 _MAX_BUDGET = 999999999999  # ۱۲ نُه — هم‌سان با set_category_budget قدیمی
 
@@ -176,7 +177,7 @@ def set_category_budget(
     db: Session, actor: Member, req: CategoryBudgetSet
 ) -> CategoryBudget:
     """تعیین/به‌روزرسانی سقف بودجهٔ یک دسته — فقط مدیر (upsert روی (family, category))."""
-    if actor.role != "owner":
+    if not is_admin(actor):
         raise AppError("FORBIDDEN", "فقط مدیر خانواده مجاز است.", 403)
     category = (req.category or "").strip()
     if not category or len(category) > 60:
@@ -203,7 +204,7 @@ def set_category_budget(
 def delete_category_budget(db: Session, actor: Member, category: str | None) -> None:
     """حذف سقف بودجهٔ یک دسته — فقط مدیر. کلید «رشتهٔ دسته» است و مثل آینهٔ
     set (upsert) بی‌اثرپذیر (idempotent) است؛ نبود بودجه خطا نمی‌دهد."""
-    if actor.role != "owner":
+    if not is_admin(actor):
         raise AppError("FORBIDDEN", "فقط مدیر خانواده مجاز است.", 403)
     cat = (category or "").strip()
     if not cat:

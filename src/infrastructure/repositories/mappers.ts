@@ -1,7 +1,12 @@
 /* پیاده‌سازی مخازن — مپ کردن ردیف‌های snake_case به انواع دامنه */
 
 import type { BankSms, NewBankSms, SmsStatus } from "@/domain/sms/sms.types";
-import type { Family, Member } from "@/domain/family/family.types";
+import type {
+  Family,
+  JoinRequest,
+  Member,
+  MembershipState,
+} from "@/domain/family/family.types";
 import type { Transaction } from "@/domain/transaction/transaction.types";
 
 /* ── ردیف‌های خام PostgREST ── */
@@ -16,6 +21,8 @@ export interface MemberRow {
   birth_date: string | null;
   avatar_url: string | null;
   status: "pending" | "active";
+  /** سرورِ قدیمی این را نمی‌فرستد → undefined، که «نامعلوم» است نه «تأییدشده» */
+  membership_state?: string | null;
   theme: "light" | "dark" | "auto";
   relation: string;
   currency: string | null;
@@ -70,6 +77,26 @@ export interface SmsRow {
 
 /* ── مپ‌ها ── */
 
+/** شش مقدارِ CHECKِ پایگاه داده پذیرفته می‌شوند؛ هر چیزِ دیگر (و نبودِ فیلد)
+    `null` = «نامعلوم» است. عمداً به «active» نمی‌افتد: سرورِ قدیمی که این
+    ستون را نمی‌فرستد نباید عضوِ در‌انتظار را تأییدشده نشان بدهد. */
+const MEMBERSHIP_STATES: readonly string[] = [
+  "pending",
+  "active",
+  "rejected",
+  "expired",
+  "suspended",
+  "removed",
+];
+
+function membershipStateOf(
+  v: string | null | undefined,
+): MembershipState | null {
+  return typeof v === "string" && MEMBERSHIP_STATES.includes(v)
+    ? (v as MembershipState)
+    : null;
+}
+
 export function mapMember(r: MemberRow): Member {
   return {
     id: r.id,
@@ -81,6 +108,7 @@ export function mapMember(r: MemberRow): Member {
     birthDate: r.birth_date ?? null,
     avatarUrl: r.avatar_url ?? null,
     status: r.status === "pending" ? "pending" : "active",
+    membershipState: membershipStateOf(r.membership_state),
     theme: r.theme === "light" || r.theme === "dark" ? r.theme : "auto",
     relation: r.relation ?? "خودم",
     /* اگر سرور قدیمی باشد و ستون را نفرستد، تومان پیش‌فرض است */
@@ -97,6 +125,34 @@ export function mapFamily(r: FamilyRow): Family {
     budget: +r.budget,
     currency: r.currency,
     dark: r.dark,
+  };
+}
+
+/* ── §۲.۶ درخواست‌های پیوستن ── */
+
+export interface JoinRequestRow {
+  id: string;
+  member_id: string | null;
+  member_name: string | null;
+  phone: string | null;
+  relation: string | null;
+  via: string;
+  state: string;
+  requested_at: string;
+}
+
+export function mapJoinRequest(r: JoinRequestRow): JoinRequest {
+  return {
+    id: r.id,
+    memberId: r.member_id ?? null,
+    memberName: r.member_name ?? null,
+    phone: r.phone ?? null,
+    relation: r.relation ?? null,
+    /* «link» و «code» تنها مقادیرِ سرورند؛ هر چیزِ دیگر به «code» نمی‌افتد
+       بلکه به «link» می‌افتد تا با پیش‌فرضِ invite_id سازگار باشد. */
+    via: r.via === "code" ? "code" : "link",
+    state: r.state,
+    requestedAt: r.requested_at,
   };
 }
 

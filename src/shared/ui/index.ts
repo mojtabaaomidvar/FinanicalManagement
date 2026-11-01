@@ -2,6 +2,7 @@ export { Icon } from "./Icon";
 export { BrandMark } from "./BrandMark";
 export { Card } from "./Card";
 export { Modal } from "./Modal";
+export { OfflineBar } from "./OfflineBar";
 export { FitText } from "./FitText";
 export {
   Field,

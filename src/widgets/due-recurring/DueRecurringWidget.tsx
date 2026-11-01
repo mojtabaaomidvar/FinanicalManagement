@@ -7,10 +7,7 @@
 import { useMemo, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { buildCategoryResolver } from "@/domain/category/resolve";
-import {
-  dueOccurrences,
-  pendingOccurrences,
-} from "@/domain/transaction/recurring.rules";
+import { pendingDueList } from "@/domain/transaction/recurring.rules";
 import type { Transaction } from "@/domain/transaction/transaction.types";
 import { formatLong, isoToJalali, today } from "@/shared/lib/jalali";
 import { formatAmount } from "@/shared/lib/format";
@@ -36,20 +33,20 @@ export function DueRecurringWidget({ form }: { form: TxFormModel }) {
     [customCategories],
   );
 
-  /* همهٔ سررسیدهای رسیدگی‌نشده تا امروز، مرتب از قدیمی‌ترین */
-  const items = useMemo(() => {
+  /* همهٔ سررسیدهای رسیدگی‌نشده تا امروز، مرتب از قدیمی‌ترین.
+     حلقه‌اش از خودِ دامنهٔ تراکنش می‌آید (`pendingDueList`) — همان تابعی که
+     هستهٔ اعلانِ §۷ هم از آن می‌خواند. پیش از این هر دو حلقهٔ خودشان را
+     داشتند و می‌توانستند درّه بردارند: کاربر موردی را در زنگِ اعلان می‌دید
+     و این‌جا نه. افقِ «امروز» عمدی است و رفتارِ قبلیِ همین ویجت را نگه
+     می‌دارد — این ویجت از مدیر می‌پرسد «انجام شد؟»، پس نباید دربارهٔ
+     تاریخی بپرسد که هنوز نرسیده. */
+  const items = useMemo<DueItem[]>(() => {
     const now = today();
-    const out: DueItem[] = [];
-    for (const tx of txs) {
-      if (tx.repeat === "none") continue;
-      const due = dueOccurrences(tx.date, tx.repeat, tx.repeatEnd, now);
-      const pending = pendingOccurrences(due, new Set(tx.handledOccurrences));
-      for (const d of pending) {
-        out.push({ tx, dueDate: d, label: formatLong(isoToJalali(d)) });
-      }
-    }
-    out.sort((a, b) => (a.dueDate < b.dueDate ? -1 : 1));
-    return out;
+    return pendingDueList(txs, now).map((d) => ({
+      tx: d.tx,
+      dueDate: d.dueIso,
+      label: formatLong(isoToJalali(d.dueIso)),
+    }));
   }, [txs]);
 
   /* فقط مدیر خانواده رسیدگی می‌کند */

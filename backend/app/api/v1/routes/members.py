@@ -3,7 +3,7 @@
 این روت‌ها روی جدول‌های «هویتی» families/members کار می‌کنند که از RLS مستثنا
 هستند؛ بنابراین برخلاف روت‌های داده، از get_tenant_member استفاده نمی‌کنند:
 - get_current_member: هویت عضو از توکن (بدون بستن زمینهٔ RLS).
-- require_owner: فقط مدیر (برای سقف بودجهٔ خانواده).
+- require_admin: فقط مدیر (برای سقف بودجهٔ خانواده).
 مرز مستأجر در «لایهٔ اپ» اعمال می‌شود (سرویس، family_id عضو را می‌سنجد).
 
 - PATCH /family/settings            : سقف بودجهٔ خانواده (فقط مدیر) → ۲۰۴.
@@ -18,7 +18,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_member, require_owner
+from app.api.deps import get_current_member, require_admin
 from app.db.session import get_db
 from app.models.family import Member
 from app.schemas.auth import MemberPublic
@@ -38,7 +38,7 @@ router = APIRouter(tags=["members"])
 @router.patch("/family/settings", status_code=status.HTTP_204_NO_CONTENT)
 def update_family_settings(
     body: FamilySettingsUpdate,
-    owner: Member = Depends(require_owner),
+    owner: Member = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> Response:
     family_service.update_family_settings(db, owner, body)

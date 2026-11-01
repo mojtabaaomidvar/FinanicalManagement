@@ -13,10 +13,17 @@ from fastapi import Depends, Header
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
-from app.db.rls import apply_to_transaction, reset_current_family, set_current_family
+from app.db.rls import (
+    apply_to_transaction,
+    bind_family_to_session,
+    clear_family_from_session,
+    reset_current_family,
+    set_current_family,
+)
 from app.db.session import get_db
 from app.models.family import Member
 from app.services import sessions
+from app.services.common import is_admin
 
 
 def get_bearer_token(authorization: str | None = Header(default=None, alias="Authorization")) -> str:
@@ -29,6 +36,16 @@ def get_bearer_token(authorization: str | None = Header(default=None, alias="Aut
     return parts[1].strip()
 
 
+def _require_active_membership(member: Member) -> None:
+    """گیتِ واحد: فقط عضوِ ACTIVE به مسیرهای احرازشده راه دارد (§2.5/§2.6).
+
+    اعضای pending اصلاً نشست نمی‌گیرند؛ این گیت جلوی نشستِ عضوی را می‌گیرد که پس از
+    ورود suspended/removed/rejected شده (دفاع در عمق، مستقل از پاک‌سازیِ نشست).
+    """
+    if member.membership_state != "active":
+        raise AppError("MEMBERSHIP_INACTIVE", "عضویت شما در خانواده فعال نیست.", 403)
+
+
 def get_current_member(
     token: str = Depends(get_bearer_token),
     db: Session = Depends(get_db),
@@ -39,12 +56,13 @@ def get_current_member(
     if member is None:
         # نشست به عضوی اشاره دارد که دیگر نیست
         raise AppError("SESSION_EXPIRED", "نشست نامعتبر یا منقضی است.", 401)
+    _require_active_membership(member)
     return member
 
 
-def require_owner(member: Member = Depends(get_current_member)) -> Member:
-    """فقط مدیر خانواده مجاز است."""
-    if member.role != "owner":
+def require_admin(member: Member = Depends(get_current_member)) -> Member:
+    """فقط مدیر خانواده مجاز است (owner یا admin)."""
+    if not is_admin(member):
         raise AppError("FORBIDDEN", "فقط مدیر خانواده مجاز است.", 403)
     return member
 
@@ -80,8 +98,27 @@ def get_tenant_member(
     بدنهٔ کلاینت). fail-closed: اگر این وابستگی به‌کار نرود، RLS صفر ردیف می‌دهد.
     """
     token = set_current_family(member.family_id)
+    bind_family_to_session(db, member.family_id)  # منبعِ اصلیِ زمینه، پایدار پس از commit (#۶)
     apply_to_transaction(db)  # پوشش تراکنشی که پیش از ست‌شدن زمینه باز شده بود
     try:
         yield member
     finally:
+        clear_family_from_session(db)
+        reset_current_family(token)
+
+
+def require_admin_tenant(
+    member: Member = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> Iterator[Member]:
+    """مدیرِ خانواده + بستن زمینهٔ RLS — برای مسیرهایی که به جدولِ RLSدارِ
+    join_requests دست می‌زنند (فهرست/تأیید/رد). ترکیبِ require_admin و get_tenant_member.
+    """
+    token = set_current_family(member.family_id)
+    bind_family_to_session(db, member.family_id)
+    apply_to_transaction(db)
+    try:
+        yield member
+    finally:
+        clear_family_from_session(db)
         reset_current_family(token)

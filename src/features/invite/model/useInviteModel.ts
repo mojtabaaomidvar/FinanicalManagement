@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react";
 import type { UseCases } from "@/application/useCases";
 
-export function useInviteModel(useCases: UseCases, notify: (m: string) => void) {
+export function useInviteModel(
+  useCases: UseCases,
+  notify: (m: string) => void,
+) {
   const [open, setOpen] = useState(false);
   const [link, setLink] = useState("");
   const [busy, setBusy] = useState(false);
@@ -13,7 +16,10 @@ export function useInviteModel(useCases: UseCases, notify: (m: string) => void) 
     try {
       const token = await useCases.createInvite.execute();
       setLink(
-        location.origin + location.pathname + "?invite=" + encodeURIComponent(token),
+        location.origin +
+          location.pathname +
+          "?invite=" +
+          encodeURIComponent(token),
       );
       setOpen(true);
     } catch (e) {
@@ -37,7 +43,7 @@ export function useInviteModel(useCases: UseCases, notify: (m: string) => void) 
       try {
         await navigator.share({
           title: "دعوت به خانه یار",
-          text: `به خانواده «${familyName}» در اپ خانه یار بپیوندید:`,
+          text: `به خانواده «${familyName}» در نرم‌افزار خانه یار بپیوندید:`,
           url: link,
         });
       } catch {
