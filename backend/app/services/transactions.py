@@ -190,13 +190,22 @@ def create(db: Session, family_id: uuid.UUID, req: TransactionWrite) -> Transact
     return row
 
 
-def update(db: Session, family_id: uuid.UUID, tx_id: uuid.UUID, req: TransactionWrite) -> None:
-    values = _prepare(db, family_id, req)
-    row = db.execute(
-        select(Transaction).where(Transaction.id == tx_id, Transaction.family_id == family_id)
-    ).scalar_one_or_none()
+def update(db: Session, actor: Member, tx_id: uuid.UUID, req: TransactionWrite) -> None:
+    """ویرایش: مدیر هر تراکنش خانواده؛ عضو فقط تراکنش خودش، بدون تغییر عضو منتسب."""
+    is_family_admin = is_admin(actor)
+    stmt = select(Transaction).where(
+        Transaction.id == tx_id, Transaction.family_id == actor.family_id
+    )
+    if not is_family_admin:
+        stmt = stmt.where(Transaction.member_id == actor.id)
+    # مالکیت ردیف تا پایان ویرایش ثابت می‌ماند، حتی اگر مدیر هم‌زمان آن را تغییر دهد.
+    row = db.execute(stmt.with_for_update()).scalar_one_or_none()
     if row is None:
         raise AppError("NOT_FOUND", "تراکنش یافت نشد.", 404)
+
+    values = _prepare(db, actor.family_id, req)
+    if not is_family_admin and values["member_id"] != actor.id:
+        raise AppError("FORBIDDEN", "نمی‌توانید تراکنش خود را به عضو دیگری نسبت دهید.", 403)
     for key, value in values.items():
         setattr(row, key, value)
     db.commit()

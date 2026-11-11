@@ -54,7 +54,7 @@ def update_transaction(
     db: Session = Depends(get_db),
 ) -> Response:
     tx_service.update(
-        db, member.family_id, to_uuid(tx_id, "NOT_FOUND", "تراکنش یافت نشد.", 404), body
+        db, member, to_uuid(tx_id, "NOT_FOUND", "تراکنش یافت نشد.", 404), body
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

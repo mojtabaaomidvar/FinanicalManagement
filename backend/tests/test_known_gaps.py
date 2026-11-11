@@ -19,14 +19,17 @@
   • #۲ §۲.۶ — پیوستن حالا منتظرِ تأییدِ مدیر می‌ماند (accept-invite نشست نمی‌دهد).
   • #۳ §۲.۶(ب) — لینکِ دعوت تک‌مصرفه شد (پس از اولین پذیرش سوزانده می‌شود).
   • #۶ — زمینهٔ RLS پس از commit در مسیرِ نوشتن حفظ می‌شود.
-شکاف‌های #۱ (§۵.۵ فایل)، #۴ (§۲.۸ ممیزی) و #۵ (عدم‌تقارنِ PATCH تراکنش) هنوز بازند
-و xfail می‌مانند (خارج از دامنهٔ مرحلهٔ B).
+به‌روزرسانیِ ۲۰۲۶-۱۱-۱۱: شکاف #۵ (عدم‌تقارنِ PATCH تراکنش) هم رفع شد و آزمونش
+از xfail به قفلِ رگرسیون ارتقا یافت: owner/admin تراکنش‌های خانواده را ویرایش
+می‌کنند و عضو عادی فقط تراکنشِ خودش را، بدون تغییرِ عضوِ منتسب.
+شکاف‌های #۱ (§۵.۵ فایل) و #۴ (§۲.۸ ممیزی) هنوز بازند و xfail می‌مانند.
 
 ارجاع کامل در docs/audit-2026-09-17-master-prompt.md.
 """
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Any
 
 import pytest
@@ -176,19 +179,16 @@ def test_an_audit_trail_table_should_exist(raw_sql: Any) -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════
-#  شکاف ۵ — عدم‌تقارن: PATCH تراکنش مهارِ per-member ندارد، DELETE دارد
+#  شکاف ۵ — مهارِ per-member برای PATCH تراکنش  ✅ رفع‌شده در ۲۰۲۶-۱۱-۱۱
 # ═══════════════════════════════════════════════════════════════════
-@pytest.mark.xfail(
-    reason="شکافِ ثبت‌شده: transactions.update فقط با family_id فیلتر می‌کند، پس عضوِ "
-    "عادی می‌تواند تراکنشِ عضوِ دیگر (از جمله مدیر) را ویرایش کند — در حالی که "
-    "transactions.delete مهارِ member_id دارد. عدم‌تقارن، نه نشتِ خانواده.",
-    strict=False,
-)
 def test_member_should_not_edit_another_members_transaction(
     client: Any, home_a: Actor, member_a: Actor
 ) -> None:
-    """رفتارِ مطلوب: PATCH هم مثل DELETE برای غیرمالک فقط روی ردیفِ خودش کار کند."""
+    """PATCH مثل DELETE ردیفِ مدیر را برای عضو عادی ناموجود نگه می‌دارد."""
     owner_tx = make_transaction(client, home_a, "40000")
+    before = client.get(f"{API}/transactions", headers=home_a.h)
+    assert before.status_code == 200, before.text
+    original = next(t for t in before.json() if t["id"] == owner_tx)
 
     res = client.patch(
         f"{API}/transactions/{owner_tx}",
@@ -201,11 +201,13 @@ def test_member_should_not_edit_another_members_transaction(
             "date": "2026-09-02",
         },
     )
-    assert res.status_code in {403, 404}, (
-        "عضوِ عادی تراکنشِ مدیر را ویرایش کرد (PATCH مهارِ per-member ندارد)."
-    )
+    assert res.status_code == 404, res.text
+    assert res.json()["error"] == "NOT_FOUND", res.text
+    after = client.get(f"{API}/transactions", headers=home_a.h)
+    assert after.status_code == 200, after.text
+    assert next(t for t in after.json() if t["id"] == owner_tx) == original
 
-    # اثباتِ اینکه شکاف واقعی است، نه اشتباهِ مسیر: همان کار روی تراکنشِ خودش کار می‌کند.
+    # شاهدِ مثبت: همان مسیر روی تراکنشِ خودش کار می‌کند و تغییر ذخیره می‌شود.
     own_tx = make_transaction(client, member_a, "30000")
     ok = client.patch(
         f"{API}/transactions/{own_tx}",
@@ -219,6 +221,13 @@ def test_member_should_not_edit_another_members_transaction(
         },
     )
     assert ok.status_code == 204, ok.text
+    listed = client.get(f"{API}/transactions", headers=member_a.h)
+    assert listed.status_code == 200, listed.text
+    updated = next(t for t in listed.json() if t["id"] == own_tx)
+    assert updated["member_id"] == member_a.member_id
+    assert updated["family_id"] == home_a.family_id
+    assert Decimal(str(updated["amount"])) == Decimal("2")
+    assert updated["date"] == "2026-09-02"
 
 
 # ═══════════════════════════════════════════════════════════════════

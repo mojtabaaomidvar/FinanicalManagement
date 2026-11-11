@@ -12,7 +12,10 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Any
+
+import pytest
 
 from tests.conftest import (
     API,
@@ -21,6 +24,7 @@ from tests.conftest import (
     Actor,
     add_active_member,
     expect_status,
+    login_as,
     make_account,
     make_event,
     make_holding,
@@ -30,6 +34,28 @@ from tests.conftest import (
 
 FORBIDDEN = 403
 NOT_FOUND = 404
+
+
+def _transaction_row(client: Any, who: Actor, tx_id: str) -> dict[str, Any]:
+    response = client.get(f"{API}/transactions", headers=who.h)
+    assert response.status_code == 200, response.text
+    return next(row for row in response.json() if row["id"] == tx_id)
+
+
+@pytest.fixture(params=("owner", "admin"))
+def transaction_manager(request: Any, client: Any, home_a: Actor) -> Actor:
+    """مدیر واقعی با نشست معتبر؛ فقط دادهٔ خانوادهٔ ایزولهٔ تست تغییر می‌کند."""
+    if request.param == "owner":
+        return home_a
+    promoted = add_active_member(client, home_a, "مدیر دومِ تراکنش")
+    response = client.post(
+        f"{AUTH}/members/{promoted.member_id}/promote", headers=home_a.h
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["role"] == "admin"
+    admin = login_as(client, promoted.phone)
+    assert admin.role == "admin"
+    return admin
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -141,6 +167,123 @@ def test_owner_can_reach_every_row_of_the_household(
         json={"title": "اصلاحِ مدیر", "card_number": next_card()},
     ).status_code == 200
     assert client.delete(f"{API}/transactions/{member_tx}", headers=home_a.h).status_code == 204
+
+
+def test_member_cannot_edit_peer_transaction(
+    client: Any, home_a: Actor, member_a: Actor
+) -> None:
+    """عضو عادی حتی با نسبت‌دادن PATCH به خودش، تراکنشِ عضو دیگر را نمی‌گیرد."""
+    peer = add_active_member(client, home_a, "عضو دیگرِ تراکنش")
+    peer_tx = make_transaction(client, peer, "40000")
+    original = _transaction_row(client, home_a, peer_tx)
+
+    response = client.patch(
+        f"{API}/transactions/{peer_tx}",
+        headers=member_a.h,
+        json={
+            "member_id": member_a.member_id,
+            "type": "expense",
+            "amount": "1",
+            "category": CATEGORY,
+            "date": "2026-09-02",
+            "note": "تغییرِ غیرمجاز",
+        },
+    )
+    assert response.status_code == NOT_FOUND, response.text
+    assert response.json()["error"] == "NOT_FOUND", response.text
+    assert _transaction_row(client, home_a, peer_tx) == original
+
+
+@pytest.mark.parametrize("recipient_role", ("owner", "member"))
+def test_member_cannot_reassign_own_transaction(
+    client: Any, home_a: Actor, member_a: Actor, recipient_role: str
+) -> None:
+    """عضو تراکنشِ خودش را هم نمی‌تواند به مدیر یا عضو دیگری نسبت دهد."""
+    recipient = (
+        home_a
+        if recipient_role == "owner"
+        else add_active_member(client, home_a, "عضو مقصدِ تراکنش")
+    )
+    own_tx = make_transaction(client, member_a, "30000")
+    original = _transaction_row(client, home_a, own_tx)
+
+    response = client.patch(
+        f"{API}/transactions/{own_tx}",
+        headers=member_a.h,
+        json={
+            "member_id": recipient.member_id,
+            "type": "expense",
+            "amount": "1",
+            "category": CATEGORY,
+            "date": "2026-09-02",
+            "note": "نسبت‌دادنِ غیرمجاز",
+        },
+    )
+    assert response.status_code == FORBIDDEN, response.text
+    assert response.json()["error"] == "FORBIDDEN", response.text
+    assert _transaction_row(client, home_a, own_tx) == original
+
+
+def test_household_manager_can_edit_and_reassign_member_transaction(
+    client: Any, home_a: Actor, member_a: Actor, transaction_manager: Actor
+) -> None:
+    """owner و admin هم مبلغ را اصلاح می‌کنند و هم عضو منتسب را داخل خانواده."""
+    member_tx = make_transaction(client, member_a, "30000")
+    body = {
+        "member_id": member_a.member_id,
+        "type": "expense",
+        "amount": "25000",
+        "category": CATEGORY,
+        "date": "2026-09-02",
+        "note": "اصلاحِ مدیر",
+    }
+    edited = client.patch(
+        f"{API}/transactions/{member_tx}", headers=transaction_manager.h, json=body
+    )
+    assert edited.status_code == 204, edited.text
+    updated = _transaction_row(client, home_a, member_tx)
+    assert updated["member_id"] == member_a.member_id
+    assert updated["family_id"] == home_a.family_id
+    assert Decimal(str(updated["amount"])) == Decimal("25000")
+    assert updated["date"] == body["date"]
+    assert updated["note"] == body["note"]
+
+    recipient = add_active_member(client, home_a, "عضو مقصدِ اصلاح مدیر")
+    body = {**body, "member_id": recipient.member_id, "amount": "27000"}
+    reassigned = client.patch(
+        f"{API}/transactions/{member_tx}", headers=transaction_manager.h, json=body
+    )
+    assert reassigned.status_code == 204, reassigned.text
+    updated = _transaction_row(client, home_a, member_tx)
+    assert updated["member_id"] == recipient.member_id
+    assert updated["family_id"] == home_a.family_id
+    assert Decimal(str(updated["amount"])) == Decimal("27000")
+    assert updated["date"] == body["date"]
+    assert updated["note"] == body["note"]
+
+
+def test_household_manager_cannot_edit_another_households_transaction(
+    client: Any, home_a: Actor, home_b: Actor, transaction_manager: Actor
+) -> None:
+    """اجازهٔ owner/admin به خانوادهٔ خودش محدود می‌ماند و ردیفِ بیرونی سالم است."""
+    foreign_tx = make_transaction(client, home_b, "40000")
+    original = _transaction_row(client, home_b, foreign_tx)
+
+    response = client.patch(
+        f"{API}/transactions/{foreign_tx}",
+        headers=transaction_manager.h,
+        json={
+            "member_id": home_b.member_id,
+            "type": "expense",
+            "amount": "1",
+            "category": CATEGORY,
+            "date": "2026-09-02",
+            "note": "تغییرِ خانوادهٔ دیگر",
+        },
+    )
+    assert response.status_code == NOT_FOUND, response.text
+    assert response.json()["error"] == "NOT_FOUND", response.text
+    assert _transaction_row(client, home_b, foreign_tx) == original
 
 
 # ═══════════════════════════════════════════════════════════════════
