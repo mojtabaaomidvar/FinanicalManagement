@@ -1,0 +1,2 @@
+# Linux deployment scripts must remain executable after Windows archive/export.
+*.sh text eol=lf
