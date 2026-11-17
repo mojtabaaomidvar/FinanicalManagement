@@ -1,3 +1,4 @@
+import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* §۱.۸ — صفحهٔ لیست خرید.
 
    چیزی که این صفحه از صفحهٔ تراکنش‌ها جدا می‌کند: این‌جا **قصدِ خرید**
@@ -19,6 +20,8 @@
 import { useMemo, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
+import { ShoppingSyncStatus } from "@/features/shopping-offline/ui/ShoppingSyncStatus";
+import { useOnline } from "@/shared/lib/useOnline";
 import {
   AmountInput,
   Card,
@@ -65,9 +68,20 @@ const EMPTY_ITEM: ItemForm = {
 };
 
 export function ShoppingPage() {
-  const { useCases, cur, accounts, shoppingLists, inventory, refreshData } =
-    useApp();
+  const {
+    useCases, cur, accounts, shoppingLists, inventory, refreshData, shoppingSync,
+  } = useApp();
   const { show } = useToast();
+  const online = useOnline();
+  const offline = !online || shoppingSync.offline;
+
+  function showChange(message: string) {
+    show(
+      offline
+        ? "تغییر روی این دستگاه نگه داشته شد و پس از اتصال ارسال می‌شود"
+        : message,
+    );
+  }
 
   const [activeId, setActiveId] = useState("");
   const [busy, setBusy] = useState(false);
@@ -136,7 +150,7 @@ export function ShoppingPage() {
       }
       await refreshData();
       setListOpen(false);
-      show(listEditing ? "نام لیست عوض شد" : "لیست ساخته شد");
+      showChange(listEditing ? "نام لیست عوض شد" : "لیست ساخته شد");
     } catch (e) {
       show((e as Error).message || "ذخیرهٔ لیست ناموفق بود");
     } finally {
@@ -157,7 +171,7 @@ export function ShoppingPage() {
       await useCases.deleteShoppingList.execute(list.id);
       setActiveId("");
       await refreshData();
-      show("لیست حذف شد");
+      showChange("لیست حذف شد");
     } catch (e) {
       show((e as Error).message || "حذف ناموفق بود");
     } finally {
@@ -176,6 +190,7 @@ export function ShoppingPage() {
       await useCases.addShoppingItem.execute(active.id, { title });
       setQuick("");
       await refreshData();
+      if (offline) showChange("به لیست اضافه شد");
     } catch (e) {
       show((e as Error).message || "افزودن ناموفق بود");
     } finally {
@@ -190,7 +205,9 @@ export function ShoppingPage() {
       qty: formatQty(item.qty),
       unit: item.unit ?? "",
       price:
-        item.price === null ? "" : formatAmount(toDisplay(item.price, cur)),
+        offline || item.price === null
+          ? ""
+          : formatAmount(toDisplay(item.price, cur)),
       note: item.note ?? "",
       inventoryItemId: item.inventoryItemId ?? "",
     });
@@ -222,7 +239,7 @@ export function ShoppingPage() {
       unit: itemForm.unit.trim() || null,
       /* قیمت اختیاری است: خالی یا صفر یعنی «نگفتم»، نه «مجانی».
          نمایش → پایه (تومان)، وگرنه کاربرِ ریالی ده‌برابر ذخیره می‌کرد. */
-      price: display > 0 ? fromDisplay(display, cur) : null,
+      price: offline ? undefined : display > 0 ? fromDisplay(display, cur) : null,
       note: itemForm.note.trim() || null,
       inventoryItemId: itemForm.inventoryItemId || null,
     };
@@ -237,7 +254,7 @@ export function ShoppingPage() {
       }
       await refreshData();
       setItemOpen(false);
-      show(itemEditing ? "قلم به‌روز شد" : "به لیست اضافه شد");
+      showChange(itemEditing ? "قلم به‌روز شد" : "به لیست اضافه شد");
     } catch (e) {
       show((e as Error).message || "ذخیره ناموفق بود");
     } finally {
@@ -272,6 +289,10 @@ export function ShoppingPage() {
   }
 
   function openTrip() {
+    if (offline) {
+      show("ثبت نتیجهٔ خرید به اتصال اینترنت نیاز دارد");
+      return;
+    }
     if (!sum?.checked) {
       show("اول آن‌چه خریده‌ای را تیک بزن");
       return;
@@ -283,6 +304,10 @@ export function ShoppingPage() {
 
   async function confirmTrip() {
     if (!useCases || !active || busy) return;
+    if (offline) {
+      show("ثبت نتیجهٔ خرید به اتصال اینترنت نیاز دارد");
+      return;
+    }
     setBusy(true);
     try {
       const res = await useCases.completeTrip.execute(active.id, {
@@ -297,7 +322,7 @@ export function ShoppingPage() {
         res.transactionId
           ? `${toFa(res.itemCount)} قلم بسته شد · ${formatAmount(
               toDisplay(res.total, cur),
-            )} ${cur} در هزینه‌ها ثبت شد`
+            )} ${currencyDisplayLabel(cur)} در هزینه‌ها ثبت شد`
           : `${toFa(res.itemCount)} قلم بسته شد — خرجی ثبت نشد`,
       );
     } catch (e) {
@@ -317,6 +342,7 @@ export function ShoppingPage() {
       </header>
 
       <div className="content">
+        <ShoppingSyncStatus />
         {!shoppingLists.length ? (
           <Card>
             <p className="form-note">
@@ -350,7 +376,7 @@ export function ShoppingPage() {
               <button
                 type="button"
                 className="shop-tab is-add"
-                aria-label="لیست تازه"
+                aria-label="لیست جدید"
                 onClick={openNewList}
               >
                 <Icon name="i-plus" size={16} />
@@ -377,7 +403,7 @@ export function ShoppingPage() {
                   <button
                     type="button"
                     className="shop-add-more"
-                    aria-label="افزودن با تعداد و قیمت"
+                    aria-label={offline ? "افزودن با تعداد" : "افزودن با تعداد و قیمت"}
                     onClick={openNewItem}
                   >
                     <Icon name="i-more" size={16} />
@@ -391,6 +417,7 @@ export function ShoppingPage() {
                         key={it.id}
                         item={it}
                         cur={cur}
+                        hidePrices={offline}
                         busy={busy}
                         onToggle={() => void toggle(it)}
                         onOpen={() => openEditItem(it)}
@@ -409,18 +436,22 @@ export function ShoppingPage() {
                     <div className="shop-foot-sum">
                       <span>
                         {toFa(sum.checked)} قلم در سبد
-                        {sum.missingPrice
+                        {!offline && sum.missingPrice
                           ? ` · ${toFa(sum.missingPrice)} قلم بی‌قیمت`
                           : ""}
                       </span>
-                      <b>
-                        {formatAmount(toDisplay(sum.checkedTotal, cur))} {cur}
-                      </b>
+                      {!offline ? (
+                        <b>
+                          {formatAmount(toDisplay(sum.checkedTotal, cur))} {currencyDisplayLabel(cur)}
+                        </b>
+                      ) : (
+                        <p className="form-note">ثبت نتیجهٔ خرید به اتصال اینترنت نیاز دارد</p>
+                      )}
                     </div>
                     <button
                       type="button"
                       className="btn-primary"
-                      disabled={busy}
+                      disabled={busy || offline}
                       onClick={openTrip}
                     >
                       خرید انجام شد
@@ -457,7 +488,7 @@ export function ShoppingPage() {
       <Modal
         open={listOpen}
         onClose={() => setListOpen(false)}
-        title={listEditing ? "تغییر نام لیست" : "لیست تازه"}
+        title={listEditing ? "تغییر نام لیست" : "لیست جدید"}
         dragToClose
       >
         <Field label="نام لیست">
@@ -514,16 +545,24 @@ export function ShoppingPage() {
             ]}
           />
         </Field>
-        <Field label={`قیمت (${cur}) — اختیاری`}>
-          <AmountInput
-            value={itemForm.price}
-            onChange={(v) => setItemForm((f) => ({ ...f, price: v }))}
-          />
-        </Field>
-        <p className="form-note">
-          قیمتِ کلِ همین قلم است، نه قیمتِ واحد. خالی بگذارید اگر نمی‌دانید؛
-          جمعِ سبد از قیمت‌هایی که نوشته‌اید ساخته می‌شود.
-        </p>
+        {!offline ? (
+          <>
+            <Field label={`قیمت (${currencyDisplayLabel(cur)}) — اختیاری`}>
+              <AmountInput
+                value={itemForm.price}
+                onChange={(v) => setItemForm((f) => ({ ...f, price: v }))}
+              />
+            </Field>
+            <p className="form-note">
+              قیمتِ کلِ همین قلم است، نه قیمتِ واحد. خالی بگذارید اگر نمی‌دانید؛
+              جمعِ سبد از قیمت‌هایی که نوشته‌اید ساخته می‌شود.
+            </p>
+          </>
+        ) : (
+          <p className="form-note">
+            قیمت‌ها در حالت آفلاین نمایش داده یا تغییر داده نمی‌شوند. پس از اتصال می‌توانید قیمت را وارد کنید.
+          </p>
+        )}
         {inventory.length ? (
           <Field label="پیوند به انبار (اختیاری)">
             <Select
@@ -558,14 +597,17 @@ export function ShoppingPage() {
         title="خرید انجام شد"
         dragToClose
       >
+        {offline ? (
+          <p className="form-note">ثبت نتیجهٔ خرید به اتصال اینترنت نیاز دارد.</p>
+        ) : null}
         <p className="modal-sub">
-          {sum
+          {sum && !offline
             ? `${toFa(sum.checked)} قلمِ تیک‌خورده · ${formatAmount(
                 toDisplay(sum.checkedTotal, cur),
-              )} ${cur}`
+              )} ${currencyDisplayLabel(cur)}`
             : ""}
         </p>
-        {sum?.missingPrice ? (
+        {sum?.missingPrice && !offline ? (
           <p className="form-note">
             {toFa(sum.missingPrice)} قلم قیمت ندارد، پس جمعِ بالا از خرجِ
             واقعی کم‌تر است. اگر می‌خواهید درست ثبت شود، اول قیمتشان را
@@ -587,7 +629,7 @@ export function ShoppingPage() {
             ]}
           />
         </Field>
-        {tripMode === "record" ? (
+        {tripMode === "record" && !offline ? (
           <Field label="از کدام حساب؟ (اختیاری)">
             <Select
               value={tripAccount}
@@ -602,7 +644,7 @@ export function ShoppingPage() {
         <button
           type="button"
           className="btn-primary"
-          disabled={busy}
+          disabled={busy || offline}
           onClick={() => void confirmTrip()}
         >
           {busy ? "…" : "بستنِ خرید"}
@@ -615,6 +657,7 @@ export function ShoppingPage() {
 function ItemRow({
   item,
   cur,
+  hidePrices,
   busy,
   onToggle,
   onOpen,
@@ -622,6 +665,7 @@ function ItemRow({
 }: {
   item: ShoppingItem;
   cur: string;
+  hidePrices: boolean;
   busy: boolean;
   onToggle: () => void;
   onOpen: () => void;
@@ -672,7 +716,7 @@ function ItemRow({
       </div>
 
       <div className="shop-side">
-        {item.price !== null ? (
+        {!hidePrices && item.price !== null ? (
           <b className="shop-price">
             {formatAmount(toDisplay(item.price, cur))}
           </b>

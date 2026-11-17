@@ -1,3 +1,4 @@
+import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* صفحه «تنظیمات / بیشتر» — الگوی گروه‌بندی‌شده (Grouped Settings)
    ═══════════════════════════════════════════════════════════════
    پس‌زمینه خاکستری روشن، عنوان بزرگ، و چند کارت سفید جدا از هم که
@@ -71,7 +72,7 @@ const THEMES: { value: ThemeMode; label: string }[] = [
 ];
 
 /* آیکون هر حالت ظاهر — خورشید/نیمه/ماه */
-const THEME_ICON: Record<ThemeMode, string> = {
+const THEME_ICON: Partial<Record<ThemeMode, string>> = {
   light: "sun",
   auto: "auto-theme",
   dark: "moon",
@@ -116,6 +117,17 @@ export function SettingsPage({
   const [section, setSection] = useState<SettingsSection | null>(
     initialSection ?? null,
   );
+  useEffect(() => {
+    if (import.meta.env.MODE !== "copy-workbench") return;
+    const navigate = (event: Event) => {
+      const selected = (event as CustomEvent<{ section?: SettingsSection }>).detail?.section;
+      if (selected && ["profile", "premium", "family", "joinRequests", "events", "accounts", "scheduled", "categories", "labels", "export", "sms", "notifications", "about"].includes(selected)) {
+        setSection(selected);
+      }
+    };
+    window.addEventListener("copy-workbench:settings", navigate);
+    return () => { window.removeEventListener("copy-workbench:settings", navigate); };
+  }, []);
   /* بررسی به‌روزرسانی درجا انجام می‌شود (بدون زیرصفحه) — این کلید فقط
      برای نمایش «در حال بررسی…» روی همان ردیف است */
   const [checkingUpdate, setCheckingUpdate] = useState(false);
@@ -285,7 +297,7 @@ export function SettingsPage({
   /* ─────────────── زیرصفحه‌ها ─────────────── */
   if (section === "profile") {
     return (
-      <SettingsSubPage title="پروفایل من" onBack={back}>
+      <SettingsSubPage title={/* @copy-text src/pages/SettingsPage/SettingsPage.tsx:83:jsx-attribute */ "پروفایل"} onBack={back}>
         <ProfileCard />
       </SettingsSubPage>
     );
@@ -472,7 +484,7 @@ export function SettingsPage({
               تغییر می‌کرد، بازگرداندنِ پشتیبانِ یک کاربرِ ریالی مبالغ را
               ده‌برابر می‌نوشت. */}
           <p className="modal-sub" style={{ marginTop: 10 }}>
-            مبالغ CSV و Excel به <b>{cur}</b> است (همان واحدی که در نرم‌افزار
+            مبالغ CSV و Excel به <b>{currencyDisplayLabel(cur)}</b> است (همان واحدی که در نرم‌افزار
             می‌بینید). پشتیبان JSON همیشه به تومان — ارز پایه — ذخیره می‌شود تا
             بازگردانی‌اش سالم بماند.
           </p>
@@ -489,7 +501,7 @@ export function SettingsPage({
   /* ── درباره — فقط هویت برنامه؛ به‌روزرسانی زیرصفحه‌ای ندارد ── */
   if (section === "about") {
     return (
-      <SettingsSubPage title="درباره" onBack={back}>
+      <SettingsSubPage title={/* @copy-text src/pages/SettingsPage/SettingsPage.tsx:176:jsx-attribute */ "درباره ما"} onBack={back}>
         <Card title="درباره">
           <div style={{ textAlign: "center", padding: "12px 0" }}>
             <div className="auth-art" style={{ margin: "0 auto 12px" }}>
@@ -534,7 +546,7 @@ export function SettingsPage({
   const budgetTrailing: RowTrailing = family?.budget
     ? {
         type: "value",
-        value: `${formatAmount(toDisplay(family.budget, cur))} ${cur}`,
+        value: `${formatAmount(toDisplay(family.budget, cur))} ${currencyDisplayLabel(cur)}`,
       }
     : { type: "action", label: "تعیین" };
 
@@ -633,7 +645,7 @@ export function SettingsPage({
               label="درخواست‌های عضویت"
               sub={
                 pendingJoins > 0
-                  ? "تا تأیید نکنید نمی‌توانند وارد شوند"
+                  ? /* @copy-text src/pages/SettingsPage/SettingsPage.tsx:290:typescript-string */ ""
                   : undefined
               }
               trailing={
@@ -687,7 +699,7 @@ export function SettingsPage({
             label="دسته‌ها"
             sub={
               customCategories.length
-                ? `${toFa(customCategories.length)} دستهٔ دلخواه شما`
+                ? /* @copy-text src/pages/SettingsPage/SettingsPage.tsx:324:typescript-template */ `${toFa(customCategories.length)} دسته بندی دلخواه شما`
                 : "دستهٔ دلخواه بسازید"
             }
             trailing={{ type: "counter", count: categoryCount }}
@@ -754,9 +766,9 @@ export function SettingsPage({
                   title={t.label}
                   onClick={() => void changeTheme(t.value)}
                 >
-                  <svg>
+                  {THEME_ICON[t.value] ? <svg>
                     <use href={`#i-${THEME_ICON[t.value]}`} />
-                  </svg>
+                  </svg> : null}
                 </button>
               ))}
             </div>
@@ -764,7 +776,7 @@ export function SettingsPage({
           <SettingsRow
             icon="sms"
             label="تشخیص تراکنش از پیامک"
-            sub="اختیاری — هر تراکنش فقط با تأیید خودتان ثبت می‌شود"
+            sub={/* @copy-text src/pages/SettingsPage/SettingsPage.tsx:393:jsx-attribute */ ""}
             trailing={smsTrailing}
             onClick={() => setSection("sms")}
           />
@@ -773,7 +785,7 @@ export function SettingsPage({
           <SettingsRow
             icon="bell"
             label="اعلان‌ها"
-            sub="سررسیدها، رویدادها و درخواست‌های عضویت"
+            sub={/* @copy-text src/pages/SettingsPage/SettingsPage.tsx:399:jsx-attribute */ ""}
             trailing={{ type: "chevron" }}
             onClick={() => setSection("notifications")}
           />
@@ -833,7 +845,7 @@ export function SettingsPage({
       >
         <div className="form-grid" style={{ marginTop: 8 }}>
           <div className="form-row full">
-            <Field label={`سقف ماهانه (${cur})`}>
+            <Field label={`سقف ماهانه (${currencyDisplayLabel(cur)})`}>
               <AmountInput value={budget} onChange={setBudget} currency={cur} />
             </Field>
           </div>
@@ -846,7 +858,7 @@ export function SettingsPage({
             style={{ marginTop: 6 }}
           >
             مجموع بودجه‌بندی دسته‌ها:{" "}
-            {formatAmount(toDisplay(categoryBudgetSum, cur))} {cur}
+            {formatAmount(toDisplay(categoryBudgetSum, cur))} {currencyDisplayLabel(cur)}
             {budgetBelowSum
               ? " — سقف واردشده از این مجموع کمتر است؛ در تب بودجه‌ها هشدار می‌گیرید."
               : ""}

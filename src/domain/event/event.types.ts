@@ -28,6 +28,11 @@ export interface FamilyEvent {
   date: string;
   note: string | null;
   createdAt: string;
+  /** Additive calendar metadata; legacy snapshots may omit these fields. */
+  kind?: "event" | "activity";
+  activityStatus?: "planned" | "done" | "cancelled" | null;
+  reminderEnabled?: boolean;
+  revision?: number;
 }
 
 export interface EventInput {

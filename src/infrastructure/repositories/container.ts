@@ -25,6 +25,17 @@ import {
   RestShoppingRepository,
 } from "./shoppingRepository";
 import type { SecureStorage } from "@/infrastructure/storage/secureStorage.adapter";
+import { createShoppingOffline, type ShoppingOfflineEngine } from "@/infrastructure/offline/shoppingOffline";
+import { OfflineShoppingRepository, OfflineInventoryRepository } from "./offlineShoppingRepository";
+import { OfflineTaskRepository } from "./taskRepository";
+import { RestDocumentRepository } from "./documentRepository";
+import { RestMealRepository } from "./mealRepository";
+import { RestEquipmentRepository } from "./equipmentRepository";
+import { RestVehicleRepository } from "./vehicleRepository";
+import { RestGoalRepository } from "./goalRepository";
+import { RestActivityRepository } from "./activityRepository";
+import { RestChildRepository } from "./childRepository";
+import { RestPetRepository } from "./petRepository";
 
 export interface Repositories {
   auth: SupabaseAuthRepository;
@@ -42,13 +53,23 @@ export interface Repositories {
   holdings: RestHoldingRepository;
   notifications: RestNotificationRepository;
   bills: RestBillRepository;
-  shopping: RestShoppingRepository;
-  inventory: RestInventoryRepository;
+  shopping: OfflineShoppingRepository;
+  inventory: OfflineInventoryRepository;
+  tasks: OfflineTaskRepository;
+  documents: RestDocumentRepository;
+  meals: RestMealRepository;
+  equipment: RestEquipmentRepository;
+  vehicles: RestVehicleRepository;
+  goals: RestGoalRepository;
+  activities: RestActivityRepository;
+  children: RestChildRepository;
+  pets: RestPetRepository;
 }
 
 export interface Container {
   storage: SecureStorage;
   session: SessionRepository;
+  shoppingOffline: ShoppingOfflineEngine;
   /** §۸.۵ — پاک‌کنندهٔ کشِ آفلاین؛ LogoutUseCase هنگامِ خروج صدایش می‌زند */
   offlineCache: BrowserOfflineCache;
   repos: Repositories;
@@ -65,13 +86,15 @@ export function getContainer(): Promise<Container> {
       /* یک نمونهٔ واحد RestClient که به همهٔ مخازن تزریق می‌شود؛ توکن را از
          SessionRepository (به‌عنوان TokenProvider) به‌صورت خودکار در هدر می‌گذارد. */
       const client = new RestClient(tokenProvider);
+      const shoppingOffline = createShoppingOffline(storage);
       return {
         storage,
         session,
-        offlineCache: new BrowserOfflineCache(),
+        shoppingOffline,
+        offlineCache: new BrowserOfflineCache(() => shoppingOffline.clear()),
         repos: {
           auth: new SupabaseAuthRepository(client),
-          family: new SupabaseFamilyRepository(client),
+          family: new SupabaseFamilyRepository(client, session),
           transactions: new SupabaseTransactionRepository(client),
           sms: new SupabaseSmsRepository(client),
           smsSettings: new RestSmsSettingsRepository(client),
@@ -85,8 +108,17 @@ export function getContainer(): Promise<Container> {
           holdings: new RestHoldingRepository(client),
           notifications: new RestNotificationRepository(client),
           bills: new RestBillRepository(client),
-          shopping: new RestShoppingRepository(client),
-          inventory: new RestInventoryRepository(client),
+          shopping: new OfflineShoppingRepository(new RestShoppingRepository(client), shoppingOffline),
+          inventory: new OfflineInventoryRepository(new RestInventoryRepository(client), shoppingOffline),
+          tasks: new OfflineTaskRepository(shoppingOffline),
+          documents: new RestDocumentRepository(client),
+          meals: new RestMealRepository(client, shoppingOffline, tokenProvider),
+          equipment: new RestEquipmentRepository(client, tokenProvider),
+          vehicles: new RestVehicleRepository(client, tokenProvider),
+          goals: new RestGoalRepository(client, tokenProvider),
+          activities: new RestActivityRepository(client, tokenProvider),
+          children: new RestChildRepository(client, tokenProvider),
+          pets: new RestPetRepository(client, tokenProvider),
         },
       };
     })();

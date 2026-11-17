@@ -147,7 +147,7 @@ export function AddHoldingModal({
 
       {editing ? (
         <p className="section-hint">
-          این نماد را قبلاً ثبت کرده‌اید؛ مقدار تازه جایگزین مقدار قبلی (
+          این نماد را قبلاً ثبت کرده‌اید؛ مقدار جدید جایگزین مقدار قبلی (
           {formatQuantity(existingQuantity)} {KIND_UNIT[target.kind]}) می‌شود.
         </p>
       ) : null}

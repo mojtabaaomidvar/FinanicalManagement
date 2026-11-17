@@ -1,0 +1,32 @@
+.calendar-toolbar { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-block-end: var(--sp-3); }
+.calendar-toolbar .btn-secondary { width: auto; min-height: 44px; }
+.calendar-status { font-size: 13px; line-height: 1.45; color: var(--text-2); margin-block-end: var(--sp-3); }
+.household-calendar .cal-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.household-calendar .cal-cell { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 0; min-height: 48px; aspect-ratio: auto; }
+.calendar-day-count { font-size: 10px; line-height: 1.2; color: var(--t-emerald-fg); }
+.household-calendar .cal-cell.is-selected .calendar-day-count { color: inherit; }
+.calendar-entry { align-items: center; gap: var(--sp-2); }
+.calendar-entry-main {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex: 1;
+  min-width: 0;
+  min-height: 60px;
+  padding: var(--sp-2) 0;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text);
+  text-align: start;
+  font-family: inherit;
+}
+button.calendar-entry-main { cursor: pointer; }
+button.calendar-entry-main:active { background: var(--card-2); }
+.calendar-entry-main .event-date-badge { flex-shrink: 0; }
+.calendar-entry-main .event-info { flex: 1; min-width: 0; }
+.calendar-entry-title { display: block; font-size: 15px; font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
+.calendar-entry-main .event-info p { font-size: 12.5px; line-height: 1.45; color: var(--text-2); overflow-wrap: anywhere; }
+.calendar-entry-main > svg { color: var(--text-2); flex-shrink: 0; }
+.calendar-entry .icon-btn { flex-shrink: 0; min-width: 44px; min-height: 44px; }
+.calendar-show-all { min-height: 44px; padding: var(--sp-2) var(--sp-3); }

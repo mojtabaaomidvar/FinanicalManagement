@@ -11,7 +11,7 @@ export class SupabaseEventRepository implements EventRepository {
   constructor(private readonly client: RestClient) {}
 
   async list(): Promise<FamilyEvent[]> {
-    const rows = await this.client.get<EventRow[]>("/events");
+    const rows = await this.client.get<EventRow[]>("/events", { cache: "no-store" });
     return (rows ?? []).map(mapEvent);
   }
 
@@ -22,16 +22,16 @@ export class SupabaseEventRepository implements EventRepository {
       note: input.note ?? null,
       member_id: input.memberId ?? null,
       for_member_id: input.forMemberId ?? null,
-    });
+    }, { cache: "no-store" });
     return mapEvent(row);
   }
 
   async remove(id: string): Promise<void> {
-    await this.client.del<void>(`/events/${encodeURIComponent(id)}`);
+    await this.client.del<void>(`/events/${encodeURIComponent(id)}`, { cache: "no-store" });
   }
 
   async syncBirthdays(): Promise<number> {
-    const n = await this.client.post<number>("/events/sync-birthdays");
+    const n = await this.client.post<number>("/events/sync-birthdays", undefined, { cache: "no-store" });
     return n ?? 0;
   }
 }

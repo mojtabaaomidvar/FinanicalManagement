@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import uuid
 from typing import Any
 
 import pytest
@@ -40,7 +41,7 @@ from tests.conftest import (
 )
 
 # جدول‌هایی که «باید» زیر RLSِ خانواده باشند (0002 + 0004 + 0005 + 0006 + 0009
-# + 0010 + 0011).
+# + 0010 + 0011 + 0012).
 #
 # ⚠️ `join_requests` (مهاجرتِ 0006) و `bills`/`notification_dismissals`
 # (مهاجرتِ 0009/0010) تا ۱۴۰۵/۰۷/۲۱ **از این فهرست جا افتاده بودند** — یعنی
@@ -50,23 +51,34 @@ from tests.conftest import (
 # آمد. با هر جدولِ تازهٔ دارای `family_id`، **هم‌زمان** این فهرست و تابعِ
 # `_populate` باید به‌روز شوند.
 PROTECTED: tuple[str, ...] = (
+    "activity_participants",
     "accounts",
     "bills",
     "category_budgets",
     "custom_categories",
+    "documents",
     "family_events",
+    "goals",
     "holdings",
+    "home_equipment",
     "inventory_items",
     "join_requests",
+    "meal_dishes",
+    "meal_entries",
+    "maintenance_records",
     "notification_dismissals",
+    "pets",
     "shopping_items",
     "shopping_lists",
+    "shopping_sync_receipts",
     "sms_messages",
     "sms_numbers",
     "sms_senders",
     "subcategories",
+    "tasks",
     "transaction_photos",
     "transactions",
+    "vehicles",
 )
 
 # جدول‌هایی که ستون family_id دارند ولی «عمداً» بیرون از RLS مانده‌اند.
@@ -100,6 +112,14 @@ def _set_family(conn: Any, family_id: str | None) -> None:
     conn.execute(
         text("SELECT set_config('app.family_id', :fid, false)"),
         {"fid": "" if family_id is None else str(family_id)},
+    )
+    member_id = conn.execute(
+        text("SELECT id FROM members WHERE family_id=:fid AND role='owner' LIMIT 1"),
+        {"fid": family_id},
+    ).scalar() if family_id else None
+    conn.execute(
+        text("SELECT set_config('app.document_member_id', :mid, false)"),
+        {"mid": str(member_id) if member_id else ""},
     )
 
 
@@ -135,6 +155,55 @@ def _populate(client: Any, who: Actor) -> None:
     make_subcategory(client, who, "نانِ سنجش")
     make_custom_category(client, who, "باشگاهِ سنجش")
     make_category_budget(client, who)  # فقط مدیر مجاز است
+    task = client.post(f"{API}/tasks", headers=who.h, json={"title": "کار سنجش RLS"})
+    assert task.status_code == 201, task.text
+    dish = client.post(
+        f"{API}/meals/dishes", headers=who.h, json={"title": "غذای سنجش RLS"},
+    )
+    assert dish.status_code == 201, dish.text
+    entry = client.post(
+        f"{API}/meals/plan", headers=who.h,
+        json={"date": "2026-11-14", "meal_type": "lunch", "dish_id": dish.json()["id"]},
+    )
+    assert entry.status_code == 201, entry.text
+    document = client.post(
+        f"{API}/documents", headers=who.h,
+        data={"title": "مدرک سنجش RLS", "visibility": "shared"},
+        files={"file": ("probe.pdf", b"%PDF-1.4\nprobe\n%%EOF", "application/pdf")},
+    )
+    assert document.status_code == 201, document.text
+    equipment = client.post(
+        f"{API}/equipment", headers=who.h,
+        json={"title": "وسیلهٔ سنجش RLS", "service_reminder_enabled": True},
+    )
+    assert equipment.status_code == 201, equipment.text
+    maintenance = client.post(
+        f"{API}/equipment/{equipment.json()['id']}/services", headers=who.h,
+        json={"operation_id": str(uuid.uuid4()), "base_revision": equipment.json()["revision"],
+              "performed_on": "2026-11-14", "description": "سرویس سنجش RLS", "next_due_date": None},
+    )
+    assert maintenance.status_code in (200, 201), maintenance.text
+    vehicle = client.post(
+        f"{API}/vehicles", headers=who.h,
+        json={"title": "خودروی سنجش RLS", "odometer": 100},
+    )
+    assert vehicle.status_code == 201, vehicle.text
+    goal = client.post(
+        f"{API}/goals", headers=who.h,
+        json={"title": "هدف خصوصی سنجش RLS", "kind": "goal"},
+    )
+    assert goal.status_code == 201, goal.text
+    activity = client.post(
+        f"{API}/activities", headers=who.h,
+        json={"title": "برنامهٔ سنجش RLS", "date": "2026-11-15",
+              "participant_ids": [who.member_id]},
+    )
+    assert activity.status_code == 201, activity.text
+    pet = client.post(
+        f"{API}/pets", headers=who.h,
+        json={"name": "حیوان سنجش RLS", "species": "گربه", "birth_date": None},
+    )
+    assert pet.status_code == 201, pet.text
 
     photo = client.post(
         f"{API}/transactions/{tx}/photos",
@@ -208,6 +277,19 @@ def _populate(client: Any, who: Actor) -> None:
         json={"title": "نانِ سنجشِ RLS"},
     )
     assert shopping_item.status_code == 201, shopping_item.text
+
+    receipt = client.post(
+        f"{API}/shopping/offline/mutations",
+        headers=who.h,
+        json={
+            "operation_id": str(uuid.uuid4()),
+            "kind": "inventory.adjust",
+            "entity_id": stock.json()["id"],
+            "base_revision": 1,
+            "payload": {"delta": 1},
+        },
+    )
+    assert receipt.status_code == 200, receipt.text
 
     # ── مرحلهٔ B: یک درخواستِ عضویتِ «در انتظار» ──
     # عمداً تأیید نمی‌شود: برای سنجشِ RLS فقط وجودِ **ردیف** لازم است، و

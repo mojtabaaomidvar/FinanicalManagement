@@ -121,7 +121,7 @@ function stockTarget(s: Stock, cur: string): HoldingTarget {
 type Cat = {
   id: CatId;
   title: string;
-  icon: string;
+  icon?: string;
   tone: string;
 };
 
@@ -367,9 +367,9 @@ function CatTile({
       <div className="market-tile is-empty" aria-disabled="true">
         <div className="market-tile-top">
           <b className="market-tile-title">{cat.title}</b>
-          <span className={`market-tile-ic is-${cat.tone}`} aria-hidden="true">
+          {cat.icon ? <span className={`market-tile-ic is-${cat.tone}`} aria-hidden="true">
             <Icon name={cat.icon} size={20} />
-          </span>
+          </span> : null}
         </div>
         <span className="market-tile-sub">در دسترس نیست</span>
       </div>
@@ -380,9 +380,9 @@ function CatTile({
     <button type="button" className="market-tile" onClick={onOpen}>
       <div className="market-tile-top">
         <b className="market-tile-title">{cat.title}</b>
-        <span className={`market-tile-ic is-${cat.tone}`} aria-hidden="true">
+        {cat.icon ? <span className={`market-tile-ic is-${cat.tone}`} aria-hidden="true">
           <Icon name={cat.icon} size={20} />
-        </span>
+        </span> : null}
       </div>
 
       <div className="market-tile-body">
@@ -450,7 +450,7 @@ function tileInfo(
   const shown = shownPrice(pick.price, pick.unit, rates.usd, cur);
   return {
     label: pick.name,
-    value: shown.price > 0 ? formatAmount(shown.price) : "بی‌قیمت",
+    value: shown.price > 0 ? formatAmount(shown.price) : /* @copy-text market.no-price */ "بی‌قیمت",
     unit: shown.price > 0 ? shown.unit : "",
     change: formatSignedPercent(pick.changePercent),
     tone: changeTone(pick.changePercent),
@@ -524,15 +524,15 @@ function CardHead({
   count,
 }: {
   title: string;
-  icon: string;
+  icon?: string;
   tone: string;
   count?: number;
 }) {
   return (
     <div className="market-card-head">
-      <span className={`market-card-icon is-${tone}`} aria-hidden="true">
+      {icon ? <span className={`market-card-icon is-${tone}`} aria-hidden="true">
         <Icon name={icon} size={16} />
-      </span>
+      </span> : null}
       <h2 className="market-card-title">{title}</h2>
       {count !== undefined ? (
         <span className="market-card-count">{toFa(String(count))}</span>

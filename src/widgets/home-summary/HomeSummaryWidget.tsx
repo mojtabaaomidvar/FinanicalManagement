@@ -1,3 +1,4 @@
+import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* ویجت پنل خلاصه خانه — موجودی کل، دفتر ماه با مقایسه ماه گذشته،
    و متر «قابل خرج تا پایان ماه» بر پایه سقف بودجه‌ها */
 
@@ -90,7 +91,7 @@ export function HomeSummaryWidget({
         >
           <FitText>
             {formatAmount(toDisplay(d.balance, cur))}
-            <span className="hp-cur">{cur}</span>
+            <span className="hp-cur">{currencyDisplayLabel(cur)}</span>
           </FitText>
         </h2>
       </div>
@@ -142,7 +143,7 @@ export function HomeSummaryWidget({
             <FitText>
               {over ? "−" : ""}
               {formatAmount(toDisplay(d.cap.remaining, cur))}
-              <span className="hp-cur">{cur}</span>
+              <span className="hp-cur">{currencyDisplayLabel(cur)}</span>
             </FitText>
           </b>
           <div

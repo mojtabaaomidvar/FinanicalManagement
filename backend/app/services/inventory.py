@@ -155,7 +155,7 @@ def _assert_unique(
     if db.execute(stmt).first() is not None:
         raise AppError(
             "DUPLICATE",
-            f"«{title}» از قبل در انبار هست؛ به‌جای قلمِ تازه، موجودی همان را تغییر دهید.",
+            f"«{title}» از قبل در انبار هست؛ به‌جای قلمِ جدید، موجودی همان را تغییر دهید.",
             409,
         )
 

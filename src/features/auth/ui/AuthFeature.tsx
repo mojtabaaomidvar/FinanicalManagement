@@ -1,3 +1,4 @@
+import { memberRelationLabel } from "@/shared/lib/uiLabels";
 /* UI احراز هویت — موبایل‌فرست
    سوییچر قرصی متحرک + اسلاید نرم فرم‌ها + OTP */
 
@@ -115,7 +116,7 @@ export function AuthFeature({ prefill }: { prefill?: AuthPrefill } = {}) {
               <option value="">نسبت شما با مدیر خانواده</option>
               {MEMBER_RELATIONS.filter((r) => r !== "خودم").map((r) => (
                 <option key={r} value={r}>
-                  {r}
+                  {memberRelationLabel(r)}
                 </option>
               ))}
             </select>
@@ -225,7 +226,7 @@ export function AuthFeature({ prefill }: { prefill?: AuthPrefill } = {}) {
         </div>
 
         <div className="auth-otp">
-          <h2>رمز تازه</h2>
+          <h2>رمز جدید</h2>
           {/* متن عمداً شرطی است: سرور برای شمارهٔ ثبت‌نشده هم همین پاسخ را
               می‌دهد، پس «کد فرستادیم» گفتن هم دروغ است و هم می‌گوید این شماره
               ثبت شده. */}
@@ -256,7 +257,7 @@ export function AuthFeature({ prefill }: { prefill?: AuthPrefill } = {}) {
               type="password"
               dir="ltr"
               autoComplete="new-password"
-              placeholder="رمز عبور تازه (حداقل ۸ کاراکتر)"
+              placeholder="رمز عبور جدید (حداقل ۸ کاراکتر)"
               value={m.resetPassword}
               onChange={(e) => m.setResetPassword(e.target.value)}
             />
@@ -517,7 +518,7 @@ export function AuthFeature({ prefill }: { prefill?: AuthPrefill } = {}) {
                 <option value="">نسبت شما با مدیر خانواده</option>
                 {MEMBER_RELATIONS.filter((r) => r !== "خودم").map((r) => (
                   <option key={r} value={r}>
-                    {r}
+                    {memberRelationLabel(r)}
                   </option>
                 ))}
               </select>

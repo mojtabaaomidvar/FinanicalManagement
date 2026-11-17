@@ -1,2 +1,15 @@
 /* ورودی استایل اپ */
 @import "./styles/style.css";
+
+.shopping-sync-content,
+.shopping-sync-issues,
+.shopping-sync-issues li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.shopping-sync-issues {
+  margin: 0;
+  padding-inline-start: var(--sp-5);
+}

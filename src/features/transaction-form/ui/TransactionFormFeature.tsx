@@ -1,3 +1,4 @@
+import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* شیت ثبت/ویرایش تراکنش — بازطراحی v9 «دو گام روشن»
 
    گام ۱ (هنوز دسته‌ای انتخاب نشده): فقط تب نوع + گرید دسته‌ها + «ثبت از پیامک».
@@ -183,6 +184,7 @@ export function TransactionFormFeature({
 
   /* بازگشت به گرید انتخاب دسته — تپ روی نوار دسته */
   function backToGrid() {
+    if (m.serviceExpense) return;
     if (!isTransfer && m.form.categoryId) {
       m.setForm({ ...m.form, categoryId: "", label: "" });
     }
@@ -225,7 +227,7 @@ export function TransactionFormFeature({
   const accountOpts = [
     {
       value: "",
-      label: accounts.length ? "انتخاب حساب…" : "حسابی ثبت نشده",
+      label: m.serviceExpense ? "بدون حساب مشخص" : accounts.length ? "انتخاب حساب…" : "حسابی ثبت نشده",
     },
     ...accounts.map((a) => ({
       value: a.id,
@@ -264,7 +266,7 @@ export function TransactionFormFeature({
           </span>
           <span className="tx-head-actions">
             {m.editing &&
-            (member?.role === "owner" || m.editing.memberId === member?.id) ? (
+            (member?.role === "owner" || member?.role === "admin" || m.editing.memberId === member?.id) ? (
               <button
                 type="button"
                 className="tx-head-btn tx-trash-btn"
@@ -301,6 +303,7 @@ export function TransactionFormFeature({
               key={t.value}
               type="button"
               role="tab"
+              disabled={m.serviceExpense}
               aria-selected={m.form.type === t.value}
               className={`tx-tab ${m.form.type === t.value ? "on" : ""}`}
               onClick={() => m.setType(t.value)}
@@ -310,6 +313,12 @@ export function TransactionFormFeature({
           ))}
         </div>
 
+        {m.serviceExpense ? (
+          <p className="tx-chip-hint" style={{ padding: "0 20px" }}>
+            هزینهٔ سرویس خودرو؛ مبلغ، حساب و توضیح قابل ویرایش‌اند. تاریخ، دسته و نوع از سرویس ثبت‌شده می‌آیند.
+          </p>
+        ) : null}
+
         {showGrid ? (
           /* ═══ گام ۱ — انتخاب دسته ═══ */
           <>
@@ -318,7 +327,7 @@ export function TransactionFormFeature({
               <p className="tx-amount-mini">
                 مبلغ واردشده
                 <b dir="ltr">{m.form.amount}</b>
-                <span>{m.entryCurrency}</span>
+                <span>{currencyDisplayLabel(m.entryCurrency)}</span>
               </p>
             ) : null}
 
@@ -398,7 +407,7 @@ export function TransactionFormFeature({
             <button
               type="button"
               className="tx-catbar"
-              disabled={isTransfer}
+              disabled={isTransfer || m.serviceExpense}
               aria-label={isTransfer ? undefined : "تغییر دسته‌بندی"}
               onClick={backToGrid}
             >
@@ -414,7 +423,7 @@ export function TransactionFormFeature({
                 </svg>
               </span>
               <span className="tx-catbar-name">{catName}</span>
-              {!isTransfer ? (
+              {!isTransfer && !m.serviceExpense ? (
                 <span className="tx-catbar-change">
                   تغییر دسته
                   <svg>
@@ -493,7 +502,7 @@ export function TransactionFormFeature({
                   }
                   title="تغییر واحد ورودی مبلغ"
                 >
-                  {m.entryCurrency}
+                  {currencyDisplayLabel(m.entryCurrency)}
                   <svg style={{ transform: "rotate(90deg)" }}>
                     <use href="#i-arrow-r" />
                   </svg>
@@ -528,13 +537,18 @@ export function TransactionFormFeature({
                 <svg>
                   <use href="#i-bill" />
                 </svg>
-                <JalaliDateInput
+                {m.serviceExpense ? <span>{m.form.date}</span> : <JalaliDateInput
                   value={m.form.date}
                   onChange={m.setDate}
                   time={m.form.time}
                   onTimeChange={m.setTime}
-                />
+                />}
               </span>
+              {m.serviceExpense ? <label className="tx-pill">
+                ساعت
+                <input type="time" className="tx-pill-select" aria-label="ساعت هزینهٔ سرویس" value={m.form.time}
+                  onChange={(event) => m.setTime(event.target.value)} />
+              </label> : null}
               <label className="tx-pill" title="تکرار">
                 <svg>
                   <use href="#i-repeat" />
@@ -542,6 +556,7 @@ export function TransactionFormFeature({
                 <Select
                   className="tx-pill-select"
                   value={m.form.repeat}
+                  disabled={m.serviceExpense}
                   onChange={(v) => m.setRepeat(v as TxRepeat)}
                   options={TX_REPEATS.map((r) => ({
                     value: r.value,
@@ -700,7 +715,7 @@ export function TransactionFormFeature({
 
             <div className="tx-keypad-zone">
               <CalcKeypad value={m.form.amount} onChange={m.setAmount} />
-              <button
+              {!m.serviceExpense ? <button
                 type="button"
                 className="tx-scan-btn"
                 onClick={() => photoFileRef.current?.click()}
@@ -709,7 +724,7 @@ export function TransactionFormFeature({
                   <use href="#i-image" />
                 </svg>
                 اسکن رسید
-              </button>
+              </button> : null}
             </div>
           </>
         )}

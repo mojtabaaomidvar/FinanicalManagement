@@ -1,3 +1,4 @@
+import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* ویجت هزینه‌های ماه — نمودار حلقه‌ای/ستونی با ۴ دسته اصلی + «بقیه» */
 
 import { useMemo, useState } from "react";
@@ -98,7 +99,7 @@ export function MonthExpensesWidget() {
             <b>
               <FitText>
                 {formatAmount(totalExpense)}
-                <span className="cur-tag">{cur}</span>
+                <span className="cur-tag">{currencyDisplayLabel(cur)}</span>
               </FitText>
             </b>
             <span>جمع هزینه</span>

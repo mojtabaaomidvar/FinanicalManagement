@@ -1,3 +1,4 @@
+import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* تراکنش‌های تکرارشونده — فیچر مستقل تنظیمات
    ──────────────────────────────────────────
    تا امروز فقط فهرست بود و تراکنش تکرارشونده را باید از شیت «+» ثبت
@@ -206,7 +207,7 @@ export function ScheduledTxsCard() {
                   </span>
                   <b className="scheduled-title">{label}</b>
                   <span className="scheduled-amount">
-                    {formatAmount(toDisplay(t.amount, cur))} {cur}
+                    {formatAmount(toDisplay(t.amount, cur))} {currencyDisplayLabel(cur)}
                   </span>
                   <button
                     type="button"

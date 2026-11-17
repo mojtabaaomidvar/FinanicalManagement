@@ -68,6 +68,7 @@ CORS_ORIGINS=https://pwa.khaanehyar.ir,https://khaanehyar.ir,https://www.khaaneh
 
 # فایل‌ها
 FILE_SIGNING_SECRET=...          # بساز: openssl rand -hex 32
+DOCUMENT_ENCRYPTION_KEY=...       # یک بار بساز: openssl rand -base64 32؛ کلید اسناد و متن اهداف خصوصی
 FILES_BASE_URL=https://api.khaanehyar.ir
 STORAGE_DIR=/app/var/uploads     # حالت دیسک (پیش‌فرض)
 
@@ -94,6 +95,10 @@ BRSAPI_KEY=
 - مقدار `DATABASE_URL` باید همان `POSTGRES_USER/PASSWORD/DB` را داشته باشد و پیشوندش
   حتماً `postgresql+psycopg://` و هاستش `db` باشد.
 - مطمئن شو `.env` در `.gitignore` هست (نباید کامیت شود).
+
+کلید `DOCUMENT_ENCRYPTION_KEY` را همراه بکاپ اسناد، در محل خصوصی مستقل حفظ کنید. فایل و متن اسناد با همین کلید رمزنگاری می‌شوند؛ در راه‌اندازی دوباره آن را عوض نکنید. مهاجرت‌های افزایشی اسناد `0015` و `0016` هستند و تنظیم nginx برای فایل ۱۰ مگابایتی، سقف درخواست `12m` دارد. جزئیات: [اسناد خانه](../../docs/household-documents.md).
+
+عنوان و توضیح اهداف و آرزوهای شخصی نیز با همان کلید و زمینهٔ رمزنگاری مستقل ذخیره می‌شوند؛ بکاپ دیتابیس بدون نگهداری امن کلید برای بازیابی این متن کافی نیست. مهاجرت افزایشی این بخش `0020` است. کلید موجود را هنگام ارتقا حفظ کنید؛ راهنما: [اهداف و آرزوهای شخصی](../../docs/household-goals.md).
 
 پوشهٔ آپلود را برای کاربر کانتینر (uid `10001`) قابل نوشتن کن (حالت دیسک):
 

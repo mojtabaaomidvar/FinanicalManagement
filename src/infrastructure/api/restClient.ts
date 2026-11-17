@@ -30,6 +30,7 @@ const REST_ERROR_MAP: {
      می‌داند کدام‌یک رخ داده — نگاشتِ ثابتِ این‌سو ناچار دروغ می‌گفت. */
   keepServerMsg?: true;
 }[] = [
+  { re: /^(SYNC_CONFLICT|OFFLINE_CONFLICT|OPERATION_REUSED|MEAL_SLOT_OCCUPIED|DISH_IN_USE)$/, code: "CONFLICT", msg: "این مورد تغییر کرده است؛ نسخهٔ سرور را بررسی کنید.", keepServerMsg: true },
   // نشست: UNAUTHORIZED/INVALID_TOKEN هم به SESSION_EXPIRED نگاشته می‌شوند تا ورود دوباره راه بیفتد
   {
     re: /SESSION_EXPIRED|UNAUTHORIZED|INVALID_TOKEN/,
@@ -272,7 +273,10 @@ async function parseResponse<T>(res: Response): Promise<T> {
     const body = data as { error?: string; message?: string } | null;
     const code = typeof body?.error === "string" ? body.error : "";
     const message = typeof body?.message === "string" ? body.message : "";
-    throw mapError(code, message, res.status);
+    const error = mapError(code, message, res.status);
+    error.status = res.status;
+    error.serverCode = code;
+    throw error;
   }
   // ۲۰۴/بدنهٔ خالی → null (سازگار با مصرف‌کننده‌های void)
   return data as T;
@@ -283,6 +287,8 @@ export interface ReqOpts {
   bearer?: string | null;
   /** مهلت سفارشی (میلی‌ثانیه) — مثلاً برای آپلود تصویر بزرگ‌تر از پیش‌فرض. */
   timeoutMs?: number;
+  /** Sensitive resources such as documents must bypass the browser HTTP cache. */
+  cache?: RequestCache;
 }
 
 type Method = "GET" | "POST" | "PATCH" | "DELETE";
@@ -307,12 +313,36 @@ export class RestClient {
     return this.request<T>("DELETE", path, undefined, opts);
   }
 
+  postForm<T>(path: string, body: FormData, opts?: ReqOpts): Promise<T> {
+    return this.request<T>("POST", path, body, { ...opts, cache: "no-store" });
+  }
+
+  async getBlob(path: string, opts?: ReqOpts): Promise<Blob> {
+    const res = await this.send("GET", path, undefined, { ...opts, cache: "no-store" }, "*/*");
+    if (!res.ok) await parseResponse<never>(res);
+    try {
+      return await res.blob();
+    } catch {
+      throw new AppError("NETWORK", networkFailMessage());
+    }
+  }
+
   private async request<T>(
     method: Method,
     path: string,
     body: unknown,
     opts?: ReqOpts,
   ): Promise<T> {
+    return parseResponse<T>(await this.send(method, path, body, opts));
+  }
+
+  private async send(
+    method: Method,
+    path: string,
+    body: unknown,
+    opts?: ReqOpts,
+    accept = "application/json",
+  ): Promise<Response> {
     const url = API_URL + path;
     assertHttps(url);
 
@@ -321,8 +351,9 @@ export class RestClient {
       ? ((opts as ReqOpts).bearer ?? null)
       : await this.tokenProvider.getToken();
 
-    const headers: Record<string, string> = { Accept: "application/json" };
-    if (body !== undefined) headers["Content-Type"] = "application/json";
+    const multipart = body instanceof FormData;
+    const headers: Record<string, string> = { Accept: accept };
+    if (body !== undefined && !multipart) headers["Content-Type"] = "application/json";
     if (token) headers.Authorization = `Bearer ${token}`;
 
     let res: Response;
@@ -332,13 +363,14 @@ export class RestClient {
         {
           method,
           headers,
-          body: body !== undefined ? JSON.stringify(body) : undefined,
+          body: multipart ? body : body !== undefined ? JSON.stringify(body) : undefined,
+          cache: opts?.cache,
         },
         opts?.timeoutMs ?? RUN_TIMEOUT_MS,
       );
     } catch {
       throw new AppError("NETWORK", networkFailMessage());
     }
-    return parseResponse<T>(res);
+    return res;
   }
 }

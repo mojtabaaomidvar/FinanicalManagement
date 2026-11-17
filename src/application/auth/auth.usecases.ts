@@ -17,6 +17,8 @@ import type {
   ValidatedSession,
 } from "@/domain/auth/auth.types";
 import type { StoredSession } from "@/domain/auth/auth.types";
+import type { OfflineScope } from "@/domain/shopping/offline.types";
+import { isAppError } from "@/shared/lib/appError";
 
 export class GetPublicConfigUseCase {
   constructor(private readonly auth: AuthRepository) {}
@@ -132,6 +134,7 @@ export class RestoreSessionUseCase {
   constructor(
     private readonly session: SessionStore,
     private readonly auth: AuthRepository,
+    private readonly offline?: { loadScope(): Promise<OfflineScope | null> },
   ) {}
 
   async execute(): Promise<ValidatedSession | null> {
@@ -139,7 +142,21 @@ export class RestoreSessionUseCase {
     if (!stored?.token) return null;
     try {
       return await this.auth.validateSession(stored.token);
-    } catch {
+    } catch (error) {
+      if (isAppError(error) && error.code === "NETWORK") {
+        const scope = await this.offline?.loadScope();
+        if (!scope) return null;
+        return {
+          offline: true,
+          family: { id: scope.familyId, name: scope.familyName, code: "", budget: 0, currency: "تومان", dark: false },
+          member: {
+            id: scope.memberId, familyId: scope.familyId, name: "کاربر آفلاین", role: "member",
+            phone: null, createdAt: "", gender: null, birthDate: null, avatarUrl: null,
+            status: "active", membershipState: null, theme: "auto", relation: "", currency: "تومان",
+          },
+          members: [],
+        };
+      }
       /* §۸.۵ عمداً این‌جا اجرا *نمی‌شود*، هرچند این مسیر هم نشست را پاک
          می‌کند. دلیل: این catch بینِ «توکن باطل شده» و «شبکه قطع بود»
          تفکیک نمی‌کند، و این کد در لحظهٔ بالا‌آمدنِ نرم‌افزار اجرا می‌شود.

@@ -16,6 +16,12 @@ import { addDays, cmp, isoToJalali } from "@/shared/lib/jalali";
 import { pendingDueList } from "@/domain/transaction/recurring.rules";
 import type { Transaction } from "@/domain/transaction/transaction.types";
 import type { Bill } from "@/domain/bill/bill.types";
+import type { Task } from "@/domain/task/task.types";
+import type { HouseDocument } from "@/domain/document/document.types";
+import type { Equipment } from "@/domain/equipment/equipment.types";
+import type { Vehicle } from "@/domain/vehicle/vehicle.types";
+import type { Goal } from "@/domain/goal/goal.types";
+import type { Activity } from "@/domain/activity/activity.types";
 import type { FamilyEvent } from "@/domain/event/event.types";
 import type { JoinRequest, MemberRole } from "@/domain/family/family.types";
 import type {
@@ -43,11 +49,25 @@ export interface DeriveInput {
   /** لیست‌های خرید. برای اعلانِ انبار لازم است، نه برای خودِ لیست: قلمی که
    *  از قبل در لیست منتظر است دیگر اعلان نمی‌گیرد. */
   shoppingLists: ShoppingList[];
+  tasks?: Task[];
+  /** فقط متادیتای مجازِ دریافت‌شده در نشست آنلاین؛ در کش آفلاین نمی‌رود. */
+  documents?: HouseDocument[];
+  /** فقط وسایل مجاز دریافت‌شده در نشست آنلاین؛ بدون تصویر آفلاین. */
+  equipment?: Equipment[];
+  /** فقط اطلاعات خودرو که سرور برای عضو فعلی مجاز دانسته است؛ بدون کش. */
+  vehicles?: Vehicle[];
+  /** دادهٔ خصوصی مالک فعلی، فقط از snapshot مجاز آنلاین. */
+  goals?: Goal[];
+  /** برنامه‌های مجاز خانواده در snapshot آنلاین؛ همان شناسهٔ رویداد تقویم. */
+  activities?: Activity[];
+  memberId?: string;
   role: MemberRole;
   prefs: NotificationPrefs;
   /** شناسه‌های نادیده‌گرفته‌شده (فقط رویداد از آن اثر می‌گیرد) */
   dismissed: ReadonlySet<string>;
   todayJ: JDate;
+  /** Home shows due work even when its optional reminder is muted. */
+  purpose?: "home";
 }
 
 /** ترتیبِ شدت. کوچک‌تر = بالاتر در فهرست. */
@@ -150,12 +170,8 @@ function billNotes(input: DeriveInput): AppNotification[] {
 
    بازه: [امروز, امروز + پیش‌هنگام]. رویدادِ گذشته نمی‌آید.
 
-   دو نکته دربارهٔ تولد که از خواندنِ بک‌اند در آمد، نه حدس:
-   • `sync_birthday_events` تاریخ را در **سالِ جاری** می‌نویسد
-     (`birth.replace(year=today.year)`، و ۲۹ فوریه → ۲۸). پس ردیفِ تولد تاریخِ
-     امسال دارد و در بازه می‌افتد — به‌شرطی که هم‌گام‌سازی اجرا شده باشد. اگر
-     کاربر امسال هم‌گام نکرده باشد، ردیف تاریخِ *پارسال* را دارد و در گذشته
-     می‌ماند؛ این رفتارِ موجودِ آن سرویس است، نه چیزی که این‌جا پنهان شود.
+   همگام‌سازی تولد همان ردیف را به نزدیک‌ترین نوبت شمسی از امروز تهران
+   به‌روز می‌کند؛ اینجا تاریخ مجاز سرور مصرف می‌شود و تکرار دیگری ساخته نمی‌شود.
    • شناسه **تاریخ را هم در خود دارد** (`event:<id>:<date>`) نه فقط id. چون
      هم‌گام‌سازی همان ردیف را سرِ جا به سالِ بعد به‌روز می‌کند، اگر شناسه فقط
      id بود «نادیده گرفتم»ِ تولدِ امسال، تولدِ همهٔ سال‌های بعد را هم برای
@@ -166,6 +182,7 @@ function eventNotes(input: DeriveInput): AppNotification[] {
   const out: AppNotification[] = [];
 
   for (const ev of input.events) {
+    if (ev.kind === "activity") continue;
     const when = isoToJalali(ev.date);
     if (cmp(when, input.todayJ) < 0) continue;
     if (cmp(when, horizon) > 0) continue;
@@ -246,6 +263,162 @@ function inventoryNotes(input: DeriveInput): AppNotification[] {
   return out;
 }
 
+function taskNotes(input: DeriveInput): AppNotification[] {
+  if (!input.memberId) return [];
+  const horizon = addDays(input.todayJ, safeLead(input.prefs, "tasks"));
+  return (input.tasks ?? []).flatMap((task): AppNotification[] => {
+    if (task.completed || (input.purpose !== "home" && task.assigneeId !== input.memberId)) return [];
+    // An assignment is actionable immediately; a deadline increases its urgency.
+    const when = task.dueDate ? isoToJalali(task.dueDate) : null;
+    const relative = when ? cmp(when, input.todayJ) : null;
+    const severity: NotificationSeverity = relative !== null && relative < 0
+      ? "overdue" : relative === 0 || !when ? "pending"
+        : cmp(when, horizon) <= 0 ? "soon" : "pending";
+    return [{
+      id: `tasks:${task.id}`,
+      domain: "tasks", severity, dateIso: task.dueDate,
+      dismissible: false, ref: { kind: "tasks", taskId: task.id },
+    }];
+  });
+}
+
+function documentNotes(input: DeriveInput): AppNotification[] {
+  if (!input.memberId) return [];
+  const horizon = addDays(input.todayJ, safeLead(input.prefs, "documents"));
+  return (input.documents ?? []).flatMap((document): AppNotification[] => {
+    if (!document.reminderEnabled || !document.expiryDate) return [];
+    // مجوز اصلی در سرور است؛ دادهٔ خصوصیِ عضو دیگر در این تابع هم رد می‌شود.
+    if (document.visibility !== "shared"
+      && (document.visibility !== "private" || document.ownerId !== input.memberId)) return [];
+    const when = isoToJalali(document.expiryDate);
+    if (cmp(when, horizon) > 0) return [];
+    const relative = cmp(when, input.todayJ);
+    return [{
+      id: `documents:${document.id}`,
+      domain: "documents",
+      severity: relative < 0 ? "overdue" : relative === 0 ? "pending" : "soon",
+      dateIso: document.expiryDate,
+      dismissible: false,
+      ref: { kind: "documents", documentId: document.id },
+    }];
+  });
+}
+
+function equipmentNotes(input: DeriveInput): AppNotification[] {
+  if (!input.memberId) return [];
+  const horizon = addDays(input.todayJ, safeLead(input.prefs, "equipment"));
+  const out: AppNotification[] = [];
+  for (const item of input.equipment ?? []) {
+    const dates = [
+      { reason: "service", date: input.purpose === "home" || item.serviceReminderEnabled ? item.serviceDueDate : null },
+      { reason: "warranty", date: item.warrantyUntil },
+    ] as const;
+    for (const { reason, date } of dates) {
+      if (!date) continue;
+      const when = isoToJalali(date);
+      if (cmp(when, horizon) > 0) continue;
+      const relative = cmp(when, input.todayJ);
+      out.push({
+        id: `equipment:${item.id}:${reason}:${date}`,
+        domain: "equipment",
+        severity: relative < 0 ? "overdue" : relative === 0 ? "pending" : "soon",
+        dateIso: date,
+        dismissible: false,
+        ref: { kind: "equipment", equipmentId: item.id, reason },
+      });
+    }
+  }
+  return out;
+}
+
+function vehicleNotes(input: DeriveInput): AppNotification[] {
+  if (!input.memberId) return [];
+  const horizon = addDays(input.todayJ, safeLead(input.prefs, "vehicles"));
+  const out: AppNotification[] = [];
+  for (const item of input.vehicles ?? []) {
+    const serviceDate = item.serviceDueDate ? isoToJalali(item.serviceDueDate) : null;
+    const dateReached = serviceDate !== null && cmp(serviceDate, horizon) <= 0;
+    const mileageReached = item.serviceDueOdometer !== null
+      && item.odometer >= item.serviceDueOdometer;
+    if ((input.purpose === "home" || item.serviceReminderEnabled) && (dateReached || mileageReached)) {
+      const dateRelative = serviceDate ? cmp(serviceDate, input.todayJ) : null;
+      const mileagePassed = item.serviceDueOdometer !== null
+        && item.odometer > item.serviceDueOdometer;
+      out.push({
+        // شناسه به برنامهٔ سرویس وصل است، نه کیلومتر فعلی که مرتب تغییر می‌کند.
+        id: `vehicles:${item.id}:service:${item.serviceDueDate ?? "none"}:${item.serviceDueOdometer ?? "none"}`,
+        domain: "vehicles",
+        severity: (dateRelative !== null && dateRelative < 0) || mileagePassed
+          ? "overdue" : dateRelative === 0 || mileageReached ? "pending" : "soon",
+        dateIso: item.serviceDueDate,
+        dismissible: false,
+        ref: { kind: "vehicles", vehicleId: item.id, reason: "service" },
+      });
+    }
+    // بیمه و معاینهٔ عضو محدود سنی در پاسخ سرور خالی‌اند؛ این‌جا دادهٔ تازه
+    // یا جزئیات حساس به مرجع اعلان اضافه نمی‌شود.
+    const dates = [
+      { reason: "insurance", date: item.insuranceUntil },
+      { reason: "inspection", date: item.inspectionUntil },
+    ] as const;
+    for (const { reason, date } of dates) {
+      if (!date) continue;
+      const when = isoToJalali(date);
+      if (cmp(when, horizon) > 0) continue;
+      const relative = cmp(when, input.todayJ);
+      out.push({
+        id: `vehicles:${item.id}:${reason}:${date}`,
+        domain: "vehicles",
+        severity: relative < 0 ? "overdue" : relative === 0 ? "pending" : "soon",
+        dateIso: date,
+        dismissible: false,
+        ref: { kind: "vehicles", vehicleId: item.id, reason },
+      });
+    }
+  }
+  return out;
+}
+
+function goalNotes(input: DeriveInput): AppNotification[] {
+  if (!input.memberId) return [];
+  const horizon = addDays(input.todayJ, safeLead(input.prefs, "goals"));
+  return (input.goals ?? []).flatMap((item): AppNotification[] => {
+    // مدیر یا والد هم به هدف خصوصی عضو دیگر دسترسی ندارد.
+    if (item.ownerId !== input.memberId || item.status !== "active"
+      || (input.purpose !== "home" && !item.reminderEnabled) || !item.targetDate) return [];
+    const when = isoToJalali(item.targetDate);
+    if (cmp(when, horizon) > 0) return [];
+    const relative = cmp(when, input.todayJ);
+    return [{
+      id: `goals:${item.id}:${item.targetDate}`,
+      domain: "goals",
+      severity: relative < 0 ? "overdue" : relative === 0 ? "pending" : "soon",
+      dateIso: item.targetDate,
+      dismissible: false,
+      ref: { kind: "goals", goalId: item.id },
+    }];
+  });
+}
+
+function activityNotes(input: DeriveInput): AppNotification[] {
+  if (!input.memberId) return [];
+  const horizon = addDays(input.todayJ, safeLead(input.prefs, "activities"));
+  return (input.activities ?? []).flatMap((item): AppNotification[] => {
+    if (item.status !== "planned" || (input.purpose !== "home" && !item.reminderEnabled)) return [];
+    const when = isoToJalali(item.date);
+    if (cmp(when, horizon) > 0) return [];
+    const relative = cmp(when, input.todayJ);
+    return [{
+      id: `activities:${item.id}:${item.date}`,
+      domain: "activities",
+      severity: relative < 0 ? "overdue" : relative === 0 ? "pending" : "soon",
+      dateIso: item.date,
+      dismissible: false,
+      ref: { kind: "activities", activityId: item.id },
+    }];
+  });
+}
+
 const BUILDERS: Record<
   NotificationDomain,
   (input: DeriveInput) => AppNotification[]
@@ -255,6 +428,12 @@ const BUILDERS: Record<
   event: eventNotes,
   membership: membershipNotes,
   inventory: inventoryNotes,
+  tasks: taskNotes,
+  documents: documentNotes,
+  equipment: equipmentNotes,
+  vehicles: vehicleNotes,
+  goals: goalNotes,
+  activities: activityNotes,
 };
 
 /**

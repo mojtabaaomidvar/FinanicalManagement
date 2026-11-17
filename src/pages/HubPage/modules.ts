@@ -25,7 +25,7 @@ export type HubModule = {
   title: string;
   /** زیرنویس ثابت؛ کاشی‌های فعال معمولاً زیرنویس زنده‌ی خودشان را دارند */
   sub?: string;
-  icon: string;
+  icon?: string;
   tone: ModuleTone;
   /** مقصد؛ اگر undefined باشد یعنی هنوز ساخته نشده (به‌زودی) */
   route?: Route;
@@ -97,6 +97,13 @@ export const ACTIVE_MODULES: HubModule[] = [
     route: "market",
   },
   {
+    id: "chores",
+    title: "کارهای خانه",
+    icon: "i-check",
+    tone: "emerald",
+    route: "tasks",
+  },
+  {
     id: "reports",
     title: "نمای کلی",
     icon: "i-chart",
@@ -104,20 +111,72 @@ export const ACTIVE_MODULES: HubModule[] = [
     route: "reports",
   },
   {
-    id: "settings",
-    title: "تنظیمات",
-    sub: "اعضا، دسته‌ها، تم",
-    icon: "i-gear",
+    id: "docs",
+    title: "اسناد خانه",
+    sub: "اسناد خصوصی و مشترک",
+    icon: "i-briefcase",
+    tone: "indigo",
+    route: "documents",
+  },
+  {
+    id: "meals",
+    title: "برنامهٔ غذایی",
+    sub: "وعده‌های هفته و مواد لازم برای خرید",
+    icon: "i-food",
+    tone: "amber",
+    route: "meals",
+  },
+  {
+    id: "equipment",
+    title: "وسایل خانه",
+    sub: "گارانتی و سرویس‌های دوره‌ای",
+    icon: "i-grid4",
     tone: "teal",
-    route: "settings",
+    route: "equipment",
+  },
+  {
+    id: "vehicles",
+    title: "خودرو و نگهداری",
+    sub: "سرویس، مدارک و هزینه‌های خودرو",
+    icon: "i-car",
+    tone: "sky",
+    route: "vehicles",
+  },
+  {
+    id: "goals",
+    title: "اهداف و آرزوهای شخصی",
+    sub: "هدف‌ها، آرزوها و موعدهای خصوصی من",
+    icon: "i-heart",
+    tone: "violet",
+    route: "goals",
+  },
+  {
+    id: "activities",
+    title: "تفریح و برنامه‌های خانوادگی",
+    sub: "برنامه‌ها، شرکت‌کنندگان و یادآورها",
+    icon: "i-fun",
+    tone: "rose",
+    route: "activities",
+  },
+  {
+    id: "children",
+    title: "فرزندان و برنامه‌های آن‌ها",
+    sub: "مشخصات، کارها، برنامه‌ها و تولد",
+    icon: "i-users",
+    tone: "lime",
+    route: "children",
+  },
+  {
+    id: "pets",
+    title: "حیوانات خانگی و مراقبت از آن‌ها",
+    sub: "مشخصات، کارهای مراقبتی و موعدها",
+    icon: "i-paw",
+    tone: "amber",
+    route: "pets",
   },
 ];
 
 /* نقشه‌ی راه — دیده می‌شوند تا مسیر محصول روشن باشد، ولی غیرفعال‌اند.
    «قبوض و شارژ» و «تقویم و مناسبت‌ها» و «لیست خرید»/«انبار خانه» از این
    فهرست به ACTIVE_MODULES رفتند (۱۴۰۵/۰۷/۱۸ و ۱۴۰۵/۰۷/۱۹ و ۱۴۰۵/۰۷/۲۱). */
-export const SOON_MODULES: HubModule[] = [
-  { id: "chores", title: "کارهای خانه", icon: "i-check", tone: "emerald" },
-  { id: "docs", title: "اسناد خانه", icon: "i-briefcase", tone: "indigo" },
-  { id: "meals", title: "برنامه‌ی غذایی", icon: "i-food", tone: "amber" },
-];
+export const SOON_MODULES: HubModule[] = [];

@@ -1,3 +1,4 @@
+import { memberRelationLabel } from "@/shared/lib/uiLabels";
 /* کارت اعضای خانواده — لیست (نسبت + وضعیت) + افزودن عضو توسط مدیر
    ───────────────────────────────────────────────────────────────
    نسبت برای همه‌ی اعضا نمایش داده می‌شود؛ حتی اعضای pending که پیش‌تر
@@ -23,7 +24,7 @@ const RELATION_OPTIONS = [
   { value: "", label: "انتخاب کنید" },
   ...MEMBER_RELATIONS.filter((r) => r !== "خودم").map((r) => ({
     value: r,
-    label: r,
+    label: memberRelationLabel(r),
   })),
 ];
 

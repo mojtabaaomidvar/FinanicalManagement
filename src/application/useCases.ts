@@ -1,6 +1,31 @@
 /* فانری use-cases — دسترسی یکجا برای UI (بدون نشت infrastructure) */
 
 import type { Container } from "@/infrastructure/repositories/container";
+import { ListGoalsUseCase, GetGoalUseCase, AddGoalUseCase, UpdateGoalUseCase, DeleteGoalUseCase } from "./goal/goal.usecases";
+import { ListActivitiesUseCase, GetActivityUseCase, AddActivityUseCase, UpdateActivityUseCase, DeleteActivityUseCase } from "./activity/activity.usecases";
+import { ListChildrenUseCase, GetChildUseCase, AddChildUseCase, UpdateChildUseCase } from "./child/child.usecases";
+import { ListPetsUseCase, GetPetUseCase, AddPetUseCase, UpdatePetUseCase, DeletePetUseCase, AddPetCareUseCase } from "./pet/pet.usecases";
+import {
+  ListVehiclesUseCase, AddVehicleUseCase, UpdateVehicleUseCase,
+  DeleteVehicleUseCase, ListVehicleServicesUseCase, AddVehicleServiceUseCase,
+} from "./vehicle/vehicle.usecases";
+import {
+  ListEquipmentUseCase, AddEquipmentUseCase, UpdateEquipmentUseCase,
+  DeleteEquipmentUseCase, ListMaintenanceUseCase, AddMaintenanceUseCase,
+} from "./equipment/equipment.usecases";
+import {
+  ListDishesUseCase, AddDishUseCase, UpdateDishUseCase, DeleteDishUseCase,
+  GetMealPlanUseCase, AddMealEntryUseCase, UpdateMealEntryUseCase,
+  DeleteMealEntryUseCase, AddMealIngredientsToShoppingUseCase,
+} from "./meal/meal.usecases";
+import {
+  ListDocumentsUseCase, AddDocumentUseCase, UpdateDocumentUseCase,
+  DeleteDocumentUseCase, DownloadDocumentUseCase,
+} from "./document/document.usecases";
+import {
+  ListTasksUseCase, AddTaskUseCase, UpdateTaskUseCase,
+  SetTaskCompletedUseCase, DeleteTaskUseCase,
+} from "./task/task.usecases";
 import {
   AcceptInviteUseCase,
   JoinByCodeUseCase,
@@ -67,6 +92,8 @@ import {
   CheckBudgetStatusUseCase,
   GetFamilyUseCase,
   GetMembersUseCase,
+  GetHomePreferencesUseCase,
+  SetHomePreferencesUseCase,
   RemoveMemberUseCase,
   SetMonthlyBudgetUseCase,
   AddMemberByManagerUseCase,
@@ -142,6 +169,57 @@ import {
 } from "./shopping/shopping.usecases";
 
 export interface UseCases {
+  listPets: ListPetsUseCase;
+  getPet: GetPetUseCase;
+  addPet: AddPetUseCase;
+  updatePet: UpdatePetUseCase;
+  deletePet: DeletePetUseCase;
+  addPetCare: AddPetCareUseCase;
+  listChildren: ListChildrenUseCase;
+  getChild: GetChildUseCase;
+  addChild: AddChildUseCase;
+  updateChild: UpdateChildUseCase;
+  listActivities: ListActivitiesUseCase;
+  getActivity: GetActivityUseCase;
+  addActivity: AddActivityUseCase;
+  updateActivity: UpdateActivityUseCase;
+  deleteActivity: DeleteActivityUseCase;
+  listGoals: ListGoalsUseCase;
+  getGoal: GetGoalUseCase;
+  addGoal: AddGoalUseCase;
+  updateGoal: UpdateGoalUseCase;
+  deleteGoal: DeleteGoalUseCase;
+  listVehicles: ListVehiclesUseCase;
+  addVehicle: AddVehicleUseCase;
+  updateVehicle: UpdateVehicleUseCase;
+  deleteVehicle: DeleteVehicleUseCase;
+  listVehicleServices: ListVehicleServicesUseCase;
+  addVehicleService: AddVehicleServiceUseCase;
+  listEquipment: ListEquipmentUseCase;
+  addEquipment: AddEquipmentUseCase;
+  updateEquipment: UpdateEquipmentUseCase;
+  deleteEquipment: DeleteEquipmentUseCase;
+  listMaintenance: ListMaintenanceUseCase;
+  addMaintenance: AddMaintenanceUseCase;
+  listDishes: ListDishesUseCase;
+  addDish: AddDishUseCase;
+  updateDish: UpdateDishUseCase;
+  deleteDish: DeleteDishUseCase;
+  getMealPlan: GetMealPlanUseCase;
+  addMealEntry: AddMealEntryUseCase;
+  updateMealEntry: UpdateMealEntryUseCase;
+  deleteMealEntry: DeleteMealEntryUseCase;
+  addMealIngredientsToShopping: AddMealIngredientsToShoppingUseCase;
+  listDocuments: ListDocumentsUseCase;
+  addDocument: AddDocumentUseCase;
+  updateDocument: UpdateDocumentUseCase;
+  deleteDocument: DeleteDocumentUseCase;
+  downloadDocument: DownloadDocumentUseCase;
+  listTasks: ListTasksUseCase;
+  addTask: AddTaskUseCase;
+  updateTask: UpdateTaskUseCase;
+  setTaskCompleted: SetTaskCompletedUseCase;
+  deleteTask: DeleteTaskUseCase;
   getPublicConfig: GetPublicConfigUseCase;
   checkPreRegistered: CheckPreRegisteredUseCase;
   uploadAvatar: UploadAvatarUseCase;
@@ -194,6 +272,8 @@ export interface UseCases {
 
   getFamily: GetFamilyUseCase;
   getMembers: GetMembersUseCase;
+  getHomePreferences: GetHomePreferencesUseCase;
+  setHomePreferences: SetHomePreferencesUseCase;
   setMonthlyBudget: SetMonthlyBudgetUseCase;
   removeMember: RemoveMemberUseCase;
   listJoinRequests: ListJoinRequestsUseCase;
@@ -277,6 +357,57 @@ export interface UseCases {
 
 export function createUseCases(c: Container): UseCases {
   return {
+    listActivities: new ListActivitiesUseCase(c.repos.activities),
+    listChildren: new ListChildrenUseCase(c.repos.children),
+    listPets: new ListPetsUseCase(c.repos.pets),
+    getPet: new GetPetUseCase(c.repos.pets),
+    addPet: new AddPetUseCase(c.repos.pets),
+    updatePet: new UpdatePetUseCase(c.repos.pets),
+    deletePet: new DeletePetUseCase(c.repos.pets),
+    addPetCare: new AddPetCareUseCase(c.repos.pets),
+    getChild: new GetChildUseCase(c.repos.children),
+    addChild: new AddChildUseCase(c.repos.children),
+    updateChild: new UpdateChildUseCase(c.repos.children),
+    getActivity: new GetActivityUseCase(c.repos.activities),
+    addActivity: new AddActivityUseCase(c.repos.activities),
+    updateActivity: new UpdateActivityUseCase(c.repos.activities),
+    deleteActivity: new DeleteActivityUseCase(c.repos.activities),
+    listGoals: new ListGoalsUseCase(c.repos.goals),
+    getGoal: new GetGoalUseCase(c.repos.goals),
+    addGoal: new AddGoalUseCase(c.repos.goals),
+    updateGoal: new UpdateGoalUseCase(c.repos.goals),
+    deleteGoal: new DeleteGoalUseCase(c.repos.goals),
+    listVehicles: new ListVehiclesUseCase(c.repos.vehicles),
+    addVehicle: new AddVehicleUseCase(c.repos.vehicles),
+    updateVehicle: new UpdateVehicleUseCase(c.repos.vehicles),
+    deleteVehicle: new DeleteVehicleUseCase(c.repos.vehicles),
+    listVehicleServices: new ListVehicleServicesUseCase(c.repos.vehicles),
+    addVehicleService: new AddVehicleServiceUseCase(c.repos.vehicles),
+    listEquipment: new ListEquipmentUseCase(c.repos.equipment),
+    addEquipment: new AddEquipmentUseCase(c.repos.equipment),
+    updateEquipment: new UpdateEquipmentUseCase(c.repos.equipment),
+    deleteEquipment: new DeleteEquipmentUseCase(c.repos.equipment),
+    listMaintenance: new ListMaintenanceUseCase(c.repos.equipment),
+    addMaintenance: new AddMaintenanceUseCase(c.repos.equipment),
+    listDishes: new ListDishesUseCase(c.repos.meals),
+    addDish: new AddDishUseCase(c.repos.meals),
+    updateDish: new UpdateDishUseCase(c.repos.meals),
+    deleteDish: new DeleteDishUseCase(c.repos.meals),
+    getMealPlan: new GetMealPlanUseCase(c.repos.meals),
+    addMealEntry: new AddMealEntryUseCase(c.repos.meals),
+    updateMealEntry: new UpdateMealEntryUseCase(c.repos.meals),
+    deleteMealEntry: new DeleteMealEntryUseCase(c.repos.meals),
+    addMealIngredientsToShopping: new AddMealIngredientsToShoppingUseCase(c.repos.meals),
+    listDocuments: new ListDocumentsUseCase(c.repos.documents),
+    addDocument: new AddDocumentUseCase(c.repos.documents),
+    updateDocument: new UpdateDocumentUseCase(c.repos.documents),
+    deleteDocument: new DeleteDocumentUseCase(c.repos.documents),
+    downloadDocument: new DownloadDocumentUseCase(c.repos.documents),
+    listTasks: new ListTasksUseCase(c.repos.tasks),
+    addTask: new AddTaskUseCase(c.repos.tasks),
+    updateTask: new UpdateTaskUseCase(c.repos.tasks),
+    setTaskCompleted: new SetTaskCompletedUseCase(c.repos.tasks),
+    deleteTask: new DeleteTaskUseCase(c.repos.tasks),
     getPublicConfig: new GetPublicConfigUseCase(c.repos.auth),
     checkPreRegistered: new CheckPreRegisteredUseCase(c.repos.auth),
     uploadAvatar: new UploadAvatarUseCase(c.repos.auth),
@@ -289,7 +420,7 @@ export function createUseCases(c: Container): UseCases {
     getInvite: new GetInviteUseCase(c.repos.auth),
     createInvite: new CreateInviteUseCase(c.repos.auth),
     saveSession: new SaveSessionUseCase(c.session),
-    restoreSession: new RestoreSessionUseCase(c.session, c.repos.auth),
+    restoreSession: new RestoreSessionUseCase(c.session, c.repos.auth, c.shoppingOffline),
     logout: new LogoutUseCase(c.session, c.repos.auth, c.offlineCache),
     logoutAll: new LogoutAllUseCase(c.session, c.repos.auth, c.offlineCache),
     changePassword: new ChangePasswordUseCase(c.session, c.repos.auth),
@@ -337,6 +468,8 @@ export function createUseCases(c: Container): UseCases {
 
     getFamily: new GetFamilyUseCase(c.repos.family),
     getMembers: new GetMembersUseCase(c.repos.family),
+    getHomePreferences: new GetHomePreferencesUseCase(c.repos.family),
+    setHomePreferences: new SetHomePreferencesUseCase(c.repos.family),
     setMonthlyBudget: new SetMonthlyBudgetUseCase(c.repos.family),
     removeMember: new RemoveMemberUseCase(c.repos.family),
     listJoinRequests: new ListJoinRequestsUseCase(c.repos.family),

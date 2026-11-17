@@ -1,10 +1,6 @@
-/* صفحه‌ی هاب خانه — خانه‌ی جدید اپ.
-
-   ساختار: هدر خانواده → بنر زمینه‌ای چرخشی → دکمه‌ی ثبت سریع →
-   شبکه‌ی دوستونه‌ی ماژول‌ها (فعال + به‌زودی).
-
-   «مالی» دیگر کل اپ نیست؛ یکی از کاشی‌هاست. زیرنویس کاشی‌های فعال
-   از داده‌ی واقعی همین لحظه ساخته می‌شود (نه متن تزئینی). */
+import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
+/* خانه: دسترسی شخصی → موعدهای واقعی → دسته‌های قابل جابه‌جایی.
+   دادهٔ آنلاین از snapshot مجاز همان نشست می‌آید؛ دادهٔ آفلاین محدود است. */
 
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useApp } from "@/app/providers/AppProvider";
@@ -19,15 +15,24 @@ import { buildCategoryResolver } from "@/domain/category/resolve";
 import { findDollar } from "@/domain/market/market.rules";
 import { lowItems, totalPending } from "@/domain/shopping/shopping.rules";
 import { useMarket } from "@/features/market";
-import { cmp, isoToJalali, jalaliToIso, today } from "@/shared/lib/jalali";
+import { cmp, isoToJalali, jalaliToIso } from "@/shared/lib/jalali";
+import { deriveHomeOverview } from "@/domain/home/homeOverview.rules";
+import type { NotificationRef } from "@/domain/notification/notification.types";
+import type { NotificationsModel } from "@/features/notifications/model/useNotificationsModel";
+import { useOnline } from "@/shared/lib/useOnline";
 import type { Route } from "@/app/router";
-import { ACTIVE_MODULES, SOON_MODULES, type HubModule } from "./modules";
+import { SOON_MODULES, type HubModule } from "./modules";
+import { HomeOverview } from "./HomeOverview";
+import { HomeModules } from "./HomeModules";
+import { useHomePreferences } from "./useHomePreferences";
+import { useHomeToday } from "./useHomeToday";
+import "./HubPage.css";
 
 type Banner = {
   id: string;
   title: string;
   desc: string;
-  icon: string;
+  icon?: string;
   tone: string;
   cta: string;
   route: Route;
@@ -37,6 +42,9 @@ export function HubPage({
   onNav,
   onAddTransaction,
   bell,
+  summary,
+  onOpenItem,
+  onRetry,
 }: {
   onNav: (r: Route) => void;
   onAddTransaction: () => void;
@@ -45,6 +53,9 @@ export function HubPage({
      دارد و هر دو در MainShell زندگی می‌کنند؛ ساختنش این‌جا یعنی کشیدنِ آن
      دو تا داخلِ صفحه‌ای که کارش فقط کاشی‌هاست. */
   bell?: ReactNode;
+  summary: Pick<NotificationsModel, "documents" | "equipment" | "vehicles" | "goals" | "activities" | "onlineSummaryState">;
+  onOpenItem: (ref: NotificationRef) => void;
+  onRetry: () => void;
 }) {
   const {
     member,
@@ -59,7 +70,32 @@ export function HubPage({
     events,
     shoppingLists,
     inventory,
+    tasks,
+    shoppingSync,
+    offlineSession,
+    homeDataStatus,
+    useCases,
   } = useApp();
+  const online = useOnline();
+  const restricted = !online || shoppingSync.offline || offlineSession;
+  const homePreferences = useHomePreferences({ memberId: member?.id, familyId: family?.id, useCases, restricted });
+  const { todayIso, todayJ } = useHomeToday();
+  const overviewData = {
+    bills: restricted ? [] : bills,
+    events: restricted ? [] : events,
+    tasks,
+    equipment: restricted ? [] : summary.equipment,
+    vehicles: restricted ? [] : summary.vehicles,
+    goals: restricted ? [] : summary.goals.filter((row) => row.ownerId === member?.id),
+    activities: restricted ? [] : summary.activities,
+    memberId: member?.id,
+    role: member?.role ?? "member",
+    todayJ,
+  };
+  const overview = deriveHomeOverview(overviewData);
+  const summaryLoading = !restricted && Boolean(summary.onlineSummaryState?.loading);
+  const incomplete = homeDataStatus.incomplete || (!restricted && Boolean(summary.onlineSummaryState?.failedSources.length));
+  const loading = homeDataStatus.loading || summaryLoading;
 
   /* قیمت لحظه‌ای دلار برای زیرنویس کاشی بازار — با صفحه‌ی بازار کش مشترک دارد */
   const market = useMarket();
@@ -67,17 +103,16 @@ export function HubPage({
 
   /* ارقام زنده‌ی همین ماه — یک‌بار حساب می‌شوند و بین زیرنویس‌ها و بنرها مشترک‌اند */
   const stats = useMemo(() => {
-    const now = today();
+    const now = todayJ;
     const [jy, jm] = now;
     const monthTxs = txsInJalaliMonth(txs, jy, jm);
     const totals = monthTotals(monthTxs);
     const spend = monthCategorySpend(txs, jy, jm);
     const resolve = buildCategoryResolver(customCategories);
     const unpaid = bills.filter((b) => b.state === "unpaid");
-    /* نزدیک‌ترین رویدادِ آینده. فهرست از سرور مرتب می‌آید (آینده صعودی)،
-       پس اولین موردی که گذشته نیست همان نزدیک‌ترین است — نیازی به مرتب‌سازی
-       دوباره نداریم. */
-    const nextEv = events.find((e) => cmp(isoToJalali(e.date), now) >= 0);
+    /* نزدیک‌ترین رویداد معتبر؛ برنامهٔ انجام‌شده یا لغوشده در خلاصه نمی‌آید. */
+    const nextEv = events.filter((e) => (e.kind !== "activity" || e.activityStatus === "planned")
+      && cmp(isoToJalali(e.date), now) >= 0).sort((a, b) => a.date.localeCompare(b.date))[0];
     /* فاصله را روی تاریخِ **میلادی** حساب می‌کنیم چون `FamilyEvent.date`
        همان است و تفریقِ روزِ میلادی بی‌دردسر است؛ تبدیل به جلالی فقط برای
        مقایسهٔ «گذشته یا آینده» لازم بود. */
@@ -113,9 +148,9 @@ export function HubPage({
       lowStock: lowItems(inventory).length,
       stockCount: inventory.length,
     };
-  }, [txs, budgets, customCategories, bills, events, shoppingLists, inventory]);
+  }, [txs, budgets, customCategories, bills, events, shoppingLists, inventory, todayIso]);
 
-  const money = (n: number) => `${formatAmount(toDisplay(n, cur))} ${cur}`;
+  const money = (n: number) => `${formatAmount(toDisplay(n, cur))} ${currencyDisplayLabel(cur)}`;
 
   /* زیرنویس زنده‌ی هر کاشی فعال */
   const liveSub: Record<string, string> = {
@@ -159,10 +194,28 @@ export function HubPage({
         ? `${toFa(stats.stockCount)} قلم · همه به‌اندازه`
         : "انبار خانه را بچین",
     reports: "نمودار و گزارش ماهانه",
+    chores: tasks.some((task) => !task.completed)
+      ? `${toFa(tasks.filter((task) => !task.completed).length)} کار مانده`
+      : "کاری برای انجام‌دادن نمانده",
+    docs: summary.documents.length ? `${toFa(summary.documents.length)} سند در دسترس` : "ثبت و مدیریت اسناد خانه",
+    equipment: summary.equipment.length ? `${toFa(summary.equipment.length)} وسیلهٔ ثبت‌شده` : "ثبت وسیله و موعد سرویس",
+    vehicles: summary.vehicles.length ? `${toFa(summary.vehicles.length)} خودروی ثبت‌شده` : "ثبت خودرو و موعد سرویس",
+    goals: overviewData.goals.length ? `${toFa(overviewData.goals.filter((row) => row.status === "active").length)} هدف و آرزوی فعال من` : "هدف‌ها و آرزوهای شخصی من",
+    activities: summary.activities.length ? `${toFa(summary.activities.filter((row) => row.status === "planned").length)} برنامهٔ پیش رو` : "ثبت برنامهٔ خانوادگی",
+  };
+  const subtitle = (module: HubModule): string | undefined => {
+    if (restricted && !["chores", "shopping", "inventory"].includes(module.id)) return "نیاز به اتصال اینترنت";
+    const source = module.id === "docs" ? "documents" : module.id;
+    if (["documents", "equipment", "vehicles", "goals", "activities"].includes(source)) {
+      if (summaryLoading) return "در حال دریافت اطلاعات…";
+      if (summary.onlineSummaryState?.failedSources.some((failed) => failed === source)) return "اطلاعات این بخش دریافت نشد";
+    }
+    return liveSub[module.id] ?? module.sub;
   };
 
   /* بنرها — فقط وقتی واقعاً موضوعی هست؛ هیچ‌کدام تزئینی نیست */
   const banners = useMemo<Banner[]>(() => {
+    if (restricted || loading || incomplete) return [];
     const list: Banner[] = [];
     if (members.length < 2) {
       list.push({
@@ -193,7 +246,7 @@ export function HubPage({
         desc: "مصرف این ماه از سقفی که گذاشته‌ای بیشتر شده است.",
         icon: "i-alert",
         tone: "rose",
-        cta: "دیدن بودجه‌ها",
+        cta: /* @copy-text src/pages/HubPage/HubPage.tsx:108:typescript-string */ "بودجه‌ها",
         route: "budgets",
       });
     } else if (stats.warnBudget) {
@@ -203,7 +256,7 @@ export function HubPage({
         desc: "بیش از ۸۰٪ بودجه‌ی این ماه مصرف شده است.",
         icon: "i-piggy",
         tone: "amber",
-        cta: "دیدن بودجه‌ها",
+        cta: /* @copy-text src/pages/HubPage/HubPage.tsx:115:typescript-string */ "بودجه‌ها",
         route: "budgets",
       });
     }
@@ -219,7 +272,7 @@ export function HubPage({
       });
     }
     return list.slice(0, 3);
-  }, [members.length, accounts.length, budgets.length, stats]);
+  }, [members.length, accounts.length, budgets.length, stats, restricted, loading, incomplete]);
 
   /* نقطه‌های کاروسل — در RTL مقدار scrollLeft منفی می‌شود، پس قدرمطلق */
   const stripRef = useRef<HTMLDivElement | null>(null);
@@ -248,22 +301,31 @@ export function HubPage({
           <button
             type="button"
             className="hub-avatar"
-            aria-label="تنظیمات"
+            aria-label="پروفایل و تنظیمات"
+            title="پروفایل و تنظیمات"
             onClick={() => onNav("settings")}
           >
-            {initial}
+            <ProfileAvatar key={`${member?.id}:${member?.avatarUrl ?? ""}`} url={member?.avatarUrl} initial={initial} />
           </button>
         </div>
       </header>
+
+      <HomeModules key={`${family?.id}:${member?.id}`} preferences={homePreferences.preferences}
+        onChange={homePreferences.changePreferences} disabled={!homePreferences.ready}
+        lifecycleKey={`${member?.id}:${restricted}`} subtitle={subtitle} onNav={onNav}
+        saving={homePreferences.saving} pending={homePreferences.pending} conflict={homePreferences.conflict}
+        error={homePreferences.error} restricted={restricted} onRetry={homePreferences.retry} onReset={homePreferences.resetPreferences}>
+      <HomeOverview overview={overview} data={overviewData} todayIso={todayIso} loading={loading}
+        incomplete={incomplete} offline={restricted} onOpen={onOpenItem} onRetry={onRetry} />
 
       {banners.length ? (
         <div className="hub-banners">
           <div className="hub-strip" ref={stripRef} onScroll={onStripScroll}>
             {banners.map((b) => (
               <article key={b.id} className={`hub-banner tone-${b.tone}`}>
-                <span className="hub-banner-ic" aria-hidden="true">
+                {b.icon ? <span className="hub-banner-ic" aria-hidden="true">
                   <Icon name={b.icon} size={24} />
-                </span>
+                </span> : null}
                 <div className="hub-banner-txt">
                   <b>{b.title}</b>
                   <span>{b.desc}</span>
@@ -292,7 +354,7 @@ export function HubPage({
         </div>
       ) : null}
 
-      <button type="button" className="hub-add" onClick={onAddTransaction}>
+      {!restricted ? <button type="button" className="hub-add" onClick={onAddTransaction}>
         <span className="hub-add-ic" aria-hidden="true">
           <Icon name="i-plus" size={20} />
         </span>
@@ -300,16 +362,11 @@ export function HubPage({
           <b>ثبت خرج یا درآمد</b>
           <span>سریع‌ترین راه برای ثبت یک تراکنش</span>
         </span>
-      </button>
+      </button> : null}
 
-      <h2 className="hub-section">ماژول‌های خانه</h2>
-      <div className="hub-grid">
-        {ACTIVE_MODULES.map((m) => (
-          <Tile key={m.id} m={m} sub={m.sub ?? liveSub[m.id]} onNav={onNav} />
-        ))}
-      </div>
+      </HomeModules>
 
-      <h2 className="hub-section">
+      {SOON_MODULES.length ? <><h2 className="hub-section">
         به‌زودی
         <span className="hub-section-note">در حال ساخت</span>
       </h2>
@@ -317,9 +374,16 @@ export function HubPage({
         {SOON_MODULES.map((m) => (
           <Tile key={m.id} m={m} soon />
         ))}
-      </div>
+      </div></> : null}
     </section>
   );
+}
+
+function ProfileAvatar({ url, initial }: { url?: string | null; initial: string }) {
+  const [failed, setFailed] = useState(false);
+  return url && !failed
+    ? <img src={url} alt="" onError={() => setFailed(true)} />
+    : <span aria-hidden="true">{initial}</span>;
 }
 
 function Tile({
@@ -338,9 +402,9 @@ function Tile({
       <div className="hub-tile is-soon" aria-disabled="true">
         <div className="hub-tile-top">
           <b className="hub-tile-title">{m.title}</b>
-          <span className="hub-tile-ic" aria-hidden="true">
+          {m.icon ? <span className="hub-tile-ic" aria-hidden="true">
             <Icon name={m.icon} size={22} />
-          </span>
+          </span> : null}
         </div>
         <span className="hub-soon-badge">به‌زودی</span>
       </div>
@@ -352,13 +416,14 @@ function Tile({
     <button
       type="button"
       className={`hub-tile tone-${m.tone}`}
+      data-home-module={m.id}
       onClick={() => onNav?.(route)}
     >
       <div className="hub-tile-top">
         <b className="hub-tile-title">{m.title}</b>
-        <span className="hub-tile-ic" aria-hidden="true">
+        {m.icon ? <span className="hub-tile-ic" aria-hidden="true">
           <Icon name={m.icon} size={22} />
-        </span>
+        </span> : null}
       </div>
       {sub ? <span className="hub-tile-sub">{sub}</span> : null}
     </button>

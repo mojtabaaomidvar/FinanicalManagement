@@ -82,6 +82,8 @@ get_settings.cache_clear()
 # رازهای لازم برای مسیرهایی که تست می‌شوند (فقط مقدار تستی، نه راز واقعی).
 os.environ.setdefault("FILE_SIGNING_SECRET", "test-only-signing-secret")
 settings.file_signing_secret = settings.file_signing_secret or "test-only-signing-secret"
+settings.document_encryption_key = "MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA="
+os.environ["DOCUMENT_ENCRYPTION_KEY"] = settings.document_encryption_key
 
 # ذخیره‌سازی: تست‌ها نباید نه به فضای ابری دست بزنند و نه چیزی در مخزن جا بگذارند.
 #

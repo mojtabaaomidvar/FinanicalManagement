@@ -22,6 +22,9 @@ router = APIRouter(tags=["files"])
 @router.get("/files/{path:path}")
 def serve_file(path: str, sig: str | None = Query(default=None)) -> Response:
     """سرو کردن فایل اگر امضا معتبر باشد؛ وگرنه FORBIDDEN."""
+    segments = [segment for segment in path.split("/") if segment]
+    if segments and segments[0] == "private-documents":
+        raise AppError("NOT_FOUND", "فایل یافت نشد.", 404)
     storage.require_configured()
     if not storage.verify_path(path, sig):
         raise AppError("FORBIDDEN", "امضای فایل نامعتبر است.", 403)

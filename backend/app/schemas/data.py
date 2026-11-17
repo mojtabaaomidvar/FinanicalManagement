@@ -18,7 +18,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, field_serializer
+from pydantic import BaseModel, field_serializer, model_validator
 
 if TYPE_CHECKING:  # فقط تایپ؛ وابستگی زمان‌اجرا به مدل‌ها ایجاد نمی‌کند
     from app.models.account import Account
@@ -109,6 +109,7 @@ class TransactionOut(BaseModel):
     handled_occurrences: list[str]
     photos: list[TransactionPhotoOut]
     created_at: datetime
+    source_kind: str | None = None
 
     @field_serializer("amount")
     def _ser_amount(self, v: Decimal) -> float:
@@ -134,6 +135,7 @@ class TransactionOut(BaseModel):
             handled_occurrences=list(t.handled_occurrences or []),
             photos=[TransactionPhotoOut.of(p) for p in photos],
             created_at=t.created_at,
+            source_kind=t.source_kind,
         )
 
 
@@ -316,6 +318,10 @@ class EventOut(BaseModel):
     date: str  # میلادی 'YYYY-MM-DD'
     note: str | None
     created_at: datetime
+    kind: str = "event"
+    activity_status: str | None = None
+    reminder_enabled: bool = True
+    revision: int = 1
 
     @classmethod
     def of(cls, e: FamilyEvent) -> EventOut:
@@ -328,6 +334,10 @@ class EventOut(BaseModel):
             date=e.date.isoformat(),
             note=e.note,
             created_at=e.created_at,
+            kind=e.kind or "event",
+            activity_status=e.activity_status,
+            reminder_enabled=e.reminder_enabled if e.reminder_enabled is not None else True,
+            revision=e.revision or 1,
         )
 
 
@@ -357,6 +367,13 @@ class TransactionWrite(BaseModel):
     to_account_id: str | None = None
     repeat: str = "none"
     repeat_end: _date | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def source_is_server_owned(cls, value):
+        if isinstance(value, dict) and "source_kind" in value:
+            raise ValueError("Transaction source is set by the server.")
+        return value
 
 
 class OccurrenceMark(BaseModel):
@@ -733,7 +750,7 @@ class HoldingCreate(BaseModel):
     آن‌ها را عیناً پس می‌فرستد؛ سرور دوباره اعتبارسنجی می‌کند.
     """
 
-    kind: str | None = None       # gold | currency | crypto | stock
+    kind: str | None = None  # gold | currency | crypto | stock
     symbol: str | None = None
     name: str | None = None
     unit: str | None = None
@@ -769,18 +786,16 @@ class HoldingOut(BaseModel):
     unit: str
     quantity: Decimal
     created_at: datetime
-    price: float          # قیمت واحد در آخرین اسنپ‌شات
-    value: float          # quantity × price
-    priced: bool          # false = قیمت امروز پیدا نشد
+    price: float  # قیمت واحد در آخرین اسنپ‌شات
+    value: float  # quantity × price
+    priced: bool  # false = قیمت امروز پیدا نشد
 
     @field_serializer("quantity")
     def _ser_quantity(self, v: Decimal) -> float:
         return float(v)
 
     @classmethod
-    def of(
-        cls, h: Holding, price: float, priced: bool, unit: str | None = None
-    ) -> HoldingOut:
+    def of(cls, h: Holding, price: float, priced: bool, unit: str | None = None) -> HoldingOut:
         """unit از قیمت زنده می‌آید و فقط اگر نبود به عکس ذخیره‌شده برمی‌گردیم.
 
         اگر همیشه واحد ذخیره‌شده را نشان می‌دادیم، تغییر واحد در بالادست
@@ -814,4 +829,4 @@ class HoldingListOut(BaseModel):
     items: list[HoldingOut]
     total: float
     unpriced: int
-    stale: bool           # true = قیمت‌ها از کش قدیمی آمده‌اند
+    stale: bool  # true = قیمت‌ها از کش قدیمی آمده‌اند

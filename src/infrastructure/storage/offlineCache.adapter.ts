@@ -1,50 +1,32 @@
-/* §۸.۵ — پاک‌کردنِ کشِ آفلاین هنگامِ خروج
-   ────────────────────────────────────────
-   §۸.۵ می‌گوید دادهٔ کش‌شده هنگامِ خروج پاک می‌شود، ولی تا پیش از این
-   LogoutUseCase فقط نشست را پاک می‌کرد — یعنی بندی که در سند «برآورده»
-   به نظر می‌رسید در کد هیچ‌جا اجرا نمی‌شد.
-
-   ── چه چیزی پاک می‌شود و چه چیزی نه ──
-
-   ۱) *همهٔ* کش‌های CacheStorage پاک می‌شوند، نه فهرستی گزیده. وسوسه این بود
-      که «فقط کشِ داده» پاک شود و پوستهٔ نرم‌افزار بماند؛ اما امروز (یادداشتِ
-      §۸.۲) هیچ دادهٔ مالی‌ای در کش نمی‌نشیند و قاعدهٔ NetworkOnly چیزی ذخیره
-      نمی‌کند، پس «فقط کشِ داده» دقیقاً یعنی پاک‌کردنِ هیچ — همان محافظتِ
-      نمایشیِ مُرده‌ای که در vite.config داشتیم. پاک‌کردنِ کامل هم خودکار
-      درست می‌ماند اگر روزی §۸.۲ واقعاً روشن شد.
-
-   ۲) localStorage دست‌نخورده می‌ماند. عمدی است: فلگِ قیفِ آغازین، یادآورِ
-      «افزودن به صفحهٔ اصلی»، نوعِ نمودار و پیش‌نویسِ آغازین آن‌جا هستند و
-      هیچ‌کدام دادهٔ خانواده نیستند. localStorage.clear() باعث می‌شد قیفِ
-      آغازین بعد از *هر* خروج دوباره از اول اجرا شود.
-
-   ۳) سرویس‌ورکر unregister نمی‌شود. این نکتهٔ مهمی است: کانالِ به‌روزرسانیِ
-      نسخهٔ اندروید همین سرویس‌ورکر است (registerType: "prompt")، و بستنش
-      یعنی قطعِ همان کانال. تابعِ بازنشستهٔ wipeDevice این کار را می‌کرد
-      چون قصدش «پاک‌سازیِ کاملِ دستگاه» بود، نه خروجِ ساده.
-
-   ── هزینهٔ شناخته‌شده (پذیرفته، نه فراموش‌شده) ──
-   پس از خروج، دسترسیِ آفلاین به پوستهٔ نرم‌افزار تا نصبِ نسخهٔ بعدیِ
-   سرویس‌ورکر از دست می‌رود. دلیلش دقیق است: PrecacheStrategy در صورتِ
-   نبودِ فایل در کش به شبکه برمی‌گردد (fallbackToNetwork پیش‌فرض true)، ولی
-   کش را فقط وقتی «تعمیر» می‌کند که manifest مقدارِ integrity داشته باشد —
-   و manifestِ ساخته‌شدهٔ ما فقط revision دارد (وارسی‌شده در dist/sw.js).
-   این هزینه قابل‌قبول است چون خروج همیشه با location.reload() در حالتِ
-   آنلاین همراه است و از‌دست‌رفته‌اش «پیامِ زیبای آفلاین» است نه داده.
-
-   ── بی‌صدا بودن ──
-   clear هرگز throw نمی‌کند. در حالتِ ناشناسِ مرورگر، در WebViewِ بدونِ
-   CacheStorage، یا وقتی مرورگر دسترسی را رد می‌کند، خروج باید باز هم
-   کامل شود؛ شکستِ پاک‌کردنِ کش نباید کاربر را «وارد‌مانده» نگه دارد. */
+/* §۸.۵ — خروج، دادهٔ رمزنگاری‌شدهٔ حساب و کش‌های داده را پاک می‌کند.
+   Precache سرویس‌ورکر فقط فایل‌های عمومی برنامه را دارد (src/sw.ts) و
+   حفظ می‌شود تا پس از ورود دوباره، خرید و انبار بدون اینترنت باز شوند.
+   localStorage برای تنظیمات دستگاه و سرویس‌ورکر برای به‌روزرسانی می‌مانند.
+   شکست دسترسی به ذخیره‌ساز نباید مانع خروج شود. */
 
 import type { OfflineCacheStore } from "@/domain/auth/auth.repository";
+import { cacheNames } from "workbox-core/cacheNames.js";
+import { setCacheNameDetails } from "workbox-core/setCacheNameDetails.js";
 
 export class BrowserOfflineCache implements OfflineCacheStore {
+  constructor(private readonly clearShopping?: () => Promise<void>) {}
+
   async clear(): Promise<void> {
+    try { await this.clearShopping?.(); } catch { /* The cleared session prevents further cache access. */ }
     try {
       if (typeof caches === "undefined") return;
+      let shellCache: string | undefined;
+      try {
+        const registration = typeof navigator !== "undefined"
+          ? await navigator.serviceWorker?.getRegistration() : undefined;
+        if (registration) {
+          // Match Workbox's public naming policy in the worker's scope.
+          setCacheNameDetails({ suffix: registration.scope });
+          shellCache = cacheNames.precache;
+        }
+      } catch { /* Other caches are still removed if worker lookup fails. */ }
       const keys = await caches.keys();
-      await Promise.all(keys.map((k) => caches.delete(k)));
+      await Promise.all(keys.filter((k) => k !== shellCache).map((k) => caches.delete(k)));
     } catch {
       /* بی‌صدا — دلیلش در یادداشتِ بالای فایل */
     }

@@ -115,15 +115,95 @@ def test_patch_merges_instead_of_replacing_the_map(client: Any, home_a: Actor) -
     assert res.json()["domains"] == {"event": False, "recurring": False}
 
 
+def test_vehicle_notification_preferences_persist_and_merge(
+    client: Any, home_a: Actor, member_a: Actor
+) -> None:
+    first = client.patch(
+        PREFS, headers=home_a.h,
+        json={"domains": {"vehicles": False}, "lead_days": {"vehicles": 7}},
+    )
+    assert first.status_code == 200, first.text
+    assert first.json()["domains"] == {"vehicles": False}
+    assert first.json()["lead_days"] == {"vehicles": 7}
+    second = client.patch(
+        PREFS, headers=home_a.h,
+        json={"enabled": False, "domains": {"equipment": False}},
+    )
+    assert second.status_code == 200, second.text
+    after = client.get(PREFS, headers=home_a.h).json()
+    assert after["enabled"] is False
+    assert after["domains"] == {"vehicles": False, "equipment": False}
+    assert after["lead_days"] == {"vehicles": 7}
+    other = client.get(PREFS, headers=member_a.h).json()
+    assert "vehicles" not in other["domains"]
+    assert "vehicles" not in other["lead_days"]
+
+
 # ═══════════════════════════════════════════════════════════════════
 #  اعتبارسنجی — ورودیِ خراب نباید در JSONB بنشیند
 # ═══════════════════════════════════════════════════════════════════
+def test_goal_notification_preferences_remain_member_private(
+    client: Any, home_a: Actor, member_a: Actor
+) -> None:
+    first = client.patch(
+        PREFS, headers=member_a.h,
+        json={"domains": {"goals": False}, "lead_days": {"goals": 7}},
+    )
+    assert first.status_code == 200, first.text
+    second = client.patch(
+        PREFS, headers=member_a.h, json={"domains": {"tasks": False}},
+    )
+    assert second.status_code == 200, second.text
+    own = client.get(PREFS, headers=member_a.h).json()
+    assert own["domains"] == {"goals": False, "tasks": False}
+    assert own["lead_days"] == {"goals": 7}
+    other = client.get(PREFS, headers=home_a.h).json()
+    assert "goals" not in other["domains"]
+    assert "goals" not in other["lead_days"]
+
+
+def test_private_goal_refs_cannot_be_written_as_dismissals(
+    client: Any, home_a: Actor, member_a: Actor
+) -> None:
+    private_key = "goals:11111111-1111-4111-8111-111111111111:2026-11-15"
+    for actor in (home_a, member_a):
+        for key in (private_key, f"  {private_key}  "):
+            res = client.post(DISMISS, headers=actor.h, json={"key": key})
+            assert res.status_code == 422, res.text
+        assert private_key not in keys(client.get(PREFS, headers=actor.h))
+
+
+def test_activity_notification_preferences_persist_without_changing_event_settings(
+    client: Any, home_a: Actor, member_a: Actor
+) -> None:
+    first = client.patch(
+        PREFS, headers=member_a.h,
+        json={"domains": {"activities": False, "event": True}, "lead_days": {"activities": 7}},
+    )
+    assert first.status_code == 200, first.text
+    second = client.patch(PREFS, headers=member_a.h, json={"enabled": False})
+    assert second.status_code == 200, second.text
+    own = client.get(PREFS, headers=member_a.h).json()
+    assert own["domains"] == {"activities": False, "event": True}
+    assert own["lead_days"] == {"activities": 7}
+    other = client.get(PREFS, headers=home_a.h).json()
+    assert "activities" not in other["domains"]
+    assert "activities" not in other["lead_days"]
+
+
+def test_activity_refs_cannot_be_written_as_dismissals(client: Any, member_a: Actor) -> None:
+    activity_key = "activities:11111111-1111-4111-8111-111111111111:2026-11-15"
+    res = client.post(DISMISS, headers=member_a.h, json={"key": activity_key})
+    assert res.status_code == 422, res.text
+    assert activity_key not in keys(client.get(PREFS, headers=member_a.h))
+
+
 def test_unknown_domain_is_rejected(client: Any, home_a: Actor) -> None:
     """فهرستِ دامنه‌ها بسته است. بی این گارد، یک کلاینتِ خراب می‌توانست
     JSONB را با کلیدهای بی‌معنی پر کند و هیچ‌وقت کسی نمی‌فهمید."""
     for body in (
         {"domains": {"chores": True}},
-        {"lead_days": {"vehicles": 3}},
+        {"lead_days": {"unknown_module": 3}},
     ):
         res = client.patch(PREFS, headers=home_a.h, json=body)
         assert res.status_code == 422, f"دامنهٔ ناشناس پذیرفته شد: {body} → {res.text}"

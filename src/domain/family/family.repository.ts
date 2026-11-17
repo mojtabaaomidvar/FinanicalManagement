@@ -6,10 +6,14 @@ import type {
   Member,
   ProfileInput,
 } from "./family.types";
+import type { HomePreferences, HomePreferencesSnapshot } from "@/domain/home/homePreferences.types";
 
 export interface FamilyRepository {
   getFamily(): Promise<Family>;
   getMembers(): Promise<Member[]>;
+  /** Own-member navigation preferences; never returned in the family member list. */
+  getHomePreferences(): Promise<HomePreferencesSnapshot>;
+  setHomePreferences(revision: number, preferences: HomePreferences): Promise<HomePreferencesSnapshot>;
   /** سقف بودجه ماهانه خانواده — فقط مدیر خانواده.
       از v5.8 واحد پول و تم اینجا نیستند؛ هر دو شخصی شده‌اند
       (setCurrency و setTheme). */

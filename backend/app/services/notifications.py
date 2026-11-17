@@ -28,7 +28,10 @@ from app.schemas.data import NotificationPrefsOut, NotificationPrefsUpdate
 
 # همان دامنه‌های فعالِ §۷.۱. فهرستِ بسته است تا کلیدِ بی‌معنی در JSONB نرود؛
 # با هر ماژولِ تازه یک عضو این‌جا اضافه می‌شود (و در notification.types.ts).
-_DOMAINS = ("recurring", "bills", "event", "membership", "inventory")
+_DOMAINS = (
+    "recurring", "bills", "event", "membership", "inventory", "tasks", "documents", "equipment",
+    "vehicles", "goals", "activities",
+)
 
 # باید با MAX_LEAD_DAYS در src/domain/notification/notification.types.ts یکی
 # بماند. اگر یکی عوض شد و دیگری نه، بدترین حالت این است که سرور عددی را
@@ -134,7 +137,9 @@ def dismiss(db: Session, actor: Member, key: str) -> None:
     لمسِ سریع می‌توانست به نقضِ قیدِ یکتایی برسد.
     """
     k = (key or "").strip()
-    if not k or len(k) > _MAX_KEY_LEN:
+    # Goals resolve by completion/item settings; their private references must
+    # never enter this family-scoped dismissal table, even via direct API calls.
+    if not k or len(k) > _MAX_KEY_LEN or k.startswith(("goals:", "activities:")):
         raise AppError("INVALID_INPUT", "شناسهٔ اعلان نامعتبر است.", 422)
 
     db.execute(

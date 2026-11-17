@@ -17,6 +17,15 @@ export type Route =
   | "calendar"
   | "shopping"
   | "inventory"
+  | "tasks"
+  | "documents"
+  | "meals"
+  | "equipment"
+  | "vehicles"
+  | "goals"
+  | "activities"
+  | "children"
+  | "pets"
   | "market"
   | "settings";
 
@@ -31,6 +40,15 @@ export const MAIN_ROUTES: Route[] = [
   "calendar",
   "shopping",
   "inventory",
+  "tasks",
+  "documents",
+  "meals",
+  "equipment",
+  "vehicles",
+  "goals",
+  "activities",
+  "children",
+  "pets",
   "market",
   "settings",
 ];

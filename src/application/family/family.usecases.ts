@@ -1,6 +1,8 @@
 /* Use-caseهای خانواده، بودجه و خروجی داده */
 
 import type { FamilyRepository } from "@/domain/family/family.repository";
+import type { HomePreferences, HomePreferencesSnapshot } from "@/domain/home/homePreferences.types";
+import { normalizeHomePreferences } from "@/domain/home/homePreferences.rules";
 import type {
   Family,
   JoinRequest,
@@ -25,6 +27,23 @@ export class GetMembersUseCase {
   constructor(private readonly repo: FamilyRepository) {}
   execute(): Promise<Member[]> {
     return this.repo.getMembers();
+  }
+}
+
+export class GetHomePreferencesUseCase {
+  constructor(private readonly repo: FamilyRepository) {}
+  execute(): Promise<HomePreferencesSnapshot> {
+    return this.repo.getHomePreferences();
+  }
+}
+
+export class SetHomePreferencesUseCase {
+  constructor(private readonly repo: FamilyRepository) {}
+  execute(revision: number, preferences: HomePreferences): Promise<HomePreferencesSnapshot> {
+    if (!Number.isSafeInteger(revision) || revision < 0) {
+      throw new AppError("INVALID_TX", "نسخهٔ چیدمان معتبر نیست");
+    }
+    return this.repo.setHomePreferences(revision, normalizeHomePreferences(preferences));
   }
 }
 

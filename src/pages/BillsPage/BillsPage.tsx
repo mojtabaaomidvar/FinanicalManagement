@@ -1,3 +1,4 @@
+import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* §۱.۹ — صفحهٔ قبوض و شارژ.
 
    قبض = **تعهدِ پرداخت‌نشده**. چیزی که این صفحه از صفحهٔ تراکنش‌ها جدا
@@ -245,12 +246,12 @@ export function BillsPage() {
             </p>
             {unpaid.length ? (
               <b className="bill-summary-amount">
-                {formatAmount(toDisplay(totalUnpaid, cur))} {cur}
+                {formatAmount(toDisplay(totalUnpaid, cur))} {currencyDisplayLabel(cur)}
               </b>
             ) : null}
           </div>
           <button type="button" className="btn-primary" onClick={openNew}>
-            ثبت قبض تازه
+            ثبت قبض جدید
           </button>
         </Card>
 
@@ -315,7 +316,7 @@ export function BillsPage() {
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title={editing ? "ویرایش قبض" : "قبض تازه"}
+        title={editing ? "ویرایش قبض" : "قبض جدید"}
         dragToClose
       >
         <Field label="نوع">
@@ -335,7 +336,7 @@ export function BillsPage() {
             placeholder="مثلاً برق خانه"
           />
         </Field>
-        <Field label={`مبلغ (${cur})`}>
+        <Field label={`مبلغ (${currencyDisplayLabel(cur)})`}>
           <AmountInput
             value={form.amount}
             onChange={(v) => setForm((f) => ({ ...f, amount: v }))}
@@ -388,7 +389,7 @@ export function BillsPage() {
           {paying
             ? `${paying.title} — ${formatAmount(
                 toDisplay(paying.amount, cur),
-              )} ${cur}`
+              )} ${currencyDisplayLabel(cur)}`
             : ""}
         </p>
         {/* متن صریح است چون این کنش دو کار می‌کند و کاربر باید بداند */}

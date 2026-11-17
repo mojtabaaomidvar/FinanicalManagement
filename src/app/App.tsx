@@ -5,7 +5,7 @@ import { useApp } from "./providers/AppProvider";
 import { useBackGuard } from "@/shared/lib/useBackGuard";
 import { useNativeSmsReader } from "./useNativeSmsReader";
 import { useTheme } from "./providers/useTheme";
-import type { Route } from "./router";
+import { MAIN_ROUTES, type Route } from "./router";
 import { PwaUpdateProvider, usePwaUpdateState } from "./pwaUpdate.tsx";
 import {
   AuthFeature,
@@ -41,11 +41,22 @@ import { BillsPage } from "@/pages/BillsPage";
 import { CalendarPage } from "@/pages/CalendarPage";
 import { ShoppingPage } from "@/pages/ShoppingPage";
 import { InventoryPage } from "@/pages/InventoryPage";
+import { TasksPage } from "@/pages/TasksPage";
+import { DocumentsPage } from "@/pages/DocumentsPage";
+import { MealsPage } from "@/pages/MealsPage";
+import { EquipmentPage } from "@/pages/EquipmentPage";
+import { VehiclesPage } from "@/pages/VehiclesPage";
+import { GoalsPage } from "@/pages/GoalsPage";
+import { ActivitiesPage } from "@/pages/ActivitiesPage";
+import { ChildrenPage } from "@/pages/ChildrenPage";
+import { PetsPage } from "@/pages/PetsPage";
 import { MarketPage } from "@/pages/MarketPage";
 import { SettingsPage, type SettingsSection } from "@/pages/SettingsPage";
 import { OfflineBar } from "@/shared/ui";
 import { useToast } from "./providers/ToastProvider";
 import { DevPanel, type DevOverride } from "./dev/DevPanel";
+import { useOnline } from "@/shared/lib/useOnline";
+import type { NotificationRef } from "@/domain/notification/notification.types";
 
 export function App() {
   return (
@@ -66,6 +77,20 @@ function AppBody() {
   const [authPrefill, setAuthPrefill] = useState<AuthPrefill | undefined>();
   /* دورزدن موقت جریان از پنل توسعه — فقط در dev معنا دارد */
   const [devOverride, setDevOverride] = useState<DevOverride>(null);
+  useEffect(() => {
+    if (import.meta.env.MODE !== "copy-workbench") return;
+    const navigate = (event: Event) => {
+      const detail = (event as CustomEvent<{ route?: Route; override?: DevOverride }>).detail;
+      if (!detail) return;
+      if (detail.route && MAIN_ROUTES.includes(detail.route)) setRoute(detail.route);
+      if (detail.override === null || ["intro", "auth-login", "auth-register", "invite", "a2hs"].includes(detail.override ?? "")) {
+        setDevOverride(detail.override ?? null);
+      }
+    };
+    window.addEventListener("copy-workbench:navigate", navigate);
+    window.dispatchEvent(new Event("copy-workbench:ready"));
+    return () => { window.removeEventListener("copy-workbench:navigate", navigate); };
+  }, []);
   const [refreshKey, setRefreshKey] = useState(0);
   /* جستجوی ارسالی از هدر خانه → صفحه تراکنش‌ها */
   const [txSearch, setTxSearch] = useState("");
@@ -93,7 +118,7 @@ function AppBody() {
   /* بوم‌شدن داده پس از ورود */
   useEffect(() => {
     if (phase === "ready") {
-      void refreshData().then(() => setRefreshKey((k) => k + 1));
+      void refreshData().then(() => setRefreshKey((k) => k + 1)).catch((error) => show((error as Error).message));
     }
   }, [phase, refreshData]);
 
@@ -125,7 +150,7 @@ function AppBody() {
      صفحه‌هایی که عادتاً سخت در دسترس‌اند (قیف آغازین، فرم ثبت‌نام،
      پذیرش دعوت) یک‌کلیکه دیده شوند. */
   function content() {
-    if (import.meta.env.DEV && devOverride) {
+    if ((import.meta.env.DEV || import.meta.env.MODE === "copy-workbench") && devOverride) {
       if (devOverride === "intro") {
         return (
           <OnboardingFeature
@@ -275,7 +300,26 @@ function MainShell({
   filterSignal: number;
   bumpFilterSignal: () => void;
 }) {
-  const { useCases, members, cur, subcategories } = useApp();
+  const { useCases, members, cur, subcategories, shoppingSync, offlineSession, refreshTasks } = useApp();
+  const online = useOnline();
+  const restricted = !online || shoppingSync.offline || offlineSession;
+  const financeIdentity = useRef({ memberId: currentMemberId, restricted });
+  const financeMounted = useRef(true);
+  if (financeIdentity.current.memberId !== currentMemberId || financeIdentity.current.restricted !== restricted) {
+    financeIdentity.current = { memberId: currentMemberId, restricted };
+  }
+  useEffect(() => {
+    financeMounted.current = true;
+    const invalidate = () => {
+      financeIdentity.current = { ...financeIdentity.current, restricted: true };
+    };
+    window.addEventListener("offline", invalidate);
+    return () => {
+      financeMounted.current = false;
+      invalidate();
+      window.removeEventListener("offline", invalidate);
+    };
+  }, []);
   const { show } = useToast();
   const form = useTxFormModel(
     useCases!,
@@ -296,18 +340,44 @@ function MainShell({
      می‌شود و initialSection تازه خوانده می‌شود. */
   const [settingsSection, setSettingsSection] =
     useState<SettingsSection | null>(null);
+  const [equipmentId, setEquipmentId] = useState<string | undefined>();
+  const [vehicleId, setVehicleId] = useState<string | undefined>();
+  const [goalId, setGoalId] = useState<string | undefined>();
+  const [activityId, setActivityId] = useState<string | undefined>();
+  const [calendarDate, setCalendarDate] = useState<string | undefined>();
 
   const nav = useCallback(
     (r: Route) => {
+      if (restricted && !["hub", "shopping", "inventory", "tasks"].includes(r)) {
+        show("این بخش به اتصال اینترنت نیاز دارد؛ خرید، انبار و کارهای خانه آفلاین در دسترس‌اند.");
+        return;
+      }
       setRoute(r);
       /* هر ناوبریِ معمولی مقصدِ زیرصفحهٔ تنظیمات را پاک می‌کند، وگرنه
          دفعهٔ بعد که کاربر خودش روی «تنظیمات» می‌زند، باز هم همان
          زیرصفحهٔ قبلی باز می‌شد. */
       setSettingsSection(null);
+      setEquipmentId(undefined);
+      setVehicleId(undefined);
+      setGoalId(undefined);
+      setActivityId(undefined);
+      setCalendarDate(undefined);
       window.scrollTo({ top: 0 });
     },
-    [setRoute],
+    [setRoute, restricted, show],
   );
+
+  useEffect(() => {
+    if (restricted) {
+      setEquipmentId(undefined);
+      setVehicleId(undefined);
+      setGoalId(undefined);
+      setActivityId(undefined);
+      setCalendarDate(undefined);
+      if (!["hub", "shopping", "inventory", "tasks"].includes(route)) setRoute("hub");
+      form.close();
+    }
+  }, [restricted, route, setRoute]);
 
   /* ورودِ مستقیم به یک زیرصفحهٔ تنظیمات (از مرکزِ اعلان) */
   const navSettingsSection = useCallback(
@@ -318,6 +388,23 @@ function MainShell({
     },
     [setRoute],
   );
+
+  const openRecord = (ref: NotificationRef) => {
+    if (restricted && ref.kind !== "tasks") return;
+    switch (ref.kind) {
+      case "tasks": nav("tasks"); break;
+      case "bills": nav("bills"); break;
+      case "event": nav("calendar"); setCalendarDate(ref.dateIso); break;
+      case "equipment": nav("equipment"); setEquipmentId(ref.equipmentId); break;
+      case "vehicles": nav("vehicles"); setVehicleId(ref.vehicleId); break;
+      case "goals":
+        if (notif.goals.some((goal) => goal.id === ref.goalId && goal.ownerId === currentMemberId)) {
+          nav("goals"); setGoalId(ref.goalId);
+        }
+        break;
+      case "activities": nav("activities"); setActivityId(ref.activityId); break;
+    }
+  };
 
   /* بازگشت دکمه/سوایپ در هر صفحه‌ای جز هاب = برگشت به هاب (نه خروج از اپ) */
   useBackGuard(route !== "hub", () => nav("hub"));
@@ -342,7 +429,10 @@ function MainShell({
         {route === "hub" ? (
           <HubPage
             onNav={nav}
-            onAddTransaction={() => form.openNew()}
+            onAddTransaction={() => restricted ? show("ثبت تراکنش به اتصال اینترنت نیاز دارد.") : form.openNew()}
+            summary={notif}
+            onOpenItem={openRecord}
+            onRetry={() => { void Promise.allSettled([bumpRefresh(), notif.reload()]); }}
             bell={
               <NotificationCenterFeature
                 m={notif}
@@ -351,6 +441,32 @@ function MainShell({
                 onOpenJoinRequests={() => navSettingsSection("joinRequests")}
                 onOpenBills={() => nav("bills")}
                 onOpenInventory={() => nav("inventory")}
+                onOpenTasks={() => nav("tasks")}
+                onOpenCalendar={(date) => {
+                  if (restricted) return;
+                  nav("calendar"); setCalendarDate(date);
+                }}
+                onOpenDocuments={() => nav("documents")}
+                onOpenEquipment={(id) => {
+                  if (restricted) return;
+                  nav("equipment");
+                  setEquipmentId(id);
+                }}
+                onOpenVehicles={(id) => {
+                  if (restricted) return;
+                  nav("vehicles");
+                  setVehicleId(id);
+                }}
+                onOpenGoal={(id) => {
+                  if (restricted) return;
+                  nav("goals");
+                  setGoalId(id);
+                }}
+                onOpenActivity={(id) => {
+                  if (restricted) return;
+                  nav("activities");
+                  setActivityId(id);
+                }}
               />
             }
           />
@@ -376,20 +492,52 @@ function MainShell({
         {route === "accounts" ? <AccountsPage /> : null}
         {route === "budgets" ? <BudgetsPage /> : null}
         {route === "bills" ? <BillsPage /> : null}
-        {route === "calendar" ? <CalendarPage /> : null}
+        {route === "calendar" ? <CalendarPage initialDate={calendarDate} summary={notif}
+          onOpenItem={openRecord} onRefresh={bumpRefresh} /> : null}
         {route === "shopping" ? <ShoppingPage /> : null}
         {route === "inventory" ? <InventoryPage /> : null}
+        {route === "tasks" ? <TasksPage /> : null}
+        {route === "documents" ? <DocumentsPage onChanged={notif.reload} /> : null}
+        {route === "meals" ? <MealsPage /> : null}
+        {route === "equipment" ? <EquipmentPage initialEquipmentId={equipmentId}
+          onOpenTasks={() => nav("tasks")} onChanged={notif.reload} /> : null}
+        {route === "vehicles" ? <VehiclesPage initialVehicleId={vehicleId}
+          onOpenTasks={() => nav("tasks")} onOpenDocuments={() => nav("documents")}
+          onOpenFinance={async (id) => {
+            const captured = financeIdentity.current;
+            const current = () => financeMounted.current && financeIdentity.current === captured && navigator.onLine !== false;
+            if (captured.restricted || !current() || !useCases) return;
+            try {
+              const rows = await useCases.listTransactions.execute();
+              if (!current()) return;
+              const tx = rows.find((row) => row.id === id);
+              if (!tx) { show("تراکنش مالی دیگر در دسترس نیست."); return; }
+              nav("transactions"); form.openEdit(tx);
+            } catch (error) {
+              if (current()) show(error instanceof Error ? error.message : "دریافت تراکنش ناموفق بود.");
+            }
+          }}
+          onChanged={async () => { await bumpRefresh(); await notif.reload(); }} /> : null}
         {route === "market" ? <MarketPage /> : null}
+        {route === "goals" ? <GoalsPage initialGoalId={goalId}
+          onInitialGoalConsumed={() => setGoalId(undefined)} onChanged={notif.reload} /> : null}
+        {route === "activities" ? <ActivitiesPage initialActivityId={activityId}
+          onInitialActivityConsumed={() => setActivityId(undefined)}
+          onChanged={async () => { await bumpRefresh(); await notif.reload(); }} /> : null}
+        {route === "children" ? <ChildrenPage navigate={nav}
+          onChanged={async () => { await bumpRefresh(); await notif.reload(); }} /> : null}
+        {route === "pets" ? <PetsPage onOpenTasks={() => nav("tasks")}
+          onChanged={async () => { await refreshTasks(); await notif.reload(); }} /> : null}
         {route === "settings" ? (
           <SettingsPage
             initialSection={settingsSection}
-            onNotificationPrefsChanged={() => void notif.reload()}
+            onNotificationPrefsChanged={() => void Promise.all([notif.reload(), refreshTasks()])}
           />
         ) : null}
       </div>
 
-      <TransactionFormFeature form={form} onImported={bumpRefresh} />
-      <PendingSmsFeature refreshKey={refreshKey} />
+      {!restricted ? <TransactionFormFeature form={form} onImported={bumpRefresh} /> : null}
+      {!restricted ? <PendingSmsFeature refreshKey={refreshKey} /> : null}
 
       {/* داک پایین (تب‌بار ۵تایی + FAB پلاس) از بازطراحی «هاب خانه»
           بازنشسته شد: ناوبری حالا از راه کاشی‌های هاب و بازگشت

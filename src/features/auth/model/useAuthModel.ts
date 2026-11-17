@@ -550,7 +550,7 @@ export function useAuthModel(
       setResetPassword("");
       setResetWait(0);
       setStep("form");
-      notify("رمز عبور عوض شد — با رمز تازه وارد شوید");
+      notify("رمز عبور عوض شد — با رمز جدید وارد شوید");
     } catch (e) {
       notify((e as Error).message || "خطا در تغییر رمز");
     } finally {

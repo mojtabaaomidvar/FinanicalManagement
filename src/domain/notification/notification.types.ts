@@ -27,7 +27,13 @@ export type NotificationDomain =
   | "bills"
   | "event"
   | "membership"
-  | "inventory";
+  | "inventory"
+  | "tasks"
+  | "documents"
+  | "equipment"
+  | "vehicles"
+  | "goals"
+  | "activities";
 
 /** شدت — ترتیبِ نمایش از همین می‌آید، نه از سلیقهٔ UI.
  *  `overdue` گذشته است · `pending` منتظرِ کنشِ شماست · `soon` خبرِ پیشاپیش. */
@@ -41,7 +47,13 @@ export type NotificationRef =
   /** §۴.۹ `InventoryBelowThreshold` → دامنهٔ خرید (§۷.۱).
    *  تاریخ ندارد چون **حالت** است نه رخدادِ تقویمی: «برنج تمام شده» از
    *  لحظه‌ای که موجودی زیرِ آستانه برود درست است تا وقتی پر شود. */
-  | { kind: "inventory"; itemId: string };
+  | { kind: "inventory"; itemId: string }
+  | { kind: "tasks"; taskId: string }
+  | { kind: "documents"; documentId: string }
+  | { kind: "equipment"; equipmentId: string; reason: "service" | "warranty" }
+  | { kind: "vehicles"; vehicleId: string; reason: "service" | "insurance" | "inspection" }
+  | { kind: "goals"; goalId: string }
+  | { kind: "activities"; activityId: string };
 
 export interface AppNotification {
   /** شناسهٔ **قطعی** (deterministic) — هرگز تصادفی نباشد.
@@ -88,6 +100,12 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
     event: true,
     membership: true,
     inventory: true,
+    tasks: true,
+    documents: true,
+    equipment: true,
+    vehicles: true,
+    goals: true,
+    activities: true,
   },
   leadDays: {
     recurring: 3,
@@ -98,6 +116,12 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
        ندارد که بتوان «۳ روز قبلش» را حساب کرد. موجودی یا زیرِ آستانه هست
        یا نیست. */
     inventory: 0,
+    tasks: 0,
+    documents: 30,
+    equipment: 7,
+    vehicles: 7,
+    goals: 7,
+    activities: 7,
   },
 };
 
@@ -114,4 +138,10 @@ export const DOMAIN_LABELS: Record<NotificationDomain, string> = {
   event: "رویدادها و تولدها",
   membership: "درخواست‌های عضویت",
   inventory: "اقلامی که دارد تمام می‌شود",
+  tasks: "کارهای خانه",
+  documents: "اعتبار اسناد خانه",
+  equipment: "سرویس و گارانتی وسایل خانه",
+  vehicles: "سرویس، بیمه و معاینهٔ خودروها",
+  goals: "اهداف و آرزوهای شخصی",
+  activities: "تفریح و برنامه‌های خانوادگی",
 };

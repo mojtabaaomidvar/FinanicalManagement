@@ -1,3 +1,4 @@
+import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* UI مودال ورود پیامک بانکی */
 
 import { useApp } from "@/app/providers/AppProvider";
@@ -96,7 +97,7 @@ export function SmsImportFeature({
                   <b className={x.p.type!}>
                     {x.p.type === "income" ? "واریز" : "برداشت"} ·{" "}
                     {formatAmount(toDisplay(x.p.amount!, cur))}
-                    <span className="cur-tag">{cur}</span>
+                    <span className="cur-tag">{currencyDisplayLabel(cur)}</span>
                   </b>
                   <span>
                     {x.p.date

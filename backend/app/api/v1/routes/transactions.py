@@ -7,10 +7,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_tenant_member
+from app.db.document_scope import bind_member, clear_member
 from app.db.session import get_db
 from app.models.family import Member
 from app.schemas.data import (
@@ -27,20 +31,35 @@ from app.services.common import to_uuid
 router = APIRouter(tags=["transactions"])
 
 
+def transaction_member(
+    member: Annotated[Member, Depends(get_tenant_member)],
+    db: Annotated[Session, Depends(get_db)],
+) -> Iterator[Member]:
+    bind_member(db, member.id)
+    try:
+        yield member
+    finally:
+        clear_member(db)
+
+
+TenantMember = Annotated[Member, Depends(transaction_member)]
+DbSession = Annotated[Session, Depends(get_db)]
+
+
 @router.get("/transactions", response_model=list[TransactionOut])
 def list_transactions(
-    member: Member = Depends(get_tenant_member),
-    db: Session = Depends(get_db),
+    member: TenantMember,
+    db: DbSession,
 ) -> list[TransactionOut]:
-    rows = tx_service.list_for_family(db, member.family_id)
+    rows = tx_service.list_for_family(db, member.family_id, member)
     return [TransactionOut.of(tx, photos) for tx, photos in rows]
 
 
 @router.post("/transactions", response_model=TransactionOut, status_code=status.HTTP_201_CREATED)
 def add_transaction(
     body: TransactionWrite,
-    member: Member = Depends(get_tenant_member),
-    db: Session = Depends(get_db),
+    member: TenantMember,
+    db: DbSession,
 ) -> TransactionOut:
     row = tx_service.create(db, member.family_id, body)
     return TransactionOut.of(row, [])
@@ -50,20 +69,18 @@ def add_transaction(
 def update_transaction(
     tx_id: str,
     body: TransactionWrite,
-    member: Member = Depends(get_tenant_member),
-    db: Session = Depends(get_db),
+    member: TenantMember,
+    db: DbSession,
 ) -> Response:
-    tx_service.update(
-        db, member, to_uuid(tx_id, "NOT_FOUND", "تراکنش یافت نشد.", 404), body
-    )
+    tx_service.update(db, member, to_uuid(tx_id, "NOT_FOUND", "تراکنش یافت نشد.", 404), body)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.delete("/transactions/{tx_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_transaction(
     tx_id: str,
-    member: Member = Depends(get_tenant_member),
-    db: Session = Depends(get_db),
+    member: TenantMember,
+    db: DbSession,
 ) -> Response:
     tx_service.delete(db, member, to_uuid(tx_id, "NOT_FOUND", "تراکنش یافت نشد.", 404))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -73,8 +90,8 @@ def delete_transaction(
 def mark_recurring_occurrence(
     tx_id: str,
     body: OccurrenceMark,
-    member: Member = Depends(get_tenant_member),
-    db: Session = Depends(get_db),
+    member: TenantMember,
+    db: DbSession,
 ) -> Response:
     tx_service.mark_occurrence(
         db, member, to_uuid(tx_id, "NOT_FOUND", "تراکنش یافت نشد.", 404), body.due_date
@@ -90,8 +107,8 @@ def mark_recurring_occurrence(
 def add_tx_photo(
     tx_id: str,
     body: PhotoCreate,
-    member: Member = Depends(get_tenant_member),
-    db: Session = Depends(get_db),
+    member: TenantMember,
+    db: DbSession,
 ) -> PhotoOut:
     row = tx_service.add_photo(
         db, member, to_uuid(tx_id, "NOT_FOUND", "تراکنش یافت نشد.", 404), body
@@ -103,8 +120,8 @@ def add_tx_photo(
 def update_tx_photo_caption(
     photo_id: str,
     body: CaptionUpdate,
-    member: Member = Depends(get_tenant_member),
-    db: Session = Depends(get_db),
+    member: TenantMember,
+    db: DbSession,
 ) -> Response:
     tx_service.update_photo_caption(
         db, member, to_uuid(photo_id, "NOT_FOUND", "تصویر یافت نشد.", 404), body.caption
@@ -115,10 +132,8 @@ def update_tx_photo_caption(
 @router.delete("/photos/{photo_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_tx_photo(
     photo_id: str,
-    member: Member = Depends(get_tenant_member),
-    db: Session = Depends(get_db),
+    member: TenantMember,
+    db: DbSession,
 ) -> Response:
-    tx_service.delete_photo(
-        db, member, to_uuid(photo_id, "NOT_FOUND", "تصویر یافت نشد.", 404)
-    )
+    tx_service.delete_photo(db, member, to_uuid(photo_id, "NOT_FOUND", "تصویر یافت نشد.", 404))
     return Response(status_code=status.HTTP_204_NO_CONTENT)

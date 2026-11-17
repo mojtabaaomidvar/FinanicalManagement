@@ -99,6 +99,9 @@ class Settings(BaseSettings):
     files_base_url: str = ""               # پیشوند URL عمومی؛ خالی = نسبی (هم‌مبدأ)
     file_signing_secret: str = ""          # کلید HMAC URLها — «راز»، فقط از محیط
     upload_max_bytes: int = 1_050_000      # ~۱MB پس از دیکود (هم‌سان با سقف قبلی)
+    # 32-byte base64 AES-GCM key for documents and goals, separate from file signing.
+    document_encryption_key: str = ""
+    rl_documents_per_member: int = 90
 
     @property
     def cors_origins_list(self) -> list[str]:

@@ -19,7 +19,9 @@ WORKDIR /app
 #    تا بیلد hatchling کار کند. همهٔ وابستگی‌ها wheel آماده دارند (بدون نیاز به gcc).
 COPY pyproject.toml ./
 COPY app ./app
-RUN pip install .
+ARG PIP_INDEX_URL=https://pypi.org/simple
+# این متغیرها به فرایند نصب وابستگی‌های بیلد هم می‌رسند تا دانلود کند زود قطع نشود.
+RUN PIP_DEFAULT_TIMEOUT=120 PIP_RETRIES=10 pip install .
 
 # ۲) فایل‌های مهاجرت + اسکریپت دادهٔ فاز ۱۰ (برای اجرای دستی از شل لیارا)
 COPY alembic ./alembic

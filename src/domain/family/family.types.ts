@@ -1,6 +1,6 @@
 /* انتیتی خانواده و اعضا */
 
-export type MemberRole = "owner" | "member";
+export type MemberRole = "owner" | "admin" | "member";
 export type MemberStatus = "pending" | "active";
 
 /** وضعیتِ *عضویت* — محورِ دومی که ورود به آن گره خورده است (§۲.۵/§۲.۶).

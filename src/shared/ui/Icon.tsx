@@ -5,10 +5,11 @@ export function Icon({
   size = 22,
   className,
 }: {
-  name: string;
+  name?: string;
   size?: number;
   className?: string;
 }) {
+  if (!name) return null;
   return (
     <svg
       width={size}

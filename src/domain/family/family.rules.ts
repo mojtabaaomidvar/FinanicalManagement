@@ -6,6 +6,7 @@
    pending هم اصلاً نمایش داده نمی‌شد؛ این توابع تنها مرجع نمایش‌اند. */
 
 import type { Member } from "./family.types";
+import { memberRelationLabel } from "@/shared/lib/uiLabels";
 
 /** برچسب نسبت یک عضو با مدیر خانواده — برای نمایش در همه‌جا.
     نسبت خود مدیر «خودم» است که معنای مفیدی ندارد، پس «مدیر خانواده»
@@ -15,7 +16,7 @@ export function relationLabel(m: Pick<Member, "role" | "relation">): string {
   if (m.role === "owner") return "مدیر خانواده";
   const r = (m.relation ?? "").trim();
   if (!r || r === "خودم") return "نسبت ثبت نشده";
-  return r;
+  return memberRelationLabel(r);
 }
 
 /** آیا actor می‌تواند نسبت target را عوض کند؟

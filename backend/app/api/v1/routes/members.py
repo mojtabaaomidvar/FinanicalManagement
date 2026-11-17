@@ -29,7 +29,9 @@ from app.schemas.data import (
     RelationUpdate,
     ThemeUpdate,
 )
+from app.schemas.home import HomePreferencesOut, HomePreferencesUpdate
 from app.services import family as family_service
+from app.services import home_preferences as home_service
 from app.services.common import to_uuid
 
 router = APIRouter(tags=["members"])
@@ -85,3 +87,24 @@ def set_member_relation(
             db, member, to_uuid(member_id, "NOT_FOUND", "عضو یافت نشد.", 404), body.relation
         )
     )
+
+
+@router.get("/members/me/home-preferences", response_model=HomePreferencesOut)
+def get_member_home_preferences(
+    response: Response,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+) -> HomePreferencesOut:
+    response.headers["Cache-Control"] = "no-store"
+    return home_service.read_preferences(db, member)
+
+
+@router.patch("/members/me/home-preferences", response_model=HomePreferencesOut)
+def set_member_home_preferences(
+    body: HomePreferencesUpdate,
+    response: Response,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+) -> HomePreferencesOut:
+    response.headers["Cache-Control"] = "no-store"
+    return home_service.update_preferences(db, member, body)

@@ -33,6 +33,8 @@ export interface ValidatedSession {
   member: Member;
   family: Family;
   members: Member[];
+  /** Offline access is limited to the sanitized shopping/inventory projection. */
+  offline?: boolean;
 }
 
 export interface InviteInfo {

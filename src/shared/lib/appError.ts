@@ -2,6 +2,7 @@
 
 export type AppErrorCode =
   | "NETWORK"
+  | "CONFLICT"
   | "SERVER"
   | "SESSION_EXPIRED"
   | "OTP_API_ONLY"
@@ -25,6 +26,8 @@ export type AppErrorCode =
 
 export class AppError extends Error {
   readonly code: AppErrorCode;
+  status?: number;
+  serverCode?: string;
 
   constructor(code: AppErrorCode, message: string) {
     super(message);

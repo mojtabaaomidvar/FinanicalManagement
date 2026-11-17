@@ -25,7 +25,9 @@ import hashlib
 import hmac
 import re
 import secrets
+import shutil
 import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -153,6 +155,10 @@ class StorageBackend(Protocol):
 
     def load(self, path: str) -> bytes: ...
 
+    def delete(self, path: str) -> None: ...
+
+    def delete_document_owner(self, family_id: str, member_id: str) -> None: ...
+
 
 class LocalDiskStorage:
     """ذخیره روی دیسک محلی زیر یک ریشه، با محافظت در برابر path traversal."""
@@ -187,6 +193,15 @@ class LocalDiskStorage:
         if not full.is_file():
             raise AppError("NOT_FOUND", "فایل یافت نشد.", 404)
         return full.read_bytes()
+
+    def delete(self, path: str) -> None:
+        self._resolve(path).unlink(missing_ok=True)
+
+    def delete_document_owner(self, family_id: str, member_id: str) -> None:
+        prefix = f"private-documents/{uuid.UUID(family_id)}/{uuid.UUID(member_id)}"
+        directory = self._resolve(prefix)
+        if directory.is_dir():
+            shutil.rmtree(directory)
 
 
 class S3Storage:
@@ -251,6 +266,21 @@ class S3Storage:
             if code in ("NoSuchKey", "NoSuchBucket", "404"):
                 raise AppError("NOT_FOUND", "فایل یافت نشد.", 404) from exc
             raise AppError("STORAGE_ERROR", "خطا در خواندن فایل.", 502) from exc
+
+    def delete(self, path: str) -> None:
+        self._client.delete_object(Bucket=self._bucket, Key=self._safe_key(path))
+
+    def delete_document_owner(self, family_id: str, member_id: str) -> None:
+        prefix = f"private-documents/{uuid.UUID(family_id)}/{uuid.UUID(member_id)}/"
+        paginator = self._client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=self._bucket, Prefix=prefix):
+            objects = [{"Key": item["Key"]} for item in page.get("Contents", [])]
+            if objects:
+                result = self._client.delete_objects(
+                    Bucket=self._bucket, Delete={"Objects": objects}
+                )
+                if result.get("Errors"):
+                    raise AppError("STORAGE_ERROR", "خطا در پاک‌سازی مدارک.", 502)
 
 
 def _build_storage() -> StorageBackend:

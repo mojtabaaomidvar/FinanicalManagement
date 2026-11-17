@@ -92,7 +92,7 @@ export function LabelsCard() {
 
   return (
     <>
-      <Card title="برچسب تازه">
+      <Card title="برچسب جدید">
         <div className="form-grid">
           <div className="form-row full">
             <Field label="زیر کدام دسته؟">

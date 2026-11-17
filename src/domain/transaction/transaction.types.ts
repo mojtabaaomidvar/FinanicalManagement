@@ -21,6 +21,8 @@ export interface TransactionPhoto {
 
 export interface Transaction {
   id: string;
+  /** Server-assigned provenance survives removal of the originating vehicle. */
+  sourceKind?: "vehicle_service" | null;
   familyId: string;
   memberId: string;
   type: TxType;

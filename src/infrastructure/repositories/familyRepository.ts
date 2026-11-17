@@ -7,13 +7,17 @@
    - تنظیمات خانواده و پروفایل عضو (بیرون از RLS، members.py): زیر /family/* و /members/*. */
 
 import type { FamilyRepository } from "@/domain/family/family.repository";
+import type { HomePreferences, HomePreferencesSnapshot } from "@/domain/home/homePreferences.types";
+import { normalizeHomePreferences } from "@/domain/home/homePreferences.rules";
 import type {
   Family,
   JoinRequest,
   Member,
   ProfileInput,
 } from "@/domain/family/family.types";
-import type { RestClient } from "@/infrastructure/api/restClient";
+import type { RestClient, ReqOpts } from "@/infrastructure/api/restClient";
+import type { TokenProvider } from "./sessionRepository";
+import { AppError } from "@/shared/lib/appError";
 import {
   mapFamily,
   mapJoinRequest,
@@ -24,7 +28,19 @@ import {
 } from "./mappers";
 
 export class SupabaseFamilyRepository implements FamilyRepository {
-  constructor(private readonly client: RestClient) {}
+  constructor(private readonly client: RestClient, private readonly tokenProvider: TokenProvider) {}
+
+  private async homeOptions(): Promise<ReqOpts> {
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      throw new AppError("NETWORK", "ذخیرهٔ چیدمان در حساب به اتصال اینترنت نیاز دارد.");
+    }
+    const bearer = await this.tokenProvider.getToken();
+    if (!bearer) throw new AppError("SESSION_EXPIRED", "نشست تغییر کرده است؛ صفحه را دوباره باز کنید.");
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      throw new AppError("NETWORK", "ذخیرهٔ چیدمان در حساب به اتصال اینترنت نیاز دارد.");
+    }
+    return { bearer, cache: "no-store" };
+  }
 
   async getFamily(): Promise<Family> {
     const row = await this.client.get<FamilyRow>("/auth/family");
@@ -34,6 +50,25 @@ export class SupabaseFamilyRepository implements FamilyRepository {
   async getMembers(): Promise<Member[]> {
     const rows = await this.client.get<MemberRow[]>("/auth/members");
     return (rows ?? []).map(mapMember);
+  }
+
+  async getHomePreferences(): Promise<HomePreferencesSnapshot> {
+    const row = await this.client.get<HomePreferencesSnapshot>("/members/me/home-preferences", await this.homeOptions());
+    return {
+      revision: row.revision,
+      preferences: row.preferences === null ? null : normalizeHomePreferences(row.preferences),
+    };
+  }
+
+  async setHomePreferences(revision: number, preferences: HomePreferences): Promise<HomePreferencesSnapshot> {
+    const row = await this.client.patch<HomePreferencesSnapshot>("/members/me/home-preferences", {
+      revision,
+      preferences: normalizeHomePreferences(preferences),
+    }, await this.homeOptions());
+    return {
+      revision: row.revision,
+      preferences: row.preferences === null ? null : normalizeHomePreferences(row.preferences),
+    };
   }
 
   async setMonthlyBudget(budget: number): Promise<void> {

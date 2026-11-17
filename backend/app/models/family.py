@@ -13,8 +13,10 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     Numeric,
     Text,
+    UniqueConstraint,
     func,
     text,
 )
@@ -32,7 +34,9 @@ class Family(Base):
     )
     name: Mapped[str] = mapped_column(Text, nullable=False)
     code: Mapped[str] = mapped_column(Text, nullable=False, unique=True)  # کد نمایشی خانواده
-    budget: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, server_default=text("0"))
+    budget: Mapped[Decimal] = mapped_column(
+        Numeric(15, 2), nullable=False, server_default=text("0")
+    )
     currency: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'تومان'"))
     dark: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     # سازنده (Creator) — جدا از نقش (§2.4). nullable تا خانواده بدونِ owner قفل نشود.
@@ -47,19 +51,25 @@ class Family(Base):
 class Member(Base):
     __tablename__ = "members"
     __table_args__ = (
+        UniqueConstraint("id", "family_id", name="uq_members_id_family"),
         CheckConstraint("gender IS NULL OR gender IN ('male','female')", name="gender"),
         CheckConstraint("status IN ('pending','active')", name="status"),
         CheckConstraint(
-            "membership_state IN "
-            "('pending','active','rejected','expired','suspended','removed')",
+            "membership_state IN ('pending','active','rejected','expired','suspended','removed')",
             name="membership_state",
         ),
         CheckConstraint("theme IN ('light','dark','auto')", name="theme"),
         CheckConstraint("currency IN ('تومان','ریال')", name="currency"),
+        CheckConstraint("profile_revision >= 1", name="profile_revision_positive"),
+        CheckConstraint(
+            "home_preferences_revision >= 0", name="home_preferences_revision_nonnegative"
+        ),
         # یکتایی شماره فقط برای مقادیر واقعی؛ چند عضو بدون شماره مجاز است.
         Index(
-            "uq_members_phone", "phone",
-            unique=True, postgresql_where=text("phone IS NOT NULL"),
+            "uq_members_phone",
+            "phone",
+            unique=True,
+            postgresql_where=text("phone IS NOT NULL"),
         ),
     )
 
@@ -79,6 +89,9 @@ class Member(Base):
     )
     gender: Mapped[str | None] = mapped_column(Text)
     birth_date: Mapped[date | None] = mapped_column(Date)
+    profile_revision: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
+    # Protected eligibility history; absent from profile input and all public responses.
+    document_access_not_before: Mapped[date | None] = mapped_column(Date)
     # national_id بازنشسته شد (درخواست مالک ۲۰۲۶-۰۹-۰۸): کدملی از کل برنامه حذف شد؛
     # ستون در مهاجرت 0001 هم ساخته نمی‌شود و دادهٔ قدیمی در فاز ۱۰ منتقل نخواهد شد.
     # national_id: Mapped[str | None] = mapped_column(Text)
@@ -107,4 +120,9 @@ class Member(Base):
     # (domain/notification/notification.rules.ts).
     notif_prefs: Mapped[dict] = mapped_column(
         JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    # Personal navigation arrangement; deliberately absent from MemberPublic/family lists.
+    home_preferences: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    home_preferences_revision: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("0")
     )

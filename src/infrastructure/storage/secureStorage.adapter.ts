@@ -9,6 +9,8 @@
    نباید بدون عبور از این adapter در storage بنشیند. */
 
 export interface SecureStorage {
+  /** False means memory fallback: it cannot safely accept an offline outbox. */
+  readonly persistent?: boolean;
   get<T>(key: string): Promise<T | null>;
   set<T>(key: string, value: T): Promise<void>;
   remove(key: string): Promise<void>;
@@ -72,8 +74,20 @@ async function loadOrCreateKey(db: IDBDatabase): Promise<CryptoKey> {
     false /* non-extractable */,
     ["encrypt", "decrypt"],
   );
-  await idbPut(db, KEY_ID, key);
-  return key;
+  // Page and worker may initialize together. The transaction chooses one key
+  // without overwriting a key that another context has already started using.
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    const request = tx.objectStore(STORE).get(KEY_ID);
+    let selected = key;
+    request.onsuccess = () => {
+      if (request.result) selected = request.result as CryptoKey;
+      else tx.objectStore(STORE).put(key, KEY_ID);
+    };
+    tx.oncomplete = () => resolve(selected);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
 }
 
 function createMemoryStorage(): SecureStorage {
@@ -82,6 +96,7 @@ function createMemoryStorage(): SecureStorage {
     "[secureStorage] IndexedDB/WebCrypto در دسترس نیست — ذخیره‌سازی فقط در حافظه موقت",
   );
   return {
+    persistent: false,
     async get<T>(key: string) {
       const raw = mem.get(key);
       return raw ? (JSON.parse(raw) as T) : null;
@@ -105,6 +120,7 @@ export async function createSecureStorage(): Promise<SecureStorage> {
     const key = await loadOrCreateKey(db);
 
     return {
+      persistent: true,
       async get<T>(k: string): Promise<T | null> {
         const rec = await idbGet<EncryptedRecord>(db, k);
         if (!rec) return null;

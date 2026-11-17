@@ -20,6 +20,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     Numeric,
     Text,
     UniqueConstraint,
@@ -51,6 +52,7 @@ class ShoppingList(Base):
         ForeignKey("members.id", ondelete="SET NULL")
     )
     title: Mapped[str] = mapped_column(Text, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -82,6 +84,7 @@ class InventoryItem(Base):
         ForeignKey("members.id", ondelete="SET NULL")
     )
     title: Mapped[str] = mapped_column(Text, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
     unit: Mapped[str | None] = mapped_column(Text)
     quantity: Mapped[Decimal] = mapped_column(
         Numeric(10, 2), nullable=False, server_default=text("0")
@@ -130,6 +133,7 @@ class ShoppingItem(Base):
         ForeignKey("members.id", ondelete="SET NULL")
     )
     title: Mapped[str] = mapped_column(Text, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
     qty: Mapped[Decimal] = mapped_column(
         Numeric(10, 2), nullable=False, server_default=text("1")
     )

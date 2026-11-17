@@ -1,0 +1,44 @@
+.vehicle-summary { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-block-end: 18px; }
+.vehicle-count { font-size: 1.15rem; font-weight: 700; line-height: 1.45; margin: 0 0 6px; }
+.vehicle-summary .icon { color: var(--accent-strong); }
+.vehicle-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 16px; }
+.vehicle-tab { min-height: 44px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; color: var(--text-2); background: var(--card); font: inherit; font-size: 0.88rem; cursor: pointer; }
+.vehicle-tab.active { color: var(--accent-strong); border-color: var(--accent-strong); font-weight: 600; }
+.vehicle-list { display: grid; gap: 14px; }
+.vehicle-row { display: flex; gap: 12px; align-items: flex-start; min-width: 0; }
+.vehicle-details { display: grid; gap: 8px; flex: 1; min-width: 0; padding: 0; background: transparent; border: 0; text-align: start; color: var(--text); font: inherit; cursor: pointer; }
+.vehicle-details b { font-size: 1.05rem; line-height: 1.45; overflow-wrap: anywhere; }
+.vehicle-details span { font-size: 0.88rem; line-height: 1.45; color: var(--text-2); overflow-wrap: anywhere; }
+.vehicle-details .vehicle-overdue { color: var(--danger); }
+.vehicle-sheet { font-kerning: normal; text-rendering: optimizeLegibility; }
+.vehicle-fields { min-width: 0; margin: 0; padding: 0; border: 0; }
+.vehicle-two-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.vehicle-sheet .text-input { width: 100%; min-height: 44px; }
+.vehicle-description { resize: vertical; line-height: 1.6; }
+.vehicle-check { display: flex; align-items: center; gap: 10px; min-height: 44px; margin-block: 12px; font-size: 0.95rem; }
+.vehicle-check input { flex-shrink: 0; }
+.vehicle-date { margin-block-end: 12px; }
+.vehicle-date .form-row { margin-block-end: 0; }
+.vehicle-text-action { min-height: 44px; padding: 6px 0; border: 0; background: transparent; color: var(--accent-strong); font: inherit; font-size: 0.88rem; cursor: pointer; }
+.vehicle-sheet :is(form, .vehicle-detail-body) > :is(.btn-primary, .btn-secondary), .vehicle-download, .vehicle-sheet > .btn-secondary, .vehicle-sheet > .btn-primary { display: block; width: 100%; margin-block-start: 14px; }
+.vehicle-facts { display: grid; gap: 14px; margin: 0 0 22px; }
+.vehicle-facts > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 12px; }
+.vehicle-facts dt { color: var(--text-2); font-size: 0.9rem; }
+.vehicle-facts dd { margin: 0; font-size: 0.95rem; overflow-wrap: anywhere; }
+.vehicle-actions { display: grid; gap: 12px; }
+.vehicle-link { display: grid; gap: 12px; margin-block: 22px; font-size: 0.95rem; line-height: 1.45; overflow-wrap: anywhere; }
+.vehicle-section-title { font-size: 1.05rem; margin: 26px 0 14px; line-height: 1.45; }
+.vehicle-history { list-style: none; padding: 0; margin: 0; }
+.vehicle-history li { border-block-start: 1px solid var(--border); padding-block: 16px; }
+.vehicle-history b { font-size: 0.95rem; line-height: 1.45; }
+.vehicle-history p { margin: 8px 0; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.vehicle-history span { color: var(--text-2); font-size: 0.88rem; }
+.vehicle-history span { display: block; margin-block: 6px; line-height: 1.45; }
+.vehicle-history .vehicle-service-cost { font-size: 0.92rem; }
+.vehicle-sheet .amt-field, .vehicle-sheet .num-input { width: 100%; min-width: 0; }
+.vehicle-sheet .form-error { color: var(--danger); font-size: 0.95rem; line-height: 1.6; margin-block: 14px; }
+.vehicle-delete { background: var(--danger); }
+.vehicle-preview { display: block; max-width: 100%; max-height: 55vh; margin-inline: auto; object-fit: contain; }
+.vehicle-download { text-align: center; text-decoration: none; }
+.vehicle-page :is(button, input, select):focus-visible, .vehicle-sheet :is(button, input, select, textarea, a):focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 3px; }
+@media (min-width: 720px) { .vehicle-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

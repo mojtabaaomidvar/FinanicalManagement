@@ -13,6 +13,7 @@ import {
 } from "@/shared/lib/jalali";
 
 import { EVENT_PRESETS } from "@/domain/event/event.types";
+import type { FamilyEvent } from "@/domain/event/event.types";
 
 export function EventsCard() {
   const { events, useCases, refreshData, member } = useApp();
@@ -63,12 +64,12 @@ export function EventsCard() {
   }
 
   /* مدیر: رویداد متعلق به دیگری را نمی‌تواند بزند جز خودش — حذف عادی کار می‌کند */
-  const canDelete = (ev: { memberId: string | null }) =>
-    member?.role === "owner" || ev.memberId === member?.id;
+  const canDelete = (ev: FamilyEvent) =>
+    ev.kind !== "activity" && (member?.role === "owner" || ev.memberId === member?.id);
 
   return (
     <Card
-      title="رویدادهای مهم خانواده"
+      title={/* @copy-text src/pages/SettingsPage/EventsCard.tsx:22:jsx-attribute */ "رویدادهای مهم\n"}
       action={
         <button className="link-btn" onClick={() => setOpen(true)}>
           + افزودن

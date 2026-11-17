@@ -22,23 +22,26 @@
 سابقه و پیوندِ تراکنش است؛ لیستِ خرید جایِ «چه بخریم» است نه آرشیو.
 
 **۵) تکراری‌بودنِ عنوان در یک لیست رد می‌شود — ولی قیدِ دیتابیس ندارد.**
-این یک محافظِ تجربهٔ کاربری است نه یک ناوردای درستی: دردِ واقعیِ لیستِ
-مشترک این است که دو نفر هم‌زمان «شیر» را اضافه کنند. تنها نویسندهٔ این
-جدول همین سرویس است، پس سطحِ درستِ این بررسی همین‌جاست (برخلافِ مبلغِ
-قبض که قیدِ دیتابیس هم دارد، چون آن یکی ناورداست).
+همهٔ تغییرهای اقلام، از جمله مسیر آفلاین و افزودن گروهی، ابتدا لیستِ
+والد را قفل می‌کنند؛ پس دو عضو نمی‌توانند هم‌زمان «شیر» را اضافه کنند
+یا عنوانی را به آن تغییر دهند. بررسیِ عنوان پس از گرفتن همین قفل است.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
 from app.models.family import Member
 from app.models.shopping import InventoryItem, ShoppingItem, ShoppingList
+from app.models.shopping_sync import ShoppingSyncReceipt
 from app.schemas.data import (
     ShoppingItemOut,
     ShoppingItemWrite,
@@ -47,6 +50,12 @@ from app.schemas.data import (
     TransactionWrite,
     TripComplete,
     TripResult,
+)
+from app.schemas.shopping_batch import (
+    ShoppingBatchAdded,
+    ShoppingBatchRequest,
+    ShoppingBatchResult,
+    ShoppingBatchSkipped,
 )
 from app.services import inventory as inventory_service
 from app.services import transactions as tx_service
@@ -118,10 +127,13 @@ def _get_list(db: Session, actor: Member, list_id: uuid.UUID) -> ShoppingList:
     را نگه می‌دارد. (همان درسِ §۷.)
     """
     row = db.execute(
-        select(ShoppingList).where(
+        select(ShoppingList)
+        .where(
             ShoppingList.id == list_id,
             ShoppingList.family_id == actor.family_id,
         )
+        .with_for_update()
+        .execution_options(populate_existing=True)
     ).scalar_one_or_none()
     if row is None:
         raise AppError("NOT_FOUND", "لیست خرید یافت نشد.", 404)
@@ -129,11 +141,26 @@ def _get_list(db: Session, actor: Member, list_id: uuid.UUID) -> ShoppingList:
 
 
 def _get_item(db: Session, actor: Member, item_id: uuid.UUID) -> ShoppingItem:
-    row = db.execute(
-        select(ShoppingItem).where(
+    # Read only the immutable parent id before locking. Every item mutation
+    # takes the parent first, including offline writes and checkout, so title
+    # checks cannot race and parent revision triggers cannot invert lock order.
+    list_id = db.scalar(
+        select(ShoppingItem.list_id).where(
             ShoppingItem.id == item_id,
             ShoppingItem.family_id == actor.family_id,
         )
+    )
+    if list_id is None:
+        raise AppError("NOT_FOUND", "قلم لیست یافت نشد.", 404)
+    _get_list(db, actor, list_id)
+    row = db.execute(
+        select(ShoppingItem)
+        .where(
+            ShoppingItem.id == item_id,
+            ShoppingItem.family_id == actor.family_id,
+        )
+        .with_for_update()
+        .execution_options(populate_existing=True)
     ).scalar_one_or_none()
     if row is None:
         raise AppError("NOT_FOUND", "قلم لیست یافت نشد.", 404)
@@ -143,11 +170,13 @@ def _get_item(db: Session, actor: Member, item_id: uuid.UUID) -> ShoppingItem:
 def _pending_of(db: Session, actor: Member, list_id: uuid.UUID) -> list[ShoppingItem]:
     return list(
         db.execute(
-            select(ShoppingItem).where(
+            select(ShoppingItem)
+            .where(
                 ShoppingItem.family_id == actor.family_id,
                 ShoppingItem.list_id == list_id,
                 ShoppingItem.bought_at.is_(None),
             )
+            .execution_options(populate_existing=True)
         ).scalars()
     )
 
@@ -319,6 +348,132 @@ def add_item(
     db.commit()
     db.refresh(row)
     return _item_out(row)
+
+
+def _lock_operation(db: Session, actor: Member, operation_id: uuid.UUID) -> None:
+    """Serialize the same receipt key across batch and offline endpoints."""
+    lock_source = f"{actor.family_id}/{actor.id}/{operation_id}".encode()
+    lock_key = int.from_bytes(hashlib.sha256(lock_source).digest()[:8], "big", signed=True)
+    db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": lock_key})
+
+
+def _prepare_batch(req: ShoppingBatchRequest) -> list[dict]:
+    # Stable first-occurrence order lets receipts identify aggregated request
+    # items by index, without retaining ingredient names or quantities.
+    grouped: dict[str, dict] = {}
+    for item in req.items:
+        title = inventory_service.clean_title(item.title, "نام قلم")
+        unit = inventory_service.clean_opt_text(item.unit, _MAX_UNIT, "واحد")
+        qty = inventory_service.clean_number(item.qty, "تعداد", minimum=Decimal("0.01"))
+        existing = grouped.get(title)
+        if existing is None:
+            grouped[title] = {"title": title, "qty": qty, "unit": unit}
+        elif existing["unit"] != unit:
+            raise AppError(
+                "INVALID_INPUT", f"برای «{title}» واحدهای متفاوت انتخاب شده است.", 422
+            )
+        else:
+            existing["qty"] = inventory_service.clean_number(
+                existing["qty"] + qty, "تعداد", minimum=Decimal("0.01")
+            )
+    return list(grouped.values())
+
+
+def _batch_result(
+    receipt: ShoppingSyncReceipt, prepared: list[dict], replayed: bool
+) -> ShoppingBatchResult:
+    result = receipt.result_json
+    return ShoppingBatchResult(
+        operation_id=str(receipt.operation_id),
+        list_id=str(receipt.entity_id),
+        replayed=replayed,
+        added=[
+            ShoppingBatchAdded(id=item["id"], **prepared[item["index"]])
+            for item in result["added"]
+        ],
+        skipped=[
+            ShoppingBatchSkipped(id=item["id"], title=prepared[item["index"]]["title"])
+            for item in result["skipped"]
+        ],
+        added_count=result["added_count"],
+        skipped_count=result["skipped_count"],
+    )
+
+
+def ensure_missing(
+    db: Session, actor: Member, list_id: uuid.UUID, req: ShoppingBatchRequest
+) -> ShoppingBatchResult:
+    prepared = _prepare_batch(req)
+    encoded = json.dumps(
+        {
+            "kind": "list.ensure-missing",
+            "list_id": str(list_id),
+            "body": req.model_dump(mode="json"),
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    request_hash = hashlib.sha256(encoded.encode()).hexdigest()
+    _lock_operation(db, actor, req.operation_id)
+    receipt = db.get(ShoppingSyncReceipt, (actor.family_id, actor.id, req.operation_id))
+    if receipt is not None:
+        if receipt.request_hash != request_hash:
+            raise AppError(
+                "OPERATION_REUSED", "شناسهٔ این تغییر قبلاً با اطلاعات دیگری استفاده شده است.", 409
+            )
+        return _batch_result(receipt, prepared, True)
+
+    parent = _get_list(db, actor, list_id)
+    pending = _pending_of(db, actor, parent.id)
+    existing = {item.title: item for item in _sort_items(pending)}
+    missing_count = sum(item["title"] not in existing for item in prepared)
+    if len(pending) + missing_count > _MAX_ITEMS:
+        raise AppError("LIMIT_REACHED", "تعداد اقلامِ این لیست به سقف رسیده است.", 409)
+
+    added: list[dict] = []
+    skipped: list[dict] = []
+    for index, values in enumerate(prepared):
+        found = existing.get(values["title"])
+        if found is not None:
+            skipped.append({"id": str(found.id), "index": index})
+            continue
+        row = ShoppingItem(
+            id=uuid.uuid4(),
+            family_id=actor.family_id,
+            list_id=parent.id,
+            created_by=actor.id,
+            **values,
+        )
+        db.add(row)
+        added.append({"id": str(row.id), "index": index})
+
+    # Acknowledgments retain only opaque ids and request positions. The matching
+    # retry supplies its own validated content even after an item was deleted.
+    receipt = ShoppingSyncReceipt(
+        family_id=actor.family_id,
+        member_id=actor.id,
+        operation_id=req.operation_id,
+        request_hash=request_hash,
+        entity_type="list",
+        entity_id=parent.id,
+        revision=None,
+        result_json={
+            "added": added,
+            "skipped": skipped,
+            "added_count": len(added),
+            "skipped_count": len(skipped),
+        },
+    )
+    db.add(receipt)
+    try:
+        # Inserted items, parent revision triggers, and receipt commit together.
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise AppError(
+            "SYNC_CONFLICT", "این تغییر با اطلاعات فعلی سرور سازگار نیست؛ دوباره بررسی‌اش کنید.", 409
+        ) from None
+    return _batch_result(receipt, prepared, False)
 
 
 def update_item(

@@ -16,6 +16,8 @@
 import { useMemo, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
+import { ShoppingSyncStatus } from "@/features/shopping-offline/ui/ShoppingSyncStatus";
+import { useOnline } from "@/shared/lib/useOnline";
 import { Card, Field, Icon, Modal, Select, TextInput } from "@/shared/ui";
 import type { InventoryItem } from "@/domain/shopping/shopping.types";
 import { UNIT_PRESETS } from "@/domain/shopping/shopping.types";
@@ -45,8 +47,18 @@ const EMPTY: ItemForm = {
 };
 
 export function InventoryPage() {
-  const { useCases, inventory, shoppingLists, refreshData } = useApp();
+  const { useCases, inventory, shoppingLists, refreshData, shoppingSync } = useApp();
   const { show } = useToast();
+  const online = useOnline();
+  const offline = !online || shoppingSync.offline;
+
+  function showChange(message: string) {
+    show(
+      offline
+        ? "تغییر روی این دستگاه نگه داشته شد و پس از اتصال ارسال می‌شود"
+        : message,
+    );
+  }
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<InventoryItem | null>(null);
@@ -106,7 +118,7 @@ export function InventoryPage() {
       else await useCases.addInventoryItem.execute(input);
       await refreshData();
       setOpen(false);
-      show(editing ? "به‌روز شد" : "به انبار اضافه شد");
+      showChange(editing ? "به‌روز شد" : "به انبار اضافه شد");
     } catch (e) {
       show((e as Error).message || "ذخیره ناموفق بود");
     } finally {
@@ -134,7 +146,7 @@ export function InventoryPage() {
     try {
       await useCases.deleteInventoryItem.execute(item.id);
       await refreshData();
-      show("حذف شد");
+      showChange("حذف شد");
     } catch (e) {
       show((e as Error).message || "حذف ناموفق بود");
     } finally {
@@ -170,7 +182,7 @@ export function InventoryPage() {
       });
       await refreshData();
       setSending(null);
-      show(`«${item.title}» به لیست خرید اضافه شد`);
+      showChange(`«${item.title}» به لیست خرید اضافه شد`);
     } catch (e) {
       show((e as Error).message || "افزودن ناموفق بود");
     } finally {
@@ -188,6 +200,7 @@ export function InventoryPage() {
       </header>
 
       <div className="content">
+        <ShoppingSyncStatus />
         <Card>
           <div className="bill-summary">
             <p className="bill-summary-label">
@@ -254,7 +267,7 @@ export function InventoryPage() {
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title={editing ? "ویرایش قلم انبار" : "قلم تازه"}
+        title={editing ? "ویرایش قلم انبار" : "قلم جدید"}
         dragToClose
       >
         <Field label="نام">

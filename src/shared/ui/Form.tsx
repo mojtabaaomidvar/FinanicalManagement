@@ -1,3 +1,4 @@
+import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* کامپوننت‌های پایه فرم — سازگار با کلاس‌های CSS موجود */
 
 import { useState, type ChangeEvent, type ReactNode } from "react";
@@ -74,7 +75,7 @@ export function AmountInput(props: {
   return (
     <div className="amt-field">
       {input}
-      <span className="cur-suffix">{props.currency}</span>
+      <span className="cur-suffix">{currencyDisplayLabel(props.currency)}</span>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* ویجت جریان هفته — نوار فشرده: خالص هفته + ۷ ستون کوچک ورودی/خروجی */
 
 import { useMemo } from "react";
@@ -22,7 +23,7 @@ export function WeeklyFlowWidget() {
         <h3 className="strip-title">جریان هفت روز گذشته</h3>
         <span className={`strip-net ${flow.net >= 0 ? "income" : "expense"}`}>
           {formatAmount(toDisplay(flow.net, cur))}
-          <i>{cur}</i>
+          <i>{currencyDisplayLabel(cur)}</i>
         </span>
       </div>
 

@@ -18,7 +18,8 @@ from app.core.config import settings
 from app.core.errors import AppError
 from app.core.security import hash_password
 from app.db.rls import bind_family_to_session
-from app.models.auth import FamilyInvite, Session as SessionModel
+from app.models.auth import FamilyInvite
+from app.models.auth import Session as SessionModel
 from app.models.family import Family, Member
 from app.models.join_request import JoinRequest
 from app.schemas.auth import (
@@ -36,6 +37,7 @@ from app.services import otp as otp_service
 from app.services import ratelimit
 from app.services.clock import utcnow
 from app.services.common import is_admin
+from app.services.member_age import preserve_document_eligibility
 
 _INVITE_TTL_DAYS = 30
 _INVITE_TOKEN_LEN = 40
@@ -74,9 +76,7 @@ def family_of(db: Session, family_id: uuid.UUID) -> Family:
 def members_of(db: Session, family_id: uuid.UUID) -> list[Member]:
     return list(
         db.execute(
-            select(Member)
-            .where(Member.family_id == family_id)
-            .order_by(Member.created_at.asc())
+            select(Member).where(Member.family_id == family_id).order_by(Member.created_at.asc())
         ).scalars()
     )
 
@@ -164,9 +164,7 @@ def _register_pending_joiner(
 
     otp_service.consume_otp(db, phone, otp_code)
 
-    exists = db.execute(
-        select(Member.id).where(Member.phone == phone).limit(1)
-    ).first()
+    exists = db.execute(select(Member.id).where(Member.phone == phone).limit(1)).first()
     if exists is not None:
         raise AppError("PHONE_EXISTS", "این شماره قبلاً ثبت شده است.", 409)
 
@@ -227,9 +225,7 @@ def join_by_code(
 ) -> JoinPendingResult:
     """پیوستن با کدِ ۶ رقمیِ خانواده (§2.6): جریانِ pending، بدونِ نشست."""
     _limit_join_probe(db, ip)
-    family = db.execute(
-        select(Family).where(Family.code == req.code).limit(1)
-    ).scalar_one_or_none()
+    family = db.execute(select(Family).where(Family.code == req.code).limit(1)).scalar_one_or_none()
     if family is None:
         raise AppError("INVALID_CODE", "کد خانواده نامعتبر است.", 404)
     _register_pending_joiner(
@@ -379,9 +375,7 @@ def add_member_by_manager(
     if not relation:
         raise AppError("INVALID_RELATION", "نسبت را مشخص کنید.", 422)
 
-    exists = db.execute(
-        select(Member.id).where(Member.phone == phone).limit(1)
-    ).first()
+    exists = db.execute(select(Member.id).where(Member.phone == phone).limit(1)).first()
     if exists is not None:
         raise AppError("PHONE_EXISTS", "این شماره قبلاً ثبت شده است.", 409)
 
@@ -400,7 +394,12 @@ def add_member_by_manager(
 
 def remove_member(db: Session, actor: Member, member_id: uuid.UUID) -> None:
     """حذف عضو (فقط مدیر؛ مدیر قابل حذف نیست)؛ نشست‌های او هم باطل می‌شوند."""
-    target = db.get(Member, member_id)
+    target = db.scalar(
+        select(Member)
+        .where(Member.id == member_id, Member.family_id == actor.family_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     if target is None or target.family_id != actor.family_id:
         raise AppError("NOT_FOUND", "عضو یافت نشد.", 404)
     if not is_admin(actor):
@@ -408,9 +407,24 @@ def remove_member(db: Session, actor: Member, member_id: uuid.UUID) -> None:
     if target.role == "owner":
         raise AppError("CANNOT_REMOVE_OWNER", "مدیر خانواده قابل حذف نیست.", 409)
 
+    from app.services.events import clear_member_birthday
+
+    clear_member_birthday(db, actor, target)
+    db.flush()  # Remove birthday rows before the member FK can null their target.
     db.execute(delete(SessionModel).where(SessionModel.member_id == target.id))
     db.delete(target)
     db.commit()
+    # Only opaque owner-scoped encrypted files are touched; private metadata stays unread.
+    from app.services import storage
+
+    try:
+        storage.get_storage().delete_document_owner(str(target.family_id), str(target.id))
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "document owner_cleanup_failed actor=%s member=%s", actor.id, target.id
+        )
 
 
 # ── تنظیمات خانواده و پروفایل عضو (فاز ۷ — بیرون از RLS) ────
@@ -441,6 +455,15 @@ def update_member_profile(db: Session, actor: Member, req: MemberProfileUpdate) 
     name = (req.name or "").strip()
     if not (1 <= len(name) <= _MEMBER_NAME_MAX):
         raise AppError("INVALID_NAME", "نام باید ۱ تا ۴۰ کاراکتر باشد.", 422)
+    actor = db.scalar(
+        select(Member)
+        .where(Member.id == actor.id, Member.family_id == actor.family_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if actor is None:
+        raise AppError("NOT_FOUND", "عضو یافت نشد.", 404)
+    preserve_document_eligibility(actor, req.birth_date, actor.relation)
     actor.name = name
     gender = (req.gender or "").strip().lower()
     actor.gender = gender if gender in ("male", "female") else None
@@ -451,6 +474,9 @@ def update_member_profile(db: Session, actor: Member, req: MemberProfileUpdate) 
     theme = (req.theme or "").strip()
     if theme in _THEMES:
         actor.theme = theme
+    from app.services.events import reconcile_member_birthday
+
+    reconcile_member_birthday(db, actor, actor)
     db.commit()
     db.refresh(actor)
     return actor
@@ -481,7 +507,12 @@ def set_member_relation(
 ) -> Member:
     """تعیین نسبت یک عضو. مدیر می‌تواند نسبت هر عضو را تغییر دهد؛ عضو عادی فقط
     نسبت خودش را. نسبت «مدیر» ثابت است (OWNER_RELATION_FIXED)."""
-    target = db.get(Member, member_id)
+    target = db.scalar(
+        select(Member)
+        .where(Member.id == member_id, Member.family_id == actor.family_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     if target is None or target.family_id != actor.family_id:
         raise AppError("NOT_FOUND", "عضو یافت نشد.", 404)
     if target.role == "owner":
@@ -491,7 +522,13 @@ def set_member_relation(
     rel = (relation or "").strip()
     if not rel:
         raise AppError("EMPTY_RELATION", "نسبت را مشخص کنید.", 422)
+    preserve_document_eligibility(
+        target, target.birth_date, rel, manager_approval=is_admin(actor) and target.id != actor.id
+    )
     target.relation = rel
+    from app.services.events import reconcile_member_birthday
+
+    reconcile_member_birthday(db, actor, target)
     db.commit()
     db.refresh(target)
     return target

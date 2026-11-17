@@ -48,7 +48,7 @@ export function DashboardPage({
   /* اعلان‌ها: رویدادهای ۳۰ روز آینده + هشدار بودجه‌ها */
   const notifs = useMemo(() => {
     const items: {
-      icon: string;
+      icon?: string;
       title: string;
       sub: string;
       danger?: boolean;
@@ -177,11 +177,11 @@ export function DashboardPage({
           <div className="notif-list">
             {notifs.map((n, i) => (
               <div className={`notif-item ${n.danger ? "danger" : ""}`} key={i}>
-                <span className="notif-ico">
+                {n.icon ? <span className="notif-ico">
                   <svg>
                     <use href={`#${n.icon}`} />
                   </svg>
-                </span>
+                </span> : null}
                 <div>
                   <b>{n.title}</b>
                   <p>{n.sub}</p>

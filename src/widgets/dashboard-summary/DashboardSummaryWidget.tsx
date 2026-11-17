@@ -1,3 +1,4 @@
+import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* ⚠️ بازنشسته (بازطراحی خانه) — دیگر در هیچ صفحه‌ای استفاده نمی‌شود.
    جانشین‌ها: widgets/home-summary (موجودی + دفتر ماه + قابل خرج)،
    widgets/month-expenses (نمودار ماه) و widgets/recent-tx (تراکنش‌های اخیر).
@@ -99,7 +100,7 @@ export function DashboardSummaryWidget({
             style={data.balance < 0 ? { color: "var(--danger)" } : undefined}
           >
             {formatAmount(toDisplay(data.balance, cur))}
-            <span className="fin-hero-cur">{cur}</span>
+            <span className="fin-hero-cur">{currencyDisplayLabel(cur)}</span>
           </h2>
         </div>
         <div className="fin-hero-grid">
@@ -110,7 +111,7 @@ export function DashboardSummaryWidget({
             </span>
             <b className="fin-cell-value income">
               {formatAmount(toDisplay(data.totals.income, cur))}
-              <span className="cur-tag">{cur}</span>
+              <span className="cur-tag">{currencyDisplayLabel(cur)}</span>
             </b>
           </div>
           <div className="fin-cell">
@@ -120,7 +121,7 @@ export function DashboardSummaryWidget({
             </span>
             <b className="fin-cell-value expense">
               {formatAmount(toDisplay(data.totals.expense, cur))}
-              <span className="cur-tag">{cur}</span>
+              <span className="cur-tag">{currencyDisplayLabel(cur)}</span>
             </b>
           </div>
           <div className="fin-cell wide">
@@ -129,7 +130,7 @@ export function DashboardSummaryWidget({
               className={`fin-cell-value net ${monthNet >= 0 ? "income" : "expense"}`}
             >
               {formatAmount(toDisplay(Math.abs(monthNet), cur))}
-              <span className="cur-tag">{cur}</span>
+              <span className="cur-tag">{currencyDisplayLabel(cur)}</span>
             </b>
           </div>
         </div>
@@ -159,7 +160,7 @@ export function DashboardSummaryWidget({
             <div className="donut-center">
               <b>
                 {formatAmount(toDisplay(data.totals.expense, cur))}
-                <span className="cur-tag">{cur}</span>
+                <span className="cur-tag">{currencyDisplayLabel(cur)}</span>
               </b>
               <span>جمع هزینه</span>
             </div>
@@ -181,7 +182,7 @@ export function DashboardSummaryWidget({
                 <span>{d.label}</span>
                 <b>
                   {formatAmount(d.value)}
-                  <span className="cur-tag">{cur}</span>
+                  <span className="cur-tag">{currencyDisplayLabel(cur)}</span>
                 </b>
                 <span className="pct">
                   {toFa(

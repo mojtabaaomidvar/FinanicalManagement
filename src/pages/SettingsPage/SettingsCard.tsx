@@ -62,7 +62,7 @@ export function SettingsRow({
   tone,
 }: {
   /** شناسه آیکون در sprite، بدون # */
-  icon: string;
+  icon?: string;
   label: string;
   sub?: string;
   trailing: RowTrailing;
@@ -74,11 +74,11 @@ export function SettingsRow({
 }) {
   const body = (
     <>
-      <span className="set-row-ico">
+      {icon ? <span className="set-row-ico">
         <svg>
           <use href={`#i-${icon}`} />
         </svg>
-      </span>
+      </span> : null}
       <span className="set-row-body">
         <span className="set-row-label">{label}</span>
         {sub ? <span className="set-row-sub">{sub}</span> : null}

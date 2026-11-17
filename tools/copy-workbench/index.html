@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>خانه‌یار — ویرایش بصری برنامه</title>
+  <link rel="stylesheet" href="/workbench/style.css">
+  <script type="module" src="/workbench/app.js"></script>
+  <script type="module" src="/workbench/transfer.js"></script>
+</head>
+<body>
+  <header class="workbench-head">
+    <div class="identity"><span class="brand-mark" aria-hidden="true">خ</span><div><h1>ویرایش بصری خانه‌یار</h1><p>نوشته‌ها و آیکون‌های رابط کاربری</p></div></div>
+    <div class="head-actions"><span class="local-label">محیط محلی</span><button id="reload-catalog" type="button">دریافت دوبارهٔ فهرست</button><button id="undo-batch" type="button" disabled>برگرداندن آخرین اعمال</button><button id="apply-changes" class="primary" type="button" disabled>اعمال در کد <span id="apply-count">۰</span></button></div>
+  </header>
+  <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+  <section class="save-panel panel" aria-labelledby="save-title">
+    <div class="panel-heading"><h2 id="save-title">وضعیت ویرایش‌ها</h2><button id="reload-save-state" type="button" class="text-button">دریافت وضعیت ذخیره</button></div>
+    <p id="save-status" role="status" aria-live="polite">در حال دریافت سابقهٔ ذخیره…</p>
+    <p id="apply-help" class="help-note" role="status" aria-live="polite" hidden></p>
+    <p id="build-status" class="help-note"></p>
+    <p class="help-note">«اعمال در کد» همهٔ پیش‌نویس‌ها را در فایل‌های همین پروژه ذخیره می‌کند و پیش‌نمایش این محیط را می‌سازد. برای به‌روزرسانی <a href="http://127.0.0.1:5700" target="_blank" rel="noopener">برنامهٔ تست اصلی</a>، فایل <code dir="ltr">refresh-test.bat</code> را اجرا کن. برای اجرای دوبارهٔ ویرایشگر هم <code dir="ltr">start-copy-editor.bat</code> را باز کن.</p>
+    <details id="saved-history"><summary>سابقهٔ اعمال و فایل‌های تغییرکرده</summary><div id="saved-batches"></div></details>
+  </section>
+  <section class="transfer-panel panel" aria-labelledby="transfer-title">
+    <div class="panel-heading"><h2 id="transfer-title">واگذاری ویرایش بصری</h2><span class="tag">بدون اتصال به سیستم تو</span></div>
+    <p class="help-note">همین محیط با پیش‌نمایش تعاملی، ویرایش متن و آیکون و پیشنهاد حذف در یک فایل مستقل آماده می‌شود. آن شخص فایل را در مرورگر خودش باز می‌کند و تغییرها را برای بررسی به تو برمی‌گرداند.</p>
+    <div class="transfer-actions"><button id="export-package" type="button">ساخت بستهٔ ویرایش آفلاین</button><label class="transfer-file">واردکردن فایل تغییرها<input id="import-package" type="file" accept=".json,application/json"></label><a id="package-download" hidden>دریافت دوبارهٔ بسته</a></div>
+    <p id="transfer-status" class="help-note" role="status" aria-live="polite"></p>
+    <details id="transfer-review" hidden><summary>بررسی نوشته‌های برگشتی <span id="transfer-count"></span></summary><p class="help-note">موارد انتخاب‌شده با دکمهٔ پایین به پیش‌نویس‌ها اضافه می‌شوند؛ سپس با «اعمال در کد» ذخیره‌شان کن.</p><div id="transfer-changes"></div><div class="transfer-actions"><button id="stage-package" type="button">افزودن موارد انتخاب‌شده به پیش‌نویس‌ها</button><button id="close-package-review" class="text-button" type="button">بستن بررسی</button></div></details>
+  </section>
+  <main class="workbench-grid">
+    <section class="catalog-panel panel" aria-labelledby="catalog-title">
+      <div class="panel-heading"><h2 id="catalog-title">نوشته‌ها و آیکون‌ها</h2><span id="catalog-count" class="count">…</span></div>
+      <label class="sr-only" for="copy-search">جست‌وجوی نوشته، آیکون یا محل نمایش</label><input id="copy-search" type="search" placeholder="جست‌وجوی نوشته، آیکون یا محل نمایش…" autocomplete="off">
+      <div class="filter-row"><label for="copy-section">بخش<select id="copy-section"><option value="">همهٔ بخش‌ها</option></select></label><label for="copy-kind">نوع<select id="copy-kind"><option value="">همهٔ نوشته‌ها</option></select></label></div>
+      <div class="catalog-controls"><label class="check-label"><input id="draft-only" type="checkbox">فقط ویرایش‌های من</label><button id="reset-all" type="button" class="text-button" disabled>پاک‌کردن ویرایش‌ها</button></div>
+      <details id="draft-summary" class="draft-summary" hidden><summary>پیش‌نویس‌ها <span id="draft-summary-count"></span></summary><p class="help-note">با زدن «اعمال در کد»، موارد معتبر ذخیره می‌شوند. پیش‌نویس‌های دارای خطا برای اصلاح باقی می‌مانند.</p><div id="draft-summary-list"></div></details>
+      <div id="picked-note" class="picked-note" hidden><span id="picked-count"></span><button id="clear-pick" type="button" class="text-button">نمایش همه</button></div>
+      <div id="catalog-list" class="catalog-list" aria-label="نوشته‌ها و آیکون‌های قابل ویرایش" aria-busy="true"></div>
+      <p id="catalog-empty" class="empty-message" hidden>موردی با این فیلتر پیدا نشد.</p>
+      <details id="draft-conflicts" class="draft-conflicts" hidden><summary>ویرایش‌هایی که نیاز به بررسی دارند <span id="conflict-count"></span></summary><p>محل یا مقدار فعلی این موارد در کد تغییر کرده است. پیش‌نویس‌ها نگه داشته شده‌اند تا بتوانی آن‌ها را بررسی کنی.</p><div id="conflict-list"></div><button id="clear-conflicts" class="text-button" type="button">حذف این پیش‌نویس‌ها</button></details>
+      <p class="catalog-footnote">مقادیر واردشده توسط کاربر در این فهرست ویرایش نمی‌شوند.</p>
+    </section>
+    <section class="editor-panel panel" aria-labelledby="editor-title">
+      <div class="panel-heading"><h2 id="editor-title">ویرایش عنصر</h2><span id="editor-kind" class="tag" hidden></span></div>
+      <div id="editor-empty" class="empty-editor"><span aria-hidden="true">✎</span><p>نوشته یا آیکون را از فهرست انتخاب کن، یا در پیش‌نمایش روی «انتخاب عنصر» بزن.</p></div>
+      <div id="editor-content" hidden>
+        <p id="editor-section" class="section-name"></p><p id="editor-context" class="context-note"></p>
+        <label for="copy-original">متن فعلی در کد</label><pre id="copy-original" class="original-copy" tabindex="0"></pre>
+        <label for="copy-edit">متن پیشنهادی</label><textarea id="copy-edit" rows="7" spellcheck="false" aria-describedby="copy-edit-help copy-validation"></textarea>
+        <p id="copy-edit-help" class="help-note">ویرایش را در پیش‌نمایش ببین؛ با «اعمال در کد» آن را ذخیره کن.</p>
+        <div id="copy-tokens" class="token-note" hidden></div><p id="copy-validation" class="validation-note" role="status" hidden></p>
+        <button id="clear-text" class="text-button" type="button">خالی‌کردن متن</button><p id="clear-text-help" class="help-note" hidden>بخش‌های متغیر این نوشته باید حفظ شوند. نوشتهٔ اطراف آن‌ها را ویرایش کن.</p>
+        <section id="text-visual-controls" class="visual-actions" aria-label="نمایش عنصر متن" hidden>
+          <label id="text-element-choice" for="text-element-target" hidden>عنصر متن<select id="text-element-target"></select></label>
+          <p id="text-element-state" class="help-note" role="status"></p>
+          <div class="visual-buttons"><button id="text-hide-element" type="button">حذف عنصر از کد</button><button id="text-show-element" type="button">لغو حذف</button></div>
+        </section>
+        <div class="editor-actions"><button id="reset-entry" type="button" disabled>بازگشت به متن فعلی</button><span id="entry-draft-state" class="draft-state"></span></div>
+        <details class="source-note"><summary>محل نوشته در پروژه</summary><code id="copy-source" dir="ltr"></code></details>
+      </div>
+      <div id="visual-editor-content" hidden>
+        <p id="visual-section" class="section-name"></p><p id="visual-context" class="context-note"></p>
+        <div id="visual-current" class="visual-current"></div>
+        <div class="visual-buttons"><button id="visual-hide" type="button">حذف عنصر از کد</button><button id="visual-show" type="button">لغو حذف</button></div>
+        <p class="help-note">حذف، خود عنصر را از فایل کد برمی‌دارد. پیش از اعمال می‌توانی حذف را لغو کنی؛ پس از اعمال، «برگرداندن آخرین اعمال» آن را بازمی‌گرداند.</p>
+        <div id="icon-choice" class="icon-choice-panel" hidden><label for="icon-search">انتخاب آیکون جدید</label><input id="icon-search" type="search" placeholder="جست‌وجوی آیکون…" autocomplete="off"><div id="icon-palette" class="icon-palette" aria-label="آیکون‌های برنامه"></div><p id="icon-empty" class="help-note" hidden>آیکونی با این جست‌وجو پیدا نشد.</p></div>
+        <div id="visual-text-links" class="visual-text-links" hidden></div>
+        <div class="editor-actions"><button id="visual-reset" type="button" disabled>بازگشت به وضعیت فعلی</button><span id="visual-draft-state" class="draft-state"></span></div>
+        <details class="source-note"><summary>محل عنصر در پروژه</summary><code id="visual-source" dir="ltr"></code></details>
+      </div>
+    </section>
+    <section class="preview-panel panel" aria-labelledby="preview-title">
+      <div class="panel-heading"><h2 id="preview-title">پیش‌نمایش برنامه</h2><a id="preview-open" href="#" target="_blank" rel="noopener" hidden>بازکردن جداگانه</a></div>
+      <div class="preview-controls"><label for="preview-scenario">حالت برنامه<select id="preview-scenario"></select></label><label for="preview-route">صفحه<select id="preview-route"></select></label><label for="preview-size">اندازه<select id="preview-size"><option value="mobile">موبایل</option><option value="desktop">رایانه</option></select></label></div>
+      <p id="scenario-description" class="help-note"></p>
+      <div class="preview-toolbar"><button id="pick-text" type="button" aria-pressed="false">انتخاب عنصر</button><button id="reload-preview" type="button">شروع دوبارهٔ حالت</button><span id="preview-state" role="status">در حال آماده‌سازی…</span></div>
+      <p class="preview-help">در حالت انتخاب، روی نوشته یا آیکون بزن. Alt و کلیک هم آن را انتخاب می‌کند.</p>
+      <p id="preview-draft-status" class="help-note" role="status" aria-live="polite" hidden></p>
+      <div id="preview-viewport" class="preview-viewport"><div id="preview-frame-scale" class="preview-frame-scale"><iframe id="copy-preview" title="پیش‌نمایش خانه‌یار با داده‌های نمونه" src="about:blank"></iframe></div></div>
+      <p class="preview-footnote">اطلاعات این پیش‌نمایش نمونه‌اند و تغییر آن‌ها به حساب‌های واقعی ارسال نمی‌شود.</p>
+    </section>
+  </main>
+</body>
+</html>

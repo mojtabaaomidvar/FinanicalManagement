@@ -1,6 +1,6 @@
 /* backGuard — بازگشت یکپارچه با دکمهٔ فیزیکی/نرم‌افزاری و سوایپ لبه
    ────────────────────────────────────────────────────────────────
-   بدون هیچ وابستگی تازه (@capacitor/app لازم نیست): وب‌ویوی اندروید
+   بدون هیچ وابستگی جدید (@capacitor/app لازم نیست): وب‌ویوی اندروید
    کاپاسیتور و مرورگر، دکمهٔ بازگشت و سوایپ لبه را به history.back()
    می‌سپارند. پس کافی است هر لایهٔ «قابل‌بستن با بازگشت» (مودال، تب
    غیرخانه، زیرصفحهٔ تنظیمات) یک ورودی در تاریخچه push کند و یک تابع
@@ -12,8 +12,8 @@
    نکتهٔ ظریف: وقتی لایه‌ای به‌جای بازگشت، برنامه‌ای بسته می‌شود (کلیک
    «انصراف»، بیرون مودال، تعویض تب)، باید ورودی تاریخچه‌اش هم پس گرفته
    شود تا یک بار بازگشت اضافه لازم نشود. این کار با history.back() انجام
-   می‌شود، اما چون خودمان آن را باعث شده‌ایم نه کاربر، با پرچم
-   internalBack از فراخوانی دوبارهٔ close جلوگیری می‌کنیم. */
+   می‌شود. پیمایش تاریخچه ناهمگام است؛ تا رسیدن popstate، ورودی جدید
+   اضافه نمی‌کنیم تا بازگشت در حال انجام، لایهٔ جایگزین را مصرف نکند. */
 
 type Guard = {
   id: symbol;
@@ -21,21 +21,45 @@ type Guard = {
 };
 
 const stack: Guard[] = [];
-/* شمارندهٔ popstateهایی که خودمان (با بستن برنامه‌ای لایه) باعثشان
-   شده‌ایم و نباید close را صدا بزنند. شمارنده است نه بولین، چون ممکن
-   است چند لایه در یک تیک برنامه‌ای بسته شوند (مثلاً شیت تراکنش که شیت
-   «ورود پیامک» را هم می‌بندد) و هر کدام یک history.back() بزنند. */
-let internalBacks = 0;
+/* پشتهٔ لایه‌های باز از ورودی‌های واقعاً ثبت‌شده جداست: ممکن است لایه
+   بسته شده باشد ولی پیمایش هنوز تمام نشده، یا لایهٔ جدید منتظر ثبت باشد. */
+const historyEntries: symbol[] = [];
+let internalBackPending = false;
 let listening = false;
 
-function onPopState() {
-  if (internalBacks > 0) {
-    internalBacks--;
+function reconcileHistory() {
+  if (internalBackPending) return;
+  const liveIds = new Set(stack.map((guard) => guard.id));
+  const top = historyEntries[historyEntries.length - 1];
+  if (top && !liveIds.has(top)) {
+    /* ورودی بسته‌شدهٔ زیر یک لایهٔ باز را نگه می‌داریم تا روی پشته برسد؛
+       پس بستن لایهٔ زیرین، ورودی لایهٔ رویی را از تاریخچه حذف نمی‌کند. */
+    internalBackPending = true;
+    history.back();
     return;
   }
-  /* کاربر بازگشت زد → بالاترین لایه را ببند */
-  const top = stack.pop();
-  if (top) top.close();
+  for (const guard of stack) {
+    if (historyEntries.includes(guard.id)) continue;
+    history.pushState({ backGuard: true, k: historyEntries.length + 1 }, "");
+    historyEntries.push(guard.id);
+  }
+}
+
+function onPopState() {
+  const id = historyEntries.pop();
+  if (internalBackPending) {
+    internalBackPending = false;
+    reconcileHistory();
+    return;
+  }
+  /* ورودی مصرف‌شده را پیش از close حذف می‌کنیم تا cleanup همان لایه
+     دوباره history.back() نزند؛ close می‌تواند لایهٔ دیگری هم باز کند. */
+  const i = stack.findIndex((guard) => guard.id === id);
+  if (i !== -1) {
+    const [guard] = stack.splice(i, 1);
+    guard.close();
+  }
+  reconcileHistory();
 }
 
 function ensureListening() {
@@ -49,8 +73,7 @@ export function pushGuard(close: () => void): symbol {
   ensureListening();
   const id = Symbol("back-guard");
   stack.push({ id, close });
-  /* ورودی تاریخچه‌ای که بازگشت بعدی آن را مصرف می‌کند */
-  history.pushState({ backGuard: true, k: stack.length }, "");
+  reconcileHistory();
   return id;
 }
 
@@ -59,8 +82,5 @@ export function popGuard(id: symbol) {
   const i = stack.findIndex((g) => g.id === id);
   if (i === -1) return;
   stack.splice(i, 1);
-  /* ورودی متناظر را از تاریخچه پس بگیر تا شمارش هم‌خوان بماند.
-     چون بستن از سمت ما بوده، popstate نباید close را دوباره بزند. */
-  internalBacks++;
-  history.back();
+  reconcileHistory();
 }

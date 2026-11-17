@@ -1,3 +1,4 @@
+import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* صفحه بودجه‌بندی — بودجه ماهانه هر دسته هزینه + مصرف ماه جاری
    ───────────────────────────────────────────────────────────
    یک قاعده مهم: مجموع بودجهٔ دسته‌ها نباید از «سقف بودجهٔ ماهانه»‌ای که
@@ -197,7 +198,7 @@ export function BudgetsPage() {
                       ? formatAmount(toDisplay(totals.budgetSum, currency))
                       : "—"}
                     {totals.budgetSum ? (
-                      <span className="cur-tag">{currency}</span>
+                      <span className="cur-tag">{currencyDisplayLabel(currency)}</span>
                     ) : null}
                   </FitText>
                 </b>
@@ -207,7 +208,7 @@ export function BudgetsPage() {
                 <b className="expense">
                   <FitText>
                     {formatAmount(toDisplay(totals.spentSum, currency))}
-                    <span className="cur-tag">{currency}</span>
+                    <span className="cur-tag">{currencyDisplayLabel(currency)}</span>
                   </FitText>
                 </b>
               </div>
@@ -220,7 +221,7 @@ export function BudgetsPage() {
                     {formatAmount(
                       toDisplay(Math.abs(totals.remaining), currency),
                     )}
-                    <span className="cur-tag">{currency}</span>
+                    <span className="cur-tag">{currencyDisplayLabel(currency)}</span>
                   </FitText>
                 </b>
               </div>
@@ -237,9 +238,9 @@ export function BudgetsPage() {
             <div className="budget-cap over">
               <p>
                 مجموع بودجه‌بندی دسته‌ها (
-                {formatAmount(toDisplay(totals.budgetSum, currency))} {currency}
+                {formatAmount(toDisplay(totals.budgetSum, currency))} {currencyDisplayLabel(currency)}
                 ) از سقف بودجه ماهانه‌تان (
-                {formatAmount(toDisplay(monthlyCap, currency))} {currency})
+                {formatAmount(toDisplay(monthlyCap, currency))} {currencyDisplayLabel(currency)})
                 بیشتر شده است.
               </p>
               {isOwner ? (
@@ -260,9 +261,9 @@ export function BudgetsPage() {
           ) : (
             <p className="budget-cap">
               بودجه ماهانه: {formatAmount(toDisplay(monthlyCap, currency))}{" "}
-              {currency} —{" "}
+              {currencyDisplayLabel(currency)} —{" "}
               {formatAmount(toDisplay(monthlyCap - totals.budgetSum, currency))}{" "}
-              {currency} از آن هنوز دسته بندی نشده است.
+              {currencyDisplayLabel(currency)} از آن هنوز دسته بندی نشده است.
             </p>
           )
         ) : (
@@ -298,14 +299,14 @@ export function BudgetsPage() {
                     <span className="spent">
                       <FitText>
                         {formatAmount(toDisplay(spent, currency))}
-                        <span className="cur-tag">{currency}</span>
+                        <span className="cur-tag">{currencyDisplayLabel(currency)}</span>
                       </FitText>
                     </span>
                     {b ? (
                       <span className="cap">
                         <FitText>
                           از {formatAmount(toDisplay(b.amount, currency))}
-                          <span className="cur-tag">{currency}</span>
+                          <span className="cur-tag">{currencyDisplayLabel(currency)}</span>
                         </FitText>
                       </span>
                     ) : (
@@ -326,8 +327,8 @@ export function BudgetsPage() {
                       <span>{toFa(st.percent)}٪ مصرف‌شده</span>
                       <span className={remaining >= 0 ? "income" : "expense"}>
                         {remaining >= 0
-                          ? `${formatAmount(toDisplay(remaining, currency))} ${currency} باقی‌مانده`
-                          : `${formatAmount(toDisplay(-remaining, currency))} ${currency} بیشتر از بودجه`}
+                          ? `${formatAmount(toDisplay(remaining, currency))} ${currencyDisplayLabel(currency)} باقی‌مانده`
+                          : `${formatAmount(toDisplay(-remaining, currency))} ${currencyDisplayLabel(currency)} بیشتر از بودجه`}
                       </span>
                     </div>
                   </>
@@ -374,9 +375,9 @@ export function BudgetsPage() {
           <div className="budget-cap over" style={{ marginTop: 10 }}>
             <p>
               با این مبلغ، مجموع بودجه‌بندی دسته‌ها به{" "}
-              {formatAmount(toDisplay(overflow, currency))} {currency} می‌رسد و
+              {formatAmount(toDisplay(overflow, currency))} {currencyDisplayLabel(currency)} می‌رسد و
               از سقف بودجه ماهانه‌تان (
-              {formatAmount(toDisplay(monthlyCap, currency))} {currency}) بیشتر
+              {formatAmount(toDisplay(monthlyCap, currency))} {currencyDisplayLabel(currency)}) بیشتر
               می‌شود. اگر می‌خواهید، سقف را روی همین مجموع می‌گذاریم.
             </p>
             <button

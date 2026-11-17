@@ -35,7 +35,7 @@ export function JoinRequestsFeature() {
     return (
       <Card title="درخواست‌های عضویت">
         <p className="smss-note">
-          تصمیم‌گیری دربارهٔ عضوِ تازه فقط با مدیر خانواده است.
+          تصمیم‌گیری دربارهٔ عضوِ جدید فقط با مدیر خانواده است.
         </p>
       </Card>
     );

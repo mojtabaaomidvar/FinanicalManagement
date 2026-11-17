@@ -17,6 +17,7 @@ from sqlalchemy import (
     ForeignKey,
     Numeric,
     Text,
+    UniqueConstraint,
     func,
     text,
 )
@@ -29,6 +30,15 @@ from app.db.base import Base
 class Transaction(Base):
     __tablename__ = "transactions"
     __table_args__ = (
+        UniqueConstraint("id", "family_id", name="uq_transactions_id_family"),
+        CheckConstraint(
+            "source_kind IS NULL OR source_kind = 'vehicle_service'", name="transaction_source_kind"
+        ),
+        CheckConstraint(
+            "source_kind IS NULL OR (type='expense' AND category='transport' "
+            "AND repeat='none' AND repeat_end IS NULL)",
+            name="transaction_source_shape",
+        ),
         # D-7 FIX: افزودن 'transfer' به قید نوع
         CheckConstraint("type IN ('expense','income','transfer')", name="type"),
         CheckConstraint("amount > 0", name="amount_positive"),
@@ -45,6 +55,7 @@ class Transaction(Base):
         ForeignKey("members.id", ondelete="CASCADE"), nullable=False, index=True
     )
     type: Mapped[str] = mapped_column(Text, nullable=False)
+    source_kind: Mapped[str | None] = mapped_column(Text)
     amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
     category: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'other-e'"))
     date: Mapped[date] = mapped_column(Date, nullable=False, index=True)  # میلادی؛ جلالی در کلاینت

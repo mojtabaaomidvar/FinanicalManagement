@@ -1,3 +1,4 @@
+import { memberRelationLabel } from "@/shared/lib/uiLabels";
 /* UI پذیرش دعوت — عضویت در خانواده با لینک/QR */
 
 import { useEffect } from "react";
@@ -98,7 +99,7 @@ export function InviteAcceptFeature({ token }: { token: string }) {
                 { value: "", label: "انتخاب کنید" },
                 ...MEMBER_RELATIONS.filter((r) => r !== "خودم").map((r) => ({
                   value: r,
-                  label: r,
+                  label: memberRelationLabel(r),
                 })),
               ]}
             />

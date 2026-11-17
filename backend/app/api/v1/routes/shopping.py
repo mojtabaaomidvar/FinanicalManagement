@@ -25,6 +25,8 @@ RLSدار را بخواند، وابستگی‌اش `get_tenant_member` است؛
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
@@ -40,9 +42,29 @@ from app.schemas.data import (
     TripComplete,
     TripResult,
 )
+from app.schemas.offline_shopping import OfflineMutation, OfflineMutationResult, OfflineSnapshot
+from app.schemas.shopping_batch import ShoppingBatchRequest, ShoppingBatchResult
+from app.services import offline_shopping
 from app.services import shopping as shopping_service
 
 router = APIRouter(tags=["shopping"])
+
+
+@router.get("/shopping/offline", response_model=OfflineSnapshot)
+def offline_snapshot(
+    member: Member = Depends(get_tenant_member),
+    db: Session = Depends(get_db),
+) -> OfflineSnapshot:
+    return offline_shopping.snapshot(db, member)
+
+
+@router.post("/shopping/offline/mutations", response_model=OfflineMutationResult)
+def offline_mutation(
+    body: OfflineMutation,
+    member: Member = Depends(get_tenant_member),
+    db: Session = Depends(get_db),
+) -> OfflineMutationResult:
+    return offline_shopping.mutate(db, member, body)
 
 
 @router.get("/shopping/lists", response_model=list[ShoppingListOut])
@@ -112,6 +134,18 @@ def complete_trip(
     db: Session = Depends(get_db),
 ) -> TripResult:
     return shopping_service.complete_trip(
+        db, member, shopping_service.list_uuid(list_id), body
+    )
+
+
+@router.post("/shopping/lists/{list_id}/ensure-missing", response_model=ShoppingBatchResult)
+def ensure_missing(
+    list_id: str,
+    body: ShoppingBatchRequest,
+    member: Annotated[Member, Depends(get_tenant_member)],
+    db: Annotated[Session, Depends(get_db)],
+) -> ShoppingBatchResult:
+    return shopping_service.ensure_missing(
         db, member, shopping_service.list_uuid(list_id), body
     )
 

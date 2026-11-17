@@ -18,6 +18,18 @@ from app.core.logging import configure_logging
 logger = logging.getLogger(__name__)
 
 
+def _error_headers(request: Request) -> dict[str, str]:
+    if any(
+        request.url.path == prefix or request.url.path.startswith(prefix + "/")
+        for prefix in (
+            "/api/v1/documents", "/api/v1/equipment", "/api/v1/vehicles", "/api/v1/goals",
+            "/api/v1/activities", "/api/v1/events", "/api/v1/children", "/api/v1/pets",
+        )
+    ):
+        return {"Cache-Control": "no-store", "Pragma": "no-cache"}
+    return {}
+
+
 def create_app() -> FastAPI:
     configure_logging(debug=settings.debug)
 
@@ -41,19 +53,21 @@ def create_app() -> FastAPI:
 
     # خطاهای برنامه → پاسخ JSON با کد پایدار
     @app.exception_handler(AppError)
-    async def _app_error_handler(_: Request, exc: AppError) -> JSONResponse:
+    async def _app_error_handler(request: Request, exc: AppError) -> JSONResponse:
         return JSONResponse(
             status_code=exc.http_status,
             content={"error": exc.code, "message": exc.message},
+            headers=_error_headers(request),
         )
 
     # خطای ناشناخته → ۵۰۰ بدون افشای جزئیات داخلی
     @app.exception_handler(Exception)
-    async def _unhandled_handler(_: Request, exc: Exception) -> JSONResponse:
+    async def _unhandled_handler(request: Request, exc: Exception) -> JSONResponse:
         logger.exception("خطای مدیریت‌نشده: %s", type(exc).__name__)
         return JSONResponse(
             status_code=500,
             content={"error": "INTERNAL", "message": "خطای داخلی سرور."},
+            headers=_error_headers(request),
         )
 
     # اعتبارسنجیِ بدنه (Pydantic) → همان پوششِ {"error", "message"}.
@@ -68,7 +82,7 @@ def create_app() -> FastAPI:
     #    («دادهٔ حساس در خطا/لاگ نه»). اینجا فقط *نامِ* فیلدها برمی‌گردد که
     #    خودش بخشی از قراردادِ عمومیِ API است، نه مقدارشان.
     @app.exception_handler(RequestValidationError)
-    async def _validation_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
+    async def _validation_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
         fields: list[str] = []
         for err in exc.errors():
             loc = err.get("loc") or ()
@@ -78,6 +92,7 @@ def create_app() -> FastAPI:
                 fields.append(name)
         return JSONResponse(
             status_code=422,
+            headers=_error_headers(request),
             content={
                 "error": "INVALID_INPUT",
                 "message": "اطلاعات ارسالی معتبر نیست؛ ورودی‌ها را بررسی کنید.",

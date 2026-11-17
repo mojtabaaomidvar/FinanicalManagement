@@ -1,3 +1,4 @@
+import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* ویجت پنل گزارش ماهانه — ستونی روزانه، خطی ۶ ماهه، دسته‌بندی */
 
 import { useEffect, useMemo, useState } from "react";
@@ -72,7 +73,7 @@ export function MonthlyReportPanelWidget() {
 
       <Card
         title="روند روزانه"
-        action={<span className="badge">{cur}</span>}
+        action={<span className="badge">{currencyDisplayLabel(cur)}</span>}
       >
         <div className="chart-box">
           <BarChart
@@ -133,7 +134,7 @@ export function MonthlyReportPanelWidget() {
                     <span>{c.name}</span>
                     <b>
                       {formatAmount(toDisplay(c.value, cur))}
-                      <span className="cur-tag">{cur}</span>
+                      <span className="cur-tag">{currencyDisplayLabel(cur)}</span>
                     </b>
                     <span className="pct">{formatPercent(pct)}</span>
                   </div>
@@ -184,7 +185,7 @@ export function MonthlyReportPanelWidget() {
                     <div className="ms-top">
                       <b>{m?.name ?? "عضو حذف‌شده"}</b>
                       <span>
-                        {formatAmount(toDisplay(s.amount, cur))} {cur}
+                        {formatAmount(toDisplay(s.amount, cur))} {currencyDisplayLabel(cur)}
                       </span>
                     </div>
                     <div className="cat-bar">

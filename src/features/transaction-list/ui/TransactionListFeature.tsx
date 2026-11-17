@@ -1,3 +1,4 @@
+import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* UI لیست تراکنش‌ها — گروه‌بندی روزانه، فیلتر، جستجو، فیلتر پیشرفته */
 
 import { useEffect, useMemo, useState } from "react";
@@ -116,14 +117,14 @@ export function TransactionListFeature({
                   {g.income ? (
                     <span style={{ color: "var(--income)" }}>
                       {formatAmount(toDisplay(g.income, cur))}
-                      <span className="cur-tag">{cur}</span>
+                      <span className="cur-tag">{currencyDisplayLabel(cur)}</span>
                     </span>
                   ) : null}
                   {g.income && g.expense ? " · " : ""}
                   {g.expense ? (
                     <span style={{ color: "var(--expense)" }}>
                       {formatAmount(toDisplay(g.expense, cur))}
-                      <span className="cur-tag">{cur}</span>
+                      <span className="cur-tag">{currencyDisplayLabel(cur)}</span>
                     </span>
                   ) : null}
                 </span>

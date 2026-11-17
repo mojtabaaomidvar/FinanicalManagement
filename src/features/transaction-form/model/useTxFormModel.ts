@@ -63,6 +63,7 @@ export function useTxFormModel(
   subcategories: Subcategory[] = [],
 ) {
   const [editing, setEditing] = useState<Transaction | null>(null);
+  const serviceExpense = editing?.sourceKind === "vehicle_service";
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<TxFormState>(defaults());
   const [photos, setPhotos] = useState<TxPhotoItem[]>([]);
@@ -159,6 +160,7 @@ export function useTxFormModel(
   }
 
   function setType(type: "expense" | "income" | "transfer") {
+    if (serviceExpense) return;
     setForm((f) => ({
       ...f,
       type,
@@ -197,7 +199,7 @@ export function useTxFormModel(
     /* حساب الزامی — با پیام دقیق. استثنا: تحقق سررسید تراکنش تکرارشونده
        (بخش ۳.۱ حساب را برای تعهد دوره‌ای اختیاری کرد؛ اینجا هم بن‌بست
        «خانواده بدون حساب» پیش نیاید) */
-    if (!form.accountId && !occurrence) {
+    if (!form.accountId && !occurrence && !serviceExpense) {
       if (!accountsCount) {
         return notify(
           "هنوز هیچ کارت/حسابی ثبت نشده — ابتدا از تب «حساب‌ها» یک حساب اضافه کنید",
@@ -356,6 +358,7 @@ export function useTxFormModel(
   return {
     open,
     editing,
+    serviceExpense,
     form,
     setForm,
     photos,
@@ -374,9 +377,9 @@ export function useTxFormModel(
         amount: toFa(toEn(v).replace(/[^\d+\-×÷]/g, "")),
       })),
     setDate: (v: string) =>
-      setForm((f) => ({ ...f, date: liveFormatJalaliDate(v) })),
+      !serviceExpense && setForm((f) => ({ ...f, date: liveFormatJalaliDate(v) })),
     setTime: (v: string) => setForm((f) => ({ ...f, time: v })),
-    setRepeat: (v: TxRepeat) => setForm((f) => ({ ...f, repeat: v })),
+    setRepeat: (v: TxRepeat) => !serviceExpense && setForm((f) => ({ ...f, repeat: v })),
     setRepeatEnd: (v: string) =>
       setForm((f) => ({ ...f, repeatEnd: liveFormatJalaliDate(v) })),
     /* ارز ورودی مبلغ */
@@ -384,6 +387,7 @@ export function useTxFormModel(
     switchEntryCurrency,
     /* انتخاب فایل‌های تصویر → فشرده‌سازی و افزودن به صف آپلود */
     addPhotoFiles: async (files: File[]) => {
+      if (serviceExpense) return notify("رسید سرویس خودرو را در اسناد خانه ثبت و به خودرو وصل کنید.");
       const room = MAX_PHOTOS - photos.length;
       if (room <= 0) {
         return notify(`حداکثر ${MAX_PHOTOS} تصویر برای هر تراکنش`);

@@ -1,3 +1,4 @@
+import { memberRelationLabel } from "@/shared/lib/uiLabels";
 /* کارت پروفایل کاربر — آواتار (پیشنهادی/آپلود) + اطلاعات
    ────────────────────────────────────────────────────
    نسبت کاربر با مدیر خانواده هم اینجا دیده می‌شود؛ چه مدیر باشد چه عضو
@@ -19,7 +20,7 @@ import { isoToJalali, jalaliToIso, parse, formatISO } from "@/shared/lib/jalali"
 import { compressImage } from "@/shared/lib/image";
 
 export function ProfileCard() {
-  const { member, useCases, updateMember } = useApp();
+  const { member, useCases, updateMember, refreshData } = useApp();
   const { show } = useToast();
 
   const [name, setName] = useState("");
@@ -64,23 +65,29 @@ export function ProfileCard() {
   }
 
   async function save(overrides?: { avatarUrl?: string }) {
+    if (!member || !useCases || busy) return;
+    const birth = birthDate.trim() ? parse(birthDate) : null;
+    if (birthDate.trim() && !birth) {
+      show("تاریخ تولد معتبر وارد کنید");
+      return;
+    }
     setBusy(true);
     try {
-      const parsedBirth = birthDate && parse(birthDate) ? jalaliToIso(parse(birthDate)!) : null;
-      const updated = await useCases!.updateOwnProfile.execute({
+      const updated = await useCases.updateOwnProfile.execute({
         name: name.trim(),
         gender: gender ? (gender as "male" | "female") : null,
-        birthDate: parsedBirth,
+        birthDate: birth ? jalaliToIso(birth) : null,
         avatarUrl: overrides?.avatarUrl ?? avatarUrl ?? null,
       });
       updateMember(updated);
       if (overrides?.avatarUrl) setAvatarUrl(overrides.avatarUrl);
 
-      /* همگام‌سازی رویداد تولد با تاریخ تولد جدید */
+      /* refreshData همگام‌سازی تولد و دریافت رویدادهای جدید را انجام می‌دهد. */
       try {
-        await useCases!.syncBirthdays.execute();
+        await refreshData();
       } catch {
-        /* بی‌صدا */
+        show("پروفایل ذخیره شد؛ به‌روزرسانی اطلاعات خانه کامل نشد.");
+        return;
       }
 
       show("پروفایل ذخیره شد");
@@ -111,7 +118,7 @@ export function ProfileCard() {
   if (!member) return null;
 
   return (
-    <Card title="پروفایل من">
+    <Card title={/* @copy-text src/pages/SettingsPage/ProfileCard.tsx:32:jsx-attribute */ "پروفایل"}>
       <div className="profile-head">
         <div className="profile-avatar">
           {avatarUrl ? (
@@ -142,11 +149,11 @@ export function ProfileCard() {
       <button
         type="button"
         className="upload-btn"
-        disabled={uploading}
+        disabled={uploading || busy}
         onClick={() => fileRef.current?.click()}
         style={{ marginBottom: 16 }}
       >
-        {uploading ? "در حال آپلود…" : "انتخاب عکس پروفایل"}
+        {uploading ? "در حال آپلود…" : /* @copy-text src/pages/SettingsPage/ProfileCard.tsx:62:typescript-string */ "انتخاب عکس"}
       </button>
 
       <div className="form-grid">
@@ -176,6 +183,8 @@ export function ProfileCard() {
               minYear={1300}
               maxYear={new Date().getFullYear() - 621}
             />
+            {birthDate ? <button type="button" className="link-btn" disabled={busy || uploading}
+              onClick={() => setBirthDate("")}>{/* @copy-text src/pages/SettingsPage/ProfileCard.tsx:96:jsx-text jsx-body */ "خالی کردن تاریخ تولد"}</button> : null}
           </Field>
         </div>
         {/* نسبت با مدیر خانواده — برای مدیر معنا ندارد و نشان داده نمی‌شود.
@@ -191,7 +200,7 @@ export function ProfileCard() {
                   { value: "", label: "انتخاب کنید" },
                   ...MEMBER_RELATIONS.filter((r) => r !== "خودم").map((r) => ({
                     value: r,
-                    label: r,
+                    label: memberRelationLabel(r),
                   })),
                 ]}
               />
@@ -202,7 +211,7 @@ export function ProfileCard() {
 
       <button
         className="btn-primary btn-block"
-        disabled={busy}
+        disabled={busy || uploading}
         onClick={() => save()}
         style={{ marginTop: 8 }}
       >

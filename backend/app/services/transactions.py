@@ -14,6 +14,8 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import date as _date
+from decimal import Decimal
+from typing import Literal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -25,36 +27,60 @@ from app.models.family import Member
 from app.models.transaction import Transaction, TransactionPhoto
 from app.schemas.data import PhotoCreate, TransactionWrite
 from app.services.common import is_admin, to_uuid, to_uuid_opt
+from app.services.member_age import document_age_restricted
 
 _TIME_RE = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
 _REPEATS = {"none", "weekly", "monthly", "yearly"}
 _TYPES = {"expense", "income", "transfer"}
 
 # دسته‌های ثابت برنامه (هم‌سان با add_transaction قدیمی)
-_FIXED_CATEGORIES = frozenset({
-    "food", "home", "bills", "transport", "health", "clothing", "edu", "fun",
-    "shopping", "comm", "finance", "insurance", "gifte", "family", "beauty",
-    "sport", "pet", "other-e", "salary", "business", "invest", "sale", "gift",
-    "other-i", "transfer",
-})
+_FIXED_CATEGORIES = frozenset(
+    {
+        "food",
+        "home",
+        "bills",
+        "transport",
+        "health",
+        "clothing",
+        "edu",
+        "fun",
+        "shopping",
+        "comm",
+        "finance",
+        "insurance",
+        "gifte",
+        "family",
+        "beauty",
+        "sport",
+        "pet",
+        "other-e",
+        "salary",
+        "business",
+        "invest",
+        "sale",
+        "gift",
+        "other-i",
+        "transfer",
+    }
+)
 
 
 # ── خواندن (فاز ۶) ───────────────────────────────────────────
 def list_for_family(
-    db: Session, family_id: uuid.UUID
+    db: Session, family_id: uuid.UUID, actor: Member | None = None
 ) -> list[tuple[Transaction, list[TransactionPhoto]]]:
     """تراکنش‌های خانواده (نزولی بر created_at) به‌همراه عکس‌های هر تراکنش."""
-    txs = list(
-        db.execute(
-            select(Transaction)
-            .where(Transaction.family_id == family_id)
-            .order_by(Transaction.created_at.desc())
-        ).scalars()
-    )
+    query = select(Transaction).where(Transaction.family_id == family_id)
+    if actor is not None and document_age_restricted(actor):
+        query = query.where(Transaction.source_kind.is_(None))
+    txs = list(db.scalars(query.order_by(Transaction.created_at.desc())))
     photos = list(
         db.execute(
             select(TransactionPhoto)
-            .where(TransactionPhoto.family_id == family_id)
+            .where(
+                TransactionPhoto.family_id == family_id,
+                TransactionPhoto.transaction_id.in_([tx.id for tx in txs]),
+            )
             .order_by(TransactionPhoto.created_at.asc())
         ).scalars()
     )
@@ -62,6 +88,15 @@ def list_for_family(
     for photo in photos:
         by_tx.setdefault(photo.transaction_id, []).append(photo)
     return [(tx, by_tx.get(tx.id, [])) for tx in txs]
+
+
+def _require_source_access(actor: Member, row: Transaction) -> None:
+    if row.source_kind == "vehicle_service" and (
+        document_age_restricted(actor)
+        or actor.status != "active"
+        or actor.membership_state != "active"
+    ):
+        raise AppError("NOT_FOUND", "تراکنش یافت نشد.", 404)
 
 
 # ── اعتبارسنجی مشترک افزودن/ویرایش ─────────────────────────
@@ -88,9 +123,12 @@ def _prepare(db: Session, family_id: uuid.UUID, req: TransactionWrite) -> dict:
 
     # عضو منتسب باید در همین خانواده باشد
     member_id = to_uuid(req.member_id, "INVALID_MEMBER", "عضو نامعتبر است.")
-    if db.execute(
-        select(Member.id).where(Member.id == member_id, Member.family_id == family_id).limit(1)
-    ).first() is None:
+    if (
+        db.execute(
+            select(Member.id).where(Member.id == member_id, Member.family_id == family_id).limit(1)
+        ).first()
+        is None
+    ):
         raise AppError("INVALID_MEMBER", "عضو نامعتبر است.", 422)
 
     # دسته: از لیست ثابت یا دستهٔ سفارشی همین خانواده با همین نوع
@@ -99,20 +137,31 @@ def _prepare(db: Session, family_id: uuid.UUID, req: TransactionWrite) -> dict:
             custom_id = uuid.UUID(category)
         except ValueError:
             raise AppError("INVALID_CATEGORY", "دسته نامعتبر است.", 422) from None
-        if db.execute(
-            select(CustomCategory.id).where(
-                CustomCategory.id == custom_id,
-                CustomCategory.family_id == family_id,
-                CustomCategory.type == req.type,
-            ).limit(1)
-        ).first() is None:
+        if (
+            db.execute(
+                select(CustomCategory.id)
+                .where(
+                    CustomCategory.id == custom_id,
+                    CustomCategory.family_id == family_id,
+                    CustomCategory.type == req.type,
+                )
+                .limit(1)
+            ).first()
+            is None
+        ):
             raise AppError("INVALID_CATEGORY", "دسته نامعتبر است.", 422)
 
     # حساب منشا اختیاری؛ اگر داده شد باید مال همین خانواده باشد
     account_id = to_uuid_opt(req.account_id, "INVALID_ACCOUNT_ID", "حساب نامعتبر است.")
-    if account_id is not None and db.execute(
-        select(Account.id).where(Account.id == account_id, Account.family_id == family_id).limit(1)
-    ).first() is None:
+    if (
+        account_id is not None
+        and db.execute(
+            select(Account.id)
+            .where(Account.id == account_id, Account.family_id == family_id)
+            .limit(1)
+        ).first()
+        is None
+    ):
         raise AppError("INVALID_ACCOUNT_ID", "حساب نامعتبر است.", 422)
 
     # انتقال وجه: مبدأ و مقصد الزامی، متفاوت و متعلق به همین خانواده
@@ -122,20 +171,31 @@ def _prepare(db: Session, family_id: uuid.UUID, req: TransactionWrite) -> dict:
             raise AppError("INVALID_CATEGORY", "دستهٔ انتقال باید «transfer» باشد.", 422)
         if account_id is None or to_account_id is None or to_account_id == account_id:
             raise AppError("INVALID_TRANSFER", "انتقال به حساب مبدأ و مقصد متفاوت نیاز دارد.", 422)
-        if db.execute(
-            select(Account.id).where(Account.id == to_account_id, Account.family_id == family_id).limit(1)
-        ).first() is None:
+        if (
+            db.execute(
+                select(Account.id)
+                .where(Account.id == to_account_id, Account.family_id == family_id)
+                .limit(1)
+            ).first()
+            is None
+        ):
             raise AppError("INVALID_ACCOUNT_ID", "حساب مقصد نامعتبر است.", 422)
 
     # زیردسته باید متعلق به همین خانواده و همین دسته باشد
     subcategory_id = to_uuid_opt(req.subcategory_id, "INVALID_SUBCATEGORY", "زیردسته نامعتبر است.")
-    if subcategory_id is not None and db.execute(
-        select(Subcategory.id).where(
-            Subcategory.id == subcategory_id,
-            Subcategory.family_id == family_id,
-            Subcategory.category == category,
-        ).limit(1)
-    ).first() is None:
+    if (
+        subcategory_id is not None
+        and db.execute(
+            select(Subcategory.id)
+            .where(
+                Subcategory.id == subcategory_id,
+                Subcategory.family_id == family_id,
+                Subcategory.category == category,
+            )
+            .limit(1)
+        ).first()
+        is None
+    ):
         raise AppError("INVALID_SUBCATEGORY", "زیردسته نامعتبر است.", 422)
 
     note = (req.note or "").strip() or None
@@ -157,7 +217,11 @@ def _prepare(db: Session, family_id: uuid.UUID, req: TransactionWrite) -> dict:
 
 # ── افزودن / ویرایش / حذف ────────────────────────────────────
 def create_uncommitted(
-    db: Session, family_id: uuid.UUID, req: TransactionWrite
+    db: Session,
+    family_id: uuid.UUID,
+    req: TransactionWrite,
+    *,
+    source_kind: Literal["vehicle_service"] | None = None,
 ) -> Transaction:
     """تراکنش را می‌سازد و `flush` می‌کند — **بدون commit**.
 
@@ -175,10 +239,36 @@ def create_uncommitted(
     نمی‌شود: یک موتورِ قاعده، یک commit.
     """
     values = _prepare(db, family_id, req)
-    row = Transaction(family_id=family_id, **values)
+    row = Transaction(family_id=family_id, source_kind=source_kind, **values)
     db.add(row)
     db.flush()
     return row
+
+
+def create_vehicle_service_uncommitted(
+    db: Session,
+    actor: Member,
+    amount: Decimal,
+    performed_on: _date,
+    account_id: uuid.UUID | None,
+    description: str,
+) -> Transaction:
+    """Finance owns the generated expense's origin; the caller commits its unit of work."""
+    return create_uncommitted(
+        db,
+        actor.family_id,
+        TransactionWrite(
+            member_id=str(actor.id),
+            type="expense",
+            category="transport",
+            amount=amount,
+            date=performed_on,
+            note=description[:200],
+            account_id=str(account_id) if account_id else None,
+            repeat="none",
+        ),
+        source_kind="vehicle_service",
+    )
 
 
 def create(db: Session, family_id: uuid.UUID, req: TransactionWrite) -> Transaction:
@@ -203,7 +293,26 @@ def update(db: Session, actor: Member, tx_id: uuid.UUID, req: TransactionWrite) 
     if row is None:
         raise AppError("NOT_FOUND", "تراکنش یافت نشد.", 404)
 
+    _require_source_access(actor, row)
     values = _prepare(db, actor.family_id, req)
+    if row.source_kind == "vehicle_service" and (
+        any(
+            values[key] != getattr(row, key)
+            for key in (
+                "type",
+                "category",
+                "date",
+                "member_id",
+                "repeat",
+                "repeat_end",
+                "to_account_id",
+            )
+        )
+        or req.repeat_end != row.repeat_end
+    ):
+        raise AppError(
+            "SOURCE_IMMUTABLE", "نوع، دسته، تاریخ، عضو و تکرار هزینهٔ سرویس ثابت‌اند.", 422
+        )
     if not is_family_admin and values["member_id"] != actor.id:
         raise AppError("FORBIDDEN", "نمی‌توانید تراکنش خود را به عضو دیگری نسبت دهید.", 403)
     for key, value in values.items():
@@ -226,6 +335,7 @@ def delete_uncommitted(db: Session, actor: Member, tx_id: uuid.UUID) -> None:
     row = db.execute(stmt).scalar_one_or_none()
     if row is None:
         raise AppError("NOT_FOUND", "تراکنش یافت نشد.", 404)
+    _require_source_access(actor, row)
     db.delete(row)
     db.flush()
 
@@ -245,6 +355,8 @@ def mark_occurrence(db: Session, actor: Member, tx_id: uuid.UUID, due_date: _dat
     row = db.execute(
         select(Transaction).where(Transaction.id == tx_id, Transaction.family_id == actor.family_id)
     ).scalar_one_or_none()
+    if row is not None:
+        _require_source_access(actor, row)
     if row is None or row.repeat == "none":
         raise AppError("NOT_FOUND", "تراکنش تکرارشونده یافت نشد.", 404)
     key = due_date.isoformat()
@@ -258,23 +370,32 @@ def mark_occurrence(db: Session, actor: Member, tx_id: uuid.UUID, due_date: _dat
 # ── عکس‌های تراکنش ───────────────────────────────────────────
 def _photo_permitted(db: Session, actor: Member, photo: TransactionPhoto) -> bool:
     """مجاز: مدیر، آپلودر، یا سازندهٔ تراکنش همان عکس."""
-    if is_admin(actor) or photo.member_id == actor.id:
-        return True
-    creator = db.execute(
-        select(Transaction.member_id).where(
-            Transaction.id == photo.transaction_id, Transaction.family_id == actor.family_id
-        ).limit(1)
+    transaction = db.execute(
+        select(Transaction)
+        .where(Transaction.id == photo.transaction_id, Transaction.family_id == actor.family_id)
+        .limit(1)
     ).scalar_one_or_none()
-    return creator == actor.id
+    if transaction is None:
+        return False
+    _require_source_access(actor, transaction)
+    return is_admin(actor) or photo.member_id == actor.id or transaction.member_id == actor.id
 
 
 def add_photo(db: Session, actor: Member, tx_id: uuid.UUID, req: PhotoCreate) -> TransactionPhoto:
-    if db.execute(
-        select(Transaction.id).where(
-            Transaction.id == tx_id, Transaction.family_id == actor.family_id
-        ).limit(1)
-    ).first() is None:
+    transaction = db.execute(
+        select(Transaction)
+        .where(Transaction.id == tx_id, Transaction.family_id == actor.family_id)
+        .limit(1)
+    ).scalar_one_or_none()
+    if transaction is None:
         raise AppError("NOT_FOUND", "تراکنش یافت نشد.", 404)
+    _require_source_access(actor, transaction)
+    if transaction.source_kind == "vehicle_service":
+        raise AppError(
+            "SOURCE_ATTACHMENT_UNAVAILABLE",
+            "رسید سرویس خودرو را از بخش اسناد خانه ثبت و به خودرو وصل کنید.",
+            422,
+        )
     url = (req.url or "").strip()
     if len(url) < 10 or len(req.url or "") > 500:
         raise AppError("INVALID_URL", "نشانی تصویر نامعتبر است.", 422)
@@ -294,7 +415,9 @@ def add_photo(db: Session, actor: Member, tx_id: uuid.UUID, req: PhotoCreate) ->
     return row
 
 
-def update_photo_caption(db: Session, actor: Member, photo_id: uuid.UUID, caption: str | None) -> None:
+def update_photo_caption(
+    db: Session, actor: Member, photo_id: uuid.UUID, caption: str | None
+) -> None:
     text = (caption or "").strip()
     if len(text) > 100:
         raise AppError("INVALID_CAPTION", "توضیح تصویر بیش از حد بلند است.", 422)

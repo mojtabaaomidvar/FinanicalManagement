@@ -1,3 +1,4 @@
+import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* §۷ — مرکزِ اعلان (زنگ + فهرست).
 
    ── متن کجا ساخته می‌شود و چرا این‌جا ──
@@ -8,14 +9,14 @@
 
    ── هر مورد باید جایی برود ──
    سررسید → فرمِ تراکنش برای همان رخداد · درخواستِ عضویت → همان زیرصفحهٔ
-   تنظیمات (نه فهرستِ تنظیمات) · رویداد → فقط «نادیده بگیر»، چون کنشی ندارد.
+   تنظیمات (نه فهرستِ تنظیمات) · رویداد → روز همان رویداد در تقویم.
    اعلانی که جایی نمی‌برد، فقط نگرانی تولید می‌کند. */
 
 import { useMemo } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { Icon, Modal } from "@/shared/ui";
 import { buildCategoryResolver } from "@/domain/category/resolve";
-import type { AppNotification } from "@/domain/notification/notification.types";
+import type { AppNotification, NotificationDomain } from "@/domain/notification/notification.types";
 import { DOMAIN_LABELS } from "@/domain/notification/notification.types";
 import type { JoinRequest } from "@/domain/family/family.types";
 import type { Transaction } from "@/domain/transaction/transaction.types";
@@ -32,13 +33,19 @@ import type { TxFormModel } from "@/features/transaction-form";
 import type { NotificationsModel } from "../model/useNotificationsModel";
 
 /* آیکونِ هر دامنه — همان مجموعهٔ اسپریتِ index.html */
-const DOMAIN_ICON = {
+const DOMAIN_ICON: Partial<Record<NotificationDomain, string>> = {
   recurring: "i-repeat",
   bills: "i-bill",
   event: "i-gift",
   membership: "i-users",
   inventory: "i-cart",
-} as const;
+  tasks: "i-check",
+  documents: "i-briefcase",
+  equipment: "i-grid4",
+  vehicles: "i-car",
+  goals: "i-heart",
+  activities: "i-gift",
+};
 
 export function NotificationCenterFeature({
   m,
@@ -47,6 +54,13 @@ export function NotificationCenterFeature({
   onOpenJoinRequests,
   onOpenBills,
   onOpenInventory,
+  onOpenTasks,
+  onOpenDocuments,
+  onOpenEquipment,
+  onOpenVehicles,
+  onOpenGoal,
+  onOpenActivity,
+  onOpenCalendar,
 }: {
   m: NotificationsModel;
   form: TxFormModel;
@@ -54,8 +68,15 @@ export function NotificationCenterFeature({
   onOpenJoinRequests: () => void;
   onOpenBills: () => void;
   onOpenInventory: () => void;
+  onOpenTasks: () => void;
+  onOpenDocuments: () => void;
+  onOpenEquipment: (equipmentId: string) => void;
+  onOpenVehicles: (vehicleId: string) => void;
+  onOpenGoal?: (goalId: string) => void;
+  onOpenActivity?: (activityId: string) => void;
+  onOpenCalendar?: (dateIso: string) => void;
 }) {
-  const { txs, events, cur, customCategories, bills, inventory } = useApp();
+  const { txs, events, cur, customCategories, bills, inventory, tasks, member } = useApp();
 
   const resolve = useMemo(
     () => buildCategoryResolver(customCategories),
@@ -95,6 +116,75 @@ export function NotificationCenterFeature({
   }, [inventory]);
 
   function label(n: AppNotification): { title: string; sub: string } | null {
+    if (n.ref.kind === "activities") {
+      const activityId = n.ref.activityId;
+      const item = m.activities.find((row) => row.id === activityId);
+      if (!item || item.status !== "planned" || !item.reminderEnabled) return null;
+      return { title: item.title, sub: `برنامهٔ خانوادگی · ${formatLong(isoToJalali(item.date))}` };
+    }
+    if (n.ref.kind === "goals") {
+      const goalId = n.ref.goalId;
+      const item = m.goals.find((row) => row.id === goalId && row.ownerId === member?.id);
+      if (!item || item.status !== "active" || !item.targetDate || !item.reminderEnabled) return null;
+      return {
+        title: item.title,
+        sub: `${item.kind === "wish" ? "موعد آرزو" : "موعد هدف"} · ${formatLong(isoToJalali(item.targetDate))}`,
+      };
+    }
+    if (n.ref.kind === "vehicles") {
+      const { vehicleId, reason } = n.ref;
+      const item = m.vehicles.find((row) => row.id === vehicleId);
+      if (!item) return null;
+      if (reason === "service") {
+        if (!item.serviceReminderEnabled) return null;
+        const schedule = [
+          item.serviceDueDate ? formatLong(isoToJalali(item.serviceDueDate)) : null,
+          item.serviceDueOdometer !== null
+            ? `${toFa(item.serviceDueOdometer.toLocaleString("en-US"))} کیلومتر` : null,
+        ].filter(Boolean);
+        if (!schedule.length) return null;
+        return { title: item.title, sub: `موعد سرویس · ${schedule.join(" · ")}` };
+      }
+      const date = reason === "insurance" ? item.insuranceUntil : item.inspectionUntil;
+      if (!date) return null;
+      return {
+        title: item.title,
+        sub: `${reason === "insurance" ? "پایان بیمه" : "پایان معاینهٔ فنی"} ${formatLong(isoToJalali(date))}`,
+      };
+    }
+    if (n.ref.kind === "equipment") {
+      const { equipmentId, reason } = n.ref;
+      const item = m.equipment.find((row) => row.id === equipmentId);
+      const date = reason === "service"
+        ? item?.serviceReminderEnabled ? item.serviceDueDate : null
+        : item?.warrantyUntil;
+      if (!item || !date) return null;
+      return {
+        title: item.title,
+        sub: `${reason === "service" ? "موعد سرویس" : "پایان گارانتی"} ${formatLong(isoToJalali(date))}`,
+      };
+    }
+    if (n.ref.kind === "documents") {
+      const documentId = n.ref.documentId;
+      const document = m.documents.find((row) => row.id === documentId);
+      if (!document?.expiryDate || !document.reminderEnabled) return null;
+      const access = document.visibility === "private" ? "خصوصی" : "مشترک خانواده";
+      return {
+        title: document.title,
+        sub: `${access} · پایان اعتبار ${formatLong(isoToJalali(document.expiryDate))}`,
+      };
+    }
+    if (n.ref.kind === "tasks") {
+      const taskId = n.ref.taskId;
+      const task = tasks.find((row) => row.id === taskId);
+      if (!task || task.completed) return null;
+      return {
+        title: task.title,
+        sub: task.dueDate
+          ? `مسئول این کار هستید · ${formatLong(isoToJalali(task.dueDate))}`
+          : "مسئول این کار هستید · بدون موعد",
+      };
+    }
     if (n.ref.kind === "recurring") {
       const tx = txById.get(n.ref.txId);
       /* اگر تراکنش بینِ مشتق‌سازی و رندر حذف شده باشد، ردیف حذف می‌شود نه
@@ -104,12 +194,12 @@ export function NotificationCenterFeature({
       const when = formatLong(isoToJalali(n.ref.dueIso));
       return {
         title: tx.note?.trim() || cat.name,
-        sub: `${when} · ${formatAmount(toDisplay(tx.amount, cur))} ${cur}`,
+        sub: `${when} · ${formatAmount(toDisplay(tx.amount, cur))} ${currencyDisplayLabel(cur)}`,
       };
     }
     if (n.ref.kind === "event") {
       const ev = eventById.get(n.ref.eventId);
-      if (!ev) return null;
+      if (!ev || ev.kind === "activity" || ev.date !== n.ref.dateIso) return null;
       return {
         title: ev.title,
         sub: formatLong(isoToJalali(n.ref.dateIso)),
@@ -126,7 +216,7 @@ export function NotificationCenterFeature({
         title: bill.title,
         sub: `${kind?.label ?? "قبض"} · ${when} · ${formatAmount(
           toDisplay(bill.amount, cur),
-        )} ${cur}`,
+        )} ${currencyDisplayLabel(cur)}`,
       };
     }
     if (n.ref.kind === "inventory") {
@@ -150,6 +240,47 @@ export function NotificationCenterFeature({
   }
 
   function act(n: AppNotification) {
+    if (n.ref.kind === "event") {
+      const event = eventById.get(n.ref.eventId);
+      if (!event || event.kind === "activity" || event.date !== n.ref.dateIso) return;
+      m.setOpen(false);
+      onOpenCalendar?.(event.date);
+      return;
+    }
+    if (n.ref.kind === "activities") {
+      const activityId = n.ref.activityId;
+      if (!m.activities.some((row) => row.id === activityId)) return;
+      m.setOpen(false);
+      onOpenActivity?.(activityId);
+      return;
+    }
+    if (n.ref.kind === "goals") {
+      const goalId = n.ref.goalId;
+      if (!m.goals.some((row) => row.id === goalId && row.ownerId === member?.id)) return;
+      m.setOpen(false);
+      onOpenGoal?.(goalId);
+      return;
+    }
+    if (n.ref.kind === "vehicles") {
+      m.setOpen(false);
+      onOpenVehicles(n.ref.vehicleId);
+      return;
+    }
+    if (n.ref.kind === "equipment") {
+      m.setOpen(false);
+      onOpenEquipment(n.ref.equipmentId);
+      return;
+    }
+    if (n.ref.kind === "documents") {
+      m.setOpen(false);
+      onOpenDocuments();
+      return;
+    }
+    if (n.ref.kind === "tasks") {
+      m.setOpen(false);
+      onOpenTasks();
+      return;
+    }
     if (n.ref.kind === "recurring") {
       const tx = txById.get(n.ref.txId);
       if (!tx) return;
@@ -176,7 +307,6 @@ export function NotificationCenterFeature({
       m.setOpen(false);
       onOpenInventory();
     }
-    /* رویداد: کنشی ندارد — دکمهٔ «نادیده بگیر» جداگانه است */
   }
 
   /* گروه‌بندی بر پایهٔ دامنه، با حفظِ ترتیبِ خودِ فهرست (که از قاعده‌های
@@ -221,7 +351,9 @@ export function NotificationCenterFeature({
           <p className="modal-sub">
             چیزی برای نشان دادن نیست. سررسیدِ تراکنش‌های تکرارشونده، قبض‌های
             پرداخت‌نشده، رویدادها و تولدهای نزدیک، اقلامی که دارد تمام می‌شود
-            و درخواست‌های عضویت همین‌جا می‌آیند.
+            و درخواست‌های عضویت و کارهایی که مسئولشان هستید و پایان اعتبار
+            اسناد قابل مشاهده، موعد سرویس و پایان گارانتی وسایل خانه و موعد
+            سرویس، بیمه و معاینهٔ خودروها و موعد اهداف، آرزوها و برنامه‌های خانوادگی همین‌جا می‌آیند.
           </p>
         ) : (
           <div className="notif-list">
@@ -234,7 +366,7 @@ export function NotificationCenterFeature({
                 {g.items.map((n) => {
                   const text = label(n);
                   if (!text) return null;
-                  const clickable = n.ref.kind !== "event";
+                  const clickable = n.ref.kind !== "event" || Boolean(onOpenCalendar);
                   return (
                     <div
                       key={n.id}
@@ -253,9 +385,9 @@ export function NotificationCenterFeature({
                           : undefined
                       }
                     >
-                      <span className="notif-ic" aria-hidden="true">
+                      {DOMAIN_ICON[n.domain] ? <span className="notif-ic" aria-hidden="true">
                         <Icon name={DOMAIN_ICON[n.domain]} size={18} />
-                      </span>
+                      </span> : null}
                       <div className="notif-txt">
                         <b>{text.title}</b>
                         <p>{text.sub}</p>

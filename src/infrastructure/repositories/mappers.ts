@@ -41,6 +41,7 @@ export interface FamilyRow {
 
 export interface TransactionRow {
   id: string;
+  source_kind?: string | null;
   family_id: string;
   member_id: string;
   type: "expense" | "income" | "transfer";
@@ -102,7 +103,7 @@ export function mapMember(r: MemberRow): Member {
     id: r.id,
     familyId: r.family_id,
     name: r.name,
-    role: r.role === "owner" ? "owner" : "member",
+    role: r.role === "owner" || r.role === "admin" ? r.role : "member",
     phone: r.phone,
     gender: r.gender ?? null,
     birthDate: r.birth_date ?? null,
@@ -159,6 +160,7 @@ export function mapJoinRequest(r: JoinRequestRow): JoinRequest {
 export function mapTransaction(r: TransactionRow): Transaction {
   return {
     id: r.id,
+    sourceKind: r.source_kind === "vehicle_service" ? "vehicle_service" : null,
     familyId: r.family_id,
     memberId: r.member_id,
     type: r.type,
@@ -263,6 +265,10 @@ export interface EventRow {
   date: string;
   note: string | null;
   created_at: string;
+  kind?: "event" | "activity";
+  activity_status?: "planned" | "done" | "cancelled" | null;
+  reminder_enabled?: boolean;
+  revision?: number;
 }
 
 export function mapEvent(
@@ -277,6 +283,10 @@ export function mapEvent(
     date: r.date,
     note: r.note,
     createdAt: r.created_at,
+    kind: r.kind === "activity" ? "activity" : "event",
+    activityStatus: r.kind === "activity" ? r.activity_status ?? null : null,
+    reminderEnabled: r.reminder_enabled === true,
+    revision: r.revision ?? 1,
   };
 }
 

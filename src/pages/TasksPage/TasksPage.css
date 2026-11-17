@@ -1,0 +1,11 @@
+.task-completion-photo {
+  display: block;
+  width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+  border-radius: var(--r-md);
+}
+
+.task-completion-preview {
+  margin-block: var(--sp-3);
+}

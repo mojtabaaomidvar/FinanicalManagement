@@ -14,21 +14,30 @@ from fastapi import APIRouter
 
 from app.api.v1.routes import (
     accounts,
+    activities,
     auth,
     bills,
     categories,
+    children,
+    documents,
+    equipment,
     events,
     files,
+    goals,
     health,
     holdings,
     inventory,
     market,
+    meals,
     members,
     notifications,
+    pets,
     shopping,
     sms,
+    tasks,
     transactions,
     uploads,
+    vehicles,
     webhooks,
 )
 
@@ -49,6 +58,15 @@ api_router.include_router(bills.router)
 #    زمینه و یک commit دست خورده می‌شوند. ──
 api_router.include_router(shopping.router)
 api_router.include_router(inventory.router)
+api_router.include_router(tasks.router)
+api_router.include_router(documents.router)
+api_router.include_router(meals.router)
+api_router.include_router(equipment.router)
+api_router.include_router(vehicles.router)
+api_router.include_router(goals.router)
+api_router.include_router(activities.router)
+api_router.include_router(children.router)
+api_router.include_router(pets.router)
 # ── دارایی‌های بازاری — دادهٔ خانواده (RLS)، ولی قیمتش از سرویس بازار می‌آید ──
 api_router.include_router(holdings.router)
 # ── هویتی (فاز ۷) — بیرون از RLS: get_current_member/require_admin ──

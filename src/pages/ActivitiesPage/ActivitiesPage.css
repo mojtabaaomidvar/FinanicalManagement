@@ -1,0 +1,35 @@
+.activities-summary { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-block-end: 18px; }
+.activities-count { font-size: 1.15rem; font-weight: 700; line-height: 1.45; margin: 0 0 6px; }
+.activities-summary svg { color: var(--accent-strong); }
+.activities-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 16px; }
+.activities-tab { min-height: 44px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; color: var(--text-2); background: var(--card); font: inherit; font-size: 0.95rem; cursor: pointer; }
+.activities-tab.active { color: var(--accent-strong); border-color: var(--accent-strong); font-weight: 600; }
+.activities-list { display: grid; gap: 14px; }
+.activities-row { display: flex; gap: 12px; align-items: flex-start; min-width: 0; }
+.activities-details { display: grid; gap: 8px; flex: 1; min-width: 0; padding: 0; background: transparent; border: 0; text-align: start; color: var(--text); font: inherit; cursor: pointer; }
+.activities-details b { font-size: 1.05rem; line-height: 1.45; overflow-wrap: anywhere; }
+.activities-details span { font-size: 0.95rem; line-height: 1.45; color: var(--text-2); overflow-wrap: anywhere; }
+.activities-note-preview { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; white-space: pre-wrap; }
+.activities-sheet { font-kerning: normal; text-rendering: optimizeLegibility; }
+.activities-fields { min-width: 0; margin: 0; padding: 0; border: 0; }
+.activities-sheet .text-input { width: 100%; min-height: 44px; }
+.activities-description { resize: vertical; line-height: 1.45; }
+.activities-date { margin-block-end: 12px; }
+.activities-date .form-row { margin-block-end: 0; }
+.activities-check { display: flex; align-items: center; gap: 10px; min-height: 44px; margin-block: 8px; font-size: 0.95rem; }
+.activities-participants { margin: 16px 0; padding: 0; border: 0; }
+.activities-participants legend { color: var(--text-2); font-size: 0.95rem; margin-block-end: 8px; }
+.activities-participant-list { display: flex; flex-wrap: wrap; gap: 8px 24px; padding-inline-start: 20px; margin-block: 12px 22px; font-size: 0.95rem; line-height: 1.45; overflow-wrap: anywhere; }
+.activities-sheet :is(form, .activities-detail-body) > :is(.btn-primary, .btn-secondary), .activities-sheet > :is(.btn-primary, .btn-secondary) { display: block; width: 100%; margin-block-start: 14px; }
+.activities-facts { display: grid; gap: 14px; margin: 0 0 22px; }
+.activities-facts > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 12px; }
+.activities-facts dt { color: var(--text-2); font-size: 0.95rem; }
+.activities-facts dd { margin: 0; font-size: 0.95rem; overflow-wrap: anywhere; }
+.activities-note { line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 65ch; margin-block: 20px; }
+.activities-section-title { font-size: 1.05rem; line-height: 1.45; margin-block: 24px 12px; }
+.activities-actions { display: grid; gap: 12px; }
+.activities-sheet .form-error { color: var(--danger); font-size: 0.95rem; line-height: 1.45; margin-block: 14px; }
+.activities-delete { background: var(--danger); }
+.activities-danger-text { color: var(--danger); }
+.activities-page :is(button, input):focus-visible, .activities-sheet :is(button, input, select, textarea):focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 3px; }
+@media (min-width: 720px) { .activities-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

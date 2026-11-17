@@ -1,0 +1,33 @@
+.goals-summary { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-block-end: 18px; }
+.goals-count { font-size: 1.15rem; font-weight: 700; line-height: 1.45; margin: 0 0 6px; }
+.goals-summary svg { color: var(--accent-strong); }
+.goals-filter-row { display: grid; gap: 10px; margin-block: 16px; }
+.goals-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.goals-tab { min-height: 44px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; color: var(--text-2); background: var(--card); font: inherit; font-size: 0.95rem; cursor: pointer; }
+.goals-tab.active { color: var(--accent-strong); border-color: var(--accent-strong); font-weight: 600; }
+.goals-list { display: grid; gap: 14px; }
+.goals-row { display: flex; gap: 12px; align-items: flex-start; min-width: 0; }
+.goals-details { display: grid; gap: 8px; flex: 1; min-width: 0; padding: 0; background: transparent; border: 0; text-align: start; color: var(--text); font: inherit; cursor: pointer; }
+.goals-details b { font-size: 1.05rem; line-height: 1.45; overflow-wrap: anywhere; }
+.goals-details span { font-size: 0.95rem; line-height: 1.45; color: var(--text-2); overflow-wrap: anywhere; }
+.goals-note-preview { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; white-space: pre-wrap; }
+.goals-sheet { font-kerning: normal; text-rendering: optimizeLegibility; }
+.goals-fields { min-width: 0; margin: 0; padding: 0; border: 0; }
+.goals-sheet .text-input { width: 100%; min-height: 44px; }
+.goals-description { resize: vertical; line-height: 1.45; }
+.goals-date { margin-block-end: 12px; }
+.goals-date .form-row { margin-block-end: 0; }
+.goals-check { display: flex; align-items: center; gap: 10px; min-height: 44px; margin-block: 12px; font-size: 0.95rem; }
+.goals-text-action { min-height: 44px; padding: 6px 0; border: 0; background: transparent; color: var(--accent-strong); font: inherit; font-size: 0.95rem; cursor: pointer; }
+.goals-sheet :is(form, .goals-detail-body) > :is(.btn-primary, .btn-secondary), .goals-sheet > :is(.btn-primary, .btn-secondary) { display: block; width: 100%; margin-block-start: 14px; }
+.goals-facts { display: grid; gap: 14px; margin: 0 0 22px; }
+.goals-facts > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 12px; }
+.goals-facts dt { color: var(--text-2); font-size: 0.95rem; }
+.goals-facts dd { margin: 0; font-size: 0.95rem; overflow-wrap: anywhere; }
+.goals-note { line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 65ch; margin-block: 20px; }
+.goals-actions { display: grid; gap: 12px; }
+.goals-sheet .form-error { color: var(--danger); font-size: 0.95rem; line-height: 1.45; margin-block: 14px; }
+.goals-delete { background: var(--danger); }
+.goals-danger-text { color: var(--danger); }
+.goals-page :is(button, input):focus-visible, .goals-sheet :is(button, input, select, textarea):focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 3px; }
+@media (min-width: 720px) { .goals-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } .goals-filter-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
