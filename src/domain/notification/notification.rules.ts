@@ -12,8 +12,8 @@
    می‌شوند و از آن به بعد فقط `cmp` کار می‌کند. */
 
 import type { JDate } from "@/shared/lib/jalali";
-import { addDays, cmp, isoToJalali } from "@/shared/lib/jalali";
-import { pendingDueList } from "@/domain/transaction/recurring.rules";
+import { addDays, cmp, isoToJalali, isTodayOrTomorrow } from "@/shared/lib/jalali";
+import { reminderDueList } from "@/domain/transaction/recurring.rules";
 import type { Transaction } from "@/domain/transaction/transaction.types";
 import type { Bill } from "@/domain/bill/bill.types";
 import type { Task } from "@/domain/task/task.types";
@@ -35,7 +35,6 @@ import type {
   NotificationPrefs,
   NotificationSeverity,
 } from "./notification.types";
-import { MAX_LEAD_DAYS } from "./notification.types";
 
 export interface DeriveInput {
   txs: Transaction[];
@@ -77,15 +76,6 @@ const SEVERITY_RANK: Record<NotificationSeverity, number> = {
   soon: 2,
 };
 
-/** پیش‌هنگامِ سالم: عددِ صحیحِ بین ۰ و سقف.
- *  ورودی از بک‌اند/ذخیره‌سازی می‌آید، پس می‌تواند NaN یا منفی یا کسری باشد؛
- *  بی این مهار، `addDays(today, NaN)` کلِ فهرست را بی‌صدا خالی می‌کرد. */
-function safeLead(prefs: NotificationPrefs, domain: NotificationDomain): number {
-  const raw = prefs.leadDays?.[domain];
-  if (typeof raw !== "number" || !Number.isFinite(raw)) return 0;
-  return Math.min(MAX_LEAD_DAYS, Math.max(0, Math.floor(raw)));
-}
-
 function domainOn(prefs: NotificationPrefs, domain: NotificationDomain): boolean {
   if (!prefs.enabled) return false;
   /* نبودِ کلید = روشن. دلیل: اگر دامنهٔ تازه‌ای اضافه شود و ترجیحاتِ
@@ -94,34 +84,17 @@ function domainOn(prefs: NotificationPrefs, domain: NotificationDomain): boolean
   return prefs.domains?.[domain] !== false;
 }
 
-/* ── سررسیدِ تراکنش‌های تکرارشونده (معادلِ BillDueSoonِ §۷.۱) ──
-
-   تلهٔ مهم: `dueOccurrences` سقفش `min(today, repeatEnd)` است، یعنی فقط
-   سررسیدهای **رسیده/گذشته** را می‌دهد. وسوسه این بود که افقِ خودِ آن تابع به
-   آینده کشیده شود تا «۳ روز پیش از سررسید» در بیاید — که ویجتِ
-   widgets/due-recurring را خراب می‌کرد: آن ویجت از مدیر می‌پرسد «انجام شد؟» و
-   با افقِ آینده شروع می‌کرد دربارهٔ تاریخ‌هایی بپرسد که هنوز نرسیده‌اند.
-   پس `dueOccurrences` دست‌نخورده ماند و «نزدیک» را این‌جا با افقِ جداگانه
-   می‌گیریم و بعد روی «امروز» به دو شدت می‌شکنیم.
-
-   گاردِ نقش: فقط مدیر. این ویجتِ موجود هم همین بود و دلیلش کنش است نه حریمِ
-   خصوصی — رسیدگی به سررسید کارِ مدیر است، پس نشان‌دادنش به عضوی که نمی‌تواند
-   کاری بکند فقط نگرانیِ بی‌فایده می‌ساخت. */
+/* امروز و فردا، همان بازهٔ کارت سررسید. مدیر و ادمین مجوز رسیدگی دارند. */
 function recurringNotes(input: DeriveInput): AppNotification[] {
-  if (input.role !== "owner") return [];
-  const lead = safeLead(input.prefs, "recurring");
-  const horizon = addDays(input.todayJ, lead);
+  if (input.role !== "owner" && input.role !== "admin") return [];
   const out: AppNotification[] = [];
 
-  /* حلقه‌ی «برای هر تراکنش → سررسیدهای رسیدگی‌نشده» در خودِ دامنه‌ی تراکنش
-     است، نه این‌جا: ویجتِ widgets/due-recurring هم همان را لازم دارد و دو
-     نسخه‌ی جداگانه می‌توانست درّه بردارد. این‌جا فقط شدت را تعیین می‌کنیم. */
-  for (const { tx, dueIso } of pendingDueList(input.txs, horizon)) {
+  for (const { tx, dueIso } of reminderDueList(input.txs, input.todayJ)) {
     const isFuture = cmp(isoToJalali(dueIso), input.todayJ) > 0;
     out.push({
       id: `recurring:${tx.id}:${dueIso}`,
       domain: "recurring",
-      severity: isFuture ? "soon" : "overdue",
+      severity: isFuture ? "soon" : "pending",
       dateIso: dueIso,
       dismissible: false,
       ref: { kind: "recurring", txId: tx.id, dueIso },
@@ -143,21 +116,19 @@ function recurringNotes(input: DeriveInput): AppNotification[] {
    گاردِ نقش ندارد: قبضِ خانه دادهٔ HOUSEHOLD_SHAREDِ §۵.۲ است و همهٔ اعضا
    باید بدانند برقِ خانه سرِ سررسید است، نه فقط مدیر. */
 function billNotes(input: DeriveInput): AppNotification[] {
-  const lead = safeLead(input.prefs, "bills");
-  const horizon = addDays(input.todayJ, lead);
+  const horizon = addDays(input.todayJ, 1);
   const out: AppNotification[] = [];
 
   for (const bill of input.bills) {
     if (bill.state !== "unpaid") continue;
     const when = isoToJalali(bill.dueDate);
-    /* گذشته از سررسید همیشه می‌آید، هر چه پیش‌هنگام باشد — بدهیِ معوق با
-       گذشتنِ زمان مهم‌تر می‌شود نه کم‌اهمیت‌تر. */
+    // The common reminder window below excludes historical dates.
     const overdue = cmp(when, input.todayJ) < 0;
     if (!overdue && cmp(when, horizon) > 0) continue;
     out.push({
       id: `bills:${bill.id}`,
       domain: "bills",
-      severity: overdue ? "overdue" : "soon",
+      severity: overdue ? "overdue" : cmp(when, input.todayJ) === 0 ? "pending" : "soon",
       dateIso: bill.dueDate,
       dismissible: false,
       ref: { kind: "bills", billId: bill.id, dueIso: bill.dueDate },
@@ -177,8 +148,7 @@ function billNotes(input: DeriveInput): AppNotification[] {
      id بود «نادیده گرفتم»ِ تولدِ امسال، تولدِ همهٔ سال‌های بعد را هم برای
      همیشه خفه می‌کرد. */
 function eventNotes(input: DeriveInput): AppNotification[] {
-  const lead = safeLead(input.prefs, "event");
-  const horizon = addDays(input.todayJ, lead);
+  const horizon = addDays(input.todayJ, 1);
   const out: AppNotification[] = [];
 
   for (const ev of input.events) {
@@ -265,7 +235,7 @@ function inventoryNotes(input: DeriveInput): AppNotification[] {
 
 function taskNotes(input: DeriveInput): AppNotification[] {
   if (!input.memberId) return [];
-  const horizon = addDays(input.todayJ, safeLead(input.prefs, "tasks"));
+  const horizon = addDays(input.todayJ, 1);
   return (input.tasks ?? []).flatMap((task): AppNotification[] => {
     if (task.completed || (input.purpose !== "home" && task.assigneeId !== input.memberId)) return [];
     // An assignment is actionable immediately; a deadline increases its urgency.
@@ -284,7 +254,7 @@ function taskNotes(input: DeriveInput): AppNotification[] {
 
 function documentNotes(input: DeriveInput): AppNotification[] {
   if (!input.memberId) return [];
-  const horizon = addDays(input.todayJ, safeLead(input.prefs, "documents"));
+  const horizon = addDays(input.todayJ, 1);
   return (input.documents ?? []).flatMap((document): AppNotification[] => {
     if (!document.reminderEnabled || !document.expiryDate) return [];
     // مجوز اصلی در سرور است؛ دادهٔ خصوصیِ عضو دیگر در این تابع هم رد می‌شود.
@@ -306,7 +276,7 @@ function documentNotes(input: DeriveInput): AppNotification[] {
 
 function equipmentNotes(input: DeriveInput): AppNotification[] {
   if (!input.memberId) return [];
-  const horizon = addDays(input.todayJ, safeLead(input.prefs, "equipment"));
+  const horizon = addDays(input.todayJ, 1);
   const out: AppNotification[] = [];
   for (const item of input.equipment ?? []) {
     const dates = [
@@ -333,7 +303,7 @@ function equipmentNotes(input: DeriveInput): AppNotification[] {
 
 function vehicleNotes(input: DeriveInput): AppNotification[] {
   if (!input.memberId) return [];
-  const horizon = addDays(input.todayJ, safeLead(input.prefs, "vehicles"));
+  const horizon = addDays(input.todayJ, 1);
   const out: AppNotification[] = [];
   for (const item of input.vehicles ?? []) {
     const serviceDate = item.serviceDueDate ? isoToJalali(item.serviceDueDate) : null;
@@ -341,7 +311,8 @@ function vehicleNotes(input: DeriveInput): AppNotification[] {
     const mileageReached = item.serviceDueOdometer !== null
       && item.odometer >= item.serviceDueOdometer;
     if ((input.purpose === "home" || item.serviceReminderEnabled) && (dateReached || mileageReached)) {
-      const dateRelative = serviceDate ? cmp(serviceDate, input.todayJ) : null;
+      const dateRelative = serviceDate && item.serviceDueDate && isTodayOrTomorrow(item.serviceDueDate, input.todayJ)
+        ? cmp(serviceDate, input.todayJ) : null;
       const mileagePassed = item.serviceDueOdometer !== null
         && item.odometer > item.serviceDueOdometer;
       out.push({
@@ -350,7 +321,9 @@ function vehicleNotes(input: DeriveInput): AppNotification[] {
         domain: "vehicles",
         severity: (dateRelative !== null && dateRelative < 0) || mileagePassed
           ? "overdue" : dateRelative === 0 || mileageReached ? "pending" : "soon",
-        dateIso: item.serviceDueDate,
+        // Mileage is a current condition even when the calendar date is outside the window.
+        dateIso: mileageReached && item.serviceDueDate && !isTodayOrTomorrow(item.serviceDueDate, input.todayJ)
+          ? null : item.serviceDueDate,
         dismissible: false,
         ref: { kind: "vehicles", vehicleId: item.id, reason: "service" },
       });
@@ -381,7 +354,7 @@ function vehicleNotes(input: DeriveInput): AppNotification[] {
 
 function goalNotes(input: DeriveInput): AppNotification[] {
   if (!input.memberId) return [];
-  const horizon = addDays(input.todayJ, safeLead(input.prefs, "goals"));
+  const horizon = addDays(input.todayJ, 1);
   return (input.goals ?? []).flatMap((item): AppNotification[] => {
     // مدیر یا والد هم به هدف خصوصی عضو دیگر دسترسی ندارد.
     if (item.ownerId !== input.memberId || item.status !== "active"
@@ -402,7 +375,7 @@ function goalNotes(input: DeriveInput): AppNotification[] {
 
 function activityNotes(input: DeriveInput): AppNotification[] {
   if (!input.memberId) return [];
-  const horizon = addDays(input.todayJ, safeLead(input.prefs, "activities"));
+  const horizon = addDays(input.todayJ, 1);
   return (input.activities ?? []).flatMap((item): AppNotification[] => {
     if (item.status !== "planned" || (input.purpose !== "home" && !item.reminderEnabled)) return [];
     const when = isoToJalali(item.date);
@@ -449,7 +422,8 @@ export function deriveNotifications(input: DeriveInput): AppNotification[] {
   const out: AppNotification[] = [];
   for (const domain of Object.keys(BUILDERS) as NotificationDomain[]) {
     if (!domainOn(input.prefs, domain)) continue;
-    out.push(...BUILDERS[domain](input));
+    // Historical and distant dates never enter reminders. Stored legacy lead days cannot widen the window.
+    out.push(...BUILDERS[domain](input).filter(note => note.dateIso === null || isTodayOrTomorrow(note.dateIso, input.todayJ)));
   }
 
   out.sort((a, b) => {

@@ -4,14 +4,15 @@
    افزودن و حذف دکمه‌ای؛ داده از RPCهای خانواده‌محور می‌آید، پس هر
    برچسبی فقط برای همان خانواده ثبت و دیده می‌شود. */
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
 import { Card, Field, Select, TextInput } from "@/shared/ui";
 import { CATEGORIES } from "@/domain/category/category.catalog";
+import { toFa } from "@/shared/lib/digits";
 
 export function LabelsCard() {
-  const { useCases, customCategories, subcategories, refreshData } = useApp();
+  const { useCases, customCategories, subcategories, txs, refreshData } = useApp();
   const { show } = useToast();
 
   /* دسته‌های قابل‌انتخاب برای برچسب — انتقال برچسب نمی‌گیرد */
@@ -22,7 +23,7 @@ export function LabelsCard() {
     }));
     const customs = customCategories.map((c) => ({
       value: c.id,
-      label: `${c.name} (دستهٔ خودم)`,
+      label: c.type === "income" ? `${c.name} (درآمد)` : `${c.name} (هزینه)`,
     }));
     return [...base, ...customs];
   }, [customCategories]);
@@ -30,19 +31,22 @@ export function LabelsCard() {
   const [category, setCategory] = useState(options[0]?.value ?? "food");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const writing = useRef(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const selectedCategory = options.some(option => option.value === category) ? category : "";
 
   const nameOf = useMemo(() => {
     const map = new Map<string, string>();
     for (const c of CATEGORIES) map.set(c.id, c.name);
-    for (const c of customCategories) map.set(c.id, c.name);
+    for (const option of options) map.set(option.value, option.label);
     return (id: string) => map.get(id) ?? "دستهٔ حذف‌شده";
-  }, [customCategories]);
+  }, [options]);
 
   /* برچسب‌ها زیر نام دستهٔ والدشان گروه می‌شوند */
   const grouped = useMemo(() => {
-    const map = new Map<string, { name: string; items: typeof subcategories }>();
+    const map = new Map<string, { id: string; name: string; items: typeof subcategories }>();
     for (const s of subcategories) {
-      const g = map.get(s.category) ?? { name: nameOf(s.category), items: [] };
+      const g = map.get(s.category) ?? { id: s.category, name: nameOf(s.category), items: [] };
       g.items.push(s);
       map.set(s.category, g);
     }
@@ -50,73 +54,89 @@ export function LabelsCard() {
   }, [subcategories, nameOf]);
 
   async function add() {
+    if (!useCases || writing.current) return;
     const trimmed = name.trim();
-    if (!trimmed) return show("نام برچسب را بنویسید");
-    if (trimmed.length > 30) return show("نام برچسب حداکثر ۳۰ کاراکتر است");
+    if (!selectedCategory) return setNotice("دستهٔ برچسب را انتخاب کنید");
+    if (!trimmed) return setNotice("نام برچسب را بنویسید");
+    if (trimmed.length > 30) return setNotice("نام برچسب حداکثر ۳۰ کاراکتر است");
 
     const exists = subcategories.some(
-      (s) => s.category === category && s.name === trimmed,
+      (s) => s.category === selectedCategory && s.name === trimmed,
     );
     if (exists) {
-      return show(`برچسب «${trimmed}» زیر این دسته از قبل هست`);
+      return setNotice(`برچسب «${trimmed}» زیر این دسته از قبل هست`);
     }
 
+    writing.current = true;
     setBusy(true);
+    setNotice(null);
+    let added = false;
     try {
-      await useCases!.addSubcategory.execute(category, trimmed);
+      await useCases.addSubcategory.execute(selectedCategory, trimmed);
+      added = true;
       setName("");
       show("برچسب اضافه شد");
       await refreshData();
     } catch (e) {
-      show((e as Error).message || "خطا در افزودن برچسب");
+      setNotice(added ? "برچسب اضافه شد؛ اطلاعات صفحه تازه نشد. صفحه را بازخوانی کنید" : (e as Error).message || "خطا در افزودن برچسب");
     } finally {
+      writing.current = false;
       setBusy(false);
     }
   }
 
   async function remove(id: string, label: string) {
-    if (!confirm(`برچسب «${label}» حذف شود؟ تراکنش‌های قبلی دست‌نخورده می‌مانند.`)) {
-      return;
-    }
+    if (!useCases || writing.current) return;
+    const used = txs.filter(transaction => transaction.subcategoryId === id).length;
+    const confirmation = used
+      ? /* @copy-text labels.remove_used */ `برچسب «${label}» از ${toFa(used)} تراکنش برداشته شود؟ مبلغ و حساب تغییر نمی‌کند.`
+      : /* @copy-text labels.remove */ `برچسب «${label}» حذف شود؟`;
+    if (!confirm(confirmation)) return;
+    writing.current = true;
     setBusy(true);
+    setNotice(null);
+    let deleted = false;
     try {
-      await useCases!.deleteSubcategory.execute(id);
+      await useCases.deleteSubcategory.execute(id);
+      deleted = true;
       show("برچسب حذف شد");
       await refreshData();
     } catch (e) {
-      show((e as Error).message || "خطا در حذف برچسب");
+      setNotice(deleted ? "برچسب حذف شد؛ اطلاعات صفحه تازه نشد. صفحه را بازخوانی کنید" : (e as Error).message || "خطا در حذف برچسب");
     } finally {
+      writing.current = false;
       setBusy(false);
     }
   }
 
   return (
-    <>
+    <fieldset className="category-fields" disabled={busy} aria-busy={busy}>
       <Card title="برچسب جدید">
         <div className="form-grid">
           <div className="form-row full">
             <Field label="زیر کدام دسته؟">
-              <Select value={category} onChange={setCategory} options={options} />
+              <Select value={selectedCategory} onChange={value => { if (!writing.current) { setCategory(value); setNotice(null); } }} options={[{ value: "", label: "انتخاب دسته…" }, ...options]} aria-label="دستهٔ برچسب" />
             </Field>
           </div>
         </div>
 
-        <div className="chip-adder">
+        <form className="chip-adder" onSubmit={event => { event.preventDefault(); void add(); }}>
           <TextInput
             value={name}
-            onChange={setName}
+            onChange={value => { if (!writing.current) { setName(value); setNotice(null); } }}
+            aria-label="نام برچسب جدید"
             placeholder="مثلاً: نان، قسط وام، بنزین"
             maxLength={30}
           />
           <button
-            type="button"
+            type="submit"
             className="btn-primary"
             disabled={busy || !name.trim()}
-            onClick={() => void add()}
           >
-            افزودن
+            {busy ? "در حال ذخیره…" : "افزودن"}
           </button>
-        </div>
+        </form>
+        {notice !== null ? <p className="field-error category-save-notice" role="status">{notice}</p> : null}
 
         <p className="modal-sub" style={{ marginTop: 10 }}>
           برچسب، جزئیات یک دسته را مشخص می‌کند و موقع ثبت تراکنش پیشنهاد
@@ -128,12 +148,12 @@ export function LabelsCard() {
         {grouped.length ? (
           <div className="label-groups">
             {grouped.map((g) => (
-              <div className="label-group" key={g.name}>
+              <div className="label-group" key={g.id}>
                 <h5>{g.name}</h5>
                 <div className="label-chips">
                   {g.items.map((s) => (
                     <span className="label-chip removable" key={s.id}>
-                      {s.name}
+                      <span className="label-chip-name">{s.name}</span>
                       <button
                         type="button"
                         aria-label={`حذف ${s.name}`}
@@ -156,6 +176,6 @@ export function LabelsCard() {
           </p>
         )}
       </Card>
-    </>
+    </fieldset>
   );
 }

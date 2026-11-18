@@ -1,6 +1,6 @@
 /* اینترفیس مخزن تراکنش‌ها — پیاده‌سازی در infrastructure/repositories */
 
-import type { Transaction, TransactionInput } from "./transaction.types";
+import type { Transaction, TransactionInput, TransactionPhoto } from "./transaction.types";
 
 export interface TransactionRepository {
   list(): Promise<Transaction[]>;
@@ -12,7 +12,7 @@ export interface TransactionRepository {
   markOccurrence(id: string, dueDate: string): Promise<void>;
   /** آپلود تصویر پیوست به Storage — URL عمومی برمی‌گرداند */
   uploadPhoto(dataUrl: string): Promise<string>;
-  addPhoto(txId: string, url: string, caption: string | null): Promise<void>;
+  addPhoto(txId: string, url: string, caption: string | null): Promise<TransactionPhoto>;
   updatePhotoCaption(photoId: string, caption: string | null): Promise<void>;
   removePhoto(photoId: string): Promise<void>;
 }

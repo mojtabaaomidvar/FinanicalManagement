@@ -138,7 +138,7 @@ export function NotificationCenterFeature({
       if (reason === "service") {
         if (!item.serviceReminderEnabled) return null;
         const schedule = [
-          item.serviceDueDate ? formatLong(isoToJalali(item.serviceDueDate)) : null,
+          n.dateIso && item.serviceDueDate ? formatLong(isoToJalali(item.serviceDueDate)) : null,
           item.serviceDueOdometer !== null
             ? `${toFa(item.serviceDueOdometer.toLocaleString("en-US"))} کیلومتر` : null,
         ].filter(Boolean);
@@ -347,13 +347,10 @@ export function NotificationCenterFeature({
         title="اعلان‌ها"
         dragToClose
       >
+        <p className="modal-sub">یادآوری‌های تاریخ‌دار فقط برای امروز و فردا نمایش داده می‌شوند.</p>
         {m.list.length === 0 ? (
           <p className="modal-sub">
-            چیزی برای نشان دادن نیست. سررسیدِ تراکنش‌های تکرارشونده، قبض‌های
-            پرداخت‌نشده، رویدادها و تولدهای نزدیک، اقلامی که دارد تمام می‌شود
-            و درخواست‌های عضویت و کارهایی که مسئولشان هستید و پایان اعتبار
-            اسناد قابل مشاهده، موعد سرویس و پایان گارانتی وسایل خانه و موعد
-            سرویس، بیمه و معاینهٔ خودروها و موعد اهداف، آرزوها و برنامه‌های خانوادگی همین‌جا می‌آیند.
+            فعلاً یادآوری‌ای ندارید.
           </p>
         ) : (
           <div className="notif-list">

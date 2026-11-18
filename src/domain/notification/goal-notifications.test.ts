@@ -6,7 +6,7 @@ import { DEFAULT_NOTIFICATION_PREFS } from "./notification.types";
 
 const goal = (patch: Partial<Goal> = {}): Goal => ({
   id: "goal-1", kind: "goal", title: "عنوان خصوصی", note: "شرح خصوصی",
-  targetDate: "2026-11-22", status: "active", reminderEnabled: true,
+  targetDate: "2026-11-16", status: "active", reminderEnabled: true,
   ownerId: "member-1", revision: 1,
   createdAt: "2026-11-15T00:00:00Z", updatedAt: "2026-11-15T00:00:00Z", ...patch,
 });
@@ -17,17 +17,16 @@ const input = (rows: Goal[], patch: Partial<DeriveInput> = {}): DeriveInput => (
 });
 
 describe("private goal and wish reminders", () => {
-  it("defaults to seven days and handles overdue, today and the exact boundary", () => {
+  it("shows today and tomorrow and excludes past or distant goals", () => {
     expect(DEFAULT_NOTIFICATION_PREFS.domains.goals).toBe(true);
-    expect(DEFAULT_NOTIFICATION_PREFS.leadDays.goals).toBe(7);
+    expect(DEFAULT_NOTIFICATION_PREFS.leadDays.goals).toBe(1);
     const notes = deriveNotifications(input([
       goal({ id: "past", targetDate: "2026-11-14" }),
       goal({ id: "today", targetDate: "2026-11-15", kind: "wish" }),
-      goal({ id: "boundary", targetDate: "2026-11-22" }),
-      goal({ id: "beyond", targetDate: "2026-11-23" }),
+      goal({ id: "boundary", targetDate: "2026-11-16" }),
+      goal({ id: "beyond", targetDate: "2026-11-17" }),
     ]));
     expect(notes.map((note) => [note.ref, note.severity])).toEqual([
-      [{ kind: "goals", goalId: "past" }, "overdue"],
       [{ kind: "goals", goalId: "today" }, "pending"],
       [{ kind: "goals", goalId: "boundary" }, "soon"],
     ]);
@@ -65,7 +64,7 @@ describe("private goal and wish reminders", () => {
     }))).toEqual([]);
   });
 
-  it("applies custom lead days and defensive bounds without omitting overdue items", () => {
+  it("ignores legacy lead days and includes today and tomorrow without expired goals", () => {
     const prefs = (lead: number) => ({ ...DEFAULT_NOTIFICATION_PREFS,
       leadDays: { ...DEFAULT_NOTIFICATION_PREFS.leadDays, goals: lead } });
     for (const lead of [0, -1, NaN, Infinity]) {
@@ -75,7 +74,7 @@ describe("private goal and wish reminders", () => {
         goal({ id: "tomorrow", targetDate: "2026-11-16" }),
       ], { prefs: prefs(lead) }));
       expect(notes.map((note) => note.ref)).toEqual([
-        { kind: "goals", goalId: "past" }, { kind: "goals", goalId: "today" },
+        { kind: "goals", goalId: "today" }, { kind: "goals", goalId: "tomorrow" },
       ]);
     }
     expect(deriveNotifications(input([goal({ targetDate: "2026-11-16" })], { prefs: prefs(1.9) }))).toHaveLength(1);
@@ -98,13 +97,13 @@ describe("private goal and wish reminders", () => {
     expect(notes.every((note) => !note.dismissible)).toBe(true);
     expect(deriveNotifications(input(rows, { dismissed: new Set(notes.map((note) => note.id)) }))).toEqual(notes);
     expect(deriveNotifications(input([...rows].reverse()))).toEqual(notes);
-    expect(notes.map((note) => note.id)).toEqual(["goals:a:2026-11-22", "goals:b:2026-11-22"]);
+    expect(notes.map((note) => note.id)).toEqual(["goals:a:2026-11-16", "goals:b:2026-11-16"]);
   });
 
   it("replaces a reminder when the target changes and preserves it when the kind changes", () => {
     const original = deriveNotifications(input([goal()]))[0];
     expect(deriveNotifications(input([goal({ kind: "wish" })]))[0]).toEqual(original);
-    expect(deriveNotifications(input([goal({ targetDate: "2026-11-21" })]))[0].id).not.toBe(original.id);
+    expect(deriveNotifications(input([goal({ targetDate: "2026-11-15" })]))[0].id).not.toBe(original.id);
     expect(deriveNotifications(input([goal({ targetDate: "2027-01-15" })]))).toEqual([]);
   });
 });

@@ -6,8 +6,10 @@ import type { Member } from "@/domain/family/family.types";
 import { sortTxDesc } from "@/domain/transaction/transaction.rules";
 import { searchTransactions } from "@/domain/report/report.rules";
 import type { CategoryResolver } from "@/domain/category/resolve";
+import type { Subcategory } from "@/domain/category/subcategory.types";
 import { isoToJalali, formatISO, formatWeekday, today } from "@/shared/lib/jalali";
 import { formatAmount } from "@/shared/lib/format";
+import { toDisplay } from "@/shared/lib/currency";
 
 export type TxFilter = "all" | "expense" | "income" | "transfer";
 
@@ -40,6 +42,8 @@ export function useTxListModel(
   members: Member[],
   resolve: CategoryResolver,
   initialSearch = "",
+  currency = "تومان",
+  subcategories: Subcategory[] = [],
 ) {
   const [filter, setFilter] = useState<TxFilter>("all");
   const [search, setSearch] = useState(initialSearch);
@@ -55,6 +59,10 @@ export function useTxListModel(
         members.find((m) => m.id === id)?.name ?? "—",
     [members],
   );
+  const subcategoryNameOf = useMemo(() => {
+    const names = new Map(subcategories.map(subcategory => [subcategory.id, subcategory.name]));
+    return (transaction: Transaction) => transaction.subcategoryId ? names.get(transaction.subcategoryId) ?? "" : "";
+  }, [subcategories]);
 
   const list = useMemo(() => {
     let l = sortTxDesc(txs);
@@ -81,9 +89,9 @@ export function useTxListModel(
         });
       }
     }
-    if (search.trim()) l = searchTransactions(l, search, memberNameOf, resolve);
+    if (search.trim()) l = searchTransactions(l, search, memberNameOf, resolve, t => toDisplay(t.amount, currency), subcategoryNameOf);
     return l;
-  }, [txs, filter, search, adv, memberNameOf, resolve]);
+  }, [txs, filter, search, adv, memberNameOf, resolve, currency, subcategoryNameOf]);
 
   /* برچسب خلاصه فیلترهای فعال */
   const advLabel = useMemo(() => {

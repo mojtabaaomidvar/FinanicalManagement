@@ -7,7 +7,7 @@ import { DEFAULT_NOTIFICATION_PREFS } from "./notification.types";
 const equipment = (patch: Partial<Equipment> = {}): Equipment => ({
   id: "equipment-1", title: "کولر", brand: null, model: null,
   purchaseDate: null, warrantyUntil: null, warrantyDocumentId: null,
-  serviceTaskId: null, serviceDueDate: "2026-11-22", serviceReminderEnabled: true,
+  serviceTaskId: null, serviceDueDate: "2026-11-16", serviceReminderEnabled: true,
   createdBy: "member-1", revision: 1, createdAt: "2026-11-15T00:00:00Z",
   updatedAt: "2026-11-15T00:00:00Z", canEdit: true, canDelete: true, ...patch,
 });
@@ -20,15 +20,14 @@ const input = (rows: Equipment[], patch: Partial<DeriveInput> = {}): DeriveInput
 });
 
 describe("equipment service and warranty reminders", () => {
-  it("uses a seven-day window and includes the boundary day", () => {
+  it("shows today and tomorrow and excludes historical and distant service dates", () => {
     const notes = deriveNotifications(input([
       equipment({ id: "past", serviceDueDate: "2026-11-14" }),
       equipment({ id: "today", serviceDueDate: "2026-11-15" }),
-      equipment({ id: "boundary", serviceDueDate: "2026-11-22" }),
-      equipment({ id: "beyond", serviceDueDate: "2026-11-23" }),
+      equipment({ id: "boundary", serviceDueDate: "2026-11-16" }),
+      equipment({ id: "beyond", serviceDueDate: "2026-11-17" }),
     ]));
     expect(notes.map((note) => [note.ref, note.severity])).toEqual([
-      [{ kind: "equipment", equipmentId: "past", reason: "service" }, "overdue"],
       [{ kind: "equipment", equipmentId: "today", reason: "service" }, "pending"],
       [{ kind: "equipment", equipmentId: "boundary", reason: "service" }, "soon"],
     ]);
@@ -36,10 +35,10 @@ describe("equipment service and warranty reminders", () => {
   });
 
   it("has separate service and warranty reminders even when their dates match", () => {
-    const item = equipment({ warrantyUntil: "2026-11-22" });
+    const item = equipment({ warrantyUntil: "2026-11-16" });
     expect(deriveNotifications(input([item])).map((note) => note.id)).toEqual([
-      "equipment:equipment-1:service:2026-11-22",
-      "equipment:equipment-1:warranty:2026-11-22",
+      "equipment:equipment-1:service:2026-11-16",
+      "equipment:equipment-1:warranty:2026-11-16",
     ]);
   });
 
@@ -70,7 +69,7 @@ describe("equipment service and warranty reminders", () => {
     }))).toEqual([]);
   });
 
-  it("respects a custom zero-day window and clamps invalid or excessive leads", () => {
+  it("keeps the today and tomorrow window despite legacy zero invalid or excessive leads", () => {
     const prefs = (lead: number) => ({
       ...DEFAULT_NOTIFICATION_PREFS,
       leadDays: { ...DEFAULT_NOTIFICATION_PREFS.leadDays, equipment: lead },
@@ -80,14 +79,14 @@ describe("equipment service and warranty reminders", () => {
         equipment({ id: "today", serviceDueDate: "2026-11-15" }),
         equipment({ id: "tomorrow", serviceDueDate: "2026-11-16" }),
       ], { prefs: prefs(lead) }));
-      expect(notes.map((note) => note.id)).toEqual(["equipment:today:service:2026-11-15"]);
+      expect(notes.map((note) => note.id)).toEqual(["equipment:today:service:2026-11-15", "equipment:tomorrow:service:2026-11-16"]);
     }
     const far = equipment({ serviceDueDate: "2027-01-15" });
     expect(deriveNotifications(input([far], { prefs: prefs(999) }))).toEqual([]);
   });
 
   it("replaces the old service reminder after service changes the next due date", () => {
-    const original = equipment({ serviceDueDate: "2026-11-14", warrantyUntil: "2026-11-18" });
+    const original = equipment({ serviceDueDate: "2026-11-15", warrantyUntil: "2026-11-16" });
     expect(deriveNotifications(input([original]))).toHaveLength(2);
     const changed = { ...original, serviceDueDate: "2026-12-15", revision: 2 };
     const notes = deriveNotifications(input([changed]));
@@ -99,15 +98,15 @@ describe("equipment service and warranty reminders", () => {
 
   it("orders equal severity by date then deterministic id, independent of input order", () => {
     const rows = [
-      equipment({ id: "b", serviceDueDate: "2026-11-17" }),
-      equipment({ id: "a", serviceDueDate: "2026-11-17", warrantyUntil: "2026-11-16" }),
+      equipment({ id: "b", serviceDueDate: "2026-11-16" }),
+      equipment({ id: "a", serviceDueDate: "2026-11-16", warrantyUntil: "2026-11-15" }),
     ];
     const expected = deriveNotifications(input(rows));
     expect(deriveNotifications(input([...rows].reverse()))).toEqual(expected);
     expect(expected.map((note) => note.id)).toEqual([
-      "equipment:a:warranty:2026-11-16",
-      "equipment:a:service:2026-11-17",
-      "equipment:b:service:2026-11-17",
+      "equipment:a:warranty:2026-11-15",
+      "equipment:a:service:2026-11-16",
+      "equipment:b:service:2026-11-16",
     ]);
   });
 });

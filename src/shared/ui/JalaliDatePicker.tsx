@@ -73,7 +73,7 @@ export function JalaliDatePicker({
      رویدادهای دور باید قابل انتخاب باشند (قبلاً فقط تا سال بعد بود) */
   const max = maxYear ?? ty + 10;
 
-  /* کلیک بیرون → بستن */
+  /* کلیک بیرون یا Escape → بستن فقط همین تقویم */
   const boxRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onDown = (e: MouseEvent | TouchEvent) => {
@@ -81,11 +81,19 @@ export function JalaliDatePicker({
         onClose();
       }
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      onClose();
+    };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("touchstart", onDown);
+    document.addEventListener("keydown", onKey, true);
     return () => {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("touchstart", onDown);
+      document.removeEventListener("keydown", onKey, true);
     };
   }, [onClose]);
 

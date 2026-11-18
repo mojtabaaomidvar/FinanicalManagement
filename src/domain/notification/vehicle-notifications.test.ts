@@ -7,7 +7,7 @@ import { DEFAULT_NOTIFICATION_PREFS } from "./notification.types";
 const vehicle = (patch: Partial<Vehicle> = {}): Vehicle => ({
   id: "vehicle-1", title: "خودروی خانواده", brand: null, model: null, plate: null,
   purchaseDate: null, odometer: 10_000, insuranceUntil: null, inspectionUntil: null,
-  documentId: null, serviceTaskId: null, serviceDueDate: "2026-11-22",
+  documentId: null, serviceTaskId: null, serviceDueDate: "2026-11-16",
   serviceDueOdometer: null, serviceReminderEnabled: true, createdBy: "member-1",
   revision: 1, createdAt: "2026-11-15T00:00:00Z", updatedAt: "2026-11-15T00:00:00Z",
   canEdit: true, canDelete: true, canViewHistory: true, ...patch,
@@ -20,17 +20,16 @@ const input = (rows: Vehicle[], patch: Partial<DeriveInput> = {}): DeriveInput =
 });
 
 describe("vehicle service, insurance and inspection reminders", () => {
-  it("defaults to seven days and includes overdue, today and the exact date boundary", () => {
+  it("shows today and tomorrow and excludes historical or distant service dates", () => {
     const notes = deriveNotifications(input([
       vehicle({ id: "past", serviceDueDate: "2026-11-14" }),
       vehicle({ id: "today", serviceDueDate: "2026-11-15" }),
-      vehicle({ id: "boundary", serviceDueDate: "2026-11-22" }),
-      vehicle({ id: "beyond", serviceDueDate: "2026-11-23" }),
+      vehicle({ id: "boundary", serviceDueDate: "2026-11-16" }),
+      vehicle({ id: "beyond", serviceDueDate: "2026-11-17" }),
     ]));
     expect(DEFAULT_NOTIFICATION_PREFS.domains.vehicles).toBe(true);
-    expect(DEFAULT_NOTIFICATION_PREFS.leadDays.vehicles).toBe(7);
+    expect(DEFAULT_NOTIFICATION_PREFS.leadDays.vehicles).toBe(1);
     expect(notes.map((note) => [note.ref, note.severity])).toEqual([
-      [{ kind: "vehicles", vehicleId: "past", reason: "service" }, "overdue"],
       [{ kind: "vehicles", vehicleId: "today", reason: "service" }, "pending"],
       [{ kind: "vehicles", vehicleId: "boundary", reason: "service" }, "soon"],
     ]);
@@ -57,12 +56,12 @@ describe("vehicle service, insurance and inspection reminders", () => {
     const mileageOnly = deriveNotifications(input([{ ...both, serviceDueDate: "2027-01-15" }]));
     expect(mileageOnly).toHaveLength(1);
     expect(mileageOnly[0].severity).toBe("pending");
-    expect(deriveNotifications(input([{ ...both, serviceDueDate: "2026-11-14" }]))[0].severity).toBe("overdue");
+    expect(deriveNotifications(input([{ ...both, serviceDueDate: "2026-11-14" }]))[0]).toMatchObject({ severity: "pending", dateIso: null });
   });
 
   it("keeps insurance and inspection separate even when all dates are the same", () => {
     const notes = deriveNotifications(input([vehicle({
-      insuranceUntil: "2026-11-22", inspectionUntil: "2026-11-22",
+      insuranceUntil: "2026-11-16", inspectionUntil: "2026-11-16",
     })]));
     expect(notes.map((note) => note.ref)).toEqual([
       { kind: "vehicles", vehicleId: "vehicle-1", reason: "inspection" },
@@ -76,11 +75,10 @@ describe("vehicle service, insurance and inspection reminders", () => {
     const notes = deriveNotifications(input([
       vehicle({ id: "past", serviceDueDate: null, insuranceUntil: "2026-11-14" }),
       vehicle({ id: "today", serviceDueDate: null, inspectionUntil: "2026-11-15" }),
-      vehicle({ id: "boundary", serviceDueDate: null, insuranceUntil: "2026-11-22" }),
-      vehicle({ id: "beyond", serviceDueDate: null, inspectionUntil: "2026-11-23" }),
+      vehicle({ id: "boundary", serviceDueDate: null, insuranceUntil: "2026-11-16" }),
+      vehicle({ id: "beyond", serviceDueDate: null, inspectionUntil: "2026-11-17" }),
     ]));
     expect(notes.map((note) => [note.ref, note.severity])).toEqual([
-      [{ kind: "vehicles", vehicleId: "past", reason: "insurance" }, "overdue"],
       [{ kind: "vehicles", vehicleId: "today", reason: "inspection" }, "pending"],
       [{ kind: "vehicles", vehicleId: "boundary", reason: "insurance" }, "soon"],
     ]);
@@ -89,7 +87,7 @@ describe("vehicle service, insurance and inspection reminders", () => {
   it("the per-vehicle switch suppresses date and mileage service but preserves other reasons", () => {
     const notes = deriveNotifications(input([vehicle({
       serviceReminderEnabled: false, serviceDueOdometer: 9_000,
-      insuranceUntil: "2026-11-16", inspectionUntil: "2026-11-17",
+      insuranceUntil: "2026-11-15", inspectionUntil: "2026-11-16",
     })]));
     expect(notes.map((note) => note.ref)).toEqual([
       { kind: "vehicles", vehicleId: "vehicle-1", reason: "insurance" },
@@ -115,7 +113,7 @@ describe("vehicle service, insurance and inspection reminders", () => {
     }))).toEqual([]);
   });
 
-  it("uses custom date lead days but mileage activates even with a zero-day window", () => {
+  it("ignores legacy date lead days and preserves mileage warnings outside the date window", () => {
     const prefs = (lead: number) => ({ ...DEFAULT_NOTIFICATION_PREFS,
       leadDays: { ...DEFAULT_NOTIFICATION_PREFS.leadDays, vehicles: lead } });
     for (const lead of [0, -1, NaN, Infinity]) {
@@ -124,7 +122,7 @@ describe("vehicle service, insurance and inspection reminders", () => {
         vehicle({ id: "tomorrow", serviceDueDate: "2026-11-16" }),
         vehicle({ id: "mileage", serviceDueDate: "2027-01-15", serviceDueOdometer: 10_000 }),
       ], { prefs: prefs(lead) }));
-      expect(notes.map((note) => note.ref.kind === "vehicles" ? note.ref.vehicleId : "")).toEqual(["today", "mileage"]);
+      expect(notes.map((note) => note.ref.kind === "vehicles" ? note.ref.vehicleId : "")).toEqual(["today", "mileage", "tomorrow"]);
     }
     expect(deriveNotifications(input([
       vehicle({ serviceDueDate: "2026-11-16" }),
@@ -141,7 +139,7 @@ describe("vehicle service, insurance and inspection reminders", () => {
     const original = vehicle({ serviceDueOdometer: 10_000 });
     const id = deriveNotifications(input([original]))[0].id;
     expect(deriveNotifications(input([{ ...original, odometer: 10_200 }]))[0].id).toBe(id);
-    expect(deriveNotifications(input([{ ...original, serviceDueDate: "2026-11-21" }]))[0].id).not.toBe(id);
+    expect(deriveNotifications(input([{ ...original, serviceDueDate: "2026-11-15" }]))[0].id).not.toBe(id);
     expect(deriveNotifications(input([{ ...original, serviceDueOdometer: 10_500 }]))[0].id).not.toBe(id);
     expect(deriveNotifications(input([{ ...original, serviceDueDate: "2027-01-15", serviceDueOdometer: 20_000 }]))).toEqual([]);
   });
@@ -161,7 +159,7 @@ describe("vehicle service, insurance and inspection reminders", () => {
     ]);
     // Neither the structured payload nor its reference copies private metadata.
     const adultNotes = deriveNotifications(input([vehicle({
-      plate: "PRIVATE-PLATE", documentId: "PRIVATE-DOCUMENT", insuranceUntil: "2026-11-22",
+      plate: "PRIVATE-PLATE", documentId: "PRIVATE-DOCUMENT", insuranceUntil: "2026-11-16",
     })]));
     expect(JSON.stringify(adultNotes)).not.toContain("PRIVATE-PLATE");
     expect(JSON.stringify(adultNotes)).not.toContain("PRIVATE-DOCUMENT");
@@ -170,17 +168,17 @@ describe("vehicle service, insurance and inspection reminders", () => {
 
   it("cannot be dismissed and sorts deterministically across input order", () => {
     const rows = [
-      vehicle({ id: "b", serviceDueDate: "2026-11-17" }),
-      vehicle({ id: "a", serviceDueDate: "2026-11-17", insuranceUntil: "2026-11-16" }),
+      vehicle({ id: "b", serviceDueDate: "2026-11-16" }),
+      vehicle({ id: "a", serviceDueDate: "2026-11-16", insuranceUntil: "2026-11-15" }),
     ];
     const notes = deriveNotifications(input(rows));
     expect(notes.every((note) => note.domain === "vehicles" && !note.dismissible)).toBe(true);
     expect(deriveNotifications(input(rows, { dismissed: new Set(notes.map((note) => note.id)) }))).toEqual(notes);
     expect(deriveNotifications(input([...rows].reverse()))).toEqual(notes);
     expect(notes.map((note) => note.id)).toEqual([
-      "vehicles:a:insurance:2026-11-16",
-      "vehicles:a:service:2026-11-17:none",
-      "vehicles:b:service:2026-11-17:none",
+      "vehicles:a:insurance:2026-11-15",
+      "vehicles:a:service:2026-11-16:none",
+      "vehicles:b:service:2026-11-16:none",
     ]);
   });
 });

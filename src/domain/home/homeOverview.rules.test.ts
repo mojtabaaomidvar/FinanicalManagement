@@ -70,31 +70,31 @@ describe("home work overview", () => {
     expect(reminders(data).map((row) => row.id)).toEqual(["tasks:task-1", "tasks:undated"]);
   });
 
-  it("partitions overdue, today and the exact seven-day boundary, excluding later tasks", () => {
+  it("shows today and tomorrow and excludes older or distant task deadlines", () => {
     const overview = deriveHomeOverview(input({ tasks: [
       task({ id: "past", dueDate: "2026-11-14" }), task({ id: "today" }),
       task({ id: "tomorrow", dueDate: "2026-11-16" }),
       task({ id: "boundary", dueDate: "2026-11-22" }),
       task({ id: "beyond", dueDate: "2026-11-23" }),
     ] }));
-    expect(overview.overdue.map((row) => row.id)).toEqual(["tasks:past"]);
+    expect(overview.overdue).toEqual([]);
     expect(overview.today.map((row) => row.id)).toEqual(["tasks:today"]);
-    expect(overview.upcoming.map((row) => row.id)).toEqual(["tasks:tomorrow", "tasks:boundary"]);
+    expect(overview.upcoming.map((row) => row.id)).toEqual(["tasks:tomorrow"]);
   });
 
   it("uses the same date boundary across a Gregorian year transition", () => {
-    const overview = deriveHomeOverview(input({ todayJ: isoToJalali("2026-12-29"), bills: [
-      bill({ id: "near", dueDate: "2027-01-05" }), bill({ id: "later", dueDate: "2027-01-06" }),
+    const overview = deriveHomeOverview(input({ todayJ: isoToJalali("2026-12-31"), bills: [
+      bill({ id: "near", dueDate: "2027-01-01" }), bill({ id: "later", dueDate: "2027-01-02" }),
     ] }));
     expect(overview.upcoming.map((row) => row.id)).toEqual(["bills:near"]);
   });
 
   it("uses the same date boundary across a Jalali year transition", () => {
-    const overview = deriveHomeOverview(input({ todayJ: isoToJalali("2027-03-18"), events: [
-      event({ id: "near", date: "2027-03-25" }), event({ id: "later", date: "2027-03-26" }),
+    const overview = deriveHomeOverview(input({ todayJ: isoToJalali("2027-03-20"), events: [
+      event({ id: "near", date: "2027-03-21" }), event({ id: "later", date: "2027-03-22" }),
     ] }));
     expect(overview.upcoming.map((row) => row.ref)).toEqual([
-      { kind: "event", eventId: "near", dateIso: "2027-03-25" },
+      { kind: "event", eventId: "near", dateIso: "2027-03-21" },
     ]);
   });
 
@@ -156,7 +156,7 @@ describe("home work overview", () => {
     expect(overview.upcoming).toEqual([]);
   });
 
-  it("keeps service due by mileage actionable even if its date is beyond the seven-day horizon", () => {
+  it("keeps service due by mileage actionable even if its date is beyond tomorrow", () => {
     const overview = deriveHomeOverview(input({ vehicles: [vehicle({
       serviceDueDate: "2027-01-15", serviceDueOdometer: 10_000,
     })] }));
@@ -172,12 +172,15 @@ describe("home work overview", () => {
 
   it("preserves separate warranty, insurance and inspection deadlines and strips no protected fields", () => {
     const overview = deriveHomeOverview(input({
-      equipment: [equipment({ serviceDueDate: null, warrantyUntil: "2026-11-14" })],
-      vehicles: [vehicle({ serviceDueDate: null, insuranceUntil: "2026-11-15", inspectionUntil: "2026-11-22" })],
+      equipment: [equipment({ serviceDueDate: null, warrantyUntil: "2026-11-16" })],
+      vehicles: [vehicle({ serviceDueDate: null, insuranceUntil: "2026-11-15", inspectionUntil: "2026-11-16" })],
     }));
-    expect(overview.overdue[0].ref).toEqual({ kind: "equipment", equipmentId: "equipment-1", reason: "warranty" });
+    expect(overview.overdue).toEqual([]);
     expect(overview.today[0].ref).toEqual({ kind: "vehicles", vehicleId: "vehicle-1", reason: "insurance" });
-    expect(overview.upcoming[0].ref).toEqual({ kind: "vehicles", vehicleId: "vehicle-1", reason: "inspection" });
+    expect(overview.upcoming.map(item => item.ref)).toEqual([
+      { kind: "equipment", equipmentId: "equipment-1", reason: "warranty" },
+      { kind: "vehicles", vehicleId: "vehicle-1", reason: "inspection" },
+    ]);
     expect(JSON.stringify(overview)).not.toContain("amount");
     expect(JSON.stringify(overview)).not.toContain("plate");
   });

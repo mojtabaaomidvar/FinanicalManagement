@@ -14,7 +14,7 @@ export {
 } from "./Form";
 export { JalaliDatePicker } from "./JalaliDatePicker";
 export { WheelColumn } from "./Wheel";
-export { CalcKeypad, evaluateExpression } from "./CalcKeypad";
+export { CalcKeypad, evaluateExpression, normalizeExpressionInput, expressionInputCaret, formatExpressionValue } from "./CalcKeypad";
 export { DonutChart, BarChart, LineChart, themeColors } from "./charts";
 export type {
   DonutSlice,

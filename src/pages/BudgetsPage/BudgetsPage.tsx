@@ -5,20 +5,20 @@ import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
    در تنظیمات تعیین شده بیشتر شود. اگر شد، به‌جای رد کردن خشک، همان‌جا
    پیشنهاد می‌دهیم سقف ماهانه را روی مجموع تازهٔ دسته‌ها بگذاریم. */
 
-import { useMemo, useState } from "react";
+import { useId, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
-import { Card, Field, Modal, AmountInput, FitText } from "@/shared/ui";
+import { Card, Modal, FitText, expressionInputCaret, normalizeExpressionInput } from "@/shared/ui";
 import {
   CATEGORIES,
   CUSTOM_CATEGORY_ICON,
   type Category,
 } from "@/domain/category/category.catalog";
-import { budgetStatus, monthCategorySpend } from "@/domain/budget/budget.rules";
-import { formatMonth, today } from "@/shared/lib/jalali";
+import { budgetStatus, monthCategorySpend, parseCategoryBudgetAmount, spendCapacity } from "@/domain/budget/budget.rules";
+import { daysLeftInMonth, formatMonth, today } from "@/shared/lib/jalali";
 import { toFa } from "@/shared/lib/digits";
-import { formatAmount, parseAmountInput } from "@/shared/lib/format";
-import { fromDisplay, toDisplay } from "@/shared/lib/currency";
+import { formatAmount } from "@/shared/lib/format";
+import { toDisplay } from "@/shared/lib/currency";
 
 export function BudgetsPage() {
   const {
@@ -32,15 +32,52 @@ export function BudgetsPage() {
     refreshData,
   } = useApp();
   const { show } = useToast();
-  const isOwner = member?.role === "owner";
+  const canManage = member?.role === "owner" || member?.role === "admin";
 
-  const [jy, jm] = today();
+  const [jy, jm, jd] = today();
   const [editing, setEditing] = useState<Category | null>(null);
   const [amountStr, setAmountStr] = useState("");
   const [busy, setBusy] = useState(false);
+  const writing = useRef(false);
+  const [notice, setNotice] = useState("");
+  const amountId = useId();
+  const amountRef = useRef<HTMLInputElement>(null);
+  const selection = useRef<{ start: number; end: number } | null>(null);
   /* مجموعی که با مبلغ تازه به‌دست می‌آید و از سقف ماهانه رد شده — تا وقتی
      پر است، به‌جای ذخیره، پیشنهاد بالا بردن سقف نشان داده می‌شود */
   const [overflow, setOverflow] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    const next = selection.current;
+    selection.current = null;
+    if (next && document.activeElement === amountRef.current) amountRef.current?.setSelectionRange(next.start, next.end);
+  });
+
+  function changeAmount(raw: string, start: number, end = start) {
+    const formatted = normalizeExpressionInput(raw);
+    selection.current = { start: expressionInputCaret(raw, formatted, start), end: expressionInputCaret(raw, formatted, end) };
+    setAmountStr(formatted);
+    setOverflow(null);
+    setNotice("");
+  }
+
+  function amountChanged(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    changeAmount(input.value, input.selectionStart ?? input.value.length, input.selectionEnd ?? input.value.length);
+  }
+
+  function amountKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    const input = event.currentTarget, start = input.selectionStart;
+    if (start === null || start !== input.selectionEnd) return;
+    if (event.key === "Backspace" && input.value[start - 1] === ",") {
+      event.preventDefault();
+      changeAmount(input.value.slice(0, start - 2) + input.value.slice(start), start - 2);
+    } else if (event.key === "Delete" && input.value[start] === ",") {
+      event.preventDefault();
+      changeAmount(input.value.slice(0, start) + input.value.slice(start + 2), start);
+    }
+  }
 
   const monthLabel = `${formatMonth(jy, jm)}`;
   /* سقف ماهانهٔ خانواده (پایه: تومان). صفر یعنی هنوز تعیین نشده */
@@ -67,53 +104,86 @@ export function BudgetsPage() {
   );
 
   const totals = useMemo(() => {
-    let budgetSum = 0;
-    let spentSum = 0;
-    for (const b of budgets) budgetSum += b.amount;
-    for (const v of spend.values()) spentSum += v;
-    return { budgetSum, spentSum, remaining: budgetSum - spentSum };
-  }, [budgets, spend]);
+    const capacity = spendCapacity(budgets, spend, daysLeftInMonth([jy, jm, jd]));
+    return { budgetSum: capacity.cap, spentSum: capacity.spent, remaining: capacity.remaining,
+      active: capacity.active, unbudgetedSpent: capacity.unbudgetedSpent };
+  }, [budgets, spend, jy, jm, jd]);
 
   /* از سقف رد شده‌ایم؟ (مثلاً سقف را در تنظیمات پایین آورده‌اند) */
   const overCap = monthlyCap > 0 && totals.budgetSum > monthlyCap;
 
   function openEdit(cat: Category) {
-    if (!isOwner) return;
+    if (!canManage || writing.current) return;
     const b = budgetMap.get(cat.id);
     setAmountStr(b ? formatAmount(toDisplay(b.amount, currency)) : "");
     setOverflow(null);
+    setNotice("");
     setEditing(cat);
   }
 
-  function closeEdit() {
+  function resetEdit() {
     setEditing(null);
     setOverflow(null);
+    setNotice("");
+  }
+
+  function closeEdit() {
+    if (!writing.current) resetEdit();
+  }
+
+  function beginWrite() {
+    if (writing.current || !canManage || !useCases) return false;
+    writing.current = true;
+    setBusy(true);
+    setNotice("");
+    return true;
+  }
+
+  function endWrite() {
+    writing.current = false;
+    setBusy(false);
   }
 
   /** ذخیره واقعی بودجهٔ دسته — بعد از عبور از بررسی سقف */
-  async function persist(amount: number) {
-    if (!editing) return;
-    setBusy(true);
+  async function persist(amount: number, raisedCap?: number) {
+    if (!editing || !beginWrite()) return;
+    const category = editing.id;
+    let capSaved = false, budgetSaved = false;
     try {
+      if (raisedCap !== undefined) {
+        await useCases!.setMonthlyBudget.execute(raisedCap);
+        capSaved = true;
+      }
       await useCases!.setCategoryBudget.execute({
-        category: editing.id,
+        category,
         amount,
       });
+      budgetSaved = true;
       show("بودجه ذخیره شد");
-      closeEdit();
-      await refreshData();
+      resetEdit();
     } catch (e) {
-      show((e as Error).message || "خطا در ذخیره");
+      if (capSaved) setOverflow(null);
+      const message = capSaved
+        ? "سقف ماهانه تغییر کرد، اما بودجهٔ دسته ذخیره نشد؛ دوباره تلاش کنید"
+        : (e as Error).message || "خطا در ذخیرهٔ بودجه";
+      setNotice(message);
+      show(message);
     } finally {
-      setBusy(false);
+      if (capSaved || budgetSaved) {
+        try { await refreshData(); }
+        catch { show("تغییر بودجه ذخیره شد؛ اطلاعات صفحه تازه نشد. صفحه را بازخوانی کنید"); }
+      }
+      endWrite();
     }
   }
 
   async function save() {
-    if (!editing) return;
-    const amount = fromDisplay(parseAmountInput(amountStr), currency);
-    if (!amount || amount <= 0) {
-      show("مبلغ بودجه را وارد کنید");
+    if (!editing || writing.current || !canManage) return;
+    const amount = parseCategoryBudgetAmount(amountStr, currency);
+    if (amount === null) {
+      const message = "مبلغ بودجه را کامل و در محدودهٔ مجاز وارد کنید";
+      setNotice(message);
+      show(message);
       return;
     }
 
@@ -132,46 +202,49 @@ export function BudgetsPage() {
   /** «سقف را زیاد کن» داخل مودال — سقف ماهانه دقیقاً برابر مجموع تازه
       می‌شود و بعد بودجهٔ دسته ذخیره می‌شود */
   async function raiseCapAndSave() {
-    if (!editing || overflow === null) return;
-    const amount = fromDisplay(parseAmountInput(amountStr), currency);
-    setBusy(true);
-    try {
-      await useCases!.setMonthlyBudget.execute(overflow);
-    } catch (e) {
-      show((e as Error).message || "خطا در تغییر سقف ماهانه");
-      setBusy(false);
-      return;
-    }
-    setBusy(false);
-    await persist(amount);
+    if (!editing || overflow === null || writing.current) return;
+    const amount = parseCategoryBudgetAmount(amountStr, currency);
+    if (amount === null) return;
+    await persist(amount, overflow);
   }
 
   /** «سقف را زیاد کن» از کارت خلاصه — وقتی از قبل رد شده‌ایم */
   async function syncCapToSum() {
-    setBusy(true);
+    if (!beginWrite()) return;
+    let capSaved = false;
     try {
       await useCases!.setMonthlyBudget.execute(totals.budgetSum);
+      capSaved = true;
       show("سقف بودجه ماهانه با مجموع دسته‌ها هماهنگ شد");
-      await refreshData();
     } catch (e) {
       show((e as Error).message || "خطا در تغییر سقف ماهانه");
     } finally {
-      setBusy(false);
+      if (capSaved) {
+        try { await refreshData(); }
+        catch { show("تغییر بودجه ذخیره شد؛ اطلاعات صفحه تازه نشد. صفحه را بازخوانی کنید"); }
+      }
+      endWrite();
     }
   }
 
   async function removeBudget() {
-    if (!editing) return;
-    setBusy(true);
+    if (!editing || !beginWrite()) return;
+    let removed = false;
     try {
       await useCases!.deleteCategoryBudget.execute(editing.id);
+      removed = true;
       show("بودجه حذف شد");
-      closeEdit();
-      await refreshData();
+      resetEdit();
     } catch (e) {
-      show((e as Error).message || "خطا در حذف");
+      const message = (e as Error).message || "خطا در حذف بودجه";
+      setNotice(message);
+      show(message);
     } finally {
-      setBusy(false);
+      if (removed) {
+        try { await refreshData(); }
+        catch { show("بودجه حذف شد؛ اطلاعات صفحه تازه نشد. صفحه را بازخوانی کنید"); }
+      }
+      endWrite();
     }
   }
 
@@ -191,7 +264,7 @@ export function BudgetsPage() {
             <p className="budget-month">{monthLabel}</p>
             <div className="budget-summary-nums">
               <div>
-                <span>مجموع بودجه</span>
+                <span>بودجهٔ دسته‌ها</span>
                 <b>
                   <FitText>
                     {totals.budgetSum
@@ -204,7 +277,7 @@ export function BudgetsPage() {
                 </b>
               </div>
               <div>
-                <span>مصرف این ماه</span>
+                <span>مصرف بودجه‌ها</span>
                 <b className="expense">
                   <FitText>
                     {formatAmount(toDisplay(totals.spentSum, currency))}
@@ -216,16 +289,19 @@ export function BudgetsPage() {
                 <span>
                   {totals.remaining >= 0 ? "باقی‌مانده" : "مصرف بیش از بودجه"}
                 </span>
-                <b className={totals.remaining >= 0 ? "income" : "expense"}>
+                <b className={!totals.active ? undefined : totals.remaining >= 0 ? "income" : "expense"}>
                   <FitText>
-                    {formatAmount(
+                    {totals.active ? formatAmount(
                       toDisplay(Math.abs(totals.remaining), currency),
-                    )}
-                    <span className="cur-tag">{currencyDisplayLabel(currency)}</span>
+                    ) : "—"}
+                    {totals.active ? <span className="cur-tag">{currencyDisplayLabel(currency)}</span> : null}
                   </FitText>
                 </b>
               </div>
             </div>
+            {totals.unbudgetedSpent > 0 ? <p className="budget-unbudgeted">
+              هزینهٔ بدون بودجه: {formatAmount(toDisplay(totals.unbudgetedSpent, currency))} {currencyDisplayLabel(currency)}
+            </p> : null}
             <p className="budget-reset-hint">
               مصرف هر دسته فقط در همان ماه تقویمی حساب می‌شود
             </p>
@@ -243,7 +319,7 @@ export function BudgetsPage() {
                 {formatAmount(toDisplay(monthlyCap, currency))} {currencyDisplayLabel(currency)})
                 بیشتر شده است.
               </p>
-              {isOwner ? (
+              {canManage ? (
                 <button
                   type="button"
                   className="btn-primary btn-block"
@@ -286,7 +362,7 @@ export function BudgetsPage() {
                 type="button"
                 className="budget-row"
                 onClick={() => openEdit(cat)}
-                disabled={!isOwner}
+                disabled={!canManage || busy}
               >
                 <div className="budget-row-head">
                   <span className="budget-cat">
@@ -337,7 +413,7 @@ export function BudgetsPage() {
             );
           })}
 
-          {!isOwner ? (
+          {!canManage ? (
             <p className="budget-perm">
               تعریف و تغییر بودجه فقط توسط مدیر خانواده امکان‌پذیر است
             </p>
@@ -350,25 +426,28 @@ export function BudgetsPage() {
         onClose={closeEdit}
         title={`بودجه ${editing?.name ?? ""}`}
       >
+        <fieldset className="budget-fields" disabled={busy}>
         <div className="form-grid" style={{ marginTop: 8 }}>
           <div className="form-row full">
-            <Field label="مبلغ بودجه ماهانه">
-              <AmountInput
+            <div className="form-row">
+              <label htmlFor={amountId}>مبلغ بودجه ماهانه</label>
+              <div className="amt-field">
+              <input
+                ref={amountRef} id={amountId} type="text" inputMode="numeric" dir="ltr"
+                className="num-input" autoComplete="off" placeholder="۰"
                 value={amountStr}
-                onChange={(v) => {
-                  setAmountStr(v);
-                  /* مبلغ عوض شد یعنی هشدار قبلی دیگر معتبر نیست */
-                  setOverflow(null);
-                }}
-                currency={currency}
+                onChange={amountChanged} onKeyDown={amountKeyDown}
               />
-            </Field>
+              <span className="cur-suffix">{currencyDisplayLabel(currency)}</span>
+              </div>
+            </div>
             <p className="modal-sub">
               این بودجه برای هر ماه تقویمی تکرار می‌شود و مصرف هر ماه جداگانه از
               صفر محاسبه می‌گردد
             </p>
           </div>
         </div>
+        {notice ? <p className="budget-save-notice" role="alert">{notice}</p> : null}
 
         {/* رد شدن از سقف ماهانه — پیشنهاد بالا بردن سقف به‌جای رد کردن */}
         {overflow !== null ? (
@@ -401,7 +480,7 @@ export function BudgetsPage() {
               حذف
             </button>
           ) : null}
-          <button className="btn-secondary" onClick={closeEdit}>
+          <button className="btn-secondary" disabled={busy} onClick={closeEdit}>
             انصراف
           </button>
           <button
@@ -409,9 +488,10 @@ export function BudgetsPage() {
             disabled={busy}
             onClick={() => void save()}
           >
-            ذخیره
+            {busy ? "در حال ذخیره…" : "ذخیره"}
           </button>
         </div>
+        </fieldset>
       </Modal>
     </section>
   );

@@ -502,20 +502,55 @@ export function handlePreviewRequest(session, request) {
     const task = data.tasks.find(item => item.id === path.split('/')[2]); if (!task) return error('NOT_FOUND', 'کار نمونه یافت نشد.', 404);
     Object.assign(task, { completed: Boolean(body.completed), completed_at: body.completed ? data.timestamp : null, completed_by: body.completed ? data.actor.id : null, revision: task.revision + 1 }); return response(task);
   }
-  if (/^\/bills\/[^/]+\/(pay|unpay)$/.test(path)) {
+  if (/^\/bills\/[^/]+\/(pay|unpay|cancel)$/.test(path) && method === 'POST') {
     const bill = data.bills.find(item => item.id === path.split('/')[2]); if (!bill) return error('NOT_FOUND', 'قبض نمونه یافت نشد.', 404);
-    const paid = path.endsWith('/pay'); Object.assign(bill, { state: paid ? 'paid' : 'unpaid', paid_at: paid ? data.timestamp : null, paid_by_member_id: paid ? data.actor.id : null }); return response(bill);
+    if (path.endsWith('/unpay')) {
+      if (bill.state !== 'paid') return error('BILL_NOT_PAID', 'این قبض پرداخت نشده است.', 409);
+      if (!managersOnly(session) && bill.paid_by_member_id !== data.actor.id) return error('FORBIDDEN', 'فقط پرداخت‌کننده یا مدیر خانواده می‌تواند پرداخت را برگرداند.', 403);
+      data.transactions = data.transactions.filter(transaction => transaction.id !== bill.transaction_id);
+      Object.assign(bill, { state: 'unpaid', paid_at: null, paid_by_member_id: null, transaction_id: null });
+      return response(bill);
+    }
+    if (bill.state === 'paid') return error('BILL_ALREADY_PAID', 'این قبض قبلاً پرداخت شده است.', 409);
+    if (path.endsWith('/cancel')) { bill.state = 'cancelled'; return response(bill); }
+    if (bill.state === 'cancelled') return error('BILL_CANCELLED', 'قبض لغوشده پرداخت نمی‌شود.', 409);
+    if (body.account_id && !data.accounts.some(account => account.id === body.account_id)) return error('NOT_FOUND', 'حساب یافت نشد.', 404);
+    const transaction = normalizeCreate(session, 'transactions', { member_id: data.actor.id, type: 'expense', amount: bill.amount,
+      category: 'bills', date: body.date || data.today, account_id: body.account_id || null, note: bill.title });
+    data.transactions.push(transaction);
+    Object.assign(bill, { state: 'paid', paid_at: data.timestamp, paid_by_member_id: data.actor.id, transaction_id: transaction.id });
+    return response(bill);
   }
   if (/^\/inventory\/[^/]+\/adjust$/.test(path)) {
     const item = data.inventory.find(item => item.id === path.split('/')[2]); if (!item) return error('NOT_FOUND', 'قلم نمونه یافت نشد.', 404);
     item.quantity = Math.max(0, item.quantity + Number(body.delta || 0)); item.revision += 1; return response(item);
   }
   if (/^\/transactions\/[^/]+\/occurrences$/.test(path)) {
+    if (method !== 'POST') return error('METHOD_NOT_ALLOWED', 'این عملیات پشتیبانی نمی‌شود.', 405);
+    if (!managersOnly(session)) return error('FORBIDDEN', 'فقط مدیر خانواده مجاز است.', 403);
     const transaction = data.transactions.find(item => item.id === path.split('/')[2]);
-    if (transaction && !transaction.handled_occurrences.includes(body.due_date)) transaction.handled_occurrences.push(body.due_date);
+    if (!transaction || transaction.repeat === 'none') return error('NOT_FOUND', 'تراکنش تکرارشونده یافت نشد.', 404);
+    const date = new Date(body.due_date);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(body.due_date) || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== body.due_date) return error('INVALID_DATE', 'تاریخ سررسید نامعتبر است.', 422);
+    if (!transaction.handled_occurrences.includes(body.due_date)) transaction.handled_occurrences.push(body.due_date);
     return response(null, 204);
   }
-  if (/^\/transactions\/[^/]+\/photos$/.test(path) || /^\/photos\//.test(path)) return response(null, 204);
+  if (/^\/transactions\/[^/]+\/photos$/.test(path) && method === 'POST') {
+    const transaction = data.transactions.find(item => item.id === path.split('/')[2]);
+    if (!transaction) return error('NOT_FOUND', 'تراکنش نمونه یافت نشد.', 404);
+    const photo = newRow(session, { transaction_id: transaction.id, member_id: data.actor.id, url: body.url, caption: body.caption ?? null });
+    transaction.photos.push({ id: photo.id, url: photo.url, caption: photo.caption });
+    return response(photo, 201);
+  }
+  if (/^\/photos\//.test(path)) {
+    const photoId = path.split('/')[2];
+    const transaction = data.transactions.find(item => item.photos.some(photo => photo.id === photoId));
+    const photo = transaction?.photos.find(item => item.id === photoId);
+    if (!photo) return error('NOT_FOUND', 'تصویر نمونه یافت نشد.', 404);
+    if (method === 'PATCH') photo.caption = body.caption ?? null;
+    if (method === 'DELETE') transaction.photos = transaction.photos.filter(item => item.id !== photoId);
+    return response(null, 204);
+  }
   if (path === '/uploads/avatar' || path === '/uploads/photo') return response({ ok: true, url: '/__copy/sample-image.svg' });
   if (/^\/documents\/[^/]+\/file$/.test(path)) {
     const document = data.documents.find(item => item.id === path.split('/')[2]);
@@ -534,8 +569,26 @@ export function handlePreviewRequest(session, request) {
   if (collection && segments.length === 1) {
     if (method === 'GET' || method === 'HEAD') return { ...collectionResponse(session, collection), delayMs };
     if (method === 'POST') {
+      let createBody = body;
+      if (collection === 'bills') {
+        const prepared = prepareBill(body);
+        if (prepared.status) return prepared;
+        createBody = prepared;
+      }
+      // These endpoints return the existing row on a repeated name, just like ON CONFLICT.
+      if (collection === 'customCategories' || collection === 'subcategories') {
+        const name = String(body.name ?? '').trim();
+        if (!name || name.length > 30) return error('INVALID_CATEGORY', 'نام دسته باید ۱ تا ۳۰ کاراکتر باشد.', 422);
+        if (collection === 'customCategories' && !['expense', 'income'].includes(body.type)) return error('INVALID_TYPE', 'نوع دسته نامعتبر است.', 422);
+        const parent = String(body.category ?? '').trim();
+        if (collection === 'subcategories' && (!parent || parent.length > 60)) return error('INVALID_CATEGORY', 'دستهٔ والد نامعتبر است.', 422);
+        const existing = data[collection].find(item => item.name === name
+          && (collection === 'customCategories' ? item.type === body.type : item.category === parent));
+        if (existing) return response(existing, 201);
+        createBody = { ...body, name, ...(collection === 'subcategories' ? { category: parent } : {}) };
+      }
       if (['children', 'pets'].includes(collection) && !managersOnly(session)) return error('FORBIDDEN', 'فقط مدیر خانواده مجاز است.', 403);
-      const item = normalizeCreate(session, collection, body); data[collection].push(item); return response(item, 201);
+      const item = normalizeCreate(session, collection, createBody); data[collection].push(item); return response(item, 201);
     }
   }
   if (collection && segments.length === 2) return mutateRow(session, collection, segments[1], method, body);
@@ -553,10 +606,57 @@ function mutateRow(session, key, itemId, method, body) {
   if (method === 'GET' || method === 'HEAD') return response(item);
   if (body.base_revision !== undefined && item.revision !== body.base_revision) return error('SYNC_CONFLICT', 'این مورد تغییر کرده است؛ نسخهٔ ذخیره‌شده را بررسی کنید.', 409);
   if (['children', 'pets'].includes(key) && !managersOnly(session)) return error('FORBIDDEN', 'فقط مدیر خانواده مجاز است.', 403);
-  if (method === 'DELETE') { session.data[key] = list.filter(row => row.id !== itemId); return response(null, 204); }
+  if (key === 'bills' && item.state === 'paid' && ['DELETE', 'PATCH'].includes(method)) return error('BILL_ALREADY_PAID', 'قبض پرداخت‌شده قابل تغییر نیست؛ ابتدا پرداخت را برگردانید.', 409);
+  if (method === 'DELETE') {
+    if (key === 'customCategories' && session.data.transactions.some(transaction => transaction.category === itemId)) {
+      return error('CATEGORY_IN_USE', 'این دسته در تراکنش‌ها به‌کار رفته و حذف نمی‌شود.', 409);
+    }
+    if (key === 'customCategories') {
+      const subcategoryIds = new Set(session.data.subcategories.filter(subcategory => subcategory.category === itemId).map(subcategory => subcategory.id));
+      session.data.subcategories = session.data.subcategories.filter(subcategory => subcategory.category !== itemId);
+      session.data.categoryBudgets = session.data.categoryBudgets.filter(budget => budget.category !== itemId);
+      for (const transaction of session.data.transactions) if (subcategoryIds.has(transaction.subcategory_id)) transaction.subcategory_id = null;
+    }
+    if (key === 'subcategories') for (const transaction of session.data.transactions) {
+      if (transaction.subcategory_id === itemId) transaction.subcategory_id = null;
+    }
+    session.data[key] = list.filter(row => row.id !== itemId);
+    // Match the ledger's SET NULL account relationships without removing transactions.
+    if (key === 'accounts') for (const transaction of session.data.transactions) {
+      if (transaction.account_id === itemId) transaction.account_id = null;
+      if (transaction.to_account_id === itemId) transaction.to_account_id = null;
+    }
+    if (key === 'transactions') for (const bill of session.data.bills) {
+      if (bill.transaction_id === itemId) bill.transaction_id = null;
+    }
+    return response(null, 204);
+  }
   if (method === 'PATCH' || method === 'POST') {
     const values = clone(body); delete values.base_revision; delete values.operation_id;
+    if (key === 'bills') {
+      const prepared = prepareBill(values);
+      if (prepared.status) return prepared;
+      Object.assign(item, prepared); return response(item);
+    }
+    // AccountUpdate uses null to preserve the stored opening balance.
+    if (key === 'accounts' && values.initial_balance == null) delete values.initial_balance;
     Object.assign(item, values, { revision: (item.revision || 0) + 1 }); return response(item);
   }
   return error('METHOD_NOT_ALLOWED', 'این عملیات در پیش‌نمایش پشتیبانی نمی‌شود.', 405);
+}
+
+function prepareBill(body) {
+  const title = String(body.title ?? '').trim();
+  if (!['electricity', 'water', 'gas', 'internet', 'phone', 'charge', 'other'].includes(body.kind)) return error('INVALID_INPUT', 'نوع قبض نامعتبر است.', 422);
+  if (!title || title.length > 120) return error('INVALID_INPUT', 'عنوان قبض باید ۱ تا ۱۲۰ کاراکتر باشد.', 422);
+  if (!Number.isFinite(Number(body.amount)) || Number(body.amount) <= 0 || Number(body.amount) > 9_999_999_999_999.99) return error('INVALID_AMOUNT', 'مبلغ قبض نامعتبر است.', 422);
+  const date = new Date(body.due_date);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(body.due_date) || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== body.due_date) return error('INVALID_DATE', 'تاریخ سررسید نامعتبر است.', 422);
+  const values = { kind: body.kind, title, amount: Number(body.amount), due_date: body.due_date, note: String(body.note ?? '').trim() || null };
+  for (const key of ['bill_no', 'payment_no']) {
+    const value = String(body[key] ?? '').replace(/[۰-۹]/g, digit => String(digit.charCodeAt(0) - 1776)).replace(/\s/g, '');
+    if (value && (!/^\d+$/.test(value) || value.length > 40)) return error('INVALID_INPUT', 'شناسهٔ قبض باید فقط رقم و حداکثر ۴۰ کاراکتر باشد.', 422);
+    values[key] = value || null;
+  }
+  return values;
 }

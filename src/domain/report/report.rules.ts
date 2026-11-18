@@ -4,6 +4,7 @@ import { categoryById } from "../category/category.catalog";
 import type { CategoryResolver } from "../category/resolve";
 import { sortTxDesc } from "../transaction/transaction.rules";
 import type { Transaction } from "../transaction/transaction.types";
+import type { Account } from "../account/account.types";
 import {
   isoToJalali,
   prevMonth,
@@ -15,7 +16,7 @@ import {
   cmp,
   type JDate,
 } from "@/shared/lib/jalali";
-import { formatAmount } from "@/shared/lib/format";
+import { toEn } from "@/shared/lib/digits";
 import type {
   CategorySlice,
   DailyExpense,
@@ -130,7 +131,7 @@ export function weekFlow(list: Transaction[], end: JDate): WeekFlow {
     const idx = idxOf.get(t.date);
     if (idx === undefined) continue;
     if (t.type === "income") income[idx] += t.amount;
-    else expense[idx] += t.amount;
+    else if (t.type === "expense") expense[idx] += t.amount;
   }
   const totalIn = income.reduce((s, v) => s + v, 0);
   const totalOut = expense.reduce((s, v) => s + v, 0);
@@ -167,13 +168,21 @@ export function accountBalances(
   return accounts.map((a) => ({ account: a, balance: map.get(a.id) ?? 0 }));
 }
 
-/* سری زمانی دارایی کل خانواده — یک نقطه در پایان هر روز بازه
-   دارایی روز d = مبنای اولیه + جمع درآمد−هزینه همه تراکنش‌های تاریخ ≤ d */
+/** Cash held in known accounts; unassigned transactions and market assets are separate. */
+export function totalCashBalance(
+  list: Transaction[],
+  accounts: import("../account/account.types").Account[],
+): number {
+  return accountBalances(list, accounts).reduce((sum, row) => sum + row.balance, 0);
+}
+
+/* سری تجمعی روزانه؛ با accounts فقط اثر تراکنش روی حساب‌های موجود محاسبه می‌شود. */
 export function wealthSeries(
   list: Transaction[],
   range: import("./report.types").WealthRange,
   end: JDate,
   initial = 0,
+  accounts?: Account[],
 ): import("./report.types").WealthPoint[] {
   /* مرتب‌سازی صعودی بر اساس تاریخ */
   const sorted = [...list].sort((a, b) =>
@@ -195,7 +204,7 @@ export function wealthSeries(
       days++;
     }
   }
-  return wealthSeriesDays(sorted, days, end, initial);
+  return wealthSeriesDays(sorted, days, end, initial, accounts);
 }
 
 /* سری دارایی در بازه دلخواه — از تاریخ «from» تا تاریخ «to» (شامل هر دو) */
@@ -204,6 +213,7 @@ export function wealthSeriesBetween(
   from: JDate,
   to: JDate,
   initial = 0,
+  accounts?: Account[],
 ): import("./report.types").WealthPoint[] {
   const sorted = [...list].sort((a, b) =>
     a.date < b.date ? -1 : a.date > b.date ? 1 : 0,
@@ -214,7 +224,7 @@ export function wealthSeriesBetween(
     cur = addDays(cur, 1);
     days++;
   }
-  return wealthSeriesDays(sorted, days, to, initial);
+  return wealthSeriesDays(sorted, days, to, initial, accounts);
 }
 
 /* نقاط تجمعی روزانه — مشترک بین بازه‌های آماده و دلخواه */
@@ -223,8 +233,10 @@ function wealthSeriesDays(
   days: number,
   end: JDate,
   initial: number,
+  accounts?: Account[],
 ): import("./report.types").WealthPoint[] {
   const points: import("./report.types").WealthPoint[] = [];
+  const accountIds = accounts ? new Set(accounts.map(account => account.id)) : null;
   let idx = 0;
   let wealth = initial;
   for (let i = days - 1; i >= 0; i--) {
@@ -232,8 +244,11 @@ function wealthSeriesDays(
     const iso = jalaliToIso(d);
     while (idx < sorted.length && sorted[idx].date <= iso) {
       const t = sorted[idx];
-      if (t.type === "income") wealth += t.amount;
-      else if (t.type === "expense") wealth -= t.amount;
+      if (!accountIds || (t.accountId && accountIds.has(t.accountId))) {
+        if (t.type === "income") wealth += t.amount;
+        else if (t.type === "expense" || (accountIds && t.type === "transfer")) wealth -= t.amount;
+      }
+      if (accountIds && t.type === "transfer" && t.toAccountId && accountIds.has(t.toAccountId)) wealth += t.amount;
       idx++;
     }
     points.push({ date: iso, value: wealth });
@@ -256,13 +271,27 @@ export function memberExpenseShare(
 }
 
 /* جستجو: یادداشت، دسته، نام عضو، مبلغ، تاریخ جلالی */
+function normalizeTransactionSearch(value: string): string {
+  return toEn(value.normalize("NFKC"))
+    .replace(/[يى]/g, "ی")
+    .replace(/ك/g, "ک")
+    .replace(/[\u064b-\u065f\u0670]/g, "")
+    .replace(/٫/g, ".")
+    .replace(/(?<=\d)[,٬،](?=\d)/g, "")
+    .replace(/[\s\u200c]+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
 export function searchTransactions(
   list: Transaction[],
   query: string,
   memberNameOf: (memberId: string) => string,
   resolve: CategoryResolver = categoryById,
+  amountOf: (transaction: Transaction) => number = transaction => transaction.amount,
+  labelOf: (transaction: Transaction) => string = () => "",
 ): Transaction[] {
-  const q = query.trim();
+  const q = normalizeTransactionSearch(query);
   if (!q) return list;
   return list.filter((t) => {
     const cat = resolve(t.category).name;
@@ -271,11 +300,13 @@ export function searchTransactions(
       " " +
       cat +
       " " +
+      labelOf(t) +
+      " " +
       memberNameOf(t.memberId) +
       " " +
-      formatAmount(t.amount) +
+      amountOf(t).toLocaleString("en-US", { maximumSignificantDigits: 21 }) +
       " " +
       formatISO(isoToJalali(t.date));
-    return hay.includes(q);
+    return normalizeTransactionSearch(hay).includes(q);
   });
 }

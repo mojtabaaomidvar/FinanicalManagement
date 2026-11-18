@@ -2,6 +2,18 @@
 
 import type { BillRepository } from "@/domain/bill/bill.repository";
 import type { Bill, BillInput, BillPayInput } from "@/domain/bill/bill.types";
+import { normalizeBillNumber, validateBillInput } from "@/domain/bill/bill.rules";
+
+function prepare(input: BillInput): BillInput {
+  const error = validateBillInput(input);
+  if (error === "kind") throw new Error("نوع قبض نامعتبر است");
+  if (error === "title") throw new Error("عنوان قبض باید ۱ تا ۱۲۰ کاراکتر باشد");
+  if (error === "amount") throw new Error("مبلغ قبض را درست وارد کنید");
+  if (error === "date") throw new Error("تاریخ سررسید معتبر نیست");
+  if (error === "number") throw new Error("شناسهٔ قبض و پرداخت باید فقط رقم و حداکثر ۴۰ کاراکتر باشند");
+  return { ...input, title: input.title.trim(), billNo: normalizeBillNumber(input.billNo),
+    paymentNo: normalizeBillNumber(input.paymentNo), note: input.note?.trim() || null };
+}
 
 export class ListBillsUseCase {
   constructor(private readonly repo: BillRepository) {}
@@ -12,15 +24,15 @@ export class ListBillsUseCase {
 
 export class AddBillUseCase {
   constructor(private readonly repo: BillRepository) {}
-  execute(input: BillInput): Promise<Bill> {
-    return this.repo.add(input);
+  async execute(input: BillInput): Promise<Bill> {
+    return this.repo.add(prepare(input));
   }
 }
 
 export class UpdateBillUseCase {
   constructor(private readonly repo: BillRepository) {}
-  execute(id: string, input: BillInput): Promise<Bill> {
-    return this.repo.update(id, input);
+  async execute(id: string, input: BillInput): Promise<Bill> {
+    return this.repo.update(id, prepare(input));
   }
 }
 

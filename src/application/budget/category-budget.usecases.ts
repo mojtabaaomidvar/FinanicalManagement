@@ -5,6 +5,7 @@ import type {
   CategoryBudgetRepository,
 } from "@/domain/category/category-budget.types";
 import { AppError } from "@/shared/lib/appError";
+import { MAX_CATEGORY_BUDGET } from "@/domain/budget/budget.rules";
 
 export class ListCategoryBudgetsUseCase {
   constructor(private readonly repo: CategoryBudgetRepository) {}
@@ -22,8 +23,8 @@ export class SetCategoryBudgetUseCase {
     if (!input.category) {
       throw new AppError("INVALID_TX", "دسته را انتخاب کنید");
     }
-    if (!Number.isFinite(input.amount) || input.amount <= 0) {
-      throw new AppError("INVALID_TX", "مبلغ بودجه باید بزرگ‌تر از صفر باشد");
+    if (!Number.isFinite(input.amount) || Math.round(input.amount) <= 0 || input.amount > MAX_CATEGORY_BUDGET) {
+      throw new AppError("INVALID_TX", "مبلغ بودجه باید مثبت و در محدودهٔ مجاز باشد");
     }
     return this.repo.set(input.category, Math.round(input.amount));
   }

@@ -29,13 +29,13 @@ const HOME_PREFS: NotificationPrefs = {
   },
   leadDays: {
     ...DEFAULT_NOTIFICATION_PREFS.leadDays,
-    bills: 7,
-    event: 7,
-    tasks: 7,
-    equipment: 7,
-    vehicles: 7,
-    goals: 7,
-    activities: 7,
+    bills: 1,
+    event: 1,
+    tasks: 1,
+    equipment: 1,
+    vehicles: 1,
+    goals: 1,
+    activities: 1,
   },
 };
 
@@ -44,7 +44,7 @@ export const deriveHomeOverview = (input: HomeOverviewInput): HomeOverview => {
   const overview: HomeOverview = { overdue: [], today: [], upcoming: [] };
   if (!input.memberId) return overview;
   const todayIso = jalaliToIso(input.todayJ);
-  const horizonIso = jalaliToIso(addDays(input.todayJ, 7));
+  const horizonIso = jalaliToIso(addDays(input.todayJ, 1));
   const entries = deriveNotifications({
     ...input,
     txs: [], joinRequests: [], inventory: [], shoppingLists: [],

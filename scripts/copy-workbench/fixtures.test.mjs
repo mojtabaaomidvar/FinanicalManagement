@@ -5,6 +5,121 @@ import { SCENARIOS, ROUTES, createPreviewSession, handlePreviewRequest } from '.
 const create = (scenario = 'full-owner', route = 'hub') => createPreviewSession(scenario, route, { now: '2026-11-16T08:00:00.000Z' });
 const request = (session, path, method = 'GET', body) => handlePreviewRequest(session, { path, method, body });
 
+test('recurring acknowledgements are idempotent manager actions without financial writes', () => {
+  for (const role of ['full-owner', 'full-admin']) {
+    const session = create(role), transaction = session.data.transactions.find(row => row.repeat === 'monthly');
+    const before = structuredClone(session.data.transactions), path = '/transactions/' + transaction.id + '/occurrences';
+    assert.equal(request(session, path, 'POST', { due_date: session.data.today }).status, 204);
+    assert.equal(request(session, path, 'POST', { due_date: session.data.today }).status, 204);
+    assert.deepEqual(transaction.handled_occurrences, [session.data.today]);
+    assert.deepEqual(session.data.transactions.map(row => ({ ...row, handled_occurrences: [] })), before);
+    assert.equal(request(session, path, 'POST', { due_date: '2026-02-30' }).status, 422);
+    assert.equal(request(session, path, 'GET').status, 405);
+  }
+  const member = create('full-member'), tx = member.data.transactions.find(row => row.repeat === 'monthly');
+  assert.equal(request(member, '/transactions/' + tx.id + '/occurrences', 'POST', { due_date: member.data.today }).status, 403);
+});
+
+test('bill payment and reversal create and remove one linked expense without changing other records', () => {
+  const session = create(), bill = session.data.bills.find(row => row.state === 'unpaid');
+  const before = structuredClone(session.data.transactions), accountId = session.data.accounts[0].id;
+  const paid = request(session, '/bills/' + bill.id + '/pay', 'POST', { account_id: accountId }).body;
+  const transaction = session.data.transactions.find(row => row.id === paid.transaction_id);
+  assert.equal(transaction.type, 'expense'); assert.equal(transaction.amount, bill.amount);
+  assert.equal(transaction.category, 'bills'); assert.equal(transaction.account_id, accountId);
+  assert.equal(transaction.date, session.data.today); assert.equal(transaction.note, bill.title);
+  assert.equal(session.data.transactions.length, before.length + 1);
+  assert.equal(request(session, '/bills/' + bill.id + '/pay', 'POST').status, 409);
+  assert.equal(request(session, '/bills/' + bill.id, 'DELETE').status, 409);
+  assert.equal(request(session, '/bills/' + bill.id, 'PATCH', { amount: 1 }).status, 409);
+  assert.equal(request(session, '/bills/' + bill.id + '/unpay', 'POST').status, 200);
+  assert.deepEqual(session.data.transactions, before);
+  assert.equal(bill.state, 'unpaid'); assert.equal(bill.transaction_id, null);
+  assert.equal(request(session, '/bills/' + bill.id + '/unpay', 'POST').status, 409);
+});
+
+test('bill cancellation makes no expense and undo permissions match the backend', () => {
+  const session = create('full-member'), bill = session.data.bills.find(row => row.state === 'unpaid');
+  const before = structuredClone(session.data.transactions);
+  assert.equal(request(session, '/bills/' + bill.id + '/cancel', 'POST').status, 200);
+  assert.equal(bill.state, 'cancelled');
+  assert.equal(request(session, '/bills/' + bill.id + '/pay', 'POST').status, 409);
+  assert.deepEqual(session.data.transactions, before);
+  const foreign = session.data.bills.find(row => row.state === 'paid');
+  foreign.paid_by_member_id = session.data.members.find(row => row.role === 'owner').id;
+  assert.equal(request(session, '/bills/' + foreign.id + '/unpay', 'POST').status, 403);
+});
+
+test('bill create and edit validate dates and numeric identifiers while keeping state out of the write contract', () => {
+  const session = create();
+  const input = { kind: 'water', title: ' Water ', amount: 100.25, due_date: '2026-11-18', bill_no: ' ۰۰۱ ۲۳ ', payment_no: '00456', state: 'paid' };
+  const bill = request(session, '/bills', 'POST', input).body;
+  assert.equal(bill.title, 'Water'); assert.equal(bill.bill_no, '00123'); assert.equal(bill.state, 'unpaid');
+  assert.equal(request(session, '/bills/' + bill.id, 'PATCH', { ...input, title: ' Edited ' }).body.title, 'Edited');
+  const before = structuredClone(session.data.bills);
+  for (const invalid of [{ amount: -1 }, { amount: Infinity }, { due_date: '2026-02-30' }, { title: 'x'.repeat(121) }, { bill_no: '012x' }, { payment_no: '0'.repeat(41) }]) {
+    assert.equal(request(session, '/bills', 'POST', { ...input, ...invalid }).status, 422);
+    assert.equal(request(session, '/bills/' + bill.id, 'PATCH', { ...input, ...invalid }).status, 422);
+  }
+  assert.deepEqual(session.data.bills, before);
+});
+
+test('category and label retries keep identities while type and parent remain separate', () => {
+  const session = create();
+  const expense = request(session, '/custom-categories', 'POST', { type: 'expense', name: ' Same name ' }).body;
+  assert.equal(expense.name, 'Same name');
+  assert.equal(request(session, '/custom-categories', 'POST', { type: 'expense', name: 'Same name' }).body.id, expense.id);
+  const income = request(session, '/custom-categories', 'POST', { type: 'income', name: 'Same name' }).body;
+  assert.notEqual(income.id, expense.id);
+  const label = request(session, '/subcategories', 'POST', { category: ' food ', name: ' Label ' }).body;
+  assert.equal(label.category, 'food'); assert.equal(label.name, 'Label');
+  assert.equal(request(session, '/subcategories', 'POST', { category: 'food', name: 'Label' }).body.id, label.id);
+  assert.notEqual(request(session, '/subcategories', 'POST', { category: 'salary', name: 'Label' }).body.id, label.id);
+  assert.equal(request(session, '/custom-categories', 'POST', { type: 'transfer', name: 'Invalid' }).status, 422);
+});
+
+test('used categories cannot be deleted and unused categories remove dependent labels and budgets', () => {
+  const session = create();
+  const used = request(session, '/custom-categories', 'POST', { type: 'expense', name: 'Used' }).body;
+  request(session, '/transactions', 'POST', { category: used.id, amount: 100 });
+  const before = structuredClone({ categories: session.data.customCategories, labels: session.data.subcategories,
+    budgets: session.data.categoryBudgets, transactions: session.data.transactions });
+  assert.equal(request(session, '/custom-categories/' + used.id, 'DELETE').status, 409);
+  assert.deepEqual({ categories: session.data.customCategories, labels: session.data.subcategories,
+    budgets: session.data.categoryBudgets, transactions: session.data.transactions }, before);
+  const unused = request(session, '/custom-categories', 'POST', { type: 'expense', name: 'Unused' }).body;
+  request(session, '/subcategories', 'POST', { category: unused.id, name: 'Dependent' });
+  request(session, '/category-budgets', 'POST', { category: unused.id, amount: 1000 });
+  const transactions = structuredClone(request(session, '/transactions').body);
+  assert.equal(request(session, '/custom-categories/' + unused.id, 'DELETE').status, 204);
+  assert.equal(request(session, '/subcategories').body.some(row => row.category === unused.id), false);
+  assert.equal(request(session, '/category-budgets').body.some(row => row.category === unused.id), false);
+  assert.deepEqual(request(session, '/transactions').body, transactions);
+});
+
+test('deleting a label clears its link and preserves every financial field', () => {
+  const session = create(), label = request(session, '/subcategories').body[0];
+  const before = structuredClone(request(session, '/transactions').body);
+  assert.equal(request(session, '/subcategories/' + label.id, 'DELETE').status, 204);
+  const after = request(session, '/transactions').body;
+  assert.deepEqual(after, before.map(row => ({ ...row, subcategory_id: row.subcategory_id === label.id ? null : row.subcategory_id })));
+});
+
+test('deleting an account preserves the ledger and clears only its transfer and direct account links', () => {
+  const session = create(), accounts = request(session, '/accounts').body;
+  const source = accounts[0].id, destination = accounts[1].id;
+  request(session, '/transactions', 'POST', { type: 'transfer', amount: 100, category: 'transfer', date: '2026-11-16',
+    member_id: session.data.actor.id, account_id: source, to_account_id: destination, note: 'Account removal regression' });
+  const before = structuredClone(request(session, '/transactions').body);
+  assert.equal(request(session, '/accounts/' + source, 'DELETE').status, 204);
+  const after = request(session, '/transactions').body;
+  assert.deepEqual(after.map(row => row.id), before.map(row => row.id));
+  for (const [index, row] of after.entries()) assert.deepEqual(row, { ...before[index],
+    account_id: before[index].account_id === source ? null : before[index].account_id,
+    to_account_id: before[index].to_account_id === source ? null : before[index].to_account_id });
+  assert.equal(after.find(row => row.note === 'Account removal regression').to_account_id, destination);
+});
+
 test('all scenarios and routes have stable distinct IDs and safe defaults', () => {
   assert.equal(new Set(SCENARIOS.map(item => item.id)).size, SCENARIOS.length);
   assert.equal(new Set(ROUTES.map(item => item.id)).size, ROUTES.length);
@@ -125,6 +240,23 @@ test('personal Home prefs use revisions and never overwrite canonical identifier
   assert.equal(session.data.actor.currency, 'تومان');
 });
 
+test('transaction receipt responses keep their identity across caption edits and deletion', () => {
+  const session = create();
+  const transaction = session.data.transactions[0];
+  const photo = request(session, `/transactions/${transaction.id}/photos`, 'POST', {
+    url: '/__copy/sample-image.svg', caption: 'receipt',
+  });
+  assert.equal(photo.status, 201);
+  assert.ok(photo.body.id);
+  const id = photo.body.id;
+  assert.equal(transaction.photos.find(item => item.id === id).caption, 'receipt');
+  assert.equal(request(session, `/photos/${id}`, 'PATCH', { caption: 'edited receipt' }).status, 204);
+  assert.equal(transaction.photos.find(item => item.id === id).caption, 'edited receipt');
+  assert.equal(request(session, `/photos/${id}`, 'DELETE').status, 204);
+  assert.ok(!transaction.photos.some(item => item.id === id));
+  assert.equal(request(session, `/photos/${id}`, 'DELETE').status, 404);
+});
+
 test('errors, loading and save-conflict cases activate only the intended operation class', () => {
   assert.equal(request(create('errors'), '/equipment').status, 503);
   assert.equal(request(create('errors'), '/auth/login', 'POST').status, 200);
@@ -168,6 +300,14 @@ test('writes and returned DTO mutations never affect another session', () => {
   const count = two.data.accounts.length;
   request(one, '/accounts', 'POST', { title: 'new account', kind: 'wallet' });
   assert.equal(two.data.accounts.length, count);
+});
+
+test('account edits preserve a null opening balance while explicit zero remains a valid update', () => {
+  const session = create(); const account = request(session, '/accounts').body[0];
+  const updated = request(session, '/accounts/' + account.id, 'PATCH', { title: 'Renamed account', initial_balance: null });
+  assert.equal(updated.status, 200); assert.equal(updated.body.initial_balance, account.initial_balance);
+  assert.equal(updated.body.title, 'Renamed account');
+  assert.equal(request(session, '/accounts/' + account.id, 'PATCH', { initial_balance: 0 }).body.initial_balance, 0);
 });
 
 test('unknown, absolute or unsupported requests fail locally without fallback', () => {

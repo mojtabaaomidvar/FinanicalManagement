@@ -79,14 +79,14 @@ export function HomeOverview({ overview, data, todayIso, loading, incomplete, of
   const groups = [
     { id: "overdue", title: "عقب‌افتاده", items: overview.overdue },
     { id: "today", title: "امروز", items: overview.today },
-    { id: "upcoming", title: "۷ روز آینده", items: overview.upcoming },
+    { id: "upcoming", title: "فردا", items: overview.upcoming },
   ];
   const count = overview.overdue.length + overview.today.length + overview.upcoming.length;
   return (
     <section className="hub-overview" aria-labelledby="home-overview-title" aria-busy={loading}>
       <div className="hub-overview-head">
         <div>
-          <h2 id="home-overview-title">امروز و روزهای پیش رو</h2>
+          <h2 id="home-overview-title">امروز و فردا</h2>
           <p>{formatLong(isoToJalali(todayIso))}</p>
         </div>
         <Icon name="i-clock" size={24} />
@@ -106,7 +106,7 @@ export function HomeOverview({ overview, data, todayIso, loading, incomplete, of
       {!count && !loading ? <p className="hub-overview-empty">
         {incomplete ? "در اطلاعات دریافت‌شده، موعدی برای این بازه نیست."
           : offline ? "کار دارای موعدی برای این بازه در داده‌های آفلاین نیست."
-            : "برای امروز و ۷ روز آینده، کار یا موعدی ثبت نشده است."}
+            : "برای امروز و فردا، کار یا موعدی ثبت نشده است."}
       </p> : null}
     </section>
   );

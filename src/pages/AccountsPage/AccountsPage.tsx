@@ -20,7 +20,7 @@ import {
   parse,
   today,
 } from "@/shared/lib/jalali";
-import { formatAmount } from "@/shared/lib/format";
+import { formatSignedAmount } from "@/shared/lib/format";
 import { toDisplay } from "@/shared/lib/currency";
 
 /* بازه‌های آماده نمودار دارایی — کنار دکمه سه‌نقطه (بازه دلخواه) */
@@ -41,6 +41,8 @@ export function AccountsPage() {
     formatISO(addDays(today(), -29)),
   );
   const [customTo, setCustomTo] = useState(() => formatISO(today()));
+  const [draftFrom, setDraftFrom] = useState(customFrom);
+  const [draftTo, setDraftTo] = useState(customTo);
   const [customOpen, setCustomOpen] = useState(false);
 
   /* مبنای نمودار دارایی = جمع موجودی اولیه همه حساب‌ها */
@@ -54,21 +56,29 @@ export function AccountsPage() {
       const from = parse(customFrom);
       const to = parse(customTo);
       if (from && to && cmp(from, to) <= 0) {
-        return wealthSeriesBetween(txs, from, to, initialTotal);
+        return wealthSeriesBetween(txs, from, to, initialTotal, accounts);
       }
       return [];
     }
-    return wealthSeries(txs, range, today(), initialTotal);
-  }, [txs, range, customFrom, customTo, initialTotal]);
+    return wealthSeries(txs, range, today(), initialTotal, accounts);
+  }, [txs, accounts, range, customFrom, customTo, initialTotal]);
+
+  function openCustomRange() {
+    setDraftFrom(customFrom);
+    setDraftTo(customTo);
+    setCustomOpen(true);
+  }
 
   /** اعمال بازه دلخواه از مودال سه‌نقطه */
   function applyCustomRange() {
-    const from = parse(customFrom);
-    const to = parse(customTo);
+    const from = parse(draftFrom);
+    const to = parse(draftTo);
     if (!from || !to) return show("هر دو تاریخ را انتخاب کنید");
     if (cmp(from, to) > 0)
       return show("تاریخ شروع باید قبل از تاریخ پایان باشد");
     setRange("custom");
+    setCustomFrom(draftFrom);
+    setCustomTo(draftTo);
     setCustomOpen(false);
   }
 
@@ -91,7 +101,7 @@ export function AccountsPage() {
               dir="ltr"
             >
               <FitText>
-                {formatAmount(toDisplay(m.totalWealth, m.cur))}
+                {formatSignedAmount(toDisplay(m.totalWealth, m.cur))}
                 <span>{m.cur}</span>
               </FitText>
             </b>
@@ -101,6 +111,8 @@ export function AccountsPage() {
             <svg
               viewBox="0 0 340 100"
               className="wealth-svg"
+              role="img"
+              aria-label="روند موجودی نقد حساب‌ها"
               preserveAspectRatio="none"
             >
               <defs>
@@ -135,6 +147,7 @@ export function AccountsPage() {
                   key={o.value}
                   type="button"
                   className={`range-chip ${range === o.value ? "active" : ""}`}
+                  aria-pressed={range === o.value}
                   onClick={() => setRange(o.value)}
                 >
                   {o.label}
@@ -144,7 +157,7 @@ export function AccountsPage() {
                 <button
                   type="button"
                   className="range-chip active"
-                  onClick={() => setCustomOpen(true)}
+                  onClick={openCustomRange}
                 >
                   دلخواه
                 </button>
@@ -155,7 +168,7 @@ export function AccountsPage() {
               className={`range-more ${range === "custom" ? "active" : ""}`}
               aria-label="انتخاب بازه دلخواه"
               title="انتخاب بازه دلخواه"
-              onClick={() => setCustomOpen(true)}
+              onClick={openCustomRange}
             >
               <svg>
                 <use href="#i-more" />
@@ -178,23 +191,25 @@ export function AccountsPage() {
           <div className="form-row">
             <Field label="از تاریخ">
               <JalaliDateInput
-                value={customFrom}
-                onChange={setCustomFrom}
+                value={draftFrom}
+                onChange={setDraftFrom}
                 placeholder="شروع بازه"
+                aria-label="تاریخ شروع نمودار"
               />
             </Field>
           </div>
           <div className="form-row">
             <Field label="تا تاریخ">
               <JalaliDateInput
-                value={customTo}
-                onChange={setCustomTo}
+                value={draftTo}
+                onChange={setDraftTo}
                 placeholder="پایان بازه"
+                aria-label="تاریخ پایان نمودار"
               />
             </Field>
           </div>
           <p className="modal-sub full" style={{ gridColumn: "1 / -1" }}>
-            نمودار دارایی از اولین تا آخرین روز این بازه رسم می‌شود.
+            نمودار، موجودی نقد حساب‌ها را در این بازه نشان می‌دهد.
           </p>
         </div>
         <div className="modal-actions">

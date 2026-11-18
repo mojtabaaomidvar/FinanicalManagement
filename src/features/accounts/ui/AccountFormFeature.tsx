@@ -1,15 +1,20 @@
 /* فرم افزودن و ویرایش کارت/کیف‌پول — یک مودال برای هر دو حالت.
-   نکته‌ی مهم ویرایش: فیلد موجودی «موجودی فعلی» است، نه اولیه. تغییرش
-   هیچ تراکنش درآمد/هزینه‌ای نمی‌سازد، پس هشدار برجسته + تأیید صریح دارد. */
+   فیلد ویرایش، موجودی فعلی است؛ تفاوت با تراکنش اصلاحی ثبت می‌شود. */
+
+import { useId, useLayoutEffect, useRef, type ChangeEvent, type KeyboardEvent } from "react";
 
 import {
-  AmountInput,
   Field,
   Modal,
   Segmented,
   Select,
   TextInput,
+  expressionInputCaret,
+  normalizeExpressionInput,
 } from "@/shared/ui";
+import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
+import { formatSignedAmount } from "@/shared/lib/format";
+import { toDisplay } from "@/shared/lib/currency";
 import { BANK_NAMES } from "@/shared/lib/banks";
 import { isSmsReaderAvailable } from "@/shared/native/smsReader";
 import type { AccountKind } from "@/domain/account/account.types";
@@ -27,6 +32,39 @@ export function AccountFormFeature({ m }: { m: AccountsModel }) {
   const editing = m.editing;
   const kind = m.form.kind;
   const isWallet = kind === "wallet";
+  const balanceId = useId();
+  const amountRef = useRef<HTMLInputElement>(null);
+  const selection = useRef<{ start: number; end: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const next = selection.current;
+    selection.current = null;
+    if (next && document.activeElement === amountRef.current) amountRef.current?.setSelectionRange(next.start, next.end);
+  });
+
+  function changeAmount(raw: string, start: number, end = start) {
+    const formatted = normalizeExpressionInput(raw);
+    selection.current = { start: expressionInputCaret(raw, formatted, start), end: expressionInputCaret(raw, formatted, end) };
+    m.patch({ balance: formatted });
+  }
+
+  function amountChanged(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    changeAmount(input.value, input.selectionStart ?? input.value.length, input.selectionEnd ?? input.value.length);
+  }
+
+  function amountKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    const input = event.currentTarget, start = input.selectionStart;
+    if (start === null || start !== input.selectionEnd) return;
+    if (event.key === "Backspace" && input.value[start - 1] === ",") {
+      event.preventDefault();
+      changeAmount(input.value.slice(0, start - 2) + input.value.slice(start), start - 2);
+    } else if (event.key === "Delete" && input.value[start] === ",") {
+      event.preventDefault();
+      changeAmount(input.value.slice(0, start) + input.value.slice(start + 2), start);
+    }
+  }
 
   const title = editing
     ? isWallet
@@ -37,8 +75,8 @@ export function AccountFormFeature({ m }: { m: AccountsModel }) {
       : "حساب بانکی جدید";
 
   return (
-    <Modal open={m.open} onClose={m.close} title={title}>
-      <div className="form-grid" style={{ marginTop: 8 }}>
+    <Modal open={m.open} onClose={m.close} title={title} sheetClassName="account-form-sheet">
+      <fieldset className="account-fields form-grid" disabled={m.locked} aria-busy={m.locked} style={{ marginTop: 8 }}>
         {/* نوع حساب فقط هنگام ساخت انتخاب می‌شود — تغییرش بعداً معنا ندارد
             (کیف‌پول شماره کارت ندارد و حساب بانکی بدون کارت نمی‌ماند) */}
         {editing ? null : (
@@ -63,6 +101,8 @@ export function AccountFormFeature({ m }: { m: AccountsModel }) {
               onChange={(v) => m.patch({ title: v })}
               placeholder={isWallet ? "مثال: کیف پول نقدی" : "مثال: کارت اصلی"}
               autoFocus
+              maxLength={40}
+              aria-label={isWallet ? "نام کیف‌پول" : "عنوان کارت/حساب"}
             />
           </Field>
           {isWallet && !editing ? (
@@ -91,6 +131,7 @@ export function AccountFormFeature({ m }: { m: AccountsModel }) {
                   placeholder="۶۲۱۹ ۸۶۱۰ …"
                   dir="ltr"
                   inputMode="numeric"
+                  aria-label="شماره کارت"
                 />
               </Field>
             </div>
@@ -99,6 +140,7 @@ export function AccountFormFeature({ m }: { m: AccountsModel }) {
                 <Select
                   value={m.form.bank}
                   onChange={(v) => m.patch({ bank: v })}
+                  aria-label="بانک"
                   options={[
                     { value: "", label: "انتخاب کنید" },
                     ...BANK_NAMES.map((b) => ({ value: b, label: b })),
@@ -119,13 +161,24 @@ export function AccountFormFeature({ m }: { m: AccountsModel }) {
         ) : null}
 
         <div className="form-row full">
-          <Field label={editing ? "موجودی فعلی" : "موجودی اولیه (اختیاری)"}>
-            <AmountInput
-              value={m.form.balance}
-              onChange={(v) => m.patch({ balance: v })}
-              currency={m.cur}
-            />
-          </Field>
+          <div className="form-row">
+            <label htmlFor={balanceId}>{editing ? "موجودی فعلی" : "موجودی اولیه (اختیاری)"}</label>
+            <div className="amt-field">
+              <input
+                id={balanceId}
+                ref={amountRef}
+                type="text"
+                className="num-input"
+                inputMode="numeric"
+                dir="ltr"
+                placeholder="۰"
+                value={m.form.balance}
+                onChange={amountChanged}
+                onKeyDown={amountKeyDown}
+              />
+              <span className="cur-suffix">{currencyDisplayLabel(m.cur)}</span>
+            </div>
+          </div>
           {/* ورودی مبلغ فقط رقم می‌پذیرد، پس علامت را جدا می‌گیریم؛
               بدون این، موجودی منفی هنگام ویرایش مثبت می‌شد. */}
           {editing ? (
@@ -150,11 +203,13 @@ export function AccountFormFeature({ m }: { m: AccountsModel }) {
               <b>این یک درآمد یا هزینهٔ واقعی نیست</b>
             </div>
             <p>
-              موجودی به‌صورت دستی اصلاح می‌شود. برای شفاف‌ماندن حساب، تفاوت
-              به‌صورت یک تراکنش با عنوان «تغییر دستی موجودی» به تاریخ و ساعت
-              همین لحظه ثبت می‌شود؛ ولی این پول واقعاً خرج یا کسب نشده. اگر
-              درآمد یا هزینهٔ واقعی دارید، به‌جای این کار یک تراکنش عادی ثبت
-              کنید.
+              تفاوت با عنوان «تغییر دستی موجودی» ثبت می‌شود و در گزارش‌ها دیده
+              می‌شود. درآمد یا هزینهٔ واقعی را با تراکنش عادی ثبت کنید.
+            </p>
+            <p className="account-reviewed-balance">
+              <span>موجودی ثبت‌شده:</span>{" "}
+              <b dir="ltr">{formatSignedAmount(toDisplay(m.editingBalance, m.cur))}</b>{" "}
+              <span>{currencyDisplayLabel(m.cur)}</span>
             </p>
             <label className="bal-warn-ack">
               <input
@@ -186,27 +241,30 @@ export function AccountFormFeature({ m }: { m: AccountsModel }) {
               <input
                 type="checkbox"
                 checked={m.smsOn}
-                disabled={m.smsBusy}
+                disabled={m.locked}
+                aria-label="تشخیص تراکنش از پیامک"
                 onChange={(e) => m.toggleSms(e.target.checked)}
               />
               <span className="slider" />
             </label>
           </div>
         ) : null}
-      </div>
+      </fieldset>
+
+      {m.notice !== null ? <p className="field-error account-save-notice" role="status">{m.notice}</p> : null}
 
       <div className="modal-actions">
-        <button className="btn-secondary" onClick={m.close}>
+        <button className="btn-secondary" disabled={m.locked} onClick={m.close}>
           انصراف
         </button>
         <button
           className="btn-primary"
           disabled={
-            m.busy || (editing !== null && m.balanceChanged && !m.balanceAck)
+            m.locked || (editing !== null && m.balanceChanged && !m.balanceAck)
           }
           onClick={m.save}
         >
-          ذخیره
+          {m.busy ? "در حال ذخیره…" : "ذخیره"}
         </button>
       </div>
     </Modal>

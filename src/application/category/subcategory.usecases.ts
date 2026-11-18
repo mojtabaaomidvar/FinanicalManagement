@@ -15,11 +15,12 @@ export class AddSubcategoryUseCase {
   constructor(private readonly repo: SubcategoryRepository) {}
   async execute(category: string, name: string): Promise<Subcategory> {
     const trimmed = name.trim();
-    if (!category) throw new AppError("INVALID_TX", "دسته معتبر نیست");
+    const parent = category.trim();
+    if (!parent || parent.length > 60) throw new AppError("INVALID_TX", "دسته معتبر نیست");
     if (!trimmed || trimmed.length > 30) {
       throw new AppError("INVALID_TX", "نام زیردسته باید ۱ تا ۳۰ کاراکتر باشد");
     }
-    return this.repo.add(category, trimmed);
+    return this.repo.add(parent, trimmed);
   }
 }
 

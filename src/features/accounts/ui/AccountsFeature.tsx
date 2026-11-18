@@ -7,7 +7,7 @@ import { useState } from "react";
 import { Card, Icon } from "@/shared/ui";
 import { maskCardNumber } from "@/domain/account/account.rules";
 import type { Account } from "@/domain/account/account.types";
-import { formatAmount } from "@/shared/lib/format";
+import { formatAmount, formatSignedAmount } from "@/shared/lib/format";
 import { toFa } from "@/shared/lib/digits";
 import { toDisplay } from "@/shared/lib/currency";
 import { AddHoldingModal } from "@/features/holdings";
@@ -20,6 +20,7 @@ import type { Holding, HoldingKind } from "@/domain/holding/holding.types";
 import type { AccountsModel } from "../model/useAccountsModel";
 import { WALLET_PRESETS } from "../model/useAccountsModel";
 import { AccountFormFeature } from "./AccountFormFeature";
+import { NegativeBalanceNotice } from "./NegativeBalanceNotice";
 
 /** جلوی باز شدن فرم ویرایش را می‌گیرد — برای دکمه‌های داخل کارت کلیک‌پذیر */
 function stop(e: MouseEvent) {
@@ -55,7 +56,8 @@ function ClickableCard({
     <div
       className={`${className} tappable`}
       role="button"
-      tabIndex={0}
+      tabIndex={m.locked ? -1 : 0}
+      aria-disabled={m.locked}
       aria-label={`ویرایش ${acc.title}`}
       onClick={() => m.openEdit(acc)}
       onKeyDown={onKeyDown}
@@ -110,6 +112,7 @@ function RowActions({ acc, m }: { acc: Account; m: AccountsModel }) {
     <div className="account-actions">
       <button
         className="icon-btn small danger"
+        disabled={m.locked}
         aria-label={`حذف ${acc.title}`}
         onClick={(e) => {
           stop(e);
@@ -292,7 +295,7 @@ export function AccountsFeature({ m }: { m: AccountsModel }) {
       <Card
         title="حساب‌های بانکی"
         action={
-          <button className="link-btn" onClick={() => m.openNew("bank")}>
+          <button className="link-btn" disabled={m.locked} onClick={() => m.openNew("bank")}>
             افزودن
           </button>
         }
@@ -321,11 +324,13 @@ export function AccountsFeature({ m }: { m: AccountsModel }) {
                       {owner ? ` · ${owner.name}` : ""}
                     </p>
                   </div>
-                  <div className="account-balance">
-                    <b>{formatAmount(toDisplay(balance, m.cur))}</b>
+                  <div className={`account-balance${balance < 0 ? " is-negative" : ""}`}>
+                    <b dir="ltr">{formatSignedAmount(toDisplay(balance, m.cur))}</b>
                     <span>{m.cur}</span>
                   </div>
                 </div>
+
+                {balance < 0 ? <NegativeBalanceNotice /> : null}
 
                 {acc.cardNumber ? (
                   <CardNumberRow
@@ -349,7 +354,7 @@ export function AccountsFeature({ m }: { m: AccountsModel }) {
       <Card
         title="کیف‌پول‌ها"
         action={
-          <button className="link-btn" onClick={() => m.openNew("wallet")}>
+          <button className="link-btn" disabled={m.locked} onClick={() => m.openNew("wallet")}>
             افزودن
           </button>
         }
@@ -376,10 +381,11 @@ export function AccountsFeature({ m }: { m: AccountsModel }) {
                       <p>{owner?.name ?? "—"}</p>
                     </div>
                   </div>
-                  <div className="wallet-balance">
-                    <b>{formatAmount(toDisplay(balance, m.cur))}</b>
+                  <div className={`wallet-balance${balance < 0 ? " is-negative" : ""}`}>
+                    <b dir="ltr">{formatSignedAmount(toDisplay(balance, m.cur))}</b>
                     <span>{m.cur}</span>
                   </div>
+                  {balance < 0 ? <NegativeBalanceNotice /> : null}
                   <RowActions acc={acc} m={m} />
                 </ClickableCard>
               );
@@ -396,6 +402,7 @@ export function AccountsFeature({ m }: { m: AccountsModel }) {
                   key={w}
                   type="button"
                   className="chip"
+                  disabled={m.locked}
                   onClick={() => m.openNew("wallet", w)}
                 >
                   + {w}

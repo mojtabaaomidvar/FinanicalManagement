@@ -26,23 +26,10 @@ import type {
 import {
   DEFAULT_NOTIFICATION_PREFS,
   DOMAIN_LABELS,
-  MAX_LEAD_DAYS,
 } from "@/domain/notification/notification.types";
-import { toFa } from "@/shared/lib/digits";
-
-/* نردبانِ مقادیرِ پیش‌هنگام. `stepper` برای «انتخاب محدود و ترتیبی» ساخته
-   شده، پس عددِ آزاد نمی‌گیریم: کاربر لازم نیست بین ۳۷ و ۳۸ روز تصمیم
-   بگیرد. آخرین پله = MAX_LEAD_DAYS تا UI نتواند مقداری بسازد که قاعده‌های
-   دامنه بعداً بی‌صدا می‌بُرند. */
-const LEAD_LADDER = [0, 1, 2, 3, 5, 7, 10, 14, 21, 30, 45, MAX_LEAD_DAYS];
-
-/* دامنه‌هایی که «پیش‌هنگام» برایشان معنا دارد. درخواستِ عضویت و انبار
-   نیستند چون تاریخِ آینده‌ای ندارند: اولی همین حالا در انتظار است و دومی
-   یک حالت است («زیرِ آستانه هست یا نیست»)، نه رخدادِ تقویمی (§۷.۴). */
-const LEAD_DOMAINS: NotificationDomain[] = ["recurring", "bills", "event", "tasks", "documents", "equipment", "vehicles", "goals", "activities"];
 
 const DOMAIN_HINT: Record<NotificationDomain, string> = {
-  recurring: "قسط و اجاره و هر تراکنشِ تکرارشونده که سر رسیده",
+  recurring: "قسط، اجاره و تراکنش‌های تکرارشوندهٔ امروز و فردا",
   bills: "قبض برق و آب و گاز و اینترنت و شارژ ساختمان که پرداخت نشده",
   event: "تولدها و مناسبت‌های ثبت‌شده در تقویم خانواده",
   membership: "وقتی کسی با کد یا لینک می‌خواهد عضو خانواده شود",
@@ -55,26 +42,6 @@ const DOMAIN_HINT: Record<NotificationDomain, string> = {
   goals: "موعد اهداف و آرزوهای خودتان؛ با انجام‌شدن یا خاموش‌کردن یادآور آن مورد حذف می‌شود",
   activities: "تفریح‌ها و برنامه‌های خانوادگی برنامه‌ریزی‌شده؛ با انجام یا لغو برنامه یادآور حذف می‌شود",
 };
-
-function leadLabel(days: number): string {
-  return days === 0 ? "همان روز" : `${toFa(days)} روز قبل`;
-}
-
-/** نزدیک‌ترین پلهٔ نردبان به مقدارِ ذخیره‌شده.
- *  لازم است چون مقدارِ JSONB می‌تواند هر عددی باشد (ردیفِ قدیمی، ویرایشِ
- *  دستی)، و اگر indexOf می‌زدیم `-1` می‌گرفتیم و پله‌زدن از اولِ نردبان
- *  شروع می‌شد — یعنی تنظیمِ کاربر بی‌صدا می‌پرید. */
-function nearestStep(days: number): number {
-  let best = 0;
-  for (let i = 1; i < LEAD_LADDER.length; i++) {
-    if (
-      Math.abs(LEAD_LADDER[i] - days) < Math.abs(LEAD_LADDER[best] - days)
-    ) {
-      best = i;
-    }
-  }
-  return best;
-}
 
 export function NotificationSettingsFeature({
   onChanged,
@@ -129,13 +96,6 @@ export function NotificationSettingsFeature({
     [useCases, busy, onChanged, show],
   );
 
-  function stepLead(domain: NotificationDomain, dir: 1 | -1) {
-    const current = nearestStep(prefs.leadDays[domain]);
-    const next = current + dir;
-    if (next < 0 || next >= LEAD_LADDER.length) return;
-    void save({ leadDays: { [domain]: LEAD_LADDER[next] } });
-  }
-
   return (
     <>
       <SettingsCard title="اعلان‌ها">
@@ -171,33 +131,18 @@ export function NotificationSettingsFeature({
             ))}
           </SettingsCard>
 
-          <SettingsCard title="چند روز قبل خبر بده">
-            {LEAD_DOMAINS.map((d) => {
-              const idx = nearestStep(prefs.leadDays[d]);
-              return (
-                <SettingsRow
-                  key={d}
-                  icon="clock"
-                  label={DOMAIN_LABELS[d]}
-                  trailing={{
-                    type: "stepper",
-                    value: leadLabel(LEAD_LADDER[idx]),
-                    onStep: (dir) => stepLead(d, dir),
-                    canUp: idx < LEAD_LADDER.length - 1,
-                    canDown: idx > 0,
-                  }}
-                />
-              );
-            })}
+          <SettingsCard title="زمان یادآوری">
+            <div className="set-row"><div className="set-row-body">
+              <p className="set-row-label">امروز و فردا</p>
+              <p className="set-row-sub">یادآوری‌های تاریخ‌دار فقط برای امروز و فردا نمایش داده می‌شوند.</p>
+            </div></div>
           </SettingsCard>
 
           {/* §۷.۴ می‌گوید پیش‌هنگام باید دامنه‌ای باشد؛ این توضیح می‌گوید
               چرا «درخواست‌های عضویت» تنظیمِ روز ندارد، وگرنه نبودش شبیهِ
               جا‌افتادگی به‌نظر می‌رسید. */}
           <p className="modal-sub">
-            درخواست‌های عضویت و اقلامِ انبار تنظیم روز ندارند؛ تاریخ آینده‌ای
-            ندارند و همان لحظه‌ای که پیش بیایند نشان داده می‌شوند.
-            برای سرویس خودرو، رسیدن کیلومتر فعلی به موعد هم یادآور را فعال می‌کند.
+            درخواست عضویت، کمبود انبار و کارهای بدون موعد همان لحظه نمایش داده می‌شوند؛ سرویس خودرو با رسیدن کیلومتر به موعد هم یادآوری می‌شود.
           </p>
         </>
       ) : null}

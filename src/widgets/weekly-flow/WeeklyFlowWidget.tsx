@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { weekFlow } from "@/domain/report/report.rules";
 import { today } from "@/shared/lib/jalali";
-import { formatAmount } from "@/shared/lib/format";
+import { formatAmount, formatSignedAmount } from "@/shared/lib/format";
 import { toDisplay } from "@/shared/lib/currency";
 
 export function WeeklyFlowWidget() {
@@ -22,7 +22,7 @@ export function WeeklyFlowWidget() {
       <div className="strip-head">
         <h3 className="strip-title">جریان هفت روز گذشته</h3>
         <span className={`strip-net ${flow.net >= 0 ? "income" : "expense"}`}>
-          {formatAmount(toDisplay(flow.net, cur))}
+          {formatSignedAmount(toDisplay(flow.net, cur))}
           <i>{currencyDisplayLabel(cur)}</i>
         </span>
       </div>

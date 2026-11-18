@@ -62,6 +62,7 @@ interface AppState {
   customCategories: CustomCategory[];
   events: FamilyEvent[];
   bills: Bill[];
+  billDataStatus: "loading" | "ready" | "error";
   /** §۱.۸ — لیست‌های خرید با اقلامِ نخریده‌شان */
   shoppingLists: ShoppingList[];
   /** §۱.۸ — انبار خانه. این‌جا در حالتِ سراسری است چون اعلانِ کمبودِ §۷
@@ -108,6 +109,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
   const [events, setEvents] = useState<FamilyEvent[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
+  const [billDataStatus, setBillDataStatus] = useState<"loading" | "ready" | "error">("loading");
   const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -213,6 +215,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const request = ++dataGeneration.current;
       const requestScope = `${actor.phase}:${actor.memberId ?? ""}:${actor.familyId ?? ""}`;
       setHomeSnapshot({ scope: requestScope, loading: true, incomplete: false });
+      setBillDataStatus("loading");
       let incomplete = !offlineEngine;
       setEvents((rows) => rows.filter((row) => row.kind !== "activity"));
       const stillCurrent = () => mounted.current && dataGeneration.current === request && navigator.onLine !== false
@@ -262,11 +265,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }),
           /* RPC جدید — تا زمان اجرای schema.sql روی سرور ممکن است نباشد */
           useCases.listCategoryBudgets.execute().catch(() => []),
-          /* §۱.۹ قبوض — تا اجرای مهاجرتِ 0010 روی سرور ممکن است ۴۰۴/۵۰۰ بدهد.
-             همان الگوی بودجهٔ دسته: خطا فهرستِ خالی می‌شود تا نرم‌افزارِ
-             به‌روزشده روی سرورِ به‌روزنشده هم بالا بیاید، نه اینکه کلِ
-             بارگذاریِ داده بشکند. */
-          useCases.listBills.execute().catch(() => { incomplete = true; return []; }),
+          /* Keep other modules available while exposing a distinct bill read
+             failure. Previously fetched bills must not become a false empty list. */
+          useCases.listBills.execute().catch(() => { incomplete = true; return null; }),
           /* §۱.۸ خرید و انبار — همان الگو، برای مهاجرتِ 0011 */
           useCases.listShoppingLists.execute().catch(() => { incomplete = true; return []; }),
           useCases.listInventory.execute().catch(() => { incomplete = true; return []; }),
@@ -280,7 +281,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setCustomCategories(customCatRows);
         setEvents(eventRows);
         setBudgets(budgetRows);
-        setBills(billRows);
+        if (billRows !== null) setBills(billRows);
+        setBillDataStatus(billRows === null ? "error" : "ready");
         setShoppingLists(shoppingRows);
         setInventory(inventoryRows);
         const current = await useCases.restoreSession.execute();
@@ -288,6 +290,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (stillCurrent() && current && !current.offline) { setMember(current.member); setOfflineSession(false); }
       } catch (error) {
         incomplete = true;
+        if (stillCurrent()) setBillDataStatus("error");
         throw error;
       } finally {
         if (stillCurrent()) setHomeSnapshot({ scope: requestScope, loading: false, incomplete });
@@ -351,6 +354,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       events,
       budgets,
       bills,
+      billDataStatus: homeRestricted ? "error" : homeSnapshot?.scope === homeScope ? billDataStatus : "loading",
       shoppingLists,
       inventory,
       tasks,
@@ -392,6 +396,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setEvents([]);
         setBudgets([]);
         setBills([]);
+        setBillDataStatus("loading");
         setShoppingLists([]); setInventory([]); setTasks([]); setTaskNotificationPrefs(defaultTaskPrefs); setShoppingSync(emptySync); setOfflineSession(false);
         setPhase("auth");
       },
@@ -408,6 +413,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       events,
       budgets,
       bills,
+      billDataStatus,
+      homeRestricted,
+      homeScope,
+      homeSnapshot,
       shoppingLists,
       inventory,
       tasks,

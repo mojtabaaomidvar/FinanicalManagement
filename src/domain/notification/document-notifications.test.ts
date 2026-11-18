@@ -6,7 +6,7 @@ import { isoToJalali } from "@/shared/lib/jalali";
 
 const document = (patch: Partial<HouseDocument> = {}): HouseDocument => ({
   id: "document-1", title: "ضمانت یخچال", category: "ضمانت‌نامه",
-  visibility: "private", expiryDate: "2026-12-14", reminderEnabled: true,
+  visibility: "private", expiryDate: "2026-11-15", reminderEnabled: true,
   ownerId: "member-1", mimeType: "application/pdf", fileName: "warranty.pdf",
   fileSize: 200, revision: 1, createdAt: "2026-11-14T00:00:00Z",
   updatedAt: "2026-11-14T00:00:00Z", canEdit: true, canDelete: true,
@@ -31,21 +31,21 @@ describe("document expiry reminders", () => {
   it("includes an authorized shared document and requires a current member", () => {
     const shared = document({ visibility: "shared", ownerId: "member-2" });
     expect(deriveNotifications(input([shared]))[0]).toMatchObject({
-      domain: "documents", severity: "soon", dateIso: "2026-12-14",
+      domain: "documents", severity: "soon", dateIso: "2026-11-15",
       dismissible: false, ref: { kind: "documents", documentId: shared.id },
     });
     expect(deriveNotifications(input([shared], { memberId: undefined }))).toEqual([]);
   });
 
-  it("uses the default 30-day window and includes its final day", () => {
+  it("shows today and tomorrow and excludes expired or later documents", () => {
     const notes = deriveNotifications(input([
       document({ id: "overdue", expiryDate: "2026-11-13" }),
       document({ id: "today", expiryDate: "2026-11-14" }),
-      document({ id: "boundary", expiryDate: "2026-12-14" }),
-      document({ id: "later", expiryDate: "2026-12-15" }),
+      document({ id: "boundary", expiryDate: "2026-11-15" }),
+      document({ id: "later", expiryDate: "2026-11-16" }),
     ]));
     expect(notes.map((note) => [note.id, note.severity])).toEqual([
-      ["documents:overdue", "overdue"], ["documents:today", "pending"],
+      ["documents:today", "pending"],
       ["documents:boundary", "soon"],
     ]);
   });
@@ -74,11 +74,11 @@ describe("document expiry reminders", () => {
       .toBe("documents:document-1");
   });
 
-  it("applies a zero-day lead and crosses the Jalali year boundary correctly", () => {
+  it("ignores legacy zero-day lead and crosses the Jalali year boundary correctly", () => {
     const prefs = { ...DEFAULT_NOTIFICATION_PREFS,
       leadDays: { ...DEFAULT_NOTIFICATION_PREFS.leadDays, documents: 0 } };
     expect(deriveNotifications(input([document({ expiryDate: "2026-11-15" })], { prefs })))
-      .toEqual([]);
+      .toHaveLength(1);
     const yearBoundary = deriveNotifications(input([document({ expiryDate: "2027-03-21" })], {
       todayJ: isoToJalali("2027-03-20"),
       prefs: { ...prefs, leadDays: { ...prefs.leadDays, documents: 1 } },

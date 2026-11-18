@@ -3,8 +3,14 @@ import {
   stepJalali,
   dueOccurrences,
   pendingOccurrences,
+  pendingDueList,
+  reminderDueList,
+  occurrenceStatus,
+  parseScheduledAmount,
+  stoppedRecurringInput,
 } from "./recurring.rules";
-import { jalaliToIso, type JDate } from "@/shared/lib/jalali";
+import { addDays, isoToJalali, jalaliToIso, type JDate } from "@/shared/lib/jalali";
+import type { Transaction } from "./transaction.types";
 
 describe("stepJalali", () => {
   it("ماهانه ساده — همان روز، ماه بعد", () => {
@@ -137,5 +143,54 @@ describe("pendingOccurrences", () => {
     const all = [iso([1404, 2, 15]), iso([1404, 3, 15])];
     const handled = new Set(all);
     expect(pendingOccurrences(all, handled)).toEqual([]);
+  });
+});
+
+const recurring: Transaction = { id: "schedule", familyId: "family", memberId: "member", type: "expense", amount: 1200.25,
+  category: "bills", date: iso([1404, 6, 31]), time: "10:30", note: "My rent", accountId: "account", toAccountId: null,
+  subcategoryId: "label", repeat: "monthly", repeatEnd: iso([1405, 6, 31]), handledOccurrences: [iso([1404, 7, 30])],
+  photos: [{ id: "receipt", url: "/receipt.png", caption: "Keep" }], createdAt: "now" };
+
+describe("scheduled finances", () => {
+  it.each(["", "0", "-1200", "12abc", "12+", "12/0", "1e3", "1000000000000"])("does not reinterpret invalid amounts: %j", amount => {
+    expect(parseScheduledAmount(amount, "تومان")).toBeNull();
+  });
+  it("preserves grouped Persian and Arabic amounts and currency fractions", () => {
+    expect(parseScheduledAmount("۱٬۲۰۰٫۲۵", "تومان")).toBe(1200.25);
+    expect(parseScheduledAmount("١٢٬٠٠٢٫٥", "ریال")).toBe(1200.25);
+  });
+  it("stops only repetition while preserving every input financial field", () => {
+    const before = structuredClone(recurring), input = stoppedRecurringInput(recurring);
+    expect(input).toEqual({ memberId: recurring.memberId, type: recurring.type, amount: recurring.amount, category: recurring.category,
+      date: recurring.date, time: recurring.time, note: recurring.note, accountId: recurring.accountId, toAccountId: recurring.toAccountId,
+      subcategoryId: recurring.subcategoryId, repeat: "none", repeatEnd: null });
+    expect(recurring).toEqual(before);
+  });
+  it("distinguishes pending handled and invalid dates using the original monthly day", () => {
+    expect(occurrenceStatus(recurring, iso([1404, 7, 30]))).toBe("handled");
+    expect(occurrenceStatus(recurring, iso([1404, 8, 30]))).toBe("pending");
+    expect(occurrenceStatus(recurring, recurring.date)).toBe("invalid");
+    expect(occurrenceStatus(recurring, iso([1404, 8, 29]))).toBe("invalid");
+    expect(occurrenceStatus(recurring, "2026-02-30")).toBe("invalid");
+    expect(occurrenceStatus({ ...recurring, repeat: "none" }, iso([1404, 8, 30]))).toBe("invalid");
+  });
+  it("keeps list and notification ordering identical and excludes handled dates", () => {
+    const rows = pendingDueList([recurring, { ...recurring, id: "a" }], [1404, 9, 1]);
+    expect(rows.map(row => [row.tx.id, row.dueIso])).toEqual([["a", iso([1404, 8, 30])], ["schedule", iso([1404, 8, 30])]]);
+  });
+  it.each(["2026-11-30", "2026-12-31", "2027-03-20"])("reminds only today and tomorrow across calendar boundaries: %s", date => {
+    const now = isoToJalali(date);
+    const rows: Transaction[] = [-1, 0, 1, 2].map(offset => ({ ...recurring, id: String(offset), repeat: "weekly",
+      date: iso(addDays(now, offset - 28)), repeatEnd: iso(addDays(now, 60)), handledOccurrences: [] }));
+    const before = structuredClone(rows), reminders = reminderDueList(rows, now);
+    expect(reminders.map(row => [row.tx.id, row.dueIso])).toEqual([["0", date], ["1", iso(addDays(now, 1))]]);
+    expect(rows).toEqual(before);
+    expect(pendingDueList(rows, now).length).toBeGreaterThan(reminders.length);
+  });
+  it("hides handled stopped and ended reminders without touching old financial entries", () => {
+    const now: JDate = [1404, 8, 30];
+    const tx = { ...recurring, handledOccurrences: [iso(now)] };
+    expect(reminderDueList([tx, { ...recurring, repeat: "none" }, { ...recurring, repeatEnd: iso([1404, 7, 30]) }], now)).toEqual([]);
+    expect(reminderDueList([recurring], now).map(row => row.dueIso)).toEqual([iso(now)]);
   });
 });

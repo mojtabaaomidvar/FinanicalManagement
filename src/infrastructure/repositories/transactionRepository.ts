@@ -7,6 +7,7 @@ import type { TransactionRepository } from "@/domain/transaction/transaction.rep
 import type {
   Transaction,
   TransactionInput,
+  TransactionPhoto,
 } from "@/domain/transaction/transaction.types";
 import type { RestClient } from "@/infrastructure/api/restClient";
 import { AppError } from "@/shared/lib/appError";
@@ -85,11 +86,12 @@ export class SupabaseTransactionRepository implements TransactionRepository {
     txId: string,
     url: string,
     caption: string | null,
-  ): Promise<void> {
-    await this.client.post<void>(
+  ): Promise<TransactionPhoto> {
+    const photo = await this.client.post<TransactionPhoto>(
       `/transactions/${encodeURIComponent(txId)}/photos`,
       { url, caption },
     );
+    return { id: photo.id, url: photo.url, caption: photo.caption };
   }
 
   async updatePhotoCaption(

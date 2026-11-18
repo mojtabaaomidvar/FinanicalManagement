@@ -4,7 +4,7 @@
    RPCهای خانواده‌محور می‌آید و فقط برای همین خانواده ثبت و دیده می‌شود.
    دسته‌های پیش‌فرض کاتالوگ برنامه‌اند و حذف نمی‌شوند. */
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
 import { Card, Segmented, TextInput } from "@/shared/ui";
@@ -22,12 +22,14 @@ const TYPE_TABS: { value: CatType; label: string }[] = [
 ];
 
 export function CategoriesCard() {
-  const { useCases, customCategories, txs, refreshData } = useApp();
+  const { useCases, customCategories, subcategories, budgets, txs, refreshData } = useApp();
   const { show } = useToast();
 
   const [type, setType] = useState<CatType>("expense");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const writing = useRef(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const mine = useMemo(
     () => customCategories.filter((c) => c.type === type),
@@ -46,75 +48,92 @@ export function CategoriesCard() {
   }, [txs]);
 
   async function add() {
+    if (!useCases || writing.current) return;
     const trimmed = name.trim();
-    if (!trimmed) return show("نام دسته را بنویسید");
-    if (trimmed.length > 30) return show("نام دسته حداکثر ۳۰ کاراکتر است");
+    if (!trimmed) return setNotice("نام دسته را بنویسید");
+    if (trimmed.length > 30) return setNotice("نام دسته حداکثر ۳۰ کاراکتر است");
 
     const exists =
       builtin.some((c) => c.name === trimmed) ||
       mine.some((c) => c.name === trimmed);
-    if (exists) return show(`دستهٔ «${trimmed}» از قبل وجود دارد`);
+    if (exists) return setNotice(`دستهٔ «${trimmed}» از قبل وجود دارد`);
 
+    writing.current = true;
     setBusy(true);
+    setNotice(null);
+    let added = false;
     try {
-      await useCases!.addCustomCategory.execute(type, trimmed);
+      await useCases.addCustomCategory.execute(type, trimmed);
+      added = true;
       setName("");
       show("دسته اضافه شد");
       await refreshData();
     } catch (e) {
-      show((e as Error).message || "خطا در افزودن دسته");
+      setNotice(added ? "دسته اضافه شد؛ اطلاعات صفحه تازه نشد. صفحه را بازخوانی کنید" : (e as Error).message || "خطا در افزودن دسته");
     } finally {
+      writing.current = false;
       setBusy(false);
     }
   }
 
   async function remove(id: string, label: string) {
+    if (!useCases || writing.current) return;
     const used = usage.get(id) ?? 0;
     if (used > 0) {
-      return show(
+      return setNotice(
         `دستهٔ «${label}» در ${toFa(used)} تراکنش به‌کار رفته و حذف نمی‌شود`,
       );
     }
-    if (!confirm(`دستهٔ «${label}» حذف شود؟`)) return;
+    const hasDependencies = subcategories.some(item => item.category === id) || budgets.some(item => item.category === id);
+    const confirmation = hasDependencies
+      ? /* @copy-text categories.remove_dependencies */ `دستهٔ «${label}» همراه برچسب‌ها و بودجهٔ وابسته حذف شود؟`
+      : /* @copy-text categories.remove */ `دستهٔ «${label}» حذف شود؟`;
+    if (!confirm(confirmation)) return;
 
+    writing.current = true;
     setBusy(true);
+    setNotice(null);
+    let deleted = false;
     try {
-      await useCases!.deleteCustomCategory.execute(id);
+      await useCases.deleteCustomCategory.execute(id);
+      deleted = true;
       show("دسته حذف شد");
       await refreshData();
     } catch (e) {
-      show((e as Error).message || "خطا در حذف دسته");
+      setNotice(deleted ? "دسته حذف شد؛ اطلاعات صفحه تازه نشد. صفحه را بازخوانی کنید" : (e as Error).message || "خطا در حذف دسته");
     } finally {
+      writing.current = false;
       setBusy(false);
     }
   }
 
   return (
-    <>
+    <fieldset className="category-fields" disabled={busy} aria-busy={busy}>
       <Card
         title="دسته‌های خودم"
         action={<span className="badge">{toFa(mine.length)} دسته</span>}
       >
-        <Segmented value={type} onChange={setType} options={TYPE_TABS} />
+        <Segmented value={type} onChange={value => { if (!writing.current) { setType(value); setNotice(null); } }} options={TYPE_TABS} />
 
-        <div className="chip-adder">
+        <form className="chip-adder" onSubmit={event => { event.preventDefault(); void add(); }}>
           <TextInput
             value={name}
-            onChange={setName}
+            onChange={value => { if (!writing.current) { setName(value); setNotice(null); } }}
+            aria-label="نام دستهٔ جدید"
             placeholder={
               type === "expense" ? "مثلاً: شارژ ساختمان" : "مثلاً: اجاره ملک"
             }
             maxLength={30}
           />
           <button
-            type="button"
+            type="submit"
             className="btn-primary"
             disabled={busy || !name.trim()}
-            onClick={() => void add()}
           >
-            افزودن
+            {busy ? "در حال ذخیره…" : "افزودن"}
           </button>
-        </div>
+        </form>
+        {notice !== null ? <p className="field-error category-save-notice" role="status">{notice}</p> : null}
 
         {mine.length ? (
           <div className="label-chips">
@@ -125,7 +144,7 @@ export function CategoriesCard() {
                   <svg>
                     <use href={`#${CUSTOM_CATEGORY_ICON}`} />
                   </svg>
-                  {c.name}
+                  <span className="label-chip-name">{c.name}</span>
                   {used ? <i>{toFa(used)} تراکنش</i> : null}
                   <button
                     type="button"
@@ -164,7 +183,7 @@ export function CategoriesCard() {
               <svg>
                 <use href={`#${c.icon}`} />
               </svg>
-              {c.name}
+              <span className="label-chip-name">{c.name}</span>
             </span>
           ))}
         </div>
@@ -172,6 +191,6 @@ export function CategoriesCard() {
           این دسته‌ها بخشی از خود برنامه‌اند و حذف نمی‌شوند.
         </p>
       </Card>
-    </>
+    </fieldset>
   );
 }

@@ -83,15 +83,11 @@ export interface AppNotification {
 export interface NotificationPrefs {
   enabled: boolean;
   domains: Record<NotificationDomain, boolean>;
-  /** روزهای پیش‌هنگام. صفر = «فقط وقتی رسید/در انتظار است». */
+  /** Legacy API preference map; dated reminders now use the fixed today/tomorrow window. */
   leadDays: Record<NotificationDomain, number>;
 }
 
-/** §۷.۴ «پیش‌فرض‌ها باید دامنه‌ای باشند، نه سراسریِ هاردکد».
- *  ۳ روز برای سررسید و قبض همان مثالِ خودِ §۷.۴ است («Bill: 3 days before
- *  due date»)؛ ۷ روز برای تولد چون آماده‌سازی می‌خواهد (کادو) نه خبرِ
- *  همان‌روز؛ صفر برای درخواستِ عضویت چون تاریخِ آینده‌ای ندارد و همین حالا
- *  منتظر است. */
+/** Dated reminders cover today and tomorrow. Undated conditions are immediate. */
 export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   enabled: true,
   domains: {
@@ -108,20 +104,20 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
     activities: true,
   },
   leadDays: {
-    recurring: 3,
-    bills: 3,
-    event: 7,
+    recurring: 1,
+    bills: 1,
+    event: 1,
     membership: 0,
     /* انبار هم صفر است و دلیلش همان درخواستِ عضویت: تاریخِ آینده‌ای وجود
        ندارد که بتوان «۳ روز قبلش» را حساب کرد. موجودی یا زیرِ آستانه هست
        یا نیست. */
     inventory: 0,
-    tasks: 0,
-    documents: 30,
-    equipment: 7,
-    vehicles: 7,
-    goals: 7,
-    activities: 7,
+    tasks: 1,
+    documents: 1,
+    equipment: 1,
+    vehicles: 1,
+    goals: 1,
+    activities: 1,
   },
 };
 

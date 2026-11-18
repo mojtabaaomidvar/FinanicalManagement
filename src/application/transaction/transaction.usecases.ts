@@ -5,6 +5,7 @@ import { validateTransaction } from "@/domain/transaction/transaction.rules";
 import type {
   Transaction,
   TransactionInput,
+  TransactionPhoto,
 } from "@/domain/transaction/transaction.types";
 import { AppError } from "@/shared/lib/appError";
 
@@ -58,7 +59,7 @@ export class UploadTxPhotoUseCase {
 
 export class AddTxPhotoUseCase {
   constructor(private readonly repo: TransactionRepository) {}
-  execute(txId: string, url: string, caption: string | null): Promise<void> {
+  execute(txId: string, url: string, caption: string | null): Promise<TransactionPhoto> {
     const c = caption?.trim() ?? "";
     if (c.length > 100) {
       throw new AppError("INVALID_TX", "توضیح تصویر حداکثر ۱۰۰ کاراکتر است");

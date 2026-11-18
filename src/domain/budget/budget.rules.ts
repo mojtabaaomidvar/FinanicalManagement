@@ -2,6 +2,19 @@
 
 import type { Transaction } from "../transaction/transaction.types";
 import { isoToJalali, monthKey } from "@/shared/lib/jalali";
+import { toEn } from "@/shared/lib/digits";
+import { fromDisplay } from "@/shared/lib/currency";
+
+export const MAX_CATEGORY_BUDGET = 999_999_999_999;
+
+/** Parse the whole-unit budget contract without discarding unsupported input. */
+export function parseCategoryBudgetAmount(raw: string, currency: string): number | null {
+  const normalized = toEn(raw).replace(/[,٬،]/g, "").trim();
+  if (!/^\d+$/.test(normalized)) return null;
+  const base = fromDisplay(Number(normalized), currency);
+  const amount = Math.round(base);
+  return Number.isFinite(base) && base <= MAX_CATEGORY_BUDGET && amount > 0 ? amount : null;
+}
 
 export type BudgetLevel = "ok" | "warn" | "over";
 
@@ -51,6 +64,9 @@ export interface SpendCapacity {
   cap: number;
   /** جمع مصرف دسته‌های بودجه‌دار در این ماه */
   spent: number;
+  /** All expenses, including categories without an active budget. */
+  totalSpent: number;
+  unbudgetedSpent: number;
   /** cap − spent — منفی یعنی عبور از سقف */
   remaining: number;
   /** درصد مصرف — سقف ۹۹۹ */
@@ -69,11 +85,15 @@ export function spendCapacity(
 ): SpendCapacity {
   let cap = 0;
   let spent = 0;
+  const covered = new Set<string>();
   for (const b of budgets) {
     if (!b.amount || b.amount <= 0) continue;
     cap += b.amount;
     spent += spend.get(b.category) ?? 0;
+    covered.add(b.category);
   }
+  const totalSpent = [...spend.values()].reduce((sum, amount) => sum + amount, 0);
+  const unbudgetedSpent = [...spend.entries()].reduce((sum, [category, amount]) => sum + (covered.has(category) ? 0 : amount), 0);
   const st = budgetStatus(cap, spent);
   const remaining = cap - spent;
   const days = Math.max(1, daysLeft);
@@ -81,6 +101,8 @@ export function spendCapacity(
     active: st.active,
     cap,
     spent,
+    totalSpent,
+    unbudgetedSpent,
     remaining,
     percent: st.percent,
     level: st.level,

@@ -2,6 +2,7 @@
 
 import type { AccountInput, AccountPatch } from "./account.types";
 import { toEn, toFa } from "@/shared/lib/digits";
+import { fromDisplay } from "@/shared/lib/currency";
 
 export type AccountValidationCode =
   | "INVALID_TITLE"
@@ -16,6 +17,16 @@ export interface AccountValidationResult {
 }
 
 export const MAX_TITLE_LENGTH = 40;
+export const MAX_ACCOUNT_BALANCE = 999_999_999_999_999;
+
+/** Whole display units; unsupported input must not silently become another balance. */
+export function parseAccountBalance(raw: string, currency: string): number | null {
+  if (!raw.trim()) return 0;
+  const normalized = toEn(raw).replace(/[,٬،]/g, "").trim();
+  if (!/^\d+$/.test(normalized)) return null;
+  const amount = fromDisplay(Number(normalized), currency);
+  return Number.isFinite(amount) && amount <= MAX_ACCOUNT_BALANCE ? amount : null;
+}
 
 /** فقط ارقام انگلیسی (ورودی فارسی هم تبدیل می‌شود) */
 export function digitsOf(raw: string): string {
@@ -44,7 +55,7 @@ export function validateAccountInput(
   }
 
   const initial = input.initialBalance ?? 0;
-  if (!Number.isFinite(initial) || initial < 0) {
+  if (!Number.isFinite(initial) || initial < 0 || initial > MAX_ACCOUNT_BALANCE) {
     return { ok: false, error: "INVALID_INITIAL_BALANCE" };
   }
   return { ok: true };
@@ -72,7 +83,7 @@ export function validateAccountPatch(
   }
 
   const initial = patch.initialBalance;
-  if (initial != null && !Number.isFinite(initial)) {
+  if (initial != null && (!Number.isFinite(initial) || Math.abs(initial) > MAX_ACCOUNT_BALANCE)) {
     return { ok: false, error: "INVALID_INITIAL_BALANCE" };
   }
   return { ok: true };

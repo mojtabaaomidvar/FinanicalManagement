@@ -16,9 +16,11 @@ import { today, formatMonth, nextMonth, prevMonth } from "@/shared/lib/jalali";
 import { toFa } from "@/shared/lib/digits";
 import { toDisplay } from "@/shared/lib/currency";
 import { formatAmount, formatPercent } from "@/shared/lib/format";
+import { buildCategoryResolver } from "@/domain/category/resolve";
 
 export function MonthlyReportPanelWidget() {
-  const { txs, cur, members } = useApp();
+  const { txs, cur, members, customCategories } = useApp();
+  const resolve = useMemo(() => buildCategoryResolver(customCategories), [customCategories]);
   const [jy, setJy] = useState(() => today()[0]);
   const [jm, setJm] = useState(() => today()[1]);
 
@@ -27,11 +29,11 @@ export function MonthlyReportPanelWidget() {
     return {
       daily: dailyExpenses(mtx),
       series: sixMonthSeries((y, m) => txsInJalaliMonth(txs, y, m), jy, jm),
-      cats: categoryBreakdown(mtx),
+      cats: categoryBreakdown(mtx, resolve),
       shares: memberExpenseShare(mtx),
       total: monthTotals(mtx).expense,
     };
-  }, [txs, jy, jm]);
+  }, [txs, jy, jm, resolve]);
 
   useEffect(() => {
     window.scrollTo({ top: 0 });

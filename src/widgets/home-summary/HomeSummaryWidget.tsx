@@ -7,7 +7,7 @@ import { useApp } from "@/app/providers/AppProvider";
 import {
   deltaPercent,
   monthTotals,
-  totalBalance,
+  totalCashBalance,
 } from "@/domain/report/report.rules";
 import {
   txsInJalaliMonth,
@@ -18,7 +18,7 @@ import {
   spendCapacity,
 } from "@/domain/budget/budget.rules";
 import { MONTHS, daysLeftInMonth, prevMonth, today } from "@/shared/lib/jalali";
-import { formatAmount } from "@/shared/lib/format";
+import { formatAmount, formatSignedAmount } from "@/shared/lib/format";
 import { toDisplay } from "@/shared/lib/currency";
 import { toFa } from "@/shared/lib/digits";
 import { FitText } from "@/shared/ui";
@@ -54,7 +54,7 @@ export function HomeSummaryWidget({
 }: {
   onNavBudgets: () => void;
 }) {
-  const { txs, cur, budgets } = useApp();
+  const { txs, accounts, cur, budgets } = useApp();
   const [jy, jm, jd] = today();
 
   const d = useMemo(() => {
@@ -64,7 +64,7 @@ export function HomeSummaryWidget({
     const soFar = monthTotals(txsInJalaliMonthUpToDay(txs, jy, jm, jd));
     const prev = monthTotals(txsInJalaliMonthUpToDay(txs, py, pm, jd));
     return {
-      balance: totalBalance(txs),
+      balance: totalCashBalance(txs, accounts),
       totals,
       dIncome: deltaPercent(soFar.income, prev.income),
       dExpense: deltaPercent(soFar.expense, prev.expense),
@@ -74,7 +74,7 @@ export function HomeSummaryWidget({
         daysLeftInMonth([jy, jm, jd]),
       ),
     };
-  }, [txs, budgets, jy, jm, jd]);
+  }, [txs, accounts, budgets, jy, jm, jd]);
 
   const net = d.totals.income - d.totals.expense;
   const hasDelta = d.dIncome !== null || d.dExpense !== null;
@@ -84,13 +84,13 @@ export function HomeSummaryWidget({
     <section className="home-panel">
       {/* ── موجودی کل ── */}
       <div className="hp-top">
-        <p className="hp-label">موجودی کل خانواده</p>
+        <p className="hp-label">موجودی نقد حساب‌ها</p>
         <h2
           className="hp-balance"
           style={d.balance < 0 ? { color: "var(--danger)" } : undefined}
         >
           <FitText>
-            {formatAmount(toDisplay(d.balance, cur))}
+            {formatSignedAmount(toDisplay(d.balance, cur))}
             <span className="hp-cur">{currencyDisplayLabel(cur)}</span>
           </FitText>
         </h2>
@@ -115,7 +115,7 @@ export function HomeSummaryWidget({
         <div className="hp-metric">
           <span className="hp-metric-label">مانده ماه</span>
           <b className={`hp-metric-value ${net >= 0 ? "income" : "expense"}`}>
-            <FitText>{formatAmount(toDisplay(Math.abs(net), cur))}</FitText>
+            <FitText>{formatSignedAmount(toDisplay(net, cur))}</FitText>
           </b>
         </div>
       </div>
@@ -132,8 +132,8 @@ export function HomeSummaryWidget({
           <div className="hp-cap-head">
             <span>
               {over
-                ? "از سقف بودجه گذشته‌اید"
-                : ` بودجه باقیمانده تا پایان ${MONTHS[jm - 1]}`}
+                ? "از بودجهٔ دسته‌ها گذشته‌اید"
+                : `بودجهٔ دسته‌ها تا پایان ${MONTHS[jm - 1]}`}
             </span>
             <span className="hp-cap-days">
               {toFa(d.cap.daysLeft)} روز مانده
@@ -149,7 +149,7 @@ export function HomeSummaryWidget({
           <div
             className="hp-bar"
             role="progressbar"
-            aria-label="مصرف بودجه ماه"
+            aria-label="مصرف بودجهٔ دسته‌ها"
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={Math.min(d.cap.percent, 100)}
@@ -167,10 +167,12 @@ export function HomeSummaryWidget({
               </b>
             </span>
             <span>
-              <b>{toFa(Math.min(d.cap.percent, 999))}٪</b> از بودجه ماهیانه خرج
-              شده
+              <b>{toFa(Math.min(d.cap.percent, 999))}٪</b> از بودجهٔ دسته‌ها مصرف شده
             </span>
           </div>
+          {d.cap.unbudgetedSpent > 0 ? <p className="hp-note hp-unbudgeted">
+            هزینهٔ بدون بودجه: {formatAmount(toDisplay(d.cap.unbudgetedSpent, cur))} {currencyDisplayLabel(cur)}
+          </p> : null}
         </div>
       ) : (
         <div className="hp-cap empty">

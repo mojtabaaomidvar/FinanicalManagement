@@ -1,6 +1,6 @@
 /* مدل فرم تراکنش — افزودن/ویرایش با اعتبارسنجی */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Subcategory } from "@/domain/category/subcategory.types";
 import type {
   Transaction,
@@ -12,16 +12,16 @@ import { defaultCategoryOf } from "@/domain/category/category.catalog";
 import { parse } from "@/shared/lib/jalali";
 import { jalaliToIso } from "@/shared/lib/jalali";
 import {
-  formatAmount,
   liveFormatJalaliDate,
   nowTime,
-  parseAmountInput,
 } from "@/shared/lib/format";
-import { toEn, toFa } from "@/shared/lib/digits";
-import { evaluateExpression } from "@/shared/ui";
+import { evaluateExpression, normalizeExpressionInput, formatExpressionValue } from "@/shared/ui";
 import { compressImage } from "@/shared/lib/image";
-import { fromDisplay, toDisplay } from "@/shared/lib/currency";
+import { currencyFactor, fromDisplay, toDisplay } from "@/shared/lib/currency";
 import { isoToJalali, today, formatISO } from "@/shared/lib/jalali";
+import { expenseBalanceWarning, sameExpenseBalance, type ExpenseBalanceWarning } from "./expenseBalance";
+import { occurrenceStatus } from "@/domain/transaction/recurring.rules";
+import { clearPendingOccurrence, readPendingOccurrence, rememberPendingOccurrence } from "./pendingOccurrence";
 
 export interface TxFormState {
   type: "expense" | "income" | "transfer";
@@ -49,6 +49,8 @@ export interface TxPhotoItem {
   key: string;
   existing?: { id: string; url: string; caption: string | null };
   dataUrl?: string;
+  /** Keep a successful upload when linking the receipt needs another attempt. */
+  uploadedUrl?: string;
   caption: string;
 }
 
@@ -62,21 +64,70 @@ export function useTxFormModel(
   currency: string = "تومان",
   subcategories: Subcategory[] = [],
 ) {
+  const saving = useRef(false);
+  const generation = useRef(0);
+  const mounted = useRef(true);
+  const scope = useRef({ currentMemberId, useCases });
+  if (scope.current.currentMemberId !== currentMemberId || scope.current.useCases !== useCases) {
+    scope.current = { currentMemberId, useCases };
+  }
+  const savedTransaction = useRef<Transaction | null>(null);
+  const reviewedBalance = useRef<ExpenseBalanceWarning | null>(null);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const serviceExpense = editing?.sourceKind === "vehicle_service";
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<TxFormState>(defaults());
+  const [form, writeForm] = useState<TxFormState>(defaults());
   const [photos, setPhotos] = useState<TxPhotoItem[]>([]);
-  const [busy, setBusy] = useState(false);
+  const [activity, setActivity] = useState<"checkBalance" | "checkOccurrence" | "save" | "saveCategory" | "delete" | "preparePhotos" | "removePhoto" | null>(null);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+  const busy = activity !== null;
+  const [receiptError, setReceiptError] = useState<string | null>(null);
+  const [balanceWarning, setBalanceWarning] = useState<ExpenseBalanceWarning | null>(null);
+  const [occurrenceError, setOccurrenceError] = useState<string | null>(null);
   /* وقتی فرم برای «تحقق» یک سررسید تراکنش تکرارشونده باز شده باشد:
      تراکنش واقعی جدید ثبت می‌شود و بعد همان سررسید علامت رسیدگی می‌خورد
      تا دوباره پرسیده نشود. (بخش ۳.۲) */
   const [occurrence, setOccurrence] = useState<{
     recurringId: string;
     dueDate: string;
+    familyId: string;
+    acknowledged?: boolean;
   } | null>(null);
+  const occurrencePending = occurrence !== null && editing !== null;
   /** ارز ورودی مبلغ — مستقل از ارز اصلی، همان لحظه ثبت */
   const [entryCurrency, setEntryCurrency] = useState<string>(currency);
+
+  function setForm(update: Parameters<typeof writeForm>[0]) {
+    if (!saving.current && !occurrencePending) {
+      setCategoryError(null);
+      reviewedBalance.current = null;
+      setBalanceWarning(null);
+      writeForm(update);
+    }
+  }
+
+  function currentRequest() {
+    const capturedScope = scope.current;
+    const capturedGeneration = generation.current;
+    return () => mounted.current && scope.current === capturedScope && generation.current === capturedGeneration;
+  }
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; generation.current += 1; };
+  }, []);
+
+  useEffect(() => {
+    generation.current += 1;
+    saving.current = false;
+    savedTransaction.current = null;
+    reviewedBalance.current = null;
+    setBalanceWarning(null);
+    setActivity(null); setOpen(false); setEditing(null); setOccurrence(null);
+    setPhotos([]); setReceiptError(null); writeForm(defaults());
+    setCategoryError(null);
+    setOccurrenceError(null);
+  }, [currentMemberId, useCases]);
 
   function defaults(): TxFormState {
     return {
@@ -96,20 +147,30 @@ export function useTxFormModel(
   }
 
   function openNew() {
+    if (saving.current) return;
+    generation.current += 1;
+    savedTransaction.current = null;
     setEditing(null);
     setOccurrence(null);
-    setForm(defaults());
+    setOccurrenceError(null);
+    writeForm(defaults());
     setPhotos([]);
+    setReceiptError(null);
+    setCategoryError(null);
     setEntryCurrency(currency);
     setOpen(true);
   }
 
   function openEdit(tx: Transaction) {
+    if (saving.current) return;
+    generation.current += 1;
+    savedTransaction.current = tx;
     setEditing(tx);
     setOccurrence(null);
-    setForm({
+    setOccurrenceError(null);
+    writeForm({
       type: tx.type,
-      amount: formatAmount(toDisplay(tx.amount, currency)),
+      amount: formatExpressionValue(toDisplay(tx.amount, currency)),
       categoryId: tx.category,
       date: formatISO(isoToJalali(tx.date)),
       time: tx.time ?? "",
@@ -129,6 +190,8 @@ export function useTxFormModel(
       })),
     );
     setEntryCurrency(currency);
+    setReceiptError(null);
+    setCategoryError(null);
     setOpen(true);
   }
 
@@ -137,30 +200,63 @@ export function useTxFormModel(
       پیش‌پر می‌شوند، ولی «تاریخ» عمداً روی امروز است نه سررسید — چون ممکن
       است پرداخت دیرتر انجام شده باشد و کاربر باید تاریخ/ساعت را خودش نهایی
       کند. repeat=none چون این رخداد یک تراکنش عادی است، نه تعهدی دوباره. */
-  function openForOccurrence(tx: Transaction, dueDate: string) {
+  async function openForOccurrence(tx: Transaction, dueDate: string) {
+    if (saving.current) return;
+    generation.current += 1;
+    saving.current = true;
+    savedTransaction.current = null;
     setEditing(null);
-    setOccurrence({ recurringId: tx.id, dueDate });
-    setForm({
-      type: tx.type,
-      amount: formatAmount(toDisplay(tx.amount, currency)),
-      categoryId: tx.category,
+    setOccurrence(null);
+    setOccurrenceError(null);
+    setActivity("checkOccurrence");
+    const current = currentRequest();
+    try {
+      const transactions = await useCases.listTransactions.execute();
+      if (!current()) return;
+      const recurring = transactions.find(item => item.id === tx.id);
+      const receiptScope = { familyId: tx.familyId, memberId: currentMemberId, recurringId: tx.id, dueDate };
+      if (!recurring || occurrenceStatus(recurring, dueDate) !== "pending") {
+        clearPendingOccurrence(receiptScope);
+        return notify("این سررسید دیگر نیاز به ثبت ندارد؛ اطلاعات را بازخوانی کنید");
+      }
+      const pendingId = readPendingOccurrence(receiptScope);
+      const stored = pendingId ? transactions.find(item => item.id === pendingId) : null;
+      if (pendingId && !stored) {
+        return notify("تراکنش قبلی این نوبت پیدا نشد؛ پیش از ثبت دوباره، هزینه‌ها را بررسی کنید");
+      }
+      const source = stored ?? recurring;
+      savedTransaction.current = stored ?? null;
+      setEditing(stored ?? null);
+      setOccurrence({ recurringId: tx.id, dueDate, familyId: tx.familyId });
+      writeForm({
+      type: source.type,
+      amount: formatExpressionValue(toDisplay(source.amount, currency)),
+      categoryId: source.category,
       date: formatISO(today()),
       time: nowTime(),
-      memberId: tx.memberId,
-      note: tx.note ?? "",
-      accountId: tx.accountId ?? "",
-      toAccountId: "",
-      label: subcategories.find((s) => s.id === tx.subcategoryId)?.name ?? "",
+      memberId: source.memberId,
+      note: source.note ?? "",
+      accountId: source.accountId ?? "",
+      toAccountId: source.toAccountId ?? "",
+      label: subcategories.find((s) => s.id === source.subcategoryId)?.name ?? "",
       repeat: "none",
       repeatEnd: "",
-    });
-    setPhotos([]);
-    setEntryCurrency(currency);
-    setOpen(true);
+      });
+      if (stored) writeForm(previous => ({ ...previous, date: formatISO(isoToJalali(stored.date)), time: stored.time ?? "" }));
+      setPhotos(stored?.photos.map(photo => ({ key: photo.id, existing: photo, caption: photo.caption ?? "" })) ?? []);
+      setReceiptError(null);
+      setCategoryError(null);
+      setEntryCurrency(currency);
+      setOpen(true);
+    } catch {
+      if (current()) notify("بررسی سررسید ممکن نشد؛ دوباره تلاش کنید");
+    } finally {
+      if (current()) { saving.current = false; setActivity(null); }
+    }
   }
 
   function setType(type: "expense" | "income" | "transfer") {
-    if (serviceExpense) return;
+    if (saving.current || serviceExpense || occurrence) return;
     setForm((f) => ({
       ...f,
       type,
@@ -172,22 +268,26 @@ export function useTxFormModel(
 
   /** تعویض ارز ورودی — مقدار تایپ‌شده (حتی عبارت ریاضی) به واحد جدید تبدیل می‌شود */
   function switchEntryCurrency(next: string) {
-    const v = evaluateExpression(form.amount) ?? parseAmountInput(form.amount);
+    if (saving.current || occurrencePending) return;
+    if (!form.amount.trim()) { setEntryCurrency(next); return; }
+    const v = evaluateExpression(form.amount);
+    if (v === null || v < 0) return notify("مبلغ یا عبارت محاسباتی را کامل و درست وارد کنید");
     setForm((f) => ({
       ...f,
-      amount: v
-        ? formatAmount(toDisplay(fromDisplay(v, entryCurrency), next))
-        : "",
+      amount: formatExpressionValue(v / currencyFactor(entryCurrency) * currencyFactor(next)),
     }));
     setEntryCurrency(next);
   }
 
-  async function save(onDone: () => Promise<void>, accountsCount: number) {
-    if (busy) return;
+  async function save(onDone: () => Promise<void>, accountsCount: number, confirmBalance = false) {
+    if (saving.current || !open) return;
     /* مبلغ می‌تواند عبارت ریاضی باشد — همان‌جا ارزیابی می‌شود */
-    const amount =
-      evaluateExpression(form.amount) ?? parseAmountInput(form.amount);
+    const amount = evaluateExpression(form.amount);
     if (!amount || amount <= 0) return notify("لطفاً مبلغ معتبر وارد کنید");
+    const baseAmount = occurrencePending && editing ? editing.amount : fromDisplay(amount, entryCurrency);
+    if (!Number.isFinite(baseAmount) || baseAmount <= 0) return notify("لطفاً مبلغ معتبر وارد کنید");
+    const parsedDate = parse(form.date);
+    if (!parsedDate) return notify("تاریخ تراکنش را انتخاب کنید");
 
     const isTransfer = form.type === "transfer";
 
@@ -202,7 +302,7 @@ export function useTxFormModel(
     if (!form.accountId && !occurrence && !serviceExpense) {
       if (!accountsCount) {
         return notify(
-          "هنوز هیچ کارت/حسابی ثبت نشده — ابتدا از تب «حساب‌ها» یک حساب اضافه کنید",
+          "هنوز هیچ کارت/حسابی ثبت نشده — ابتدا از بخش «حساب‌ها» یک حساب اضافه کنید",
         );
       }
       return notify(
@@ -236,7 +336,6 @@ export function useTxFormModel(
           "تاریخ پایان تکرار را انتخاب کنید — این تراکنش تا چه زمانی تکرار شود؟",
         );
       }
-      const parsedDate = parse(form.date) ?? today();
       const endIso = jalaliToIso(parsedEnd);
       if (endIso < jalaliToIso(parsedDate)) {
         return notify("تاریخ پایان تکرار نمی‌تواند قبل از تاریخ تراکنش باشد");
@@ -244,107 +343,195 @@ export function useTxFormModel(
       repeatEndIso = endIso;
     }
 
-    /* لیبل اختیاری → زیردسته (یافته یا ساخته می‌شود) */
-    let subcategoryId: string | null = null;
-    const label = form.label.trim();
-    if (!isTransfer && label) {
-      try {
-        const sub = await useCases.addSubcategory.execute(
-          form.categoryId,
-          label,
-        );
-        subcategoryId = sub.id;
-      } catch (e) {
-        return notify((e as Error).message || "خطا در ثبت لیبل");
-      }
-    }
-
-    const parsedDate = parse(form.date) ?? today();
-
-    const input = {
-      memberId: form.memberId || currentMemberId,
-      type: form.type,
-      amount: fromDisplay(amount, entryCurrency),
-      category: isTransfer ? "transfer" : form.categoryId,
-      date: jalaliToIso(parsedDate),
-      time: form.time || null,
-      note: form.note.trim() || null,
-      accountId: form.accountId || null,
-      toAccountId: isTransfer ? form.toAccountId : null,
-      subcategoryId: isTransfer ? null : subcategoryId,
-      repeat,
-      repeatEnd: repeatEndIso,
-    };
-
-    setBusy(true);
+    // The ref locks synchronously, including the label request before React rerenders.
+    saving.current = true;
+    const checkingBalance = !occurrencePending && form.type === "expense" && !!form.accountId;
+    setActivity(occurrence ? "checkOccurrence" : checkingBalance ? "checkBalance" : "save");
+    setReceiptError(null);
+    const current = currentRequest();
+    const original = savedTransaction.current;
+    let transactionSaved = false;
+    let receiptsSaved = false;
+    let occurrenceHandled = occurrence === null;
+    let phase: "occurrence" | "balance" | "label" | "transaction" | "receipts" = occurrence ? "occurrence" : checkingBalance ? "balance" : "label";
     try {
-      let txId = editing?.id ?? "";
-      if (editing) {
-        await useCases.updateTransaction.execute(editing.id, input);
-        notify("تراکنش ویرایش شد");
-      } else {
-        const created = await useCases.addTransaction.execute(input);
-        txId = created.id;
-        notify("تراکنش ثبت شد");
+      if (occurrence) {
+        const transactions = await useCases.listTransactions.execute();
+        if (!current()) return;
+        const recurring = transactions.find(item => item.id === occurrence.recurringId);
+        const status = recurring ? occurrenceStatus(recurring, occurrence.dueDate) : "invalid";
+        if (status !== "pending" && !original) return notify("این سررسید دیگر نیاز به ثبت ندارد؛ اطلاعات را بازخوانی کنید");
+        if (original && !transactions.some(item => item.id === original.id)) return notify("تراکنش قبلی این نوبت پیدا نشد؛ هزینه‌ها را بررسی کنید");
+        if (status === "invalid" && original) return notify("تکرار متوقف یا تغییر کرده است؛ تراکنش ثبت‌شده در هزینه‌ها باقی می‌ماند");
+        occurrenceHandled = status === "handled";
+      }
+      if (checkingBalance) {
+        phase = "balance";
+        const [accounts, transactions] = await Promise.all([
+          useCases.listAccounts.execute(),
+          useCases.listTransactions.execute(),
+        ]);
+        if (!current()) return;
+        const account = accounts.find(item => item.id === form.accountId);
+        if (!account) {
+          notify("حساب انتخاب‌شده در دسترس نیست؛ حساب دیگری انتخاب کنید");
+          return;
+        }
+        const warning = expenseBalanceWarning(account, transactions, baseAmount, original?.id);
+        const consent = confirmBalance ? balanceWarning : reviewedBalance.current;
+        if (warning && !sameExpenseBalance(consent, warning)) {
+          reviewedBalance.current = null;
+          setBalanceWarning(warning);
+          return;
+        }
+        reviewedBalance.current = warning;
+        setBalanceWarning(null);
+      }
+      setActivity("save");
+      phase = "label";
+      let subcategoryId: string | null = null;
+      const label = form.label.trim();
+      if (!occurrencePending && !isTransfer && label) {
+        const sub = await useCases.addSubcategory.execute(form.categoryId, label);
+        if (!current()) return;
+        subcategoryId = sub.id;
+      }
+      const input = {
+        memberId: form.memberId || currentMemberId,
+        type: form.type,
+        amount: baseAmount,
+        category: isTransfer ? "transfer" : form.categoryId,
+        date: jalaliToIso(parsedDate),
+        time: form.time || null,
+        note: form.note.trim() || null,
+        accountId: form.accountId || null,
+        toAccountId: isTransfer ? form.toAccountId : null,
+        subcategoryId: isTransfer ? null : subcategoryId,
+        repeat,
+        repeatEnd: repeatEndIso,
+      };
 
-        /* تحقق سررسید تراکنش تکرارشونده: بعد از ثبت موفق تراکنش واقعی،
-           همان سررسید علامت رسیدگی می‌خورد تا دوباره پرسیده نشود. تلاش
-           بهترین‌کوشش است؛ اگر ناموفق شود تراکنش ثبت‌شده باقی می‌ماند و
-           سررسید دوباره ظاهر می‌شود (کاربر می‌تواند «رد» بزند) — بهتر از
-           گم‌شدن بی‌صدای رکورد. */
-        if (occurrence) {
-          try {
-            await useCases.markRecurringOccurrence.execute(
-              occurrence.recurringId,
-              occurrence.dueDate,
-            );
-          } catch {
-            /* بی‌صدا — رکورد ثبت شده؛ سررسید صرفاً ممکن است دوباره پرسیده شود */
-          }
+      phase = "transaction";
+      let stored: Transaction;
+      if (original && occurrence) {
+        stored = original;
+      } else if (original) {
+        await useCases.updateTransaction.execute(original.id, input);
+        if (!current()) return;
+        stored = { ...original, ...input };
+      } else {
+        stored = await useCases.addTransaction.execute(input);
+        if (!current()) return;
+      }
+      savedTransaction.current = stored;
+      setEditing(stored);
+      transactionSaved = true;
+
+      // Preserve the successful financial identity before acknowledging its due date.
+      if (occurrence) {
+        const receiptScope = { ...occurrence, memberId: currentMemberId };
+        const remembered = rememberPendingOccurrence(receiptScope, stored.id);
+        try {
+          if (!occurrenceHandled) await useCases.markRecurringOccurrence.execute(
+            occurrence.recurringId,
+            occurrence.dueDate,
+          );
+          if (!current()) return;
+          occurrenceHandled = true;
+          clearPendingOccurrence(receiptScope);
+          setOccurrence(previous => previous ? { ...previous, acknowledged: true } : null);
+          setOccurrenceError(null);
+        } catch {
+          if (!current()) return;
+          setOccurrenceError(remembered
+            ? "تراکنش ثبت شد؛ تأیید سررسید ناموفق بود. دوباره تأیید کنید"
+            : "تراکنش ثبت شد؛ این فرم را باز نگه دارید و سررسید را دوباره تأیید کنید");
         }
       }
+      if (!current()) return;
 
       /* تصاویر: کپن‌های ویرایش‌شده + صف آپلود */
-      if (txId) {
+      phase = "receipts";
+      if (stored.id) {
         for (const p of photos) {
           if (p.existing && p.caption.trim() !== (p.existing.caption ?? "")) {
             await useCases.updateTxPhotoCaption.execute(
               p.existing.id,
               p.caption.trim() || null,
             );
+            if (!current()) return;
+            setPhotos((items) => items.map((item) => item.key === p.key
+              ? { ...item, existing: { ...p.existing!, caption: p.caption.trim() || null } } : item));
           }
         }
         for (const p of photos) {
           if (!p.existing && p.dataUrl) {
-            const url = await useCases.uploadTxPhoto.execute(p.dataUrl);
-            await useCases.addTxPhoto.execute(
-              txId,
+            const url = p.uploadedUrl ?? await useCases.uploadTxPhoto.execute(p.dataUrl);
+            if (!current()) return;
+            setPhotos((items) => items.map((item) => item.key === p.key ? { ...item, uploadedUrl: url } : item));
+            const attached = await useCases.addTxPhoto.execute(
+              stored.id,
               url,
               p.caption.trim() || null,
             );
+            if (!current()) return;
+            setPhotos((items) => items.map((item) => item.key === p.key
+              ? { key: item.key, caption: item.caption, existing: attached } : item));
           }
         }
       }
 
-      setOpen(false);
-      await onDone();
+      receiptsSaved = true;
     } catch (e) {
-      notify((e as Error).message || "خطا در ذخیره");
+      if (!current()) return;
+      if (phase === "occurrence") {
+        notify("بررسی سررسید ممکن نشد؛ دوباره تلاش کنید");
+        return;
+      }
+      if (phase === "balance") {
+        notify("بررسی موجودی حساب ممکن نشد؛ دوباره تلاش کنید");
+        return;
+      }
+      const message = (e as Error).message || "خطا در ذخیره";
+      if (transactionSaved) {
+        setReceiptError(message);
+        notify("تراکنش ذخیره شد، اما بعضی رسیدها ذخیره نشدند؛ دوباره تلاش کنید");
+      } else {
+        notify((e as Error).message || (phase === "label" ? "خطا در ثبت لیبل" : "خطا در ذخیره"));
+      }
     } finally {
-      setBusy(false);
+      if (transactionSaved && current()) {
+        let refreshed = true;
+        try { await onDone(); }
+        catch {
+          refreshed = false;
+          if (current()) notify("تراکنش ذخیره شد، اما اطلاعات صفحه تازه نشد؛ صفحه را بازخوانی کنید");
+        }
+        if (current() && receiptsSaved && occurrenceHandled) {
+          setOccurrence(null);
+          setOpen(false);
+          if (refreshed) notify(occurrence ? "سررسید تأیید شد" : original ? "تراکنش ویرایش شد" : "تراکنش ثبت شد");
+        }
+      }
+      if (current()) { saving.current = false; setActivity(null); }
     }
   }
 
   async function remove(onDone: () => Promise<void>) {
-    if (!editing) return;
+    if (saving.current || !editing) return;
     if (!confirm("این تراکنش حذف شود؟")) return;
+    saving.current = true; setActivity("delete");
+    const current = currentRequest();
     try {
       await useCases.deleteTransaction.execute(editing.id);
+      if (!current()) return;
       notify("تراکنش حذف شد");
       setOpen(false);
       await onDone();
     } catch (e) {
-      notify((e as Error).message || "خطا در حذف");
+      if (current()) notify((e as Error).message || "خطا در حذف");
+    } finally {
+      if (current()) { saving.current = false; setActivity(null); }
     }
   }
 
@@ -355,31 +542,75 @@ export function useTxFormModel(
     }
   }, [members, open, form.memberId, currentMemberId]);
 
+  async function addCategory(name: string, after: () => void | Promise<void>): Promise<boolean> {
+    if (!open || saving.current || form.type === "transfer" || serviceExpense) return false;
+    const trimmed = name.trim();
+    if (!trimmed) { setCategoryError("نام دسته را وارد کنید"); return false; }
+    if (trimmed.length > 30) { setCategoryError("نام دسته حداکثر ۳۰ کاراکتر است"); return false; }
+    saving.current = true;
+    setActivity("saveCategory");
+    setCategoryError(null);
+    const current = currentRequest();
+    let created = false;
+    try {
+      const category = await useCases.addCustomCategory.execute(form.type, trimmed);
+      created = true;
+      if (!current()) return false;
+      await after();
+      if (!current()) return false;
+      writeForm(previous => ({ ...previous, categoryId: category.id, label: "" }));
+      notify("دسته اضافه شد");
+      return true;
+    } catch (error) {
+      if (current()) setCategoryError(created
+        ? "دسته ساخته شد؛ اطلاعات صفحه تازه نشد. دوباره تلاش کنید"
+        : (error as Error).message || "خطا در افزودن دسته");
+      return false;
+    } finally {
+      if (current()) { saving.current = false; setActivity(null); }
+    }
+  }
+
   return {
     open,
     editing,
     serviceExpense,
+    recurringOccurrence: occurrence !== null,
+    occurrencePending,
+    occurrenceAcknowledged: occurrence?.acknowledged === true,
+    occurrenceError,
     form,
     setForm,
     photos,
     busy,
+    activity,
+    receiptError,
+    categoryError,
+    addCategory,
+    clearCategoryError: () => { if (!saving.current) setCategoryError(null); },
+    balanceWarning,
+    dismissBalanceWarning: () => {
+      if (saving.current) return;
+      reviewedBalance.current = null;
+      setBalanceWarning(null);
+    },
     openNew,
     openEdit,
     openForOccurrence,
     setType,
     save,
     remove,
-    close: () => setOpen(false),
+    close: () => { if (!saving.current) { generation.current += 1; setOpen(false); } },
     setAmount: (v: string) =>
-      /* فقط ارقام و چهار عمل اصلی می‌مانند — پشتیبانی عبارت «۱۲+۵» */
+      /* نویسهٔ نامعتبر حفظ می‌شود تا اعتبارسنجی آن را رد کند؛ حذفش مبلغ را تغییر می‌دهد. */
       setForm((f) => ({
         ...f,
-        amount: toFa(toEn(v).replace(/[^\d+\-×÷]/g, "")),
+        amount: normalizeExpressionInput(v),
       })),
     setDate: (v: string) =>
       !serviceExpense && setForm((f) => ({ ...f, date: liveFormatJalaliDate(v) })),
     setTime: (v: string) => setForm((f) => ({ ...f, time: v })),
-    setRepeat: (v: TxRepeat) => !serviceExpense && setForm((f) => ({ ...f, repeat: v })),
+    setRepeat: (v: TxRepeat) => !serviceExpense && !occurrence && setForm((f) => ({ ...f, repeat: v })),
     setRepeatEnd: (v: string) =>
       setForm((f) => ({ ...f, repeatEnd: liveFormatJalaliDate(v) })),
     /* ارز ورودی مبلغ */
@@ -387,42 +618,58 @@ export function useTxFormModel(
     switchEntryCurrency,
     /* انتخاب فایل‌های تصویر → فشرده‌سازی و افزودن به صف آپلود */
     addPhotoFiles: async (files: File[]) => {
+      if (saving.current) return;
       if (serviceExpense) return notify("رسید سرویس خودرو را در اسناد خانه ثبت و به خودرو وصل کنید.");
       const room = MAX_PHOTOS - photos.length;
       if (room <= 0) {
         return notify(`حداکثر ${MAX_PHOTOS} تصویر برای هر تراکنش`);
       }
+      saving.current = true; setActivity("preparePhotos");
+      const current = currentRequest();
       const items: TxPhotoItem[] = [];
-      for (const file of files.slice(0, room)) {
-        try {
-          /* رسید/عکس محصول — ۱۰۲۴px برای خوانایی متن رسید */
-          const dataUrl = await compressImage(file, 1024, 0.85);
-          items.push({
-            key: Math.random().toString(36).slice(2),
-            dataUrl,
-            caption: "",
-          });
-        } catch {
-          /* فایل خراب — رد می‌شود */
+      try {
+        for (const file of files.slice(0, room)) {
+          try {
+            /* رسید/عکس محصول — ۱۰۲۴px برای خوانایی متن رسید */
+            const dataUrl = await compressImage(file, 1024, 0.85);
+            if (!current()) return;
+            items.push({
+              key: Math.random().toString(36).slice(2),
+              dataUrl,
+              caption: "",
+            });
+          } catch {
+            /* فایل خراب — رد می‌شود */
+          }
         }
+        if (items.length && current()) setPhotos((ps) => [...ps, ...items]);
+      } finally {
+        if (current()) { saving.current = false; setActivity(null); }
       }
-      if (items.length) setPhotos((ps) => [...ps, ...items]);
     },
     setPhotoCaption: (key: string, v: string) =>
-      setPhotos((ps) =>
+      !saving.current && setPhotos((ps) =>
         ps.map((p) => (p.key === key ? { ...p, caption: v.slice(0, 100) } : p)),
       ),
     /* حذف: عکس موجود فوراً از سرور؛ عکس صف فقط از لیست */
     removePhoto: async (key: string) => {
+      if (saving.current) return;
       const item = photos.find((p) => p.key === key);
       if (!item) return;
       if (item.existing) {
         if (!confirm("این تصویر حذف شود؟")) return;
+        saving.current = true; setActivity("removePhoto");
+        const current = currentRequest();
         try {
           await useCases.deleteTxPhoto.execute(item.existing.id);
+          if (!current()) return;
+          setPhotos((ps) => ps.filter((p) => p.key !== key));
         } catch (e) {
-          return notify((e as Error).message || "خطا در حذف تصویر");
+          if (current()) notify((e as Error).message || "خطا در حذف تصویر");
+        } finally {
+          if (current()) { saving.current = false; setActivity(null); }
         }
+        return;
       }
       setPhotos((ps) => ps.filter((p) => p.key !== key));
     },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { budgetStatus, monthCategorySpend, spendCapacity } from "./budget.rules";
+import { budgetStatus, monthCategorySpend, spendCapacity, parseCategoryBudgetAmount, MAX_CATEGORY_BUDGET } from "./budget.rules";
 import type { Transaction } from "../transaction/transaction.types";
 
 function tx(partial: Partial<Transaction>): Transaction {
@@ -103,6 +103,16 @@ describe("spendCapacity", () => {
     expect(c.remaining).toBe(2_800_000);
     expect(c.percent).toBe(30);
     expect(c.perDay).toBe(280_000);
+    expect(c.totalSpent).toBe(2_100_000);
+    expect(c.unbudgetedSpent).toBe(900_000);
+  });
+
+  it("keeps unbudgeted expenses visible when no budgets are active", () => {
+    const c = spendCapacity([{ category: "food", amount: 0 }], new Map([["food", 100], ["bills", 25]]), 10);
+    expect(c.active).toBe(false);
+    expect(c.remaining).toBe(0);
+    expect(c.totalSpent).toBe(125);
+    expect(c.unbudgetedSpent).toBe(125);
   });
 
   it("عبور از سقف → باقیمانده منفی و سهم روزانه صفر", () => {
@@ -116,5 +126,25 @@ describe("spendCapacity", () => {
     const c = spendCapacity(budgets, new Map(), 0);
     expect(c.daysLeft).toBe(1);
     expect(c.perDay).toBe(4_000_000);
+  });
+});
+
+describe("budget amount parsing", () => {
+  it("accepts grouped digit sets and converts the selected currency before rounding", () => {
+    for (const raw of ["1234000", "۱٬۲۳۴٬۰۰۰", "١,٢٣٤,٠٠٠"]) expect(parseCategoryBudgetAmount(raw, "تومان")).toBe(1234000);
+    expect(parseCategoryBudgetAmount("۱۲,۳۴۰,۰۰۰", "ریال")).toBe(1234000);
+    expect(parseCategoryBudgetAmount("۱۵", "ریال")).toBe(2);
+  });
+
+  it("rejects malformed amounts instead of discarding their characters", () => {
+    for (const raw of ["", "۰", "-12", "۱۲ تومان", "12abc5", "1.5", "12+", "Infinity", "1e4"])
+      expect(parseCategoryBudgetAmount(raw, "تومان")).toBeNull();
+  });
+
+  it("enforces the existing server limit and rejects values that round to zero", () => {
+    expect(parseCategoryBudgetAmount(String(MAX_CATEGORY_BUDGET), "تومان")).toBe(MAX_CATEGORY_BUDGET);
+    expect(parseCategoryBudgetAmount(String(MAX_CATEGORY_BUDGET + 1), "تومان")).toBeNull();
+    expect(parseCategoryBudgetAmount(String(MAX_CATEGORY_BUDGET * 10), "ریال")).toBe(MAX_CATEGORY_BUDGET);
+    expect(parseCategoryBudgetAmount("۱", "ریال")).toBeNull();
   });
 });

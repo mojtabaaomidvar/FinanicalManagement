@@ -1,9 +1,9 @@
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* UI لیست تراکنش‌ها — گروه‌بندی روزانه، فیلتر، جستجو، فیلتر پیشرفته */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
-import { useTxListModel, type TxRange } from "../model/useTxListModel";
+import { useTxListModel, type TxAdvFilter, type TxRange } from "../model/useTxListModel";
 import { Modal, Segmented } from "@/shared/ui";
 import { isoToJalali, formatISO } from "@/shared/lib/jalali";
 import { formatAmount } from "@/shared/lib/format";
@@ -37,12 +37,27 @@ export function TransactionListFeature({
     () => buildCategoryResolver(customCategories),
     [customCategories],
   );
-  const m = useTxListModel(txs, members, resolve, initialSearch);
+  const m = useTxListModel(txs, members, resolve, initialSearch, cur, subcategories);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [filterDraft, setFilterDraft] = useState<TxAdvFilter>(m.adv);
+  const rangeId = useId();
+  const accountId = useId();
+  const categoryId = useId();
+
+  function openFilters() {
+    setFilterDraft({ ...m.adv });
+    setFilterOpen(true);
+  }
+
+  function clearView() {
+    m.setSearch("");
+    m.setFilter("all");
+    m.setAdv({ range: "all", accountId: "", categoryId: "" });
+  }
 
   /* سیگنال باز شدن فیلتر از هدر خانه */
   useEffect(() => {
-    if (filterSignal > 0) setFilterOpen(true);
+    if (filterSignal > 0) openFilters();
   }, [filterSignal]);
 
   const subNameOf = (id: string | null) =>
@@ -68,7 +83,7 @@ export function TransactionListFeature({
           type="button"
           className={`icon-btn small filter-btn ${m.advActive ? "on" : ""}`}
           aria-label="فیلتر"
-          onClick={() => setFilterOpen(true)}
+          onClick={openFilters}
         >
           <svg>
             <use href="#i-filter" />
@@ -76,31 +91,29 @@ export function TransactionListFeature({
         </button>
       </div>
       {m.advActive ? (
-        <button
-          type="button"
-          className="adv-filter-chip"
-          onClick={() => setFilterOpen(true)}
-        >
-          <svg>
-            <use href="#i-filter" />
-          </svg>
-          {m.advLabel}
-          <b
+        <div className="adv-filter-chip">
+          <button type="button" className="adv-filter-edit" onClick={openFilters}>
+            <svg aria-hidden="true">
+              <use href="#i-filter" />
+            </svg>
+            {m.advLabel}
+          </button>
+          <button
+            type="button"
             className="adv-clear"
-            onClick={(e) => {
-              e.stopPropagation();
-              m.setAdv({ range: "all", accountId: "", categoryId: "" });
-            }}
+            aria-label="پاک‌کردن فیلترها"
+            onClick={() => m.setAdv({ range: "all", accountId: "", categoryId: "" })}
           >
             پاک‌کردن
-          </b>
-        </button>
+          </button>
+        </div>
       ) : null}
 
       <div className="search-box">
         <input
-          type="text"
-          placeholder="جستجو در تراکنش‌ها..."
+          type="search"
+          aria-label="جست‌وجو در تراکنش‌ها"
+          placeholder="جست‌وجو در تراکنش‌ها…"
           value={m.search}
           onChange={(e) => m.setSearch(e.target.value)}
         />
@@ -148,13 +161,19 @@ export function TransactionListFeature({
           ))}
         </div>
       ) : (
-        <div className="empty-state">
+        <div className="empty-state tx-list-empty">
           <div className="empty-icon">
             <svg>
               <use href="#i-receipt" />
             </svg>
           </div>
-          <p>تراکنشی یافت نشد</p>
+          {txs.length ? <>
+            <p>نتیجه‌ای پیدا نشد</p>
+            <button type="button" className="btn-secondary" onClick={clearView}>پاک‌کردن جست‌وجو و فیلترها</button>
+          </> : <>
+            <p>هنوز تراکنشی ثبت نکرده‌اید</p>
+            <button type="button" className="btn-primary" onClick={form.openNew}>ثبت اولین تراکنش</button>
+          </>}
         </div>
       )}
 
@@ -162,23 +181,26 @@ export function TransactionListFeature({
       <Modal open={filterOpen} onClose={() => setFilterOpen(false)} title="فیلتر تراکنش‌ها">
         <div className="form-grid">
           <div className="form-row full">
-            <label className="form-label">بازه زمانی</label>
-            <Segmented
-              value={m.adv.range}
-              onChange={(v) => m.setAdv({ ...m.adv, range: v as TxRange })}
-              options={[
-                { value: "all", label: "همه" },
-                { value: "month", label: "این ماه" },
-                { value: "3m", label: "۳ ماه" },
-              ]}
-            />
+            <label id={rangeId} className="form-label">بازه زمانی</label>
+            <div role="group" aria-labelledby={rangeId}>
+              <Segmented
+                value={filterDraft.range}
+                onChange={(v) => setFilterDraft({ ...filterDraft, range: v as TxRange })}
+                options={[
+                  { value: "all", label: "همه" },
+                  { value: "month", label: "این ماه" },
+                  { value: "3m", label: "۳ ماه" },
+                ]}
+              />
+            </div>
           </div>
           <div className="form-row full">
-            <label className="form-label">حساب</label>
+            <label htmlFor={accountId} className="form-label">حساب</label>
             <select
+              id={accountId}
               className="select-input"
-              value={m.adv.accountId}
-              onChange={(e) => m.setAdv({ ...m.adv, accountId: e.target.value })}
+              value={filterDraft.accountId}
+              onChange={(e) => setFilterDraft({ ...filterDraft, accountId: e.target.value })}
             >
               <option value="">همه حساب‌ها</option>
               {accounts.map((a) => (
@@ -189,11 +211,12 @@ export function TransactionListFeature({
             </select>
           </div>
           <div className="form-row full">
-            <label className="form-label">دسته‌بندی</label>
+            <label htmlFor={categoryId} className="form-label">دسته‌بندی</label>
             <select
+              id={categoryId}
               className="select-input"
-              value={m.adv.categoryId}
-              onChange={(e) => m.setAdv({ ...m.adv, categoryId: e.target.value })}
+              value={filterDraft.categoryId}
+              onChange={(e) => setFilterDraft({ ...filterDraft, categoryId: e.target.value })}
             >
               <option value="">همه دسته‌ها</option>
               <optgroup label="هزینه">
@@ -222,12 +245,19 @@ export function TransactionListFeature({
         </div>
         <div className="modal-actions">
           <button
+            type="button"
             className="btn-secondary"
-            onClick={() => m.setAdv({ range: "all", accountId: "", categoryId: "" })}
+            onClick={() => setFilterDraft({ range: "all", accountId: "", categoryId: "" })}
           >
             حذف فیلترها
           </button>
-          <button className="btn-primary" onClick={() => setFilterOpen(false)}>
+          <button type="button" className="btn-secondary" onClick={() => setFilterOpen(false)}>
+            انصراف
+          </button>
+          <button type="button" className="btn-primary" onClick={() => {
+            m.setAdv({ ...filterDraft });
+            setFilterOpen(false);
+          }}>
             اعمال
           </button>
         </div>
@@ -270,7 +300,12 @@ export function TxRow({
     : `${cat.name}${sub} · ${memberName} · ${formatISO(isoToJalali(tx.date))}${tx.time ? ` · ${toFa(tx.time)}` : ""}`;
 
   return (
-    <div className="tx-item" onClick={onClick}>
+    <div className="tx-item" role="button" tabIndex={0} onClick={onClick} onKeyDown={event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        onClick();
+      }
+    }}>
       <div className={`tx-icon ${tx.type}`}>
         <svg>
           <use href={`#${isTransfer ? "i-swap" : cat.icon}`} />
@@ -299,7 +334,7 @@ export function TxRow({
       </div>
       <div className={`tx-amount ${tx.type}`}>
         <b>{formatAmount(toDisplay(tx.amount, currency))}</b>
-        <span>{currency || "تومان"}</span>
+        <span>{currencyDisplayLabel(currency)}</span>
       </div>
     </div>
   );

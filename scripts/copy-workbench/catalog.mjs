@@ -164,7 +164,7 @@ function classifyTs(node, sourceFile, file, value, annotation) {
       const optionValue = name === 'value' && ts.isObjectLiteralExpression(ancestor.parent) && ancestor.parent.properties.some(property => ts.isPropertyAssignment(property)
         && propertyName(property.name, sourceFile) === 'label' && (ts.isStringLiteral(property.initializer) || ts.isNoSubstitutionTemplateLiteral(property.initializer)));
       const userContent = ['name', 'title', 'description', 'notes'].includes(name) && !/domain\/notification\//.test(file) && recordFields.some(field => ['familyId', 'family_id', 'phone', 'password', 'membershipState', 'assigneeId', 'assignee_id', 'accountId', 'account_id', 'forMemberId', 'for_member_id', 'ownerId', 'owner_id', 'dueDate', 'due_date', 'revision', 'completed', 'createdAt', 'created_at'].includes(field));
-      if (displayMap && ancestor.initializer === node) return { visible: true, context: declarationName };
+      if (displayMap && ancestor.initializer === node && !optionValue && !userContent) return { visible: true, context: declarationName };
       const declaredType = declaration?.type?.getText(sourceFile) ?? '';
       const displayOnlyValue = name === 'value' && !userContent && !optionValue && (declaredType === 'RowTrailing'
         || annotation && isRenderingFile(file) && !recordFields.some(field => ['id', 'familyId', 'family_id', 'ownerId', 'owner_id', 'revision', 'createdAt', 'created_at'].includes(field)));

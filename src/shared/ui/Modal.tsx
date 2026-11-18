@@ -27,6 +27,7 @@ export function Modal(props: {
   title?: ReactNode;
   children: ReactNode;
   sheetClassName?: string;
+  overlayClassName?: string;
   /** استایل inline روی خود شیت */
   style?: CSSProperties;
   /** بدون padding پیش‌فرض — شیت خودش چیدمان داخلی را مدیریت می‌کند */
@@ -103,7 +104,7 @@ export function Modal(props: {
 
   return createPortal(
     <div
-      className="modal-overlay"
+      className={`modal-overlay ${props.overlayClassName ?? ""}`}
       onClick={(e) => {
         if (e.target === e.currentTarget) props.onClose();
       }}

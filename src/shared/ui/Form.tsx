@@ -1,7 +1,7 @@
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* کامپوننت‌های پایه فرم — سازگار با کلاس‌های CSS موجود */
 
-import { useState, type ChangeEvent, type ReactNode } from "react";
+import { useId, useState, type ChangeEvent, type ReactNode } from "react";
 import { liveFormatAmount } from "@/shared/lib/format";
 import { toFa } from "@/shared/lib/digits";
 import { JalaliDatePicker } from "./JalaliDatePicker";
@@ -21,7 +21,7 @@ export function Field({
   );
 }
 
-export function TextInput(props: {
+export function TextInput({ "aria-label": ariaLabel, ...props }: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
@@ -34,6 +34,7 @@ export function TextInput(props: {
   className?: string;
   autoFocus?: boolean;
   maxLength?: number;
+  "aria-label"?: string;
 }) {
   return (
     <input
@@ -46,6 +47,7 @@ export function TextInput(props: {
       inputMode={props.inputMode}
       maxLength={props.maxLength}
       autoFocus={props.autoFocus}
+      aria-label={ariaLabel}
       onChange={(e: ChangeEvent<HTMLInputElement>) =>
         props.onChange(e.target.value)
       }
@@ -82,7 +84,7 @@ export function AmountInput(props: {
 
 /** ورودی تاریخ جلالی — کلیک روی فیلد → تقویم (بدون تایپ دستی)
     با onTimeChange: انتخاب ساعت هم در همان شیت انجام می‌شود */
-export function JalaliDateInput(props: {
+export function JalaliDateInput({ "aria-label": ariaLabel, ...props }: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
@@ -92,8 +94,10 @@ export function JalaliDateInput(props: {
   /** "HH:MM" یا "" — همراه با onTimeChange فعال می‌شود */
   time?: string;
   onTimeChange?: (t: string) => void;
+  "aria-label"?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const valueId = useId();
   const label = props.value
     ? props.time
       ? `${props.value} · ${toFa(props.time)}`
@@ -105,9 +109,11 @@ export function JalaliDateInput(props: {
       <button
         type="button"
         className="text-input date-field"
+        aria-label={ariaLabel}
+        aria-describedby={ariaLabel ? valueId : undefined}
         onClick={() => setOpen(true)}
       >
-        <span className={label ? "" : "date-empty"}>
+        <span id={valueId} className={label ? "" : "date-empty"}>
           {label || props.placeholder || "انتخاب تاریخ"}
         </span>
         <svg className="date-field-icon">
@@ -129,19 +135,21 @@ export function JalaliDateInput(props: {
   );
 }
 
-export function Select(props: {
+export function Select({ "aria-label": ariaLabel, ...props }: {
   value: string;
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
   className?: string;
   /** برای حالت «در حال ذخیره» — از انتخاب دوباره جلوگیری می‌کند */
   disabled?: boolean;
+  "aria-label"?: string;
 }) {
   return (
     <select
       className={props.className ?? "select-input"}
       value={props.value}
       disabled={props.disabled}
+      aria-label={ariaLabel}
       onChange={(e) => props.onChange(e.target.value)}
     >
       {props.options.map((o) => (
@@ -167,6 +175,7 @@ export function Segmented<T extends string>(props: {
           key={o.value}
           type="button"
           className={`seg-btn ${props.value === o.value ? "active" : ""}`}
+          aria-pressed={props.value === o.value}
           onClick={() => props.onChange(o.value)}
         >
           {o.label}

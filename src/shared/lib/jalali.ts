@@ -239,6 +239,11 @@ export function addDays(d: JDate, n: number): JDate {
   return toJalali(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
 }
 
+/** Calendar reminder window; exact ISO equality also rejects malformed dates. */
+export function isTodayOrTomorrow(dateIso: string, todayJ: JDate): boolean {
+  return dateIso === jalaliToIso(todayJ) || dateIso === jalaliToIso(addDays(todayJ, 1));
+}
+
 /* ── روزِ هفته ──
 
    ⚠️ تلهٔ یکی‌جابه‌جا — اینجا یک باگِ واقعی بود (رفع ۱۴۰۵/۰۷/۱۹).

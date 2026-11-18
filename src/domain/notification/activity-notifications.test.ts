@@ -6,7 +6,7 @@ import { deriveNotifications, type DeriveInput } from "./notification.rules";
 import { DEFAULT_NOTIFICATION_PREFS } from "./notification.types";
 
 const activity = (patch: Partial<Activity> = {}): Activity => ({
-  id: "activity-1", title: "برنامهٔ خانوادگی", note: "شرح برنامه", date: "2026-11-22",
+  id: "activity-1", title: "برنامهٔ خانوادگی", note: "شرح برنامه", date: "2026-11-16",
   location: "مکان برنامه", status: "planned", participantIds: ["member-2"], reminderEnabled: true,
   createdBy: "member-2", revision: 1, createdAt: "2026-11-15T00:00:00Z",
   updatedAt: "2026-11-15T00:00:00Z", canEdit: false, canDelete: false, ...patch,
@@ -18,20 +18,19 @@ const input = (rows: Activity[], patch: Partial<DeriveInput> = {}): DeriveInput 
 });
 const event = (patch: Partial<FamilyEvent> = {}): FamilyEvent => ({
   id: "activity-1", familyId: "family-1", memberId: "member-2", forMemberId: null,
-  title: "برنامهٔ خانوادگی", date: "2026-11-22", note: null, createdAt: "2026-11-15T00:00:00Z",
+  title: "برنامهٔ خانوادگی", date: "2026-11-16", note: null, createdAt: "2026-11-15T00:00:00Z",
   kind: "activity", activityStatus: "planned", reminderEnabled: true, revision: 1,
   ...patch,
 });
 
 describe("canonical family activity reminders", () => {
-  it("defaults to seven days and includes overdue, today and the exact lead boundary", () => {
-    expect(DEFAULT_NOTIFICATION_PREFS.leadDays.activities).toBe(7);
+  it("shows today and tomorrow and excludes past or distant activities", () => {
+    expect(DEFAULT_NOTIFICATION_PREFS.leadDays.activities).toBe(1);
     const notes = deriveNotifications(input([
       activity({ id: "past", date: "2026-11-14" }), activity({ id: "today", date: "2026-11-15" }),
-      activity({ id: "boundary", date: "2026-11-22" }), activity({ id: "beyond", date: "2026-11-23" }),
+      activity({ id: "boundary", date: "2026-11-16" }), activity({ id: "beyond", date: "2026-11-17" }),
     ]));
     expect(notes.map((note) => [note.ref, note.severity])).toEqual([
-      [{ kind: "activities", activityId: "past" }, "overdue"],
       [{ kind: "activities", activityId: "today" }, "pending"],
       [{ kind: "activities", activityId: "boundary" }, "soon"],
     ]);
@@ -83,13 +82,13 @@ describe("canonical family activity reminders", () => {
     expect(deriveNotifications(input([activity()], { prefs: { ...DEFAULT_NOTIFICATION_PREFS, enabled: false } }))).toEqual([]);
   });
 
-  it("uses custom lead days and defensive bounds while retaining overdue items", () => {
+  it("ignores legacy lead days and always shows tomorrow instead of expired activities", () => {
     const prefs = (lead: number) => ({ ...DEFAULT_NOTIFICATION_PREFS,
       leadDays: { ...DEFAULT_NOTIFICATION_PREFS.leadDays, activities: lead } });
     for (const lead of [0, -1, NaN, Infinity]) {
       expect(deriveNotifications(input([
         activity({ id: "past", date: "2026-11-14" }), activity({ id: "tomorrow", date: "2026-11-16" }),
-      ], { prefs: prefs(lead) })).map((note) => note.ref)).toEqual([{ kind: "activities", activityId: "past" }]);
+      ], { prefs: prefs(lead) })).map((note) => note.ref)).toEqual([{ kind: "activities", activityId: "tomorrow" }]);
     }
     expect(deriveNotifications(input([activity({ date: "2026-11-16" })], { prefs: prefs(1.9) }))).toHaveLength(1);
     expect(deriveNotifications(input([activity({ date: "2026-11-17" })], { prefs: prefs(1.9) }))).toEqual([]);
@@ -110,6 +109,6 @@ describe("canonical family activity reminders", () => {
     expect(notes.every((note) => !note.dismissible)).toBe(true);
     expect(deriveNotifications(input(rows, { dismissed: new Set(notes.map((note) => note.id)) }))).toEqual(notes);
     expect(deriveNotifications(input([...rows].reverse()))).toEqual(notes);
-    expect(deriveNotifications(input([activity({ id: "a", date: "2026-11-21" })]))[0].id).not.toBe(notes[0].id);
+    expect(deriveNotifications(input([activity({ id: "a", date: "2026-11-15" })]))[0].id).not.toBe(notes[0].id);
   });
 });

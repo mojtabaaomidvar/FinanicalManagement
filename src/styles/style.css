@@ -414,6 +414,26 @@ button:active {
   transition: --sheet-tint 380ms ease;
 }
 
+.tx-fields {
+  display: contents;
+}
+
+.tx-save-status {
+  margin-bottom: var(--sp-3);
+  padding: var(--sp-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--card);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.tx-save-status p + p {
+  margin-top: var(--sp-2);
+  color: var(--text-2);
+}
+
 /* هدر — بستن / عنوان / حذف / ذخیره (چسبان) */
 .tx-head {
   position: sticky;
@@ -432,6 +452,7 @@ button:active {
 }
 .tx-head-title {
   flex: 1;
+  min-width: 0;
   text-align: center;
   font-size: 13px;
   font-weight: 700;
@@ -440,10 +461,12 @@ button:active {
 .tx-head-actions {
   display: inline-flex;
   gap: 8px;
+  max-width: 60%;
 }
 .tx-head-btn {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -461,11 +484,37 @@ button:active {
   height: 17px;
 }
 .tx-head-btn.tx-save-btn {
-  background: var(--cat-color, var(--accent));
+  width: auto;
+  height: auto;
+  min-width: 96px;
+  min-height: 44px;
+  padding: 10px 12px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 1;
+  border-radius: var(--r-md);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+  background: var(--text);
   border-color: transparent;
-  color: #fff;
-  box-shadow: 0 6px 16px
-    color-mix(in srgb, var(--cat-color, var(--accent)) 45%, transparent);
+  color: var(--card);
+  box-shadow: none;
+}
+.tx-save-btn span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.tx-head-btn:focus-visible,
+.tx-form .tx-amount:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 3px;
+}
+.tx-head-btn:disabled {
+  cursor: default;
 }
 .tx-head-btn.tx-save-btn:disabled {
   opacity: 0.55;
@@ -611,9 +660,9 @@ button:active {
   gap: 8px;
 }
 .tx-amount-cap {
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 700;
-  color: var(--text-3);
+  color: var(--text-2);
 }
 .tx-amount {
   max-width: 100%;
@@ -629,12 +678,28 @@ button:active {
   white-space: nowrap;
   scrollbar-width: none;
 }
+.tx-form .tx-amount {
+  display: block;
+  width: 100%;
+  padding: 2px 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  font-family: inherit;
+  letter-spacing: normal;
+}
 .tx-amount::-webkit-scrollbar {
   display: none;
 }
-.tx-amount-zero {
+.tx-form .tx-amount::placeholder {
   color: var(--text-3);
   opacity: 0.5;
+}
+.tx-amount-hint {
+  margin-top: var(--sp-2);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-2);
 }
 .tx-amount-expr {
   text-align: center;
@@ -1317,6 +1382,11 @@ button:active {
   padding: 11px 4px;
   border-radius: var(--r-md);
   transition: background var(--dur-fast) ease;
+  cursor: pointer;
+}
+.tx-item:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 2px;
 }
 .tx-item:active {
   background: var(--card-2);
@@ -1740,6 +1810,69 @@ button:active {
 }
 
 /* ─────────── صفحه بودجه‌بندی دسته‌ها ─────────── */
+.budget-fields,
+.account-fields,
+.category-fields {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.budget-unbudgeted {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.45;
+}
+.budget-save-notice,
+.account-save-notice,
+.category-save-notice {
+  padding: var(--sp-3);
+  margin-block: var(--sp-3);
+  background: var(--card-2);
+  border-radius: var(--r-md);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.budget-fields .btn-primary,
+.budget-fields .btn-secondary,
+.account-form-sheet .modal-actions button {
+  min-height: 44px;
+}
+.budget-fields .btn-primary,
+.budget-cap .btn-primary,
+.account-form-sheet .btn-primary {
+  background: var(--text);
+  color: var(--card);
+  box-shadow: none;
+}
+.category-fields .chip-adder .btn-primary,
+.tx-add-cat .btn-primary {
+  min-height: 44px;
+  background: var(--text);
+  color: var(--card);
+  box-shadow: none;
+}
+.category-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.tx-category-error {
+  margin: 8px 20px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.budget-fields .modal-actions,
+.account-form-sheet .modal-actions {
+  display: flex;
+}
+.budget-fields .modal-actions button,
+.account-form-sheet .modal-actions button {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 6px;
+}
 .budget-summary {
   display: flex;
   flex-direction: column;
@@ -2202,6 +2335,14 @@ button:active {
 .list-toolbar .segmented {
   flex: 1;
 }
+.list-toolbar .seg-control {
+  flex: 1;
+  min-width: 0;
+}
+.list-toolbar .filter-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
 .filter-btn.on {
   color: var(--accent-strong);
   border-color: var(--accent);
@@ -2212,15 +2353,36 @@ button:active {
   gap: 6px;
   width: 100%;
   margin-top: 8px;
-  padding: 7px 12px;
+  padding: 0 8px;
   border-radius: var(--r-md);
   border: 1px dashed var(--accent);
   background: var(--accent-soft);
-  color: var(--accent-strong);
+  color: var(--text);
   font: inherit;
-  font-size: 11.5px;
+  font-size: 13px;
+  text-align: start;
+}
+.adv-filter-chip button {
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
   cursor: pointer;
   text-align: start;
+  border-radius: var(--r-sm);
+}
+.adv-filter-chip button:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: -2px;
+}
+.adv-filter-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  padding: 4px;
 }
 .adv-filter-chip svg {
   width: 14px;
@@ -2230,7 +2392,10 @@ button:active {
 .adv-filter-chip .adv-clear {
   margin-inline-start: auto;
   font-weight: 700;
-  text-decoration: underline;
+  padding: 4px 8px;
+}
+.tx-list-empty > button {
+  margin-top: var(--sp-3);
 }
 
 /* نشان تکرار روی ردیف تراکنش */
@@ -3444,6 +3609,80 @@ button:active {
   flex-shrink: 0;
 }
 
+.modal-overlay.tx-balance-overlay {
+  align-items: center;
+  padding: var(--sp-4);
+  z-index: 110;
+}
+.modal-sheet.tx-balance-popup {
+  width: min(100%, 320px);
+  max-height: calc(100dvh - 32px);
+  border-radius: var(--r-lg);
+  animation: fadeIn var(--dur-fast) ease;
+}
+.tx-balance-popup .modal-grabber {
+  display: none;
+}
+.tx-balance-warning {
+  padding: var(--sp-4);
+}
+.tx-balance-warning h3 {
+  margin: 0 0 var(--sp-2);
+  font-size: 15px;
+}
+.tx-balance-warning p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+.tx-balance-warning .tx-balance-account {
+  margin-top: var(--sp-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tx-balance-result {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: var(--sp-2);
+  font-size: 13px;
+}
+.tx-balance-remaining {
+  color: var(--expense);
+  overflow-wrap: anywhere;
+}
+.tx-balance-warning .modal-actions {
+  margin-top: var(--sp-3);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--sp-2);
+}
+.tx-balance-warning button {
+  min-height: 44px;
+  padding: 10px 8px;
+  font-size: 13px;
+}
+.tx-balance-warning .btn-primary {
+  background: var(--text);
+  color: var(--card);
+  box-shadow: none;
+}
+.tx-balance-warning button:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+.account-balance.is-negative b,
+.wallet-balance.is-negative b {
+  color: var(--expense);
+}
+.account-negative-notice {
+  margin-top: var(--sp-2);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
 /* علامت منفی موجودی — زیر فیلد مبلغ در فرم ویرایش حساب */
 .bal-sign {
   display: flex;
@@ -3866,6 +4105,59 @@ button:active {
   height: 28px;
   padding: 0 !important;
   color: var(--danger);
+}
+
+.bill-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.bill-page .btn-primary,
+.bill-form-sheet .btn-primary,
+.bill-pay-sheet .btn-primary {
+  background: var(--text);
+  color: var(--card);
+  box-shadow: none;
+}
+.bill-notice,
+.bill-read-error {
+  margin: 0 0 var(--sp-3);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.bill-read-error p { margin-bottom: var(--sp-2); }
+.bill-summary { flex-wrap: wrap; }
+.bill-item {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+}
+.bill-side {
+  grid-column: 2;
+  align-items: flex-start;
+  min-width: 0;
+}
+.bill-info b { white-space: normal; overflow-wrap: anywhere; }
+.bill-info p,
+.bill-amount { overflow-wrap: anywhere; }
+.bill-info p,
+.bill-summary-label,
+.bill-undo,
+.bill-skip { color: var(--text-2); }
+.bill-pay { color: var(--text); }
+.bill-actions { flex-wrap: wrap; }
+.bill-actions button { min-height: 44px; font-size: 12px; }
+.bill-actions .bill-del { width: 44px; height: 44px; }
+.bill-item.is-cancelled { opacity: 1; }
+.bill-item:focus-visible,
+.bill-actions button:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+@media (min-width: 600px) {
+  .bill-item { display: flex; }
+  .bill-side { max-width: 50%; align-items: flex-end; }
 }
 
 /* یادداشتِ کوچکِ راهنما داخلِ کارت/فرم.
@@ -5999,6 +6291,27 @@ button.set-row:active {
   height: 11px;
   color: inherit;
 }
+.category-fields .label-chip {
+  max-width: 100%;
+  padding-block: 4px;
+}
+.category-fields .label-chip-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+.category-fields .label-chip svg,
+.category-fields .label-chip i {
+  flex-shrink: 0;
+}
+.category-fields .label-chip.removable button {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+.category-fields .label-group h5 {
+  overflow-wrap: anywhere;
+}
 
 /* ردیف «افزودن» دکمه‌ای: ورودی + دکمه، کنار هم.
    stretch عمدی است تا ارتفاع دکمه دقیقاً قد ورودی شود */
@@ -6789,6 +7102,30 @@ button.set-row:active {
 [data-theme="dark"] .due-no {
   background: var(--card-2);
 }
+
+.scheduled-fields { border: 0; margin: 0; padding: 0; min-width: 0; }
+.scheduled-form-sheet .btn-primary,
+.due-yes { background: var(--text); color: var(--card); border-color: var(--text); box-shadow: none; }
+.sched-add,
+.sched-when-head,
+.scheduled-repeat { color: var(--text); }
+.scheduled-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+.scheduled-repeat { grid-column: 1; justify-self: start; flex-wrap: wrap; font-size: 12px; }
+.scheduled-title { grid-column: 1; white-space: normal; overflow-wrap: anywhere; font-size: 14px; }
+.scheduled-amount { grid-column: 1; overflow-wrap: anywhere; font-size: 13px; }
+.scheduled-stop { grid-column: 2; grid-row: 1 / 4; min-width: 44px; min-height: 44px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--card); color: var(--text-2); padding: 8px; font-family: inherit; cursor: pointer; }
+.scheduled-stop:disabled { opacity: 0.5; }
+.scheduled-notice,
+.recurring-notice { margin: var(--sp-2) 0; overflow-wrap: anywhere; }
+.due-item { display: grid; grid-template-columns: 30px minmax(0, 1fr); }
+.due-info b { white-space: normal; overflow-wrap: anywhere; font-size: 14px; }
+.due-info p { color: var(--text-2); font-size: 12px; overflow-wrap: anywhere; }
+.due-actions { grid-column: 2; flex-wrap: wrap; }
+.due-yes,
+.due-no { min-height: 44px; height: auto; padding: 8px 10px; font-size: 12px; }
+.recurring-more { margin-top: var(--sp-3); min-height: 44px; }
+.scheduled-stop:focus-visible,
+.due-actions button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 [data-theme="dark"] .qa-chip {
   background: var(--card);
 }

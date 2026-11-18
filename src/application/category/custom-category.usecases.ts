@@ -15,6 +15,9 @@ export class ListCustomCategoriesUseCase {
 export class AddCustomCategoryUseCase {
   constructor(private readonly repo: CustomCategoryRepository) {}
   async execute(type: TxType, name: string): Promise<CustomCategory> {
+    if (type !== "expense" && type !== "income") {
+      throw new AppError("INVALID_TX", "دسته باید هزینه یا درآمد باشد");
+    }
     const trimmed = name.trim();
     if (!trimmed || trimmed.length > 30) {
       throw new AppError("INVALID_TX", "نام دسته باید ۱ تا ۳۰ کاراکتر باشد");

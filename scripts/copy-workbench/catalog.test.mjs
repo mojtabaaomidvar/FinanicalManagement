@@ -17,6 +17,29 @@ async function workspace(files, run) {
 const textEntry = (catalog, text) => { const entry = catalog.entries.find(entry => entry.text === text); assert.ok(entry, 'Missing catalog text: ' + text); return entry; };
 const request = (catalog, entry, text) => ({ revision: catalog.revision, changes: [{ id: entry.id, expectedText: entry.text, text }] });
 
+test('display maps preserve stored preset values through English empty and repeated label edits', async () => {
+  const file = 'src/Preset.tsx';
+  const source = 'const QUICK_LABELS = { expense: [{ value: "نان", label: "نان" }] }; '
+    + 'const KIND_LABEL = {currency: "ارز"}; globalThis.preset = QUICK_LABELS.expense[0];';
+  await workspace({ [file]: source }, async root => {
+    const initial = await collectCatalog(root), entry = textEntry(initial, 'نان');
+    assert.equal(initial.entries.filter(item => item.text === 'نان').length, 1);
+    assert.equal(textEntry(initial, 'ارز').context, 'KIND_LABEL');
+    let catalog = initial, current = entry;
+    for (const label of ['Bread', '', 'Bread']) {
+      const edits = await prepareChanges(root, catalog, request(catalog, current, label));
+      const context = {};
+      runInNewContext(ts.transpileModule(edits[0].updated, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context);
+      assert.equal(context.preset.value, 'نان'); assert.equal(context.preset.label, label);
+      await writeFile(join(root, file), edits[0].updated, 'utf8');
+      catalog = await collectCatalog(root);
+      current = catalog.entries.find(item => item.id === entry.id);
+      assert.ok(current); assert.equal(current.text, label);
+      assert.equal(catalog.entries.some(item => item.text === 'نان'), false);
+    }
+  });
+});
+
 test('finds JSX body, visible attributes, error messages and labels while protecting data/conditions/comments', async () => {
   const source = [
     '// فقط توضیح خصوصی',

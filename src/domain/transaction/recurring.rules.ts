@@ -17,10 +17,36 @@ import {
   cmp,
   daysInMonth,
   isoToJalali,
+  isTodayOrTomorrow,
   jalaliToIso,
 } from "@/shared/lib/jalali";
 import type { TxRepeat } from "./transaction.types";
-import type { Transaction } from "./transaction.types";
+import type { Transaction, TransactionInput } from "./transaction.types";
+import { currencyFactor } from "@/shared/lib/currency";
+import { toEn } from "@/shared/lib/digits";
+import { MAX_AMOUNT } from "./transaction.rules";
+
+/** Parse the complete amount without dropping invalid characters. */
+export function parseScheduledAmount(raw: string, currency: string): number | null {
+  const normalized = toEn(raw).replace(/[,٬،]/g, "").replace(/٫/g, ".").trim();
+  if (!/^\d+(?:\.\d+)?$/.test(normalized)) return null;
+  const base = Number(normalized) / currencyFactor(currency);
+  const amount = Math.round(base * 100) / 100;
+  return Number.isFinite(base) && base <= MAX_AMOUNT && amount > 0 ? amount : null;
+}
+
+/** Stopping future reminders preserves the existing financial transaction. */
+export function stoppedRecurringInput(tx: Transaction): TransactionInput {
+  return { memberId: tx.memberId, type: tx.type, amount: tx.amount, category: tx.category,
+    date: tx.date, time: tx.time, note: tx.note, accountId: tx.accountId, toAccountId: tx.toAccountId,
+    subcategoryId: tx.subcategoryId, repeat: "none", repeatEnd: null };
+}
+
+export function occurrenceStatus(tx: Transaction, dueIso: string): "pending" | "handled" | "invalid" {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dueIso) || !Number.isFinite(Date.parse(dueIso))) return "invalid";
+  if (tx.repeat === "none" || !dueOccurrences(tx.date, tx.repeat, tx.repeatEnd, isoToJalali(dueIso)).includes(dueIso)) return "invalid";
+  return tx.handledOccurrences.includes(dueIso) ? "handled" : "pending";
+}
 
 /* سقف دفاعی برای جلوگیری از حلقه‌ی بی‌پایان؛ عملاً شرط شکست خیلی زودتر
    فعال می‌شود (هفتگی ۱۰ سال ≈ ۵۲۰، ماهانه ≈ ۱۲۰). */
@@ -133,4 +159,9 @@ export function pendingDueList(
     return a.tx.id < b.tx.id ? -1 : a.tx.id > b.tx.id ? 1 : 0;
   });
   return out;
+}
+
+/** Visible reminders cover today and tomorrow without handling older occurrences. */
+export function reminderDueList(txs: Transaction[], todayJ: JDate): DueOccurrence[] {
+  return pendingDueList(txs, addDays(todayJ, 1)).filter(item => isTodayOrTomorrow(item.dueIso, todayJ));
 }

@@ -97,7 +97,7 @@ async function routeReady(route, scenarioId = 'full-owner') {
   if (!['loading', 'offline'].includes(scenarioId)) {
     await frame.waitForFunction(() => !document.querySelector('section.page.active[aria-busy="true"]'), null, { timeout: 8000 });
   }
-  if (scenarioId.startsWith('full-') && loadedText[route]) await frame.getByText(loadedText[route], { exact: false }).first().waitFor({ timeout: 5000 });
+  if (scenarioId.startsWith('full-') && loadedText[route]) await frame.locator('section.page.active').getByText(loadedText[route], { exact: false }).first().waitFor({ timeout: 5000 });
   const text = await frame.locator('body').innerText();
   assert.ok(text.trim().length > 30, 'The destination has no usable visible content');
   assert.ok(!/(?:NaN|undefined)/u.test(text), 'Invalid fixture data appeared in visible text');
@@ -251,7 +251,7 @@ async function scenarioChecks(metadata) {
         await routeReady(destination, 'offline');
         assert.equal(await frame.evaluate(() => navigator.onLine), false);
         if (['shopping', 'inventory', 'tasks'].includes(destination)) {
-          await frame.getByText(loadedText[destination], { exact: false }).first().waitFor({ timeout: 5000 });
+          await frame.locator('section.page.active').getByText(loadedText[destination], { exact: false }).first().waitFor({ timeout: 5000 });
         } else {
           await frame.locator('.hub-page').waitFor();
           await frame.getByText('اتصال اینترنت نیست', { exact: true }).waitFor();

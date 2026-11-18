@@ -6,10 +6,10 @@ import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { Icon } from "@/shared/ui";
 import { toFa } from "@/shared/lib/digits";
-import { formatAmount } from "@/shared/lib/format";
+import { formatAmount, formatSignedAmount } from "@/shared/lib/format";
 import { toDisplay } from "@/shared/lib/currency";
 import { txsInJalaliMonth } from "@/domain/transaction/transaction.rules";
-import { monthTotals, totalBalance } from "@/domain/report/report.rules";
+import { monthTotals, totalCashBalance } from "@/domain/report/report.rules";
 import { monthCategorySpend, budgetStatus } from "@/domain/budget/budget.rules";
 import { buildCategoryResolver } from "@/domain/category/resolve";
 import { findDollar } from "@/domain/market/market.rules";
@@ -135,7 +135,7 @@ export function HubPage({
     return {
       monthCount: monthTxs.length,
       monthExpense: totals.expense,
-      balance: totalBalance(txs),
+      balance: totalCashBalance(txs, accounts),
       overBudget,
       warnBudget,
       unpaidBills: unpaid.length,
@@ -148,9 +148,9 @@ export function HubPage({
       lowStock: lowItems(inventory).length,
       stockCount: inventory.length,
     };
-  }, [txs, budgets, customCategories, bills, events, shoppingLists, inventory, todayIso]);
+  }, [txs, accounts, budgets, customCategories, bills, events, shoppingLists, inventory, todayIso]);
 
-  const money = (n: number) => `${formatAmount(toDisplay(n, cur))} ${currencyDisplayLabel(cur)}`;
+  const money = (n: number) => `${formatSignedAmount(toDisplay(n, cur))} ${currencyDisplayLabel(cur)}`;
 
   /* زیرنویس زنده‌ی هر کاشی فعال */
   const liveSub: Record<string, string> = {

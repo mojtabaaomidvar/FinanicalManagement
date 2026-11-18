@@ -33,7 +33,7 @@ import type { Equipment } from "@/domain/equipment/equipment.types";
 import type { Vehicle } from "@/domain/vehicle/vehicle.types";
 import type { Goal } from "@/domain/goal/goal.types";
 import type { Activity } from "@/domain/activity/activity.types";
-import { today } from "@/shared/lib/jalali";
+import { useTehranDay } from "@/shared/lib/useTehranDay";
 import { useOnline } from "@/shared/lib/useOnline";
 
 const EMPTY_DOCUMENTS: HouseDocument[] = [];
@@ -71,6 +71,7 @@ export interface NotificationsModel {
 }
 
 export function useNotificationsModel(refreshKey: number): NotificationsModel {
+  const { todayJ } = useTehranDay();
   const { phase, family, useCases, member, txs, events, bills, inventory, shoppingLists, tasks,
     shoppingSync, offlineSession, taskNotificationPrefs } =
     useApp();
@@ -293,7 +294,7 @@ export function useNotificationsModel(refreshKey: number): NotificationsModel {
         role,
         prefs: activePrefs,
         dismissed,
-        todayJ: today(),
+        todayJ,
       }),
     [
       txs,
@@ -313,6 +314,7 @@ export function useNotificationsModel(refreshKey: number): NotificationsModel {
       role,
       activePrefs,
       dismissed,
+      todayJ,
     ],
   );
 

@@ -7,6 +7,11 @@ export function formatAmount(n: number): string {
   return toFa(Math.round(Math.abs(n)).toLocaleString("en-US"));
 }
 
+/** Account balances must show their sign, including fractional negative amounts. */
+export function formatSignedAmount(n: number): string {
+  return toFa(n.toLocaleString("en-US", { maximumFractionDigits: 2 }));
+}
+
 /* درصد فارسی */
 export function formatPercent(n: number): string {
   return toFa(Math.round(n)) + "٪";

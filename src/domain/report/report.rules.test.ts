@@ -8,10 +8,12 @@ import {
   sixMonthSeries,
   weekFlow,
   accountBalances,
+  totalCashBalance,
   wealthSeries,
   wealthSeriesBetween,
   memberExpenseShare,
   deltaPercent,
+  searchTransactions,
 } from "./report.rules";
 import { isoToJalali } from "@/shared/lib/jalali";
 import type { Transaction } from "../transaction/transaction.types";
@@ -42,6 +44,53 @@ const tx = (
   createdAt: "2025-01-01T00:00:00Z",
 });
 
+describe("transaction search", () => {
+  const rows = [
+    { ...tx("food", "expense", 1250000, "food", "2026-11-18"), note: "خرید کیک", memberId: "m1" },
+    { ...tx("fraction", "expense", 1200.5, "food", "2026-11-17"), note: "Cafe Receipt", memberId: "m2" },
+  ];
+  const memberName = (id: string) => id === "m1" ? "علی" : "مریم";
+
+  it("searches the stored label without replacing its name or the transaction note", () => {
+    const labelOf = (transaction: Transaction) => transaction.id === "food" ? "كيك مراسم" : "";
+    expect(searchTransactions(rows, "کیک مراسم", memberName, undefined, undefined, labelOf).map(row => row.id)).toEqual(["food"]);
+    expect(searchTransactions(rows, "کیک مراسم", memberName).map(row => row.id)).toEqual([]);
+    expect(rows[0].note).toBe("خرید کیک");
+    expect(labelOf(rows[0])).toBe("كيك مراسم");
+  });
+
+  it("finds the same amount with Persian, Arabic and English digits and grouping", () => {
+    for (const query of ["1250000", "1,250,000", "۱۲۵۰۰۰۰", "۱٬۲۵۰٬۰۰۰", "١٢٥٠٠٠٠"]) {
+      expect(searchTransactions(rows, query, memberName).map(row => row.id)).toEqual(["food"]);
+    }
+  });
+
+  it("matches Arabic keyboard variants and English case without editing stored text", () => {
+    expect(searchTransactions(rows, "كيك", memberName).map(row => row.id)).toEqual(["food"]);
+    expect(searchTransactions(rows, "علي", memberName).map(row => row.id)).toEqual(["food"]);
+    expect(searchTransactions(rows, "cafe receipt", memberName).map(row => row.id)).toEqual(["fraction"]);
+    expect(rows[0].note).toBe("خرید کیک");
+    expect(rows[1].note).toBe("Cafe Receipt");
+  });
+
+  it("preserves decimal amounts and finds the amount in the displayed unit", () => {
+    expect(searchTransactions(rows, "۱٬۲۰۰٫۵", memberName).map(row => row.id)).toEqual(["fraction"]);
+    expect(searchTransactions(rows, "12,005", memberName, undefined, row => row.amount * 10).map(row => row.id)).toEqual(["fraction"]);
+    expect(searchTransactions(rows, "1200.5", memberName, undefined, row => row.amount * 10)).toEqual([]);
+  });
+
+  it("matches the Jalali date with either digit set and retains category search", () => {
+    expect(searchTransactions(rows, "1405/08/27", memberName).map(row => row.id)).toEqual(["food"]);
+    expect(searchTransactions(rows, "۱۴۰۵/۰۸/۲۷", memberName).map(row => row.id)).toEqual(["food"]);
+    expect(searchTransactions(rows, "خورد و خوراک", memberName)).toHaveLength(2);
+  });
+
+  it("keeps an empty query unchanged and returns no results for unmatched text", () => {
+    expect(searchTransactions(rows, "  ", memberName)).toBe(rows);
+    expect(searchTransactions(rows, "no such receipt", memberName)).toEqual([]);
+  });
+});
+
 describe("محاسبات مالی گزارش", () => {
   const list = [
     tx("1", "income", 1_000_000, "salary", "2025-09-01"),
@@ -57,6 +106,28 @@ describe("محاسبات مالی گزارش", () => {
 
   it("موجودی کل = درآمد − هزینه", () => {
     expect(totalBalance(list)).toBe(600_000);
+  });
+
+  it("cash includes opening balances and internal transfers preserve the total", () => {
+    const accounts = [{ id: "a1", initialBalance: 1000 }, { id: "a2", initialBalance: 200 }] as never;
+    const rows = [
+      { ...tx("income", "income", 300, "salary", "2026-11-18"), accountId: "a1" },
+      { ...tx("expense", "expense", 100, "food", "2026-11-18"), accountId: "a1" },
+      { ...tx("transfer", "transfer", 70, "transfer", "2026-11-18"), accountId: "a1", toAccountId: "a2" },
+      tx("unassigned", "expense", 900, "food", "2026-11-18"),
+    ];
+    expect(totalCashBalance([], accounts)).toBe(1200);
+    expect(totalCashBalance(rows, accounts)).toBe(1400);
+    expect(monthTotals(rows).expense).toBe(1000);
+    expect(totalCashBalance(rows, [])).toBe(0);
+  });
+
+  it("editing or deleting an expense updates cash by that expense's actual change", () => {
+    const accounts = [{ id: "a1", initialBalance: 2500000 }] as never;
+    const expense = { ...tx("expense", "expense", 12000, "food", "2026-11-18"), accountId: "a1" };
+    expect(totalCashBalance([expense], accounts)).toBe(2488000);
+    expect(totalCashBalance([{ ...expense, amount: 2000 }], accounts)).toBe(2498000);
+    expect(totalCashBalance([], accounts)).toBe(2500000);
   });
 
   it("انتقال در موجودی و جمع ماه اثری ندارد", () => {
@@ -139,6 +210,37 @@ describe("محاسبات مالی گزارش", () => {
     const w = weekFlow([], isoToJalali("2025-09-06"));
     expect(w.net).toBe(0);
     expect(w.income.every((v) => v === 0)).toBe(true);
+  });
+
+  it("transfers never increase weekly spending or change weekly net income", () => {
+    const list = [
+      tx("in", "income", 100, "salary", "2025-09-06"),
+      tx("out", "expense", 40, "food", "2025-09-06"),
+      { ...tx("move", "transfer", 900, "transfer", "2025-09-06"), accountId: "a1", toAccountId: "a2" },
+    ];
+    const flow = weekFlow(list, isoToJalali("2025-09-06"));
+    expect(flow.totalIn).toBe(100);
+    expect(flow.totalOut).toBe(40);
+    expect(flow.expense[6]).toBe(40);
+    expect(flow.net).toBe(60);
+  });
+
+  it("cash history matches remaining accounts, including transfer legs and unassigned records", () => {
+    const accounts = [{ id: "a1", initialBalance: 250 }, { id: "a2", initialBalance: -10 }] as never[];
+    const list = [
+      { ...tx("in", "income", 100, "salary", "2025-09-01"), accountId: "a1" },
+      { ...tx("out", "expense", 40, "food", "2025-09-02"), accountId: "a2" },
+      { ...tx("move", "transfer", 50, "transfer", "2025-09-02"), accountId: "a1", toAccountId: "a2" },
+      tx("unassigned", "expense", 9999, "food", "2025-09-02"),
+      { ...tx("deleted", "income", 8888, "salary", "2025-09-02"), accountId: "deleted" },
+      { ...tx("partial-out", "transfer", 15, "transfer", "2025-09-03"), accountId: "a1", toAccountId: null },
+      { ...tx("partial-in", "transfer", 5, "transfer", "2025-09-03"), accountId: null, toAccountId: "a2" },
+    ];
+    const from = isoToJalali("2025-09-02"), end = isoToJalali("2025-09-03");
+    expect(wealthSeries(list, "7d", end, 240, accounts).at(-1)?.value).toBe(totalCashBalance(list, accounts));
+    expect(wealthSeriesBetween(list, from, end, 240, accounts).map(point => point.value)).toEqual([300, 290]);
+    expect(wealthSeriesBetween(list, from, end, 0, []).map(point => point.value)).toEqual([0, 0]);
+    expect(wealthSeriesBetween([...list, { ...tx("future", "expense", 50, "food", "2025-09-04"), accountId: "a1" }], from, end, 240, accounts).at(-1)?.value).toBe(290);
   });
 
   it("موجودی حساب‌ها — انتقال مبدأ را کم و مقصد را زیاد می‌کند", () => {

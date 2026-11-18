@@ -28,18 +28,17 @@ describe("task reminders", () => {
     expect(deriveNotifications(input([task()], { memberId: undefined }))).toEqual([]);
   });
 
-  it("distinguishes today from overdue and changes urgency within the lead window", () => {
+  it("includes today and tomorrow but excludes past and distant assigned tasks", () => {
     const prefs = { ...DEFAULT_NOTIFICATION_PREFS,
       leadDays: { ...DEFAULT_NOTIFICATION_PREFS.leadDays, tasks: 3 } };
     const notes = deriveNotifications(input([
       task({ id: "overdue", dueDate: "2026-11-13" }),
       task({ id: "today", dueDate: "2026-11-14" }),
-      task({ id: "near", dueDate: "2026-11-17" }),
+      task({ id: "near", dueDate: "2026-11-15" }),
       task({ id: "later", dueDate: "2026-11-18" }),
     ], { prefs }));
     expect(Object.fromEntries(notes.map((note) => [note.id, note.severity]))).toEqual({
-      "tasks:overdue": "overdue", "tasks:today": "pending",
-      "tasks:near": "soon", "tasks:later": "pending",
+      "tasks:today": "pending", "tasks:near": "soon",
     });
   });
 

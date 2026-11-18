@@ -14,18 +14,24 @@ import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 
 import {
   useEffect,
+  useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type CSSProperties,
+  type ChangeEvent,
+  type KeyboardEvent,
 } from "react";
 import { useApp } from "@/app/providers/AppProvider";
-import { useToast } from "@/app/providers/ToastProvider";
 import type { TxFormModel } from "../model/useTxFormModel";
 import { SmsImportFeature } from "@/features/sms-import";
 import {
   CalcKeypad,
   evaluateExpression,
+  expressionInputCaret,
+  normalizeExpressionInput,
+  formatExpressionValue,
   JalaliDateInput,
   Modal,
   Select,
@@ -42,7 +48,7 @@ import {
   type TxRepeat,
 } from "@/domain/transaction/transaction.types";
 import { maskCardNumber } from "@/domain/account/account.rules";
-import { formatAmount } from "@/shared/lib/format";
+import { toDisplay } from "@/shared/lib/currency";
 
 function accountLabel(
   title: string,
@@ -56,9 +62,24 @@ function accountLabel(
 }
 
 /* تگ‌های پیشنهادی لیبل — پیش‌فرض عمومی؛ سابقه خانواده هنگام اجرا اضافه می‌شود */
-const QUICK_LABELS: Record<"expense" | "income", string[]> = {
-  expense: ["خرید روزانه", "نان", "میوه", "تاکسی", "بنزین", "قبض", "دارو"],
-  income: ["حقوق", "پاداش", "عیدی", "فروش", "سود سرمایه", "هدیه"],
+const QUICK_LABELS: Record<"expense" | "income", { value: string; label: string }[]> = {
+  expense: [
+    { value: "خرید روزانه", label: "خرید روزانه" },
+    { value: "نان", label: "نان" },
+    { value: "میوه", label: "میوه" },
+    { value: "تاکسی", label: "تاکسی" },
+    { value: "بنزین", label: "بنزین" },
+    { value: "قبض", label: "قبض" },
+    { value: "دارو", label: "دارو" },
+  ],
+  income: [
+    { value: "حقوق", label: "حقوق" },
+    { value: "پاداش", label: "پاداش" },
+    { value: "عیدی", label: "عیدی" },
+    { value: "فروش", label: "فروش" },
+    { value: "سود سرمایه", label: "سود سرمایه" },
+    { value: "هدیه", label: "هدیه" },
+  ],
 };
 
 const TYPE_TABS: { value: "expense" | "income" | "transfer"; label: string }[] =
@@ -67,13 +88,6 @@ const TYPE_TABS: { value: "expense" | "income" | "transfer"; label: string }[] =
     { value: "income", label: "درآمد" },
     { value: "transfer", label: "انتقال" },
   ];
-
-/* عنوان بالای باکس مبلغ */
-const AMOUNT_CAPS: Record<string, string> = {
-  expense: "مبلغ هزینه",
-  income: "مبلغ درآمد",
-  transfer: "مبلغ انتقال",
-};
 
 /* مثال توضیح بسته به نوع تراکنش فرق می‌کند — مثال هزینه با درآمد یکی نیست */
 const NOTE_PLACEHOLDERS: Record<string, string> = {
@@ -101,18 +115,89 @@ export function TransactionFormFeature({
     accounts,
     subcategories,
     customCategories,
-    useCases,
     member,
     refreshData,
   } = useApp();
-  const { show } = useToast();
 
   const [showAddCat, setShowAddCat] = useState(false);
   const [newCatName, setNewCatName] = useState("");
-  const [addingCat, setAddingCat] = useState(false);
   const [tagInput, setTagInput] = useState(false);
   const [tagText, setTagText] = useState("");
   const photoFileRef = useRef<HTMLInputElement>(null);
+  const receiptStatusRef = useRef<HTMLDivElement>(null);
+  const balanceWarningRef = useRef<HTMLDivElement>(null);
+  const amountInputRef = useRef<HTMLInputElement>(null);
+  const amountSelection = useRef<{ start: number; end: number } | null>(null);
+  const amountId = useId();
+  const amountHintId = amountId + "-hint";
+  const amountResultId = amountId + "-result";
+  const balanceTitleId = useId();
+  const balanceDescriptionId = useId();
+
+  // Retain logical selection when formatting inserts or removes thousands separators.
+  useLayoutEffect(() => {
+    const selection = amountSelection.current;
+    amountSelection.current = null;
+    if (selection && amountInputRef.current === document.activeElement) {
+      amountInputRef.current?.setSelectionRange(selection.start, selection.end);
+    }
+  });
+
+  function handleAmountChange(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    changeAmount(input.value, input.selectionStart ?? input.value.length, input.selectionEnd ?? input.value.length);
+  }
+
+  function changeAmount(value: string, start: number, end = start) {
+    const formatted = normalizeExpressionInput(value);
+    amountSelection.current = {
+      start: expressionInputCaret(value, formatted, start),
+      end: expressionInputCaret(value, formatted, end),
+    };
+    m.setAmount(value);
+  }
+
+  function handleAmountKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    const input = event.currentTarget, start = input.selectionStart;
+    if (start === null || start !== input.selectionEnd) return;
+    if (event.key === "Backspace" && input.value[start - 1] === ",") {
+      event.preventDefault();
+      changeAmount(input.value.slice(0, start - 2) + input.value.slice(start), start - 2);
+    } else if (event.key === "Delete" && input.value[start] === ",") {
+      event.preventDefault();
+      changeAmount(input.value.slice(0, start) + input.value.slice(start + 2), start);
+    }
+  }
+
+  function handleBalanceKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "Tab") return;
+    const buttons = event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)");
+    const first = buttons[0], last = buttons[buttons.length - 1];
+    if (!first) { event.preventDefault(); return; }
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === event.currentTarget)) {
+      event.preventDefault(); last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault(); first.focus();
+    }
+  }
+
+  function dismissBalanceWarning() {
+    if (m.busy) return;
+    m.dismissBalanceWarning();
+    requestAnimationFrame(() => amountInputRef.current?.focus({ preventScroll: true }));
+  }
+
+  useEffect(() => {
+    if (m.receiptError) {
+      receiptStatusRef.current?.closest<HTMLElement>(".tx-sheet")?.scrollTo({ top: 0 });
+    }
+  }, [m.receiptError]);
+
+  useEffect(() => {
+    if (!m.balanceWarning) return;
+    balanceWarningRef.current?.focus({ preventScroll: true });
+  }, [m.balanceWarning]);
 
   /* شیت بسته شد → حالت‌های موقتی UI پاک شوند، وگرنه دفعه بعد
      فیلد «دسته جدید» یا «لیبل جدید» باز و نیمه‌پرشده باز می‌شود
@@ -163,17 +248,19 @@ export function TransactionFormFeature({
   const tags = useMemo(() => {
     const own = subcategories
       .filter((s) => s.category === m.form.categoryId)
-      .map((s) => s.name);
+      .map((s) => ({ value: s.name, label: s.name }));
     const baseTags =
       QUICK_LABELS[m.form.type === "income" ? "income" : "expense"];
-    return [...new Set([...own, ...baseTags])].slice(0, 9);
+    const byValue = new Map(own.map(tag => [tag.value, tag]));
+    for (const tag of baseTags) byValue.set(tag.value, tag);
+    return [...byValue.values()].slice(0, 9);
   }, [subcategories, m.form.categoryId, m.form.type]);
 
   /* نتیجه زنده عبارت ریاضی «۱۲+۵» زیر مبلغ */
   const exprResult = useMemo(() => {
     if (!/[+\-×÷]/.test(m.form.amount)) return null;
     const r = evaluateExpression(m.form.amount);
-    return r === null ? null : formatAmount(r);
+    return r === null ? null : formatExpressionValue(r);
   }, [m.form.amount]);
 
   function pickCategory(catId: string) {
@@ -204,23 +291,9 @@ export function TransactionFormFeature({
   }
 
   async function addCategory() {
-    const name = newCatName.trim();
-    if (!name) return show("نام دسته را وارد کنید");
-    setAddingCat(true);
-    try {
-      const created = await useCases!.addCustomCategory.execute(
-        m.form.type,
-        name,
-      );
-      await refreshData();
-      m.setForm({ ...m.form, categoryId: created.id, label: "" });
+    if (await m.addCategory(newCatName, refreshData)) {
       setShowAddCat(false);
       setNewCatName("");
-      show("دسته اضافه شد");
-    } catch (e) {
-      show((e as Error).message || "خطا در افزودن دسته");
-    } finally {
-      setAddingCat(false);
     }
   }
 
@@ -236,6 +309,7 @@ export function TransactionFormFeature({
   ];
 
   return (
+    <>
     <Modal
       open={m.open}
       onClose={m.close}
@@ -245,6 +319,7 @@ export function TransactionFormFeature({
     >
       <div
         className="tx-form"
+        aria-busy={m.busy}
         style={
           { "--cat-color": catColor, "--sheet-tint": base } as CSSProperties
         }
@@ -255,6 +330,7 @@ export function TransactionFormFeature({
             type="button"
             className="tx-head-btn tx-close-btn"
             aria-label="بستن"
+            disabled={m.busy || !!m.balanceWarning}
             onClick={m.close}
           >
             <svg>
@@ -262,15 +338,16 @@ export function TransactionFormFeature({
             </svg>
           </button>
           <span className="tx-head-title">
-            {m.editing ? "ویرایش تراکنش" : "تراکنش جدید"}
+            {m.occurrencePending ? m.occurrenceAcknowledged ? "تکمیل رسیدها" : "تأیید سررسید" : m.editing ? "ویرایش تراکنش" : "تراکنش جدید"}
           </span>
           <span className="tx-head-actions">
-            {m.editing &&
+            {m.editing && !m.occurrencePending &&
             (member?.role === "owner" || member?.role === "admin" || m.editing.memberId === member?.id) ? (
               <button
                 type="button"
                 className="tx-head-btn tx-trash-btn"
                 aria-label="حذف تراکنش"
+                disabled={m.busy}
                 onClick={() => m.remove(refreshData)}
               >
                 <svg>
@@ -281,20 +358,41 @@ export function TransactionFormFeature({
             <button
               type="button"
               className="tx-head-btn tx-save-btn"
-              aria-label={m.editing ? "ذخیره تغییرات" : "ثبت تراکنش"}
-              disabled={m.busy}
+              aria-busy={m.busy}
+              disabled={m.busy || !!m.balanceWarning}
               onClick={() => m.save(refreshData, accounts.length)}
             >
-              {m.busy ? (
-                "…"
-              ) : (
-                <svg>
+              {m.activity !== "save" && m.activity !== "checkBalance" && m.activity !== "checkOccurrence" ? (
+                <svg aria-hidden="true">
                   <use href="#i-check" />
                 </svg>
-              )}
+              ) : null}
+              <span>
+                {m.activity === "checkOccurrence" ? "در حال بررسی سررسید…"
+                  : m.activity === "checkBalance" ? "در حال بررسی موجودی…"
+                  : m.activity === "save" ? "در حال ذخیره…"
+                  : m.occurrencePending ? m.occurrenceAcknowledged ? "ذخیرهٔ رسیدها" : "تأیید سررسید"
+                    : m.editing ? "ذخیرهٔ تغییرات"
+                    : m.form.type === "expense" ? "ثبت هزینه"
+                      : m.form.type === "income" ? "ثبت درآمد" : "ثبت انتقال"}
+              </span>
             </button>
           </span>
         </div>
+
+        {m.receiptError ? (
+          <div ref={receiptStatusRef} className="tx-save-status" role="status">
+            <p>تراکنش ذخیره شده است؛ بعضی رسیدها هنوز ذخیره نشده‌اند. با ذخیرهٔ دوباره، همین تراکنش تکمیل می‌شود.</p>
+            <p>{m.receiptError}</p>
+          </div>
+        ) : null}
+
+        {m.occurrencePending && !m.occurrenceAcknowledged ? <div className="tx-save-status tx-occurrence-status" role="status">
+          <p>تراکنش این نوبت ثبت شده؛ فقط تأیید سررسید باقی مانده است.</p>
+          {m.occurrenceError !== null ? <p>{m.occurrenceError}</p> : null}
+        </div> : null}
+
+        <fieldset className="tx-fields" disabled={m.busy || !!m.balanceWarning || m.occurrencePending}>
 
         {/* ── تب نوع تراکنش ── */}
         <div className="tx-tabs" role="tablist" aria-label="نوع تراکنش">
@@ -303,7 +401,7 @@ export function TransactionFormFeature({
               key={t.value}
               type="button"
               role="tab"
-              disabled={m.serviceExpense}
+              disabled={m.serviceExpense || m.recurringOccurrence}
               aria-selected={m.form.type === t.value}
               className={`tx-tab ${m.form.type === t.value ? "on" : ""}`}
               onClick={() => m.setType(t.value)}
@@ -370,23 +468,25 @@ export function TransactionFormFeature({
             </div>
 
             {showAddCat ? (
-              <div className="tx-add-cat">
+              <form className="tx-add-cat" onSubmit={event => { event.preventDefault(); void addCategory(); }}>
                 <TextInput
+                  aria-label="نام دستهٔ جدید"
                   value={newCatName}
-                  onChange={setNewCatName}
+                  onChange={value => { setNewCatName(value); m.clearCategoryError(); }}
                   placeholder="نام دسته مورد نظر شما"
                   autoFocus
+                  maxLength={30}
                 />
                 <button
-                  type="button"
+                  type="submit"
                   className="btn-primary"
-                  disabled={addingCat}
-                  onClick={addCategory}
+                  disabled={m.busy}
                 >
-                  {addingCat ? "…" : "ثبت"}
+                  {m.activity === "saveCategory" ? "در حال ساخت دسته…" : "ثبت"}
                 </button>
-              </div>
+              </form>
             ) : null}
+            {m.categoryError !== null ? <p className="field-error tx-category-error" role="status">{m.categoryError}</p> : null}
 
             {/* راه دوم ثبت — پیامک بانکی (پیش‌تر روی صفحه خانه بود) */}
             {!m.editing ? (
@@ -442,6 +542,7 @@ export function TransactionFormFeature({
                   </svg>
                   <Select
                     className="tx-pill-select"
+                    aria-label="حساب مبدأ"
                     value={m.form.accountId}
                     onChange={(v) => m.setForm({ ...m.form, accountId: v })}
                     options={accountOpts}
@@ -470,6 +571,7 @@ export function TransactionFormFeature({
                   </svg>
                   <Select
                     className="tx-pill-select"
+                    aria-label="حساب مقصد"
                     value={m.form.toAccountId}
                     onChange={(v) => m.setForm({ ...m.form, toAccountId: v })}
                     options={[
@@ -489,9 +591,11 @@ export function TransactionFormFeature({
             {/* ── باکس مبلغ (قاب مشخص) ── */}
             <div className="tx-amount-box">
               <div className="tx-amount-top">
-                <span className="tx-amount-cap">
-                  {AMOUNT_CAPS[m.form.type] ?? "مبلغ"}
-                </span>
+                <label className="tx-amount-cap" htmlFor={amountId}>
+                  {m.form.type === "expense" ? "مبلغ هزینه"
+                    : m.form.type === "income" ? "مبلغ درآمد"
+                      : m.form.type === "transfer" ? "مبلغ انتقال" : "مبلغ"}
+                </label>
                 <button
                   type="button"
                   className="tx-currency-btn"
@@ -501,6 +605,7 @@ export function TransactionFormFeature({
                     )
                   }
                   title="تغییر واحد ورودی مبلغ"
+                  aria-label="تغییر واحد ورودی مبلغ"
                 >
                   {currencyDisplayLabel(m.entryCurrency)}
                   <svg style={{ transform: "rotate(90deg)" }}>
@@ -508,14 +613,27 @@ export function TransactionFormFeature({
                   </svg>
                 </button>
               </div>
-              <div className="tx-amount" dir="ltr">
-                {m.form.amount || <span className="tx-amount-zero">۰</span>}
-              </div>
+              <input
+                ref={amountInputRef}
+                id={amountId}
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                spellCheck={false}
+                className="tx-amount"
+                dir="ltr"
+                placeholder="۰"
+                value={m.form.amount}
+                aria-describedby={exprResult ? `${amountHintId} ${amountResultId}` : amountHintId}
+                onChange={handleAmountChange}
+                onKeyDown={handleAmountKeyDown}
+              />
               {exprResult ? (
-                <div className="tx-amount-expr" dir="ltr">
+                <div id={amountResultId} className="tx-amount-expr" dir="ltr">
                   = {exprResult}
                 </div>
               ) : null}
+              <p id={amountHintId} className="tx-amount-hint">تایپ کنید یا از دکمه‌های زیر استفاده کنید</p>
             </div>
 
             {/* ── چیپ حساب / تاریخ / تکرار ── */}
@@ -527,6 +645,7 @@ export function TransactionFormFeature({
                   </svg>
                   <Select
                     className="tx-pill-select"
+                    aria-label="حساب تراکنش"
                     value={m.form.accountId}
                     onChange={(v) => m.setForm({ ...m.form, accountId: v })}
                     options={accountOpts}
@@ -538,6 +657,7 @@ export function TransactionFormFeature({
                   <use href="#i-bill" />
                 </svg>
                 {m.serviceExpense ? <span>{m.form.date}</span> : <JalaliDateInput
+                  aria-label="تاریخ و ساعت تراکنش"
                   value={m.form.date}
                   onChange={m.setDate}
                   time={m.form.time}
@@ -555,8 +675,9 @@ export function TransactionFormFeature({
                 </svg>
                 <Select
                   className="tx-pill-select"
+                  aria-label="تکرار تراکنش"
                   value={m.form.repeat}
-                  disabled={m.serviceExpense}
+                  disabled={m.serviceExpense || m.recurringOccurrence}
                   onChange={(v) => m.setRepeat(v as TxRepeat)}
                   options={TX_REPEATS.map((r) => ({
                     value: r.value,
@@ -576,6 +697,7 @@ export function TransactionFormFeature({
                     <use href="#i-clock" />
                   </svg>
                   <JalaliDateInput
+                    aria-label="تاریخ پایان تکرار"
                     value={m.form.repeatEnd}
                     onChange={m.setRepeatEnd}
                     placeholder="تاریخ پایان…"
@@ -591,6 +713,7 @@ export function TransactionFormFeature({
             {/* ── کارت توضیح: فقط پس از انتخاب دسته دیده می‌شود ── */}
             <div className="tx-desc-card">
               <textarea
+                aria-label="توضیح تراکنش"
                 className="tx-desc-input"
                 rows={2}
                 placeholder={
@@ -614,7 +737,7 @@ export function TransactionFormFeature({
                 {!isTransfer ? (
                   <div className="tx-tags">
                     {/* لیبل فعلی خارج از پیشنهادها → چیپ انتخاب‌شده */}
-                    {m.form.label && !tags.includes(m.form.label) ? (
+                    {m.form.label && !tags.some(tag => tag.value === m.form.label) ? (
                       <button
                         type="button"
                         className="tx-tag on"
@@ -628,27 +751,29 @@ export function TransactionFormFeature({
                     ) : null}
                     {tags.map((t) => (
                       <button
-                        key={t}
+                        key={t.value}
                         type="button"
-                        className={`tx-tag ${m.form.label === t ? "on" : ""}`}
+                        className={`tx-tag ${m.form.label === t.value ? "on" : ""}`}
+                        aria-pressed={m.form.label === t.value}
                         onClick={() =>
                           m.setForm({
                             ...m.form,
-                            label: m.form.label === t ? "" : t,
+                            label: m.form.label === t.value ? "" : t.value,
                           })
                         }
                       >
                         <svg>
                           <use
-                            href={m.form.label === t ? "#i-check" : "#i-plus"}
+                            href={m.form.label === t.value ? "#i-check" : "#i-plus"}
                           />
                         </svg>
-                        {t}
+                        {t.label}
                       </button>
                     ))}
                     {tagInput ? (
                       <span className="tx-tag tx-tag-field">
                         <TextInput
+                          aria-label="نام لیبل جدید"
                           value={tagText}
                           onChange={(v) => setTagText(v.slice(0, 30))}
                           placeholder="لیبل جدید…"
@@ -723,7 +848,7 @@ export function TransactionFormFeature({
                 <svg>
                   <use href="#i-image" />
                 </svg>
-                اسکن رسید
+                افزودن تصویر رسید
               </button> : null}
             </div>
           </>
@@ -734,13 +859,34 @@ export function TransactionFormFeature({
           type="file"
           accept="image/png,image/jpeg,image/webp"
           multiple
+          disabled={m.busy}
           style={{ display: "none" }}
           onChange={(e) => {
             void m.addPhotoFiles(Array.from(e.target.files ?? []));
             e.target.value = "";
           }}
         />
+        </fieldset>
       </div>
     </Modal>
+    <Modal open={m.open && !!m.balanceWarning} onClose={dismissBalanceWarning}
+      overlayClassName="tx-balance-overlay" sheetClassName="tx-balance-popup" padded={false}>
+      {m.balanceWarning ? <div ref={balanceWarningRef} className="tx-balance-warning" role="alertdialog" aria-modal="true"
+        aria-labelledby={balanceTitleId} aria-describedby={balanceDescriptionId} tabIndex={-1} onKeyDown={handleBalanceKeyDown}>
+        <h3 id={balanceTitleId}>موجودی کافی نیست</h3>
+        <p id={balanceDescriptionId}>با ثبت این هزینه، موجودی حساب منفی می‌شود.</p>
+        <p className="tx-balance-account">{m.balanceWarning.account.title}</p>
+        <div className="tx-balance-result">
+          <span>مانده پس از ثبت</span>
+          <b className="tx-balance-remaining" dir="ltr">{formatExpressionValue(toDisplay(m.balanceWarning.remaining, m.entryCurrency))}</b>
+          <span>{currencyDisplayLabel(m.entryCurrency)}</span>
+        </div>
+        <div className="modal-actions">
+          <button type="button" className="btn-secondary" disabled={m.busy} onClick={dismissBalanceWarning}>اصلاح مبلغ</button>
+          <button type="button" className="btn-primary" disabled={m.busy} onClick={() => m.save(refreshData, accounts.length, true)}>تأیید و ثبت</button>
+        </div>
+      </div> : null}
+    </Modal>
+    </>
   );
 }
