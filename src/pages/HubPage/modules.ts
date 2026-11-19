@@ -33,6 +33,7 @@ export type HubModule = {
 
 /* ماژول‌های آماده‌ی امروز */
 export const ACTIVE_MODULES: HubModule[] = [
+  { id: "sms", title: "پیامک‌های بانکی", sub: "ثبت پیامک و ادامهٔ بررسی‌های ناتمام", icon: "i-sms", tone: "sky", route: "sms" },
   {
     id: "finance",
     title: "خرج و درآمد",

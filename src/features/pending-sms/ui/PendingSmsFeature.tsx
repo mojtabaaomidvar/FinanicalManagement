@@ -1,9 +1,8 @@
 /* UI مودال پیامک‌های ثبت‌نشده — رسیدگی یکی‌یکی */
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
-import { useToast } from "@/app/providers/ToastProvider";
-import { usePendingSmsModel } from "../model/usePendingSmsModel";
+import type { usePendingSmsModel } from "../model/usePendingSmsModel";
 import {
   Field,
   JalaliDateInput,
@@ -14,30 +13,23 @@ import {
 import { categoriesFor } from "@/domain/category/category.catalog";
 import { toFa } from "@/shared/lib/digits";
 import { toDisplay } from "@/shared/lib/currency";
+import { transactionAccountChoices } from "@/features/transaction-form/model/transactionAccounts";
+import { parseScheduledAmount } from "@/domain/transaction/recurring.rules";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 import { formatSignedAmount } from "@/shared/lib/format";
 
-export function PendingSmsFeature({ refreshKey }: { refreshKey: number }) {
-  const { useCases, member, cur, accounts, subcategories, refreshData } =
-    useApp();
-  const { show } = useToast();
-  const m = usePendingSmsModel(useCases!, member?.id ?? "", show, cur);
-  const balanceRef = useRef<HTMLDivElement>(null);
-  const balanceTitleId = useId();
-  const balanceDescriptionId = useId();
+export function PendingSmsFeature({ model: m }: { model: ReturnType<typeof usePendingSmsModel> }) {
+  const { member, accounts, txs, subcategories, refreshData } = useApp();
+  const [showAll, setShowAll] = useState(false);
+  const amount = parseScheduledAmount(m.amount, m.entryCurrency);
+  const ownCount = accounts.filter(account => account.memberId === member?.id).length;
+  const choices = transactionAccountChoices(accounts, txs, member?.id ?? "", amount,
+    m.type === "expense" && !m.savedId, showAll || m.type === "income" || !!m.savedId);
+  useEffect(() => { setShowAll(false); }, [m.list[m.idx]?.id, m.type]);
   useEffect(() => {
-    if (m.balanceWarning) balanceRef.current?.focus();
-  }, [m.balanceWarning]);
-
-  const subsOfCategory = subcategories.filter(
-    (s) => s.category === m.categoryId,
-  );
-
-  /* بارگذاری پیامک‌های pending هنگام ورود به نرم‌افزار و پس از هر تغییر داده */
-  useEffect(() => {
-    if (!m.open) void m.load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey, useCases, member?.id]);
+    if (!m.savedId && m.accountId && !choices.some(row => row.account.id === m.accountId)) m.setAccountId("");
+  }, [m.accountId, m.savedId, choices]);
+  const subsOfCategory = subcategories.filter(s => s.category === m.categoryId);
 
   return (
     <>
@@ -52,13 +44,14 @@ export function PendingSmsFeature({ refreshKey }: { refreshKey: number }) {
       {m.loading ? <p className="section-hint" role="status">در حال دریافت پیامک‌ها…</p> : null}
       {m.loadError ? <div role="alert">
         <p className="field-error">{m.loadError}</p>
-        <button type="button" className="btn-secondary" disabled={m.loading} onClick={() => void m.load()}>
+        <button type="button" className="btn-secondary" disabled={m.loading} onClick={() => void m.load({ review: true })}>
           دریافت دوباره پیامک‌ها
         </button>
       </div> : null}
       {!m.loading && !m.loadError && m.list.length > 0 ? <>
       {m.savedId ? <p className="section-hint" role="status">تراکنش ثبت شده؛ فقط تأیید پیامک باقی مانده است.</p> : null}
       {m.amountNeedsReview && !m.savedId ? <p className="section-hint">واحد مبلغ پیامک مشخص نیست؛ مبلغ را در واحد انتخابی وارد کنید.</p> : null}
+      <p className="section-hint">ثبت برای <b>{member?.name}</b></p>
       <div>
         <div className="pending-progress">
           <div
@@ -137,14 +130,17 @@ export function PendingSmsFeature({ refreshKey }: { refreshKey: number }) {
                 options={[
                   {
                     value: "",
-                    label: accounts.length ? "انتخاب کنید…" : "کارتی ثبت نشده",
+                    label: ownCount ? "حساب یا کیف‌پول خود را انتخاب کنید…" : "حساب یا کیف‌پولی برای شما ثبت نشده",
                   },
-                  ...accounts.map((a) => ({
-                    value: a.id,
-                    label: a.title + (a.bank ? " · " + a.bank : ""),
+                  ...choices.map(({ account, balance }) => ({
+                    value: account.id,
+                    label: /* @copy-text sms.review.account_choice */ `${account.title} · ${formatSignedAmount(toDisplay(balance, m.entryCurrency))} ${currencyDisplayLabel(m.entryCurrency)}`,
                   })),
                 ]}
               />
+              {m.type === "expense" && !m.savedId ? <button type="button" className="tx-all-accounts" disabled={m.busy}
+                onClick={() => setShowAll(value => !value)}>{showAll ? "نمایش فهرست کوتاه" : "نمایش همهٔ حساب‌های من"}</button> : null}
+              {!m.savedId && !choices.length ? <p className="field-error">حساب یا کیف‌پول با موجودی کافی برای این مبلغ ندارید؛ مبلغ یا فهرست کامل حساب‌ها را بررسی کنید.</p> : null}
             </Field>
             <Field label="تاریخ">
               <JalaliDateInput value={m.date} onChange={m.setDate} aria-label="تاریخ پیامک" />
@@ -166,41 +162,12 @@ export function PendingSmsFeature({ refreshKey }: { refreshKey: number }) {
           className="btn-primary"
           type="button"
           disabled={m.busy}
-          onClick={() => m.record(refreshData, accounts.length)}
+          onClick={() => m.record(refreshData, ownCount)}
         >
           {m.busy ? "در حال رسیدگی…" : m.savedId ? "تأیید دوباره پیامک" : "ثبت"}
         </button>
       </div>
       </> : null}
-    </Modal>
-    <Modal open={m.open && !!m.balanceWarning} onClose={m.dismissBalanceWarning}
-      overlayClassName="tx-balance-overlay" sheetClassName="tx-balance-popup" padded={false}>
-      {m.balanceWarning ? <div ref={balanceRef} className="tx-balance-warning" role="alertdialog" aria-modal="true"
-        aria-labelledby={balanceTitleId} aria-describedby={balanceDescriptionId} tabIndex={-1}
-        onKeyDown={event => {
-          if (event.key !== "Tab") return;
-          const buttons = balanceRef.current?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)");
-          if (!buttons?.length) { event.preventDefault(); return; }
-          const first = buttons[0], last = buttons[buttons.length - 1];
-          if (event.shiftKey && (document.activeElement === first || document.activeElement === balanceRef.current)) {
-            event.preventDefault(); last.focus();
-          } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === balanceRef.current)) {
-            event.preventDefault(); first.focus();
-          }
-        }}>
-        <h3 id={balanceTitleId}>موجودی کافی نیست</h3>
-        <p id={balanceDescriptionId}>با ثبت این هزینه، موجودی حساب منفی می‌شود.</p>
-        <p className="tx-balance-account">{m.balanceWarning.account.title}</p>
-        <div className="tx-balance-result">
-          <span>مانده پس از ثبت</span>
-          <b className="tx-balance-remaining" dir="ltr">{formatSignedAmount(toDisplay(m.balanceWarning.remaining, m.entryCurrency))}</b>
-          <span>{currencyDisplayLabel(m.entryCurrency)}</span>
-        </div>
-        <div className="modal-actions">
-          <button type="button" className="btn-secondary" disabled={m.busy} onClick={m.dismissBalanceWarning}>اصلاح مبلغ</button>
-          <button type="button" className="btn-primary" disabled={m.busy} onClick={() => void m.record(refreshData, accounts.length, true)}>تأیید و ثبت</button>
-        </div>
-      </div> : null}
     </Modal>
     </>
   );

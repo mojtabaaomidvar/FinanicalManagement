@@ -66,6 +66,8 @@ const settingsRoutes = [
 ];
 export const ROUTES = [
   { id: 'sections', label: 'بخش‌های خانه' },
+  { id: 'notifications', label: 'اعلان‌ها' },
+  { id: 'sms', label: 'پیامک‌های بانکی' },
   ...baseRoutes.map(([id, label]) => ({ id, label })),
   ...settingsRoutes.map(([section, sectionLabel]) => ({ id: `settings/${section}`, label: `تنظیمات · ${sectionLabel}`, baseRoute: 'settings', section, sectionLabel })),
 ];
@@ -419,11 +421,20 @@ export function handlePreviewRequest(session, request) {
     const accountId = path.split('/')[3]; data.senders = data.senders.filter(item => item.account_id !== accountId);
     const account = data.accounts.find(item => item.id === accountId); if (account) account.sms_enabled = false; return response(null, 204);
   }
-  if (path === '/sms' && method === 'GET') return response(data.sms.filter(item => !query.get('status') || item.status === query.get('status')));
+  const ownSms = item => item.member_id === data.actor.id || !item.member_id && (
+    data.accounts.some(account => account.id === item.account_id && account.member_id === data.actor.id)
+    || data.actor.role === 'owner' && !item.account_id);
+  if (path === '/sms' && method === 'GET') return response(data.sms.filter(item => ownSms(item) && (!query.get('status') || item.status === query.get('status'))));
   if (path === '/sms/ingest') return response([normalizeCreate(session, 'transactions', body)]);
-  if (path === '/sms' && method === 'POST') return response(Array.isArray(body.items) ? body.items.length : 0);
+  if (path === '/sms' && method === 'POST') {
+    const items = Array.isArray(body.items) ? body.items.filter(item => item.raw_text?.trim()) : [];
+    data.sms.push(...items.map(item => newRow(session, { ...clone(item), member_id: data.actor.id, status: 'pending', account_id: null })));
+    return response(items.length);
+  }
   if (/^\/sms\/[^/]+$/.test(path) && method === 'PATCH') {
-    const item = data.sms.find(item => item.id === path.split('/')[2]); if (item) item.status = body.status; return response(null, 204);
+    const item = data.sms.find(item => item.id === path.split('/')[2] && ownSms(item));
+    if (!item) return error('NOT_FOUND', 'پیامک نمونه یافت نشد.', 404);
+    item.status = body.status; return response(null, 204);
   }
   if (/^\/sms\/accounts\/[^/]+\/enabled$/.test(path)) {
     const account = data.accounts.find(item => item.id === path.split('/')[3]); if (!account) return error('NOT_FOUND', 'حساب نمونه یافت نشد.', 404);

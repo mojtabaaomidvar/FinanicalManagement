@@ -5,7 +5,7 @@ export const HOME_GROUPS: ReadonlyArray<{
   title: string;
   modules: readonly string[];
 }> = [
-  { id: "money", title: "مالی خانه", modules: ["finance", "transactions", "accounts", "budgets", "bills", "market", "reports"] },
+  { id: "money", title: "مالی خانه", modules: ["finance", "transactions", "accounts", "budgets", "bills", "market", "reports", "sms"] },
   { id: "daily", title: "کارهای روزمرهٔ خانه", modules: ["chores", "shopping", "inventory", "meals"] },
   { id: "belongings", title: "وسایل و مدارک", modules: ["equipment", "vehicles", "docs"] },
   { id: "family", title: "خانواده و برنامه‌ها", modules: ["calendar", "activities", "children", "pets", "goals"] },

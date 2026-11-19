@@ -15,7 +15,7 @@ import { recurringTemplate } from "@/domain/transaction/recurring.rules";
 
 import { useMemo } from "react";
 import { useApp } from "@/app/providers/AppProvider";
-import { Icon, Modal } from "@/shared/ui";
+import { Icon } from "@/shared/ui";
 import { buildCategoryResolver } from "@/domain/category/resolve";
 import type { AppNotification, NotificationDomain } from "@/domain/notification/notification.types";
 import { DOMAIN_LABELS } from "@/domain/notification/notification.types";
@@ -32,6 +32,7 @@ import { toDisplay } from "@/shared/lib/currency";
 import { toFa } from "@/shared/lib/digits";
 import type { TxFormModel } from "@/features/transaction-form";
 import type { NotificationsModel } from "../model/useNotificationsModel";
+import "./NotificationsPage.css";
 
 /* آیکونِ هر دامنه — همان مجموعهٔ اسپریتِ index.html */
 const DOMAIN_ICON: Partial<Record<NotificationDomain, string>> = {
@@ -62,7 +63,8 @@ export function NotificationCenterFeature({
   onOpenGoal,
   onOpenActivity,
   onOpenCalendar,
-  hideTrigger = false,
+  sms,
+  onOpenSms,
 }: {
   m: NotificationsModel;
   form: TxFormModel;
@@ -77,7 +79,8 @@ export function NotificationCenterFeature({
   onOpenGoal?: (goalId: string) => void;
   onOpenActivity?: (activityId: string) => void;
   onOpenCalendar?: (dateIso: string) => void;
-  hideTrigger?: boolean;
+  sms?: { count: number; loading: boolean; error: string | null };
+  onOpenSms?: () => void;
 }) {
   const { txs, events, cur, customCategories, bills, inventory, tasks, member } = useApp();
 
@@ -327,98 +330,48 @@ export function NotificationCenterFeature({
     return out;
   }, [m.list]);
 
-  return (
-    <>
-      {!hideTrigger ? <button
-        type="button"
-        className="hub-bell"
-        aria-label={
-          m.count ? `اعلان‌ها — ${toFa(m.count)} مورد` : "اعلان‌ها — خالی"
-        }
-        onClick={() => m.setOpen(true)}
-      >
-        <Icon name="i-bell" size={20} />
-        {/* صفر چاپ نمی‌شود: همان قاعدهٔ شمارندهٔ ردیف‌های تنظیمات —
-            «۰» روی نشانِ قرمز خبرِ دروغ است، نه اطلاع. */}
-        {m.count > 0 ? (
-          <span className="hub-bell-dot">{toFa(m.count)}</span>
-        ) : null}
-      </button> : null}
-
-      <Modal
-        open={m.open}
-        onClose={() => m.setOpen(false)}
-        title="اعلان‌ها"
-        dragToClose
-      >
-        <p className="modal-sub">یادآوری‌های تاریخ‌دار فقط برای امروز و فردا نمایش داده می‌شوند.</p>
-        {m.list.length === 0 ? (
-          <p className="modal-sub">
-            فعلاً یادآوری‌ای ندارید.
-          </p>
-        ) : (
-          <div className="notif-list">
-            {groups.map((g) => (
-              <section key={g.domain} className="notif-group">
-                <h4 className="notif-group-title">
-                  {DOMAIN_LABELS[g.domain]}
-                  <span>{toFa(g.items.length)}</span>
-                </h4>
-                {g.items.map((n) => {
-                  const text = label(n);
-                  if (!text) return null;
-                  const clickable = n.ref.kind !== "event" || Boolean(onOpenCalendar);
-                  return (
-                    <div
-                      key={n.id}
-                      className={`notif-item sev-${n.severity}`}
-                      role={clickable ? "button" : undefined}
-                      tabIndex={clickable ? 0 : undefined}
-                      onClick={clickable ? () => act(n) : undefined}
-                      onKeyDown={
-                        clickable
-                          ? (e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                act(n);
-                              }
-                            }
-                          : undefined
-                      }
-                    >
-                      {DOMAIN_ICON[n.domain] ? <span className="notif-ic" aria-hidden="true">
-                        <Icon name={DOMAIN_ICON[n.domain]} size={18} />
-                      </span> : null}
-                      <div className="notif-txt">
-                        <b>{text.title}</b>
-                        <p>{text.sub}</p>
-                      </div>
-                      {n.dismissible ? (
-                        <button
-                          type="button"
-                          className="notif-skip"
-                          disabled={m.busy === n.id}
-                          /* روی کارتِ غیرِقابل‌کلیک هم stopPropagation
-                             می‌ماند: اگر فردا کارت کلیک‌پذیر شد، این دکمه
-                             نباید ناخواسته کنشِ کارت را هم بزند. */
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void m.dismiss(n);
-                          }}
-                        >
-                          نادیده بگیر
-                        </button>
-                      ) : (
-                        <Icon name="i-arrow-l" size={16} />
-                      )}
-                    </div>
-                  );
-                })}
-              </section>
-            ))}
-          </div>
-        )}
-      </Modal>
-    </>
-  );
+  const displayedGroups = groups.map(group => ({ ...group, items: group.items.map(n => ({ n, text: label(n) }))
+    .filter((item): item is { n: AppNotification; text: { title: string; sub: string } } => item.text !== null) }))
+    .filter(group => group.items.length);
+  return <section className="page active notifications-page">
+    <header className="app-header"><div className="header-title"><h1>اعلان‌ها</h1>
+      <p>موضوع و توضیح هر یادآوری، در یک نگاه</p></div>
+      <button type="button" className="icon-btn" aria-label="دریافت دوباره اعلان‌ها" onClick={() => void m.reload()}>
+        <Icon name="i-repeat" size={21} /></button>
+    </header>
+    <div className="notifications-content">
+      {sms && onOpenSms ? <article className="notif-item sms-inbox-link">
+        <button type="button" className="notif-main" onClick={onOpenSms}>
+          <span className="notif-ic" aria-hidden="true"><Icon name="i-sms" size={20} /></span>
+          <span className="notif-txt"><b>پیامک‌های ثبت‌نشده</b>
+            <span>{sms.loading ? "در حال دریافت پیامک‌ها…" : sms.error ? "دریافت پیامک‌ها ناموفق بود؛ فهرست را دوباره بررسی کنید."
+              : sms.count ? /* @copy-text notifications.pending_sms */ `${toFa(sms.count)} پیامک برای ثبت یا ادامهٔ بررسی`
+                : "متن پیامک جدید وارد کنید یا بررسی‌های ناتمام را ادامه دهید."}</span></span>
+          <Icon name="i-arrow-l" size={17} />
+        </button>
+      </article> : null}
+      <p className="notifications-note">یادآوری‌های تاریخ‌دار فقط برای امروز و فردا نمایش داده می‌شوند.</p>
+      {m.onlineSummaryState?.loading ? <p role="status" className="section-hint">در حال دریافت اعلان‌ها…</p> : null}
+      {m.onlineSummaryState?.failedSources.length ? <div className="notifications-error" role="alert">
+        <span>بخشی از اطلاعات اعلان‌ها دریافت نشد.</span>
+        <button type="button" className="link-btn" onClick={() => void m.reload()}>تلاش دوباره</button>
+      </div> : null}
+      {!displayedGroups.length && !m.onlineSummaryState?.loading ? <p className="notifications-empty">فعلاً یادآوری‌ای ندارید.</p> : null}
+      <div className="notif-list">{displayedGroups.map(group => <section key={group.domain} className="notif-group">
+        <h2 className="notif-group-title">{DOMAIN_LABELS[group.domain]}<span>{toFa(group.items.length)}</span></h2>
+        {group.items.map(({ n, text }) => {
+          const clickable = n.ref.kind !== "event" || Boolean(onOpenCalendar);
+          return <article key={n.id} className={`notif-item sev-${n.severity}`}>
+            <button type="button" className="notif-main" disabled={!clickable} onClick={() => act(n)}>
+              {DOMAIN_ICON[n.domain] ? <span className="notif-ic" aria-hidden="true"><Icon name={DOMAIN_ICON[n.domain]} size={18} /></span> : null}
+              <span className="notif-txt"><b>{text.title}</b><span>{text.sub}</span></span>
+              <Icon name="i-arrow-l" size={16} />
+            </button>
+            {n.dismissible ? <button type="button" className="notif-skip" disabled={m.busy === n.id}
+              onClick={() => void m.dismiss(n)}>نادیده بگیر</button> : null}
+          </article>;
+        })}
+      </section>)}</div>
+    </div>
+  </section>;
 }

@@ -62,7 +62,7 @@ def list_sms(
         raise AppError("INVALID_STATUS", "وضعیت پیامک نامعتبر است.", 422)
     return [
         SmsOut.of(s)
-        for s in messaging_service.list_sms(db, member.family_id, status)
+        for s in messaging_service.list_sms(db, member, status)
     ]
 
 

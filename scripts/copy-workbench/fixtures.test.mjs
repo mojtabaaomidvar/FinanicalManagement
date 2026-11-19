@@ -5,6 +5,22 @@ import { SCENARIOS, ROUTES, createPreviewSession, handlePreviewRequest } from '.
 const create = (scenario = 'full-owner', route = 'hub') => createPreviewSession(scenario, route, { now: '2026-11-16T08:00:00.000Z' });
 const request = (session, path, method = 'GET', body) => handlePreviewRequest(session, { path, method, body });
 
+test('SMS import remains pending and each actor can only read or change own messages', () => {
+  for (const role of ['full-owner', 'full-admin', 'full-member']) {
+    const session = create(role, 'sms');
+    const foreign = { ...session.data.sms[0], id: 'foreign-sms', member_id: session.data.members.find(member => member.id !== session.data.actor.id).id, status: 'pending' };
+    session.data.sms.push(foreign);
+    assert.equal(request(session, '/sms', 'POST', { items: [{ raw_text: 'برداشت 100 ریال', amount: 100, type: 'expense' }] }).body, 1);
+    const pending = request(session, '/sms?status=pending').body;
+    assert.equal(pending.length, 1);
+    assert.equal(pending[0].member_id, session.data.actor.id);
+    assert.equal(request(session, '/sms/foreign-sms', 'PATCH', { status: 'recorded' }).status, 404);
+    assert.equal(foreign.status, 'pending');
+    assert.equal(request(session, '/sms/' + pending[0].id, 'PATCH', { status: 'recorded' }).status, 204);
+    assert.deepEqual(request(session, '/sms?status=pending').body, []);
+  }
+});
+
 test('recurring acknowledgements are idempotent owner or manager actions without financial writes', () => {
   for (const role of ['full-owner', 'full-admin']) {
     const session = create(role), transaction = session.data.transactions.find(row => row.repeat === 'monthly');
@@ -132,8 +148,8 @@ test('all scenarios and routes have stable distinct IDs and safe defaults', () =
   assert.throws(() => createPreviewSession('full-owner', 'https://production.invalid'));
 });
 
-test('all 24 actual app routes and settings sections are represented', () => {
-  assert.equal(ROUTES.filter(item => !item.baseRoute).length, 24);
+test('all 26 actual app routes and settings sections are represented', () => {
+  assert.equal(ROUTES.filter(item => !item.baseRoute).length, 26);
   assert.equal(ROUTES.filter(item => item.baseRoute === 'settings').length, 13);
   assert.equal(create('full-owner', 'settings/notifications').routeInfo.sectionLabel, 'اعلان‌ها');
 });

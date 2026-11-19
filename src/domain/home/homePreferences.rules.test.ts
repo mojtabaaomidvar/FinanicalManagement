@@ -10,9 +10,9 @@ const catalog = (value: ReturnType<typeof defaultHomePreferences>) => Object.val
 describe("personal home arrangement", () => {
   it("covers every navigable module exactly once and keeps the catalog synchronized", () => {
     expect([...HOME_MODULE_IDS].sort()).toEqual(ACTIVE_MODULES.map((module) => module.id).sort());
-    expect(HOME_MODULE_IDS).toHaveLength(19);
+    expect(HOME_MODULE_IDS).toHaveLength(20);
     const defaults = defaultHomePreferences();
-    expect(new Set(catalog(defaults)).size).toBe(19);
+    expect(new Set(catalog(defaults)).size).toBe(20);
     expect(defaults.groupOrder).toEqual(["money", "daily", "belongings", "family"]);
     expect(defaults.pins).toEqual(["chores", "shopping", "calendar"]);
   });
@@ -49,9 +49,9 @@ describe("personal home arrangement", () => {
     expect(result.groupModules.family.slice(0, 2)).toEqual(["finance", "goals"]);
     expect(result.groupModules.money).not.toContain("finance");
     expect(result.flatOrder.slice(0, 2)).toEqual(["shopping", "goals"]);
-    expect(catalog(result)).toHaveLength(19);
-    expect(new Set(catalog(result)).size).toBe(19);
-    expect(new Set(result.flatOrder).size).toBe(19);
+    expect(catalog(result)).toHaveLength(20);
+    expect(new Set(catalog(result)).size).toBe(20);
+    expect(new Set(result.flatOrder).size).toBe(20);
   });
 
   it("retains deliberately empty groups, no pins and all groups collapsed", () => {
@@ -68,9 +68,9 @@ describe("personal home arrangement", () => {
     defaults.groupModules.money = ["bills", "transactions"];
     defaults.flatOrder = ["calendar", "shopping"];
     const result = normalizeHomePreferences(defaults);
-    expect(result.groupModules.money).toEqual(["bills", "transactions", "finance", "accounts", "budgets", "market", "reports"]);
+    expect(result.groupModules.money).toEqual(["bills", "transactions", "finance", "accounts", "budgets", "market", "reports", "sms"]);
     expect(result.flatOrder.slice(0, 2)).toEqual(["calendar", "shopping"]);
-    expect(result.flatOrder).toHaveLength(19);
+    expect(result.flatOrder).toHaveLength(20);
   });
 
   it("does not share nested arrays between defaults, normalized snapshots or input", () => {
@@ -106,7 +106,7 @@ describe("personal home arrangement", () => {
     expect(original.groupModules.belongings).toEqual([]);
     expect(homeModuleGroup(result, "shopping")).toBe("belongings");
     expect(homeModuleGroup(result, "unknown")).toBeUndefined();
-    expect(catalog(result)).toHaveLength(19);
+    expect(catalog(result)).toHaveLength(20);
   });
 
   it("preserves exact catalog coverage across repeated arbitrary transfers and normalization", () => {

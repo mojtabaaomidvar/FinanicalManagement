@@ -21,6 +21,7 @@ const results = { startedAt: previousRun?.startedAt ?? new Date().toISOString(),
   unknownEndpoints: previousRun?.unknownEndpoints ?? [], blockedRequests: previousRun?.blockedRequests ?? [],
   screenshots: previousRun?.screenshots ?? [], ...(previousRun ? { retriedChecks: [...retryNames], retriedAt: new Date().toISOString() } : {}) };
 const headings = { hub: /خانه.*نمونه/, dashboard: /^سلام،/, transactions: 'تراکنش‌ها', reports: 'گزارش‌ها',
+  sections: 'بخش‌های خانه', notifications: 'اعلان‌ها', sms: 'پیامک‌های بانکی',
   accounts: 'کیف پول‌ها', budgets: 'بودجه‌بندی', bills: 'قبوض و شارژ', calendar: 'تقویم و مناسبت‌ها',
   shopping: 'لیست خرید', inventory: 'انبار خانه', tasks: 'کارهای خانه', documents: 'اسناد خانه',
   meals: 'برنامهٔ غذایی', equipment: 'وسایل خانه', vehicles: 'خودرو و نگهداری', goals: 'اهداف و آرزوها',
@@ -282,11 +283,14 @@ async function scenarioChecks(metadata) {
     assert.equal(await frame.getByRole('switch').first().getAttribute('aria-checked'), 'false'); await screenshot('scenario-reminders-off');
   });
   if (selected('sms-pending')) await check('scenario:sms-pending', async () => {
-    await routeReady('hub', 'sms-pending');
-    await frame.getByRole('heading', { name: 'پیامک‌های ثبت‌نشده', exact: true }).waitFor();
+    await routeReady('sms', 'sms-pending');
+    await frame.locator('.sms-inbox-row').first().click();
+    const sheet = frame.locator('.modal-sheet').filter({ has: frame.locator('.pending-head') });
+    await sheet.waitFor();
     await screenshot('scenario-sms-pending');
-    await frame.getByRole('button', { name: 'نادیده', exact: true }).click();
-    await frame.getByRole('heading', { name: 'پیامک‌های ثبت‌نشده', exact: true }).waitFor({ state: 'hidden', timeout: 5000 });
+    await sheet.getByRole('button', { name: 'نادیده', exact: true }).click();
+    await sheet.waitFor({ state: 'hidden', timeout: 5000 });
+    assert.equal(await frame.locator('.sms-inbox-row').count(), 0);
   });
 }
 
@@ -437,7 +441,7 @@ try {
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.locator('#preview-route option').first().waitFor({ state: 'attached' });
   const metadata = await page.evaluate(async () => (await fetch('/__copy/scenarios')).json());
-  assert.equal(metadata.routes.length, 36); assert.equal(metadata.scenarios.length, 24);
+  assert.equal(metadata.routes.length, 39); assert.equal(metadata.scenarios.length, 24);
   results.availableRoutes = metadata.routes.map(value => value.id); results.availableScenarios = metadata.scenarios.map(value => value.id);
   // Do not interrupt the studio's initial preview bootstrap with another reset.
   await page.waitForFunction(() => (window.__previewCheckEvents ?? []).some(event => ['copy-preview-ready', 'copy-preview-error'].includes(event.type)), null, { timeout: 28000 });

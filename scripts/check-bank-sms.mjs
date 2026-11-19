@@ -25,7 +25,7 @@ async function session(pending = true, setup, raw = rawSms) {
   });
   const response = await context.request.post(base + '/__copy/preview', {
     headers: { Origin: base, 'X-Copy-Workbench-Token': token },
-    data: { scenarioId: pending ? 'sms-pending' : 'full-owner', route: 'dashboard' },
+    data: { scenarioId: pending ? 'sms-pending' : 'full-owner', route: pending ? 'sms' : 'dashboard' },
   });
   assert.equal(response.status(), 200);
   const page = await context.newPage(); page.setDefaultTimeout(8000);
@@ -53,7 +53,11 @@ async function fail(route, message) {
   await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ code: 'SERVER', message }) });
 }
 async function ready(page) {
-  const sheet = pendingSheet(page); await sheet.waitFor();
+  const sheet = pendingSheet(page);
+  if (!await sheet.isVisible()) {
+    await page.locator('.sms-inbox-row').first().click();
+  }
+  await sheet.waitFor();
   await sheet.getByRole('textbox', { name: 'مبلغ پیامک', exact: true }).waitFor();
   return sheet;
 }
@@ -73,6 +77,91 @@ async function check(name, run) {
 }
 
 try {
+  await check('notifications keeps a permanent SMS destination and selected inbox row records the intended message', async () => {
+    const page = await session();
+    await api(page, '/sms', 'POST', { items: [{ raw_text: rawSms, amount: 250000, type: 'expense', date: '2026-11-19' }] });
+    const pending = await api(page, '/sms?status=pending'), selectedId = pending.at(-1).id;
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => window.__COPY_PREVIEW_OBSERVED__ === true);
+    await page.locator('.sms-inbox-row').first().waitFor();
+    await page.locator('.floating-navigation').getByRole('button', { name: /اعلان‌ها/ }).click();
+    await page.locator('.notifications-page').waitFor();
+    await page.locator('.sms-inbox-link button').click(); await page.locator('.sms-page').waitFor();
+    await page.locator('[data-sms-id="' + selectedId + '"]').click(); const sheet = pendingSheet(page);
+    await sheet.getByRole('textbox', { name: 'مبلغ پیامک', exact: true }).fill('۳۵۰۰۰');
+    const select = sheet.getByRole('combobox', { name: 'حساب پیامک', exact: true });
+    await select.selectOption(await select.locator('option').nth(1).getAttribute('value'));
+    await sheet.getByRole('button', { name: 'ثبت', exact: true }).click();
+    await page.waitForFunction(id => !document.querySelector('[data-sms-id="' + id + '"]'), selectedId);
+    assert.equal((await api(page, '/sms')).find(row => row.id === selectedId).status, 'recorded');
+    assert.equal((await api(page, '/sms?status=pending')).length, pending.length - 1);
+    await page.keyboard.press('Escape'); await page.context().close();
+  });
+
+  await check('closing and reloading unfinished imported text preserves it for later submission', async () => {
+    const page = await session(false); let sheet = await importer(page);
+    await sheet.getByRole('textbox', { name: 'متن پیامک‌ها', exact: true }).fill(rawSms);
+    await sheet.getByRole('button', { name: 'انصراف', exact: true }).click();
+    await page.keyboard.press('Escape');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => window.__COPY_PREVIEW_OBSERVED__ === true);
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('copy-workbench:navigate', { detail: { route: 'sms' } })));
+    await page.locator('.sms-page').waitFor();
+    await page.locator('.sms-page .header-actions button').click();
+    sheet = page.locator('.modal-sheet').filter({ has: page.getByRole('textbox', { name: 'متن پیامک‌ها', exact: true }) });
+    assert.equal(await sheet.getByRole('textbox', { name: 'متن پیامک‌ها', exact: true }).inputValue(), rawSms);
+    await sheet.getByRole('button', { name: 'افزودن پیامک‌ها', exact: true }).click();
+    await sheet.waitFor({ state: 'hidden' });
+    await pendingSheet(page).waitFor();
+    await page.keyboard.press('Escape');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => window.__COPY_PREVIEW_OBSERVED__ === true);
+    await page.getByRole('button', { name: 'افزودن تراکنش', exact: true }).waitFor();
+    await page.locator('.floating-navigation').getByRole('button', { name: /اعلان‌ها/ }).click();
+    await page.locator('.sms-inbox-link button').click();
+    await page.locator('.sms-inbox-row').first().waitFor();
+    assert.equal(await page.locator('.sms-inbox-row').count(), 1);
+    await ready(page); await page.context().close();
+  });
+
+  await check('unfinished review keeps amount label and selected message after close and reload', async () => {
+    const page = await session(); let sheet = await ready(page);
+    await sheet.getByRole('textbox', { name: 'مبلغ پیامک', exact: true }).fill('۴۵۰۰۰');
+    await sheet.getByRole('textbox', { name: 'لیبل پیامک', exact: true }).fill('ادامهٔ بعدی');
+    await page.keyboard.press('Escape'); await sheet.waitFor({ state: 'hidden' });
+    assert.equal(await page.locator('.sms-inbox-row').count(), 1);
+    await page.reload({ waitUntil: 'domcontentloaded' }); sheet = await ready(page);
+    assert.equal(await sheet.getByRole('textbox', { name: 'مبلغ پیامک', exact: true }).inputValue(), '۴۵,۰۰۰');
+    assert.equal(await sheet.getByRole('textbox', { name: 'لیبل پیامک', exact: true }).inputValue(), 'ادامهٔ بعدی');
+    assert.equal(await sheet.getByRole('combobox', { name: /عضو/ }).count(), 0);
+    await sheet.getByText('مدیر خانوادهٔ نمونه', { exact: true }).waitFor();
+    await sheet.getByRole('button', { name: 'ثبت', exact: true }).click(); await sheet.waitFor({ state: 'hidden' });
+    assert.equal(await page.locator('.sms-inbox-row').count(), 0);
+    await page.context().close();
+  });
+
+  await check('SMS uses unified own accounts including low cash for income and sufficient cash for expense', async () => {
+    const page = await session();
+    const member = (await api(page, '/auth/members')).find(row => row.role === 'owner');
+    const wallet = await api(page, '/accounts', 'POST', { member_id: member.id, title: 'SMS cash', kind: 'wallet', initial_balance: 30000 });
+    await page.reload({ waitUntil: 'domcontentloaded' }); const sheet = await ready(page);
+    const select = sheet.getByRole('combobox', { name: 'حساب پیامک', exact: true });
+    assert.equal(await select.locator('option[value="' + wallet.id + '"]').count(), 0);
+    await sheet.getByRole('button', { name: 'نمایش همهٔ حساب‌های من', exact: true }).click();
+    assert.equal(await select.locator('option[value="' + wallet.id + '"]').count(), 1);
+    await sheet.getByRole('textbox', { name: 'مبلغ پیامک', exact: true }).fill('۴۰۰۰۰');
+    assert.equal(await select.locator('option[value="' + wallet.id + '"]').count(), 0);
+    await sheet.getByRole('combobox', { name: 'نوع تراکنش پیامک' }).selectOption('income');
+    assert.equal(await select.locator('option[value="' + wallet.id + '"]').count(), 1);
+    await select.selectOption(wallet.id);
+    const before = await api(page, '/transactions');
+    await sheet.getByRole('button', { name: 'ثبت', exact: true }).click(); await sheet.waitFor({ state: 'hidden' });
+    const after = await api(page, '/transactions');
+    assert.equal(after.length, before.length + 1); assert.equal(after.at(-1).account_id, wallet.id);
+    assert.equal(after.at(-1).member_id, member.id); assert.equal(after.at(-1).type, 'income');
+    await page.context().close();
+  });
+
   await check('import preview converts rial to toman and rejects messages without transactions', async () => {
     const page = await session(false); const sheet = await importer(page);
     const text = sheet.getByRole('textbox', { name: 'متن پیامک‌ها', exact: true });
@@ -203,29 +292,21 @@ try {
     await page.context().close();
   });
 
-  await check('SMS expense needs explicit shortage consent and negative balance persists', async () => {
+  await check('SMS expense hides insufficient accounts and cannot create a negative balance', async () => {
     const page = await session(); const sheet = await ready(page);
     await sheet.getByRole('textbox', { name: 'مبلغ پیامک', exact: true }).fill('۵۰۰۰۰۰۰۰');
     const before = await api(page, '/transactions');
     await sheet.getByRole('button', { name: 'ثبت', exact: true }).click();
-    const popup = page.getByRole('alertdialog'); await popup.waitFor();
+    const select = sheet.getByRole('combobox', { name: 'حساب پیامک', exact: true });
+    assert.equal(await select.locator('option').count(), 1);
+    await sheet.getByText('انتخاب حساب الزامی است', { exact: true }).waitFor();
     assert.deepEqual(await api(page, '/transactions'), before);
-    await popup.getByRole('button', { name: 'اصلاح مبلغ', exact: true }).click();
-    assert.deepEqual(await api(page, '/transactions'), before);
-    await sheet.getByRole('button', { name: 'ثبت', exact: true }).click(); await popup.waitFor();
-    await page.screenshot({ path: resolve(output, 'sms-shortage-popup.png'), fullPage: true });
-    await popup.getByRole('button', { name: 'تأیید و ثبت', exact: true }).click(); await sheet.waitFor({ state: 'hidden' });
-    const after = await api(page, '/transactions'); assert.equal(after.length, before.length + 1);
-    assert.equal(after.at(-1).amount, 50000000);
-    const accounts = await api(page, '/accounts');
-    const accountId = after.at(-1).account_id;
-    const balance = after.reduce((value, tx) => value
-      + (tx.account_id === accountId ? (tx.type === 'income' ? tx.amount : -tx.amount) : 0)
-      + (tx.type === 'transfer' && tx.to_account_id === accountId ? tx.amount : 0),
-      accounts.find(account => account.id === accountId).initial_balance);
-    assert.ok(balance < 0);
+    assert.equal(await page.getByRole('alertdialog').count(), 0);
+    await page.screenshot({ path: resolve(output, 'sms-shortage.png'), fullPage: true });
     await page.reload({ waitUntil: 'domcontentloaded' });
-    assert.deepEqual(await api(page, '/transactions'), after);
+    await page.locator('.sms-inbox-row').first().waitFor();
+    assert.deepEqual(await api(page, '/transactions'), before);
+    assert.equal(await page.locator('.sms-inbox-row').count(), 1);
     await page.context().close();
   });
 
@@ -247,23 +328,24 @@ try {
     await page.context().close();
   });
 
-  await check('fresh balance change asks for consent again before financial creation', async () => {
+  await check('fresh balance change blocks SMS expense before financial creation', async () => {
     const page = await session(); const sheet = await ready(page);
-    await sheet.getByRole('textbox', { name: 'مبلغ پیامک', exact: true }).fill('۵۰۰۰۰۰۰۰');
-    await sheet.getByRole('button', { name: 'ثبت', exact: true }).click();
-    const popup = page.getByRole('alertdialog'); await popup.waitFor();
-    const firstBalance = await popup.locator('.tx-balance-remaining').innerText();
+    await sheet.getByRole('textbox', { name: 'مبلغ پیامک', exact: true }).fill('۱۰۰۰۰۰۰');
     const accountId = await sheet.getByRole('combobox', { name: 'حساب پیامک', exact: true }).inputValue();
     const actor = (await api(page, '/auth/members')).find(member => member.role === 'owner');
     const transactions = await api(page, '/transactions');
-    await api(page, '/transactions', 'POST', { member_id: actor.id, type: 'income', amount: 10000,
-      category: 'salary', account_id: accountId, date: transactions[0].date, repeat: 'none' });
+    const accounts = await api(page, '/accounts');
+    const available = transactions.reduce((sum, tx) => sum
+      + (tx.account_id === accountId ? tx.type === 'income' ? tx.amount : -tx.amount : 0)
+      + (tx.type === 'transfer' && tx.to_account_id === accountId ? tx.amount : 0),
+      accounts.find(account => account.id === accountId).initial_balance);
+    await api(page, '/transactions', 'POST', { member_id: actor.id, type: 'expense', amount: available - 999999,
+      category: 'food', account_id: accountId, date: transactions[0].date, repeat: 'none' });
     const before = await api(page, '/transactions');
-    await popup.getByRole('button', { name: 'تأیید و ثبت', exact: true }).click();
-    await page.waitForFunction(first => document.querySelector('.tx-balance-remaining')?.textContent !== first, firstBalance);
+    await sheet.getByRole('button', { name: 'ثبت', exact: true }).click();
+    await sheet.getByText('موجودی این حساب برای مبلغ واردشده کافی نیست؛ حساب دیگری انتخاب کنید.', { exact: true }).waitFor();
     assert.deepEqual(await api(page, '/transactions'), before);
-    await popup.getByRole('button', { name: 'تأیید و ثبت', exact: true }).click(); await sheet.waitFor({ state: 'hidden' });
-    assert.equal((await api(page, '/transactions')).length, before.length + 1);
+    assert.equal(await page.getByRole('alertdialog').count(), 0);
     await page.context().close();
   });
 
@@ -295,11 +377,11 @@ try {
 
   await check('pending read failure has a retry and restores the existing message', async () => {
     const page = await session(true, page => page.route('**/api/v1/sms?status=pending', route => fail(route, 'Read SMS failure')));
-    const sheet = pendingSheet(page); await sheet.getByText('Read SMS failure', { exact: true }).waitFor();
-    assert.equal(await sheet.locator('.pending-card').count(), 0);
+    const inbox = page.locator('.sms-page'); await inbox.getByText('Read SMS failure', { exact: true }).waitFor();
+    assert.equal(await pendingSheet(page).count(), 0);
     await page.unroute('**/api/v1/sms?status=pending');
-    await sheet.getByRole('button', { name: 'دریافت دوباره پیامک‌ها', exact: true }).click();
-    await sheet.locator('.pending-card').waitFor();
+    await inbox.getByRole('button', { name: 'دریافت دوباره پیامک‌ها', exact: true }).click();
+    await ready(page);
     await page.context().close();
   });
 

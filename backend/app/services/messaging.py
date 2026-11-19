@@ -21,13 +21,14 @@ from __future__ import annotations
 import secrets
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy import update as sa_update
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
 from app.db.rls import apply_to_transaction, reset_current_family, set_current_family
 from app.models.family import Member
+from app.models.account import Account
 from app.models.messaging import SmsBridge, SmsMessage
 from app.schemas.data import SmsItem
 from app.services import sms_settings as settings_service
@@ -36,10 +37,22 @@ from app.services.sms_parser import detect_bank, normalize_sms, parse_sms
 _SMS_STATUS = {"pending", "recorded", "ignored"}
 
 
+def _own_sms(actor: Member):
+    """Only the recipient may review messages; recover unassigned legacy rows for owner."""
+    own_account = select(Account.id).where(
+        Account.family_id == actor.family_id, Account.member_id == actor.id
+    )
+    legacy = and_(SmsMessage.member_id.is_(None), SmsMessage.account_id.in_(own_account))
+    if actor.role == "owner":
+        legacy = or_(legacy, and_(SmsMessage.member_id.is_(None), SmsMessage.account_id.is_(None)))
+    return and_(SmsMessage.family_id == actor.family_id,
+                or_(SmsMessage.member_id == actor.id, legacy))
+
+
 def list_sms(
-    db: Session, family_id: uuid.UUID, status: str | None = None
+    db: Session, actor: Member, status: str | None = None
 ) -> list[SmsMessage]:
-    stmt = select(SmsMessage).where(SmsMessage.family_id == family_id)
+    stmt = select(SmsMessage).where(_own_sms(actor))
     if status is not None:
         stmt = stmt.where(SmsMessage.status == status)
     stmt = stmt.order_by(SmsMessage.created_at.desc())
@@ -97,7 +110,7 @@ def set_sms_status(
         raise AppError("INVALID_STATUS", "وضعیت پیامک نامعتبر است.", 422)
     row = db.execute(
         select(SmsMessage).where(
-            SmsMessage.id == sms_id, SmsMessage.family_id == actor.family_id
+            SmsMessage.id == sms_id, _own_sms(actor)
         )
     ).scalar_one_or_none()
     if row is None:

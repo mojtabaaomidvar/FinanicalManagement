@@ -9,6 +9,8 @@ export type Route =
   | "invite"
   | "hub"
   | "sections"
+  | "notifications"
+  | "sms"
   | "dashboard"
   | "transactions"
   | "reports"
@@ -33,6 +35,8 @@ export type Route =
 export const MAIN_ROUTES: Route[] = [
   "hub",
   "sections",
+  "notifications",
+  "sms",
   "dashboard",
   "transactions",
   "reports",

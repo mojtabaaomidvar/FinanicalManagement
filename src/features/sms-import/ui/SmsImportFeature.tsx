@@ -17,9 +17,9 @@ export function SmsImportFeature({
   /** icon = دکمه گرد هدر · chip = میان‌بُر متنی (بازنشسته) · row = ردیف داخل شیت تراکنش */
   variant?: "icon" | "chip" | "row";
 }) {
-  const { useCases, cur } = useApp();
+  const { useCases, cur, member, family } = useApp();
   const { show } = useToast();
-  const m = useSmsImportModel(useCases!, show);
+  const m = useSmsImportModel(useCases!, show, { familyId: family?.id ?? "", memberId: member?.id ?? "" });
 
   return (
     <>
@@ -77,6 +77,7 @@ export function SmsImportFeature({
           را با خط خالی از هم جدا کنید.
         </p>
 
+        <p className="section-hint">متن ناتمام برای خودتان نگه داشته می‌شود. پیامک‌های افزوده‌شده در بخش «پیامک‌های بانکی» قابل ادامه‌اند.</p>
         <div className="form-row">
           <label htmlFor="sms-import-text">متن پیامک‌ها</label>
           <textarea

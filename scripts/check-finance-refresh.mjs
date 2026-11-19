@@ -104,11 +104,50 @@ async function check(name, run) {
   catch (error) { results.errors.push(name + ': ' + error.stack); console.log('FAIL ' + name + ': ' + error.message); }
 }
 try {
+  await check('compact billboard bottom tabs and real touch swipe from action buttons preserve vertical scrolling', async () => {
+    const page = await session('hub'), deck = page.locator('.home-billboard-deck');
+    await showBillboard(page, 'transaction');
+    const box = await deck.boundingBox(), tabs = await page.getByRole('tablist', { name: 'انتخاب کارت خانه' }).boundingBox();
+    assert.ok(box.height < 285, 'Billboard should stay compact');
+    assert.ok(tabs.y >= box.y + box.height - 8, 'Switch controls belong below the cards');
+    const touch = await page.context().newCDPSession(page);
+    const button = await page.locator('[data-billboard-layer="front"]').getByRole('button', { name: 'ثبت هزینه', exact: true }).boundingBox();
+    const x = button.x + button.width / 2, y = button.y + button.height / 2;
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+    for (const dx of [-12, -32, -65]) {
+      await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + dx, y: y + 3 }] });
+      await page.waitForTimeout(30);
+    }
+    const under = await deck.evaluate(el => ({
+      phase: el.dataset.billboardPhase,
+      x: new DOMMatrix(getComputedStyle(el.querySelector('[data-billboard-layer="front"]')).transform).m41,
+      blur: parseFloat(getComputedStyle(el.querySelector('[data-billboard-layer="underneath"]')).filter.slice(5)),
+    }));
+    assert.equal(under.phase, 'dragging'); assert.ok(Math.abs(under.x + 65) < 2);
+    assert.ok(under.blur > 0 && under.blur < 7);
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x - 125, y: y + 5 }] });
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await page.waitForFunction(() => document.querySelector('.home-billboard-deck').dataset.billboardActive === 'dues'
+      && document.querySelector('.home-billboard-deck').dataset.billboardPhase === 'idle');
+    assert.equal(await page.locator('.tx-simple').count(), 0, 'Swiping a button must not activate it');
+    await page.getByRole('tab', { name: 'ثبت تراکنش', exact: true }).click();
+    assert.equal(await deck.getAttribute('data-billboard-active'), 'transaction');
+    await page.evaluate(() => document.activeElement?.blur());
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: box.x + 80, y: box.y + 100 }] });
+    for (const dy of [-20, -50, -100]) await touch.send('Input.dispatchTouchEvent', {
+      type: 'touchMove', touchPoints: [{ x: box.x + 82, y: box.y + 100 + dy }] });
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await page.waitForTimeout(300);
+    assert.equal(await deck.getAttribute('data-billboard-active'), 'transaction');
+    assert.ok(await page.evaluate(() => scrollY > 0), 'Vertical touch should scroll the page');
+    await touch.detach(); await page.context().close();
+  });
+
   await check('editable copy includes unified accounts, deck accessibility and recurring errors', async () => {
     for (const text of ['جزئیات بیشتر', 'مبلغ را فقط با عدد وارد کنید', 'نمایش همهٔ حساب‌های من', 'داشبورد', 'بخش‌های خانه', 'اعلان‌ها',
       'بازگشت به صفحهٔ قبل', 'ویرایش برنامهٔ تکرار', 'تسویهٔ درجا', 'در حال تسویه…', 'در حال بررسی حساب…',
       'بررسی حذف حساب', 'نام حساب برای تأیید حذف', 'تغییر شماره کارت را تأیید کنید.', 'حساب پرداخت یا دریافت را انتخاب کنید.',
-      'شروع نمایش خودکار کارت‌ها', 'توقف نمایش خودکار کارت‌ها', 'موجودی کیف‌پول‌های من', 'مصرف بودجهٔ دسته‌ها',
+      'انتخاب کارت خانه', 'موجودی کیف‌پول‌های من', 'مصرف بودجهٔ دسته‌ها',
       'در حال دریافت اطلاعات خانه…', 'بخشی از اطلاعات خانه دریافت نشد.', 'بخشی در این دسته نیست.']) {
       assert.ok(catalog.entries.some(entry => entry.text === text), 'Missing editable copy: ' + text);
     }
@@ -172,7 +211,7 @@ try {
       await page.context().close();
     }
   });
-  await check('automatic billboard pauses for focus, explicit pause, modals and reduced motion; actions work', async () => {
+  await check('automatic billboard pauses for focus, modals and reduced motion; actions work', async () => {
     const page = await session('hub'), deck = page.locator('.home-billboard-deck');
     await page.clock.install(); await deck.focus(); await page.locator('.hub-avatar').focus(); await page.mouse.move(0, 800);
     await page.clock.fastForward(6000); await page.clock.runFor(350);
@@ -188,12 +227,11 @@ try {
       await page.keyboard.press('Escape'); await page.locator('.tx-simple').waitFor({ state: 'hidden' });
     }
     await page.clock.resume();
-    await page.getByRole('button', { name: 'توقف نمایش خودکار کارت‌ها', exact: true }).click();
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.locator('.hub-avatar').focus(); await page.mouse.move(0, 800); await page.clock.fastForward(12000);
     assert.equal(await deck.getAttribute('data-billboard-active'), 'transaction');
+    assert.equal(await page.getByRole('button', { name: /نمایش خودکار کارت‌ها/ }).count(), 0);
     await page.clock.resume();
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    assert.equal(await page.getByRole('button', { name: 'شروع نمایش خودکار کارت‌ها', exact: true }).getAttribute('aria-pressed'), 'true');
     const dues = await showBillboard(page, 'dues'); await dues.getByRole('button', { name: 'مشاهدهٔ موعدها', exact: true }).click();
     await page.waitForFunction(() => document.activeElement?.id === 'home-overview-title');
     const budget = await showBillboard(page, 'budget'); await budget.getByRole('button', { name: 'مشاهدهٔ بودجه‌ها', exact: true }).click(); await pageBack(page);
@@ -414,7 +452,7 @@ try {
     await nav.getByRole('button', { name: 'بخش‌های خانه', exact: true }).click();
     await page.locator('.home-sections-page').waitFor(); await pageBack(page);
     assert.equal(await page.locator('.home-group').count(), 4);
-    assert.equal(await page.locator('.home-catalog [data-pin-module]').count(), 19);
+    assert.equal(await page.locator('.home-catalog [data-pin-module]').count(), 20);
     assert.equal(await page.locator('[data-home-drag], .home-drag-handle, details.home-group').count(), 0);
     for (const tile of await page.locator('.home-module-tile').all()) assert.ok((await tile.boundingBox()).height < 140, 'Compact tile height');
     await screenshot(page, 'mobile-home-sections');
@@ -429,9 +467,13 @@ try {
       await pageBack(page); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'Overflow: ' + route.id);
     }
     await nav.getByRole('button', { name: 'اعلان‌ها' }).click();
-    const sheet = page.locator('.modal-sheet').filter({ has: page.getByRole('heading', { name: 'اعلان‌ها', exact: true }) });
-    await sheet.waitFor(); assert.equal(await page.locator('.mobile-page-back').isVisible(), false);
-    await page.keyboard.press('Escape'); await sheet.waitFor({ state: 'hidden' }); await pageBack(page);
+    await page.locator('.notifications-page').waitFor(); await pageBack(page);
+    assert.equal(await page.locator('.modal-sheet').count(), 0);
+    for (const row of await page.locator('.notif-txt').all()) {
+      assert.equal(await row.locator(':scope > b').count(), 1);
+      assert.equal(await row.locator(':scope > span').count(), 1);
+    }
+    await screenshot(page, 'notifications-page');
     await page.evaluate(() => window.dispatchEvent(new CustomEvent('copy-workbench:navigate', { detail: { route: 'dashboard' } })));
     const form = await openForm(page); await details(form);
     assert.equal(await page.locator('.mobile-page-back').isVisible(), false);

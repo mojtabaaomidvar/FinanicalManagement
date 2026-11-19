@@ -188,3 +188,32 @@ def test_cannot_choose_another_member_in_request_body(client, home_a, member_a):
     )
     assert res.status_code == 422, res.text
     assert client.get(HOME, headers=member_a.h).json() == {"revision": 0, "preferences": None}
+
+
+def test_sms_catalog_upgrade_and_older_client_remain_compatible(client, home_a):
+    upgraded = arrangement(["sms", "accounts"])
+    upgraded["groupModules"]["money"].append("sms")
+    upgraded["flatOrder"].append("sms")
+    assert save(client, home_a, upgraded).status_code == 200
+    assert client.get(HOME, headers=home_a.h).json()["preferences"] == upgraded
+    old = arrangement(["accounts"])
+    assert save(client, home_a, old, revision=1).status_code == 200
+    assert client.get(HOME, headers=home_a.h).json()["preferences"] == old
+
+
+@pytest.mark.parametrize("invalid", ["duplicate", "ungrouped", "group-only", "pin-only", "missing-core"])
+def test_invalid_sms_catalog_cannot_replace_preferences(client, home_a, invalid):
+    prefs = arrangement()
+    if invalid in {"duplicate", "ungrouped", "missing-core"}:
+        prefs["flatOrder"].append("sms")
+    if invalid in {"duplicate", "group-only", "missing-core"}:
+        prefs["groupModules"]["money"].append("sms")
+    if invalid == "duplicate":
+        prefs["flatOrder"].append("sms")
+    if invalid == "pin-only":
+        prefs["pins"] = ["sms"]
+    if invalid == "missing-core":
+        prefs["flatOrder"].remove("finance")
+        prefs["groupModules"]["money"].remove("finance")
+    assert save(client, home_a, prefs).status_code == 422
+    assert client.get(HOME, headers=home_a.h).json()["revision"] == 0

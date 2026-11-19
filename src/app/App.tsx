@@ -25,6 +25,8 @@ import {
   useTxFormModel,
 } from "@/features/transaction-form";
 import { PendingSmsFeature } from "@/features/pending-sms";
+import { usePendingSmsModel } from "@/features/pending-sms/model/usePendingSmsModel";
+import { SmsPage } from "@/pages/SmsPage/SmsPage";
 import {
   InstallPromptFeature,
   useInstallPrompt,
@@ -342,6 +344,8 @@ function MainShell({
      دارد (لمسِ سررسید فرمِ تراکنش را باز می‌کند) و به ناوبریِ زیرصفحهٔ
      تنظیمات. refreshKey را می‌گیرد تا پس از هر رفرشِ داده دوباره بخواند. */
   const notif = useNotificationsModel(refreshKey);
+  const pendingSms = usePendingSmsModel(useCases!, currentMemberId, show, cur, !restricted);
+  useEffect(() => { if (!restricted) void pendingSms.load(); }, [refreshKey, useCases, currentMemberId, restricted]);
 
   /* مقصدِ اعلانِ «درخواست عضویت» — باید *همان* زیرصفحه باز شود، نه فهرستِ
      تنظیمات. با key={route} در پایین، SettingsPage در هر ورود از نو ساخته
@@ -356,7 +360,7 @@ function MainShell({
 
   const nav = useCallback(
     (r: Route) => {
-      if (restricted && !["hub", "sections", "shopping", "inventory", "tasks"].includes(r)) {
+      if (restricted && !["hub", "sections", "notifications", "shopping", "inventory", "tasks"].includes(r)) {
         show("این بخش به اتصال اینترنت نیاز دارد؛ خرید، انبار و کارهای خانه آفلاین در دسترس‌اند.");
         return;
       }
@@ -382,7 +386,7 @@ function MainShell({
       setGoalId(undefined);
       setActivityId(undefined);
       setCalendarDate(undefined);
-      if (!["hub", "sections", "shopping", "inventory", "tasks"].includes(route)) setRoute("hub");
+      if (!["hub", "sections", "notifications", "shopping", "inventory", "tasks"].includes(route)) setRoute("hub");
       form.close();
     }
   }, [restricted, route, setRoute]);
@@ -512,9 +516,10 @@ function MainShell({
         ) : null}
       </div>
 
-      <NotificationCenterFeature
+      {route === "notifications" ? <NotificationCenterFeature
         m={notif}
-        hideTrigger
+        sms={{ count: pendingSms.list.length, loading: pendingSms.loading, error: pendingSms.loadError }}
+        onOpenSms={() => nav("sms")}
         form={form}
         joinRequests={notif.joinRequests}
         onOpenJoinRequests={() => navSettingsSection("joinRequests")}
@@ -542,12 +547,17 @@ function MainShell({
           if (restricted) return;
           nav("activities"); setActivityId(id);
         }}
-      />
+      /> : null}
+      {route === "sms" ? <SmsPage model={pendingSms} onImported={async () => {
+        await bumpRefresh(); await pendingSms.load({ review: true });
+      }} /> : null}
       <FloatingNavigation home={route === "hub"} sections={route === "sections"} onHome={() => nav("hub")}
-        onSections={() => nav("sections")} count={notif.count}
-        onNotifications={() => notif.setOpen(true)} hidden={form.open || notif.open} />
-      {!restricted ? <TransactionFormFeature form={form} onImported={bumpRefresh} /> : null}
-      {!restricted ? <PendingSmsFeature refreshKey={refreshKey} /> : null}
+        onSections={() => nav("sections")} notifications={route === "notifications"} count={notif.count + pendingSms.list.length}
+        onNotifications={() => nav("notifications")} hidden={form.open || pendingSms.open} />
+      {!restricted ? <TransactionFormFeature form={form} onImported={async () => {
+        await bumpRefresh(); form.close(); nav("sms"); await pendingSms.load({ review: true });
+      }} /> : null}
+      {!restricted ? <PendingSmsFeature model={pendingSms} /> : null}
 
     </>
   );

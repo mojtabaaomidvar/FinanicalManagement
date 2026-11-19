@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 HomeModuleId = Literal[
     "finance", "transactions", "accounts", "budgets", "bills", "market", "reports",
     "chores", "shopping", "inventory", "meals", "equipment", "vehicles", "docs",
-    "calendar", "activities", "children", "pets", "goals",
+    "calendar", "activities", "children", "pets", "goals", "sms",
 ]
 HomeGroupId = Literal["money", "daily", "belongings", "family"]
 _MODULE_IDS = {
@@ -18,7 +18,7 @@ _MODULE_IDS = {
     "calendar", "activities", "children", "pets", "goals",
 }
 _GROUP_IDS = {"money", "daily", "belongings", "family"}
-ModuleList = Annotated[list[HomeModuleId], Field(max_length=19)]
+ModuleList = Annotated[list[HomeModuleId], Field(max_length=20)]
 
 
 class HomeGroupModules(BaseModel):
@@ -40,7 +40,7 @@ class HomePreferences(BaseModel):
     openGroups: list[HomeGroupId] = Field(max_length=4)
     groupOrder: list[HomeGroupId] = Field(min_length=4, max_length=4)
     groupModules: HomeGroupModules
-    flatOrder: list[HomeModuleId] = Field(min_length=19, max_length=19)
+    flatOrder: list[HomeModuleId] = Field(min_length=19, max_length=20)
 
     @model_validator(mode="after")
     def complete_catalog(self) -> Self:
@@ -50,15 +50,19 @@ class HomePreferences(BaseModel):
             raise ValueError("Open groups must be unique")
         if set(self.groupOrder) != _GROUP_IDS:
             raise ValueError("Group order must contain every group exactly once")
-        if set(self.flatOrder) != _MODULE_IDS:
+        catalog = set(self.flatOrder)
+        if (not _MODULE_IDS.issubset(catalog) or not catalog.issubset(_MODULE_IDS | {"sms"})
+                or len(self.flatOrder) != len(catalog)):
             raise ValueError("Flat order must contain every module exactly once")
         grouped = [
             module_id
             for group in self.groupModules.model_dump().values()
             for module_id in group
         ]
-        if len(grouped) != len(_MODULE_IDS) or set(grouped) != _MODULE_IDS:
+        if len(grouped) != len(catalog) or set(grouped) != catalog:
             raise ValueError("Grouped catalog must contain every module exactly once")
+        if not set(self.pins).issubset(catalog):
+            raise ValueError("Pinned modules must belong to the catalog")
         return self
 
 

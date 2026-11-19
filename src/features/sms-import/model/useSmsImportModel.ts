@@ -1,17 +1,20 @@
 /* مدل ورود پیامک — پارس زنده و ثبت دسته‌ای */
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { UseCases } from "@/application/useCases";
 import { parseSms, splitSmsBlocks } from "@/shared/lib/sms-parser";
 import { toFa } from "@/shared/lib/digits";
 import { smsAmountInToman } from "@/domain/sms/sms.rules";
 
-export function useSmsImportModel(useCases: UseCases, notify: (m: string) => void) {
-  const [raw, setRaw] = useState("");
+import { readImportDraft, rememberImportDraft, type SmsDraftScope } from "@/features/pending-sms/model/smsDraftStorage";
+
+export function useSmsImportModel(useCases: UseCases, notify: (m: string) => void, scope: SmsDraftScope) {
+  const [raw, setRaw] = useState(() => readImportDraft(scope));
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const saving = useRef(false);
 
+  useEffect(() => { setRaw(readImportDraft(scope)); setOpen(false); }, [scope.familyId, scope.memberId]);
   const previews = useMemo(
     () =>
       splitSmsBlocks(raw).map((b) => {
@@ -33,6 +36,7 @@ export function useSmsImportModel(useCases: UseCases, notify: (m: string) => voi
       const added = await useCases.addSmsBatch.execute(items);
       setOpen(false);
       setRaw("");
+      rememberImportDraft(scope, "");
       notify(/* @copy-text sms.import.added */ `${toFa(added)} پیامک برای بررسی اضافه شد`);
       if (items.length < previews.length) notify("پیامک‌های تشخیص‌داده‌نشده اضافه نشدند");
       if (added > 0) {
@@ -51,7 +55,11 @@ export function useSmsImportModel(useCases: UseCases, notify: (m: string) => voi
     open,
     setOpen: (value: boolean) => { if (!saving.current) setOpen(value); },
     raw,
-    setRaw: (value: string) => { if (!saving.current) setRaw(value); },
+    setRaw: (value: string) => {
+      if (saving.current) return;
+      setRaw(value);
+      if (!rememberImportDraft(scope, value)) notify("پیش‌نویس پیامک در این مرورگر ذخیره نشد؛ پیامک را به فهرست اضافه کنید.");
+    },
     previews,
     busy,
     save,

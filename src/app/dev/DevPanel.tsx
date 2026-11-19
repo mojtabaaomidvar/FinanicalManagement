@@ -24,6 +24,8 @@ export type DevOverride =
 const ROUTE_LABELS: { route: Route; label: string }[] = [
   { route: "hub", label: "هاب (خانه)" },
   { route: "sections", label: "بخش‌های خانه" },
+  { route: "notifications", label: "اعلان‌ها" },
+  { route: "sms", label: "پیامک‌های بانکی" },
   { route: "dashboard", label: "داشبورد مالی" },
   { route: "transactions", label: "تراکنش‌ها" },
   { route: "reports", label: "نمای کلی" },
