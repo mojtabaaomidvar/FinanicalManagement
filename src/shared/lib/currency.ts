@@ -25,5 +25,5 @@ export function toDisplay(amountInToman: number, currency: string | null | undef
 /** تبدیل مقدار ورودی کاربر در واحد فعلی → تومان (برای ذخیره) */
 export function fromDisplay(amount: number, currency: string | null | undefined): number {
   const f = currencyFactor(currency);
-  return f === 1 ? amount : Math.round(amount / f);
+  return amount / f;
 }

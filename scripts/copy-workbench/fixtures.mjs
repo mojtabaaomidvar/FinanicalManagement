@@ -334,6 +334,10 @@ export function handlePreviewRequest(session, request) {
     }
   }
   if (path === '/auth/config') return response({ otp_enabled: mode === 'otp', password_reset_enabled: true });
+  if (path === '/transactions/transfer-fee' && method === 'GET') {
+    const fee = previewTransferFee(query.get('method'), Number(query.get('amount_rial')), Number(query.get('payment_count') ?? 1));
+    return fee == null ? error('INVALID_TRANSFER_FEE', 'نوع انتقال را انتخاب کنید.', 422) : response({ fee_rial: fee });
+  }
   if (path === '/auth/pre-registered') return response({ pre_registered: mode === 'pre-registered', family_name: mode === 'pre-registered' ? data.family.name : null });
   if (path === '/auth/check-password') return response({ ok: mode !== 'invalid-login' });
   if (path === '/auth/otp/request') return response({ code: '123456' });
@@ -577,11 +581,12 @@ export function handlePreviewRequest(session, request) {
         note: source ? source.note : plan ? plan.note : row.note, date: source?.date ?? data.today, time: source?.time ?? null,
         account_id: source ? source.account_id : body.account_id, to_account_id: source ? source.to_account_id : body.to_account_id,
         subcategory_id: source ? source.subcategory_id : plan && plan.category !== row.category ? null : row.subcategory_id,
+        transfer_fee_method: source ? source.transfer_fee_method : row.transfer_fee_method,
         require_available_balance: true };
       const invalid = checkPreviewPayment(session, values);
       if (invalid) return invalid;
       const payment = normalizeCreate(session, 'transactions', { ...values, recurring_source_id: row.id, recurring_due_date: body.due_date });
-      data.transactions.push(payment); row.handled_occurrences.push(body.due_date);
+      data.transactions.push(payment); syncPreviewTransferFee(session, payment); row.handled_occurrences.push(body.due_date);
       return response(payment);
     }
     return error('METHOD_NOT_ALLOWED', 'این عملیات پشتیبانی نمی‌شود.', 405);
@@ -648,7 +653,9 @@ export function handlePreviewRequest(session, request) {
         createBody = { ...body, name, ...(collection === 'subcategories' ? { category: parent } : {}) };
       }
       if (['children', 'pets'].includes(collection) && !managersOnly(session)) return error('FORBIDDEN', 'فقط مدیر خانواده مجاز است.', 403);
-      const item = normalizeCreate(session, collection, createBody); data[collection].push(item); return response(item, 201);
+      const item = normalizeCreate(session, collection, createBody); data[collection].push(item);
+      if (collection === 'transactions') syncPreviewTransferFee(session, item);
+      return response(item, 201);
     }
   }
   if (collection && segments.length === 2) return mutateRow(session, collection, segments[1], method, body);
@@ -665,6 +672,7 @@ function mutateRow(session, key, itemId, method, body) {
   if (!item) return error('NOT_FOUND', 'مورد نمونه یافت نشد.', 404);
   if (method === 'GET' || method === 'HEAD') return response(item);
   if (key === 'accounts' && item.member_id !== session.data.actor.id) return error('NOT_FOUND', 'حساب یافت نشد.', 404);
+  if (key === 'transactions' && item.source_kind === 'transfer_fee' && !['GET', 'HEAD'].includes(method)) return error('SOURCE_IMMUTABLE', 'کارمزد همراه انتقال مدیریت می‌شود؛ انتقال اصلی را ویرایش یا حذف کنید.', 422);
   if (body.base_revision !== undefined && item.revision !== body.base_revision) return error('SYNC_CONFLICT', 'این مورد تغییر کرده است؛ نسخهٔ ذخیره‌شده را بررسی کنید.', 409);
   if (['children', 'pets'].includes(key) && !managersOnly(session)) return error('FORBIDDEN', 'فقط مدیر خانواده مجاز است.', 403);
   if (key === 'bills' && item.state === 'paid' && ['DELETE', 'PATCH'].includes(method)) return error('BILL_ALREADY_PAID', 'قبض پرداخت‌شده قابل تغییر نیست؛ ابتدا پرداخت را برگردانید.', 409);
@@ -687,6 +695,7 @@ function mutateRow(session, key, itemId, method, body) {
       if (transaction.subcategory_id === itemId) transaction.subcategory_id = null;
     }
     session.data[key] = list.filter(row => row.id !== itemId);
+    if (key === 'transactions') session.data.transactions = session.data.transactions.filter(row => row.transfer_fee_for_id !== itemId);
     if (key === 'transactions') for (const bill of session.data.bills) {
       if (bill.transaction_id === itemId) bill.transaction_id = null;
     }
@@ -699,6 +708,7 @@ function mutateRow(session, key, itemId, method, body) {
       delete values.confirm_card_change; delete values.member_id; delete values.kind;
     }
     if (key === 'transactions') {
+      if (values.transfer_fee_method === undefined) values.transfer_fee_method = values.type === 'transfer' ? item.transfer_fee_method : null;
       const invalid = checkPreviewPayment(session, values, item);
       if (invalid) return invalid;
     }
@@ -709,7 +719,9 @@ function mutateRow(session, key, itemId, method, body) {
     }
     // AccountUpdate uses null to preserve the stored opening balance.
     if (key === 'accounts' && values.initial_balance == null) delete values.initial_balance;
-    Object.assign(item, values, { revision: (item.revision || 0) + 1 }); return response(item);
+    Object.assign(item, values, { revision: (item.revision || 0) + 1 });
+    if (key === 'transactions') syncPreviewTransferFee(session, item);
+    return response(item);
   }
   return error('METHOD_NOT_ALLOWED', 'این عملیات در پیش‌نمایش پشتیبانی نمی‌شود.', 405);
 }
@@ -753,13 +765,46 @@ function checkPreviewPayment(session, values, replacing) {
   if (!values.account_id && values.require_available_balance && data.accounts.some(item => item.member_id === data.actor.id)) return error('ACCOUNT_REQUIRED', 'حساب پرداخت یا دریافت را انتخاب کنید.', 422);
   if (values.account_id && (!account || account.member_id !== (replacing && managersOnly(session) ? replacing.member_id : data.actor.id))) return error('ACCOUNT_FORBIDDEN', 'فقط حساب‌های خودتان قابل انتخاب‌اند.', 403);
   if (values.type === 'transfer' && (!account || values.to_account_id === account.id || !data.accounts.some(item => item.id === values.to_account_id))) return error('INVALID_TRANSFER', 'انتقال به حساب مبدأ و مقصد متفاوت نیاز دارد.', 422);
-  if (account && values.require_available_balance && values.type !== 'income') {
-    const balance = data.transactions.filter(item => item.id !== replacing?.id).reduce((sum, item) => sum
+  const method = values.transfer_fee_method;
+  const fee = method == null ? 0 : previewTransferFee(method, Math.round(Number(values.amount) * 10));
+  if (method != null && (values.type !== 'transfer' || account?.kind !== 'bank'
+    || data.accounts.find(item => item.id === values.to_account_id)?.kind !== 'bank'
+    || method === 'paya_group' || fee == null || Math.abs(Number(values.amount) * 10 - Math.round(Number(values.amount) * 10)) > 0.00001)) return error('INVALID_TRANSFER_FEE', 'نوع انتقال را انتخاب کنید.', 422);
+  if (account && (values.require_available_balance || method != null) && values.type !== 'income') {
+    const balance = data.transactions.filter(item => item.id !== replacing?.id && (!replacing || item.transfer_fee_for_id !== replacing.id)).reduce((sum, item) => sum
       + (item.account_id === account.id ? Number(item.amount) * (item.type === 'income' ? 1 : -1) : 0)
       + (item.type === 'transfer' && item.to_account_id === account.id ? Number(item.amount) : 0), Number(account.initial_balance));
-    if (balance < Number(values.amount)) return error('INSUFFICIENT_BALANCE', 'موجودی حساب برای این پرداخت کافی نیست.', 409);
+    if (balance < Number(values.amount) + fee / 10) return error('INSUFFICIENT_BALANCE', 'موجودی حساب برای این پرداخت کافی نیست.', 409);
   }
   return null;
+}
+
+// Fictional, offline preview only; production uses the authoritative Python calculator.
+function previewTransferFee(method, rial, count = 1) {
+  if (!Number.isSafeInteger(rial) || rial <= 0) return null;
+  if (method === 'internal') return 0;
+  if (method === 'card_to_card') return 11000 + 3500 * Math.ceil(Math.max(0, rial - 10000000) / 10000000);
+  if (method === 'paya') return Math.min(120000, Math.max(4000, Math.floor((rial + 5000) / 10000)));
+  if (method === 'satna') return Math.min(500000, Math.floor((rial + 2500) / 5000));
+  if (method === 'pol') return Math.max(8000, Math.floor((rial + 2500) / 5000));
+  if (method === 'paya_group' && Number.isSafeInteger(count) && count > 0) return 24000 + 2400 * count;
+  return null;
+}
+function syncPreviewTransferFee(session, parent) {
+  const { data } = session;
+  parent.transfer_fee_rial = parent.transfer_fee_method == null ? null : previewTransferFee(parent.transfer_fee_method, Math.round(Number(parent.amount) * 10));
+  const fee = data.transactions.find(row => row.transfer_fee_for_id === parent.id);
+  if (!parent.transfer_fee_rial) {
+    if (fee) data.transactions = data.transactions.filter(row => row.id !== fee.id);
+    return;
+  }
+  let tag = data.subcategories.find(row => row.category === 'finance' && row.name === 'کارمزد انتقال');
+  if (!tag) { tag = newRow(session, { category: 'finance', name: 'کارمزد انتقال' }); data.subcategories.push(tag); }
+  const values = { member_id: parent.member_id, account_id: parent.account_id, to_account_id: null, type: 'expense',
+    category: 'finance', subcategory_id: tag.id, amount: parent.transfer_fee_rial / 10, date: parent.date, time: parent.time,
+    note: null, repeat: 'none', source_kind: 'transfer_fee', transfer_fee_for_id: parent.id };
+  if (fee) Object.assign(fee, values);
+  else data.transactions.push(normalizeCreate(session, 'transactions', values));
 }
 
 function prepareBill(body) {

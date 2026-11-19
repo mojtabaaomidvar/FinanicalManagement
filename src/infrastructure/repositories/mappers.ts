@@ -40,6 +40,9 @@ export interface FamilyRow {
 }
 
 export interface TransactionRow {
+  transfer_fee_method?: Transaction["transferFeeMethod"];
+  transfer_fee_rial?: number | null;
+  transfer_fee_for_id?: string | null;
   recurring_plan?: { amount: number | string; category: string; note: string | null; start_date: string | null; revision: number } | null;
   recurring_source_id?: string | null;
   recurring_due_date?: string | null;
@@ -166,7 +169,10 @@ export function mapTransaction(r: TransactionRow): Transaction {
     recurringSourceId: r.recurring_source_id ?? null,
     recurringDueDate: r.recurring_due_date ?? null,
     id: r.id,
-    sourceKind: r.source_kind === "vehicle_service" ? "vehicle_service" : null,
+    sourceKind: r.source_kind === "vehicle_service" || r.source_kind === "transfer_fee" ? r.source_kind : null,
+    transferFeeMethod: r.transfer_fee_method ?? null,
+    transferFeeRial: r.transfer_fee_rial ?? null,
+    transferFeeForId: r.transfer_fee_for_id ?? null,
     familyId: r.family_id,
     memberId: r.member_id,
     type: r.type,

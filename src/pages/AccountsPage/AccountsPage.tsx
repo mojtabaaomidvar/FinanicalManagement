@@ -20,8 +20,7 @@ import {
   parse,
   today,
 } from "@/shared/lib/jalali";
-import { formatSignedAmount } from "@/shared/lib/format";
-import { toDisplay } from "@/shared/lib/currency";
+import { formatAccountAmount } from "@/shared/lib/format";
 
 /* بازه‌های آماده نمودار دارایی — کنار دکمه سه‌نقطه (بازه دلخواه) */
 const RANGE_OPTIONS: { value: WealthRange; label: string }[] = [
@@ -102,7 +101,7 @@ export function AccountsPage() {
             >
               <FitText>
                 {m.holdings.loading || m.holdings.loadError ? /* @copy-text accounts.wealth_unavailable */ "—" : <>
-                {formatSignedAmount(toDisplay(m.totalWealth, m.cur))}
+                {formatAccountAmount(m.totalWealth, m.cur)}
                 <span>{m.cur}</span>
                 </>}
               </FitText>

@@ -2,14 +2,14 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type Chan
 import { useApp } from "@/app/providers/AppProvider";
 import type { TxFormModel } from "../model/useTxFormModel";
 import { transactionAccountChoices } from "../model/transactionAccounts";
+import { useTransferFeeQuote } from "../model/useTransferFeeQuote";
 import { SmsImportFeature } from "@/features/sms-import";
-import { Modal, Select, TextInput, JalaliDateInput, expressionInputCaret, normalizeExpressionInput,
-  formatExpressionValue } from "@/shared/ui";
+import { Modal, Select, TextInput, JalaliDateInput, expressionInputCaret, normalizeExpressionInput } from "@/shared/ui";
 import { categoriesFor, CUSTOM_CATEGORY_ICON } from "@/domain/category/category.catalog";
-import { TX_REPEATS, type TxRepeat } from "@/domain/transaction/transaction.types";
+import { TX_REPEATS, type TxRepeat, type TransferFeeMethod } from "@/domain/transaction/transaction.types";
 import { parseScheduledAmount } from "@/domain/transaction/recurring.rules";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
-import { toDisplay } from "@/shared/lib/currency";
+import { formatAccountAmount } from "@/shared/lib/format";
 import "./TransactionForm.css";
 
 const QUICK_LABELS: Record<"expense" | "income", { value: string; label: string }[]> = {
@@ -42,7 +42,7 @@ const TYPE_TABS: { value: "expense" | "income" | "transfer"; label: string }[] =
 export function TransactionFormFeature({ form: m, onImported }: {
   form: TxFormModel; onImported: () => void | Promise<void>;
 }) {
-  const { accounts, txs, subcategories, customCategories, member, refreshData } = useApp();
+  const { accounts, txs, subcategories, customCategories, member, refreshData, useCases } = useApp();
   const [showAll, setShowAll] = useState(false);
   const [showAddCat, setShowAddCat] = useState(false);
   const [newCatName, setNewCatName] = useState("");
@@ -56,8 +56,13 @@ export function TransactionFormFeature({ form: m, onImported }: {
   const locked = m.busy || m.occurrencePending;
   const amount = parseScheduledAmount(m.form.amount, m.entryCurrency);
   const ownerId = m.editing && !m.recurringOccurrence ? m.editing.memberId : member?.id ?? "";
+  const sourceAccount = accounts.find(account => account.id === m.form.accountId);
+  const destinationAccount = accounts.find(account => account.id === m.form.toAccountId);
+  const bankTransfer = isTransfer && sourceAccount?.kind === "bank" && destinationAccount?.kind === "bank";
+  const quote = useTransferFeeQuote(useCases, `${ownerId}:${m.open}`,
+    m.open && isTransfer && destinationAccount?.kind === "bank" && sourceAccount?.kind !== "wallet" && m.form.feeChoice === "yes" ? m.form.feeMethod : "", amount);
   const choices = transactionAccountChoices(accounts, txs, ownerId, amount, m.form.type !== "income", showAll || m.form.type === "income",
-    m.editing?.id);
+    m.editing?.id).filter(({ account, balance }) => m.form.type === "income" || account.kind !== "bank" || amount === null || balance >= amount + quote.rial / 10);
   const destinations = transactionAccountChoices(accounts, txs, null, null, false, showAll)
     .filter(row => row.account.id !== m.form.accountId);
   const cats = useMemo(() => isTransfer ? [] : [
@@ -73,7 +78,7 @@ export function TransactionFormFeature({ form: m, onImported }: {
   }, [subcategories, m.form.categoryId, m.form.type]);
   function accountOptions(rows: typeof choices) {
     return rows.map(({ account, balance }) => ({ value: account.id,
-      label: /* @copy-text transaction.account_choice */ `${account.title} · ${formatExpressionValue(toDisplay(balance, m.entryCurrency))} ${currencyDisplayLabel(m.entryCurrency)}`,
+      label: /* @copy-text transaction.account_choice */ `${account.title} · ${formatAccountAmount(balance, m.entryCurrency)} ${currencyDisplayLabel(m.entryCurrency)}`,
     }));
   }
   useLayoutEffect(() => {
@@ -91,6 +96,10 @@ export function TransactionFormFeature({ form: m, onImported }: {
     if (m.open && !locked && m.form.accountId && !accountAvailable) m.setForm(previous => ({ ...previous, accountId: "" }));
   }, [m.open, locked, m.form.accountId, accountAvailable]);
   const destinationAvailable = destinations.some(row => row.account.id === m.form.toAccountId);
+  useEffect(() => {
+    if (m.open && !locked && isTransfer && (sourceAccount?.kind === "wallet" || destinationAccount?.kind === "wallet")
+      && (m.form.feeChoice || m.form.feeMethod)) m.setForm(previous => ({ ...previous, feeChoice: "", feeMethod: "" }));
+  }, [m.open, locked, isTransfer, sourceAccount?.kind, destinationAccount?.kind, m.form.feeChoice, m.form.feeMethod]);
   useEffect(() => {
     if (m.open && !locked && isTransfer && m.form.toAccountId && !destinationAvailable)
       m.setForm(previous => ({ ...previous, toAccountId: "" }));
@@ -160,6 +169,24 @@ export function TransactionFormFeature({ form: m, onImported }: {
             {showAll ? "فهرست کوتاه حساب‌ها" : "نمایش همهٔ حساب‌های من"}
           </button> : null}
         </div>
+        {bankTransfer ? <div className="tx-transfer-fee">
+          <p>این انتقال کارمزد هم داشت؟</p>
+          <div className="quick-chips" role="group" aria-label="کارمزد انتقال">
+            <button type="button" className={`chip ${m.form.feeChoice === "yes" ? "active" : ""}`} aria-pressed={m.form.feeChoice === "yes"}
+              onClick={() => m.setForm(previous => ({ ...previous, feeChoice: "yes" }))}>بله</button>
+            <button type="button" className={`chip ${m.form.feeChoice === "no" ? "active" : ""}`} aria-pressed={m.form.feeChoice === "no"}
+              onClick={() => m.setForm(previous => ({ ...previous, feeChoice: "no", feeMethod: "" }))}>خیر</button>
+          </div>
+          {m.form.feeChoice === "yes" ? <label>نوع انتقال
+            <Select aria-label="نوع انتقال بانکی" value={m.form.feeMethod}
+              onChange={value => m.setForm(previous => ({ ...previous, feeMethod: value as TransferFeeMethod | "" }))}
+              options={[{ value: "", label: "نوع انتقال را انتخاب کنید…" },
+                { value: "internal", label: "داخلی (حساب به حساب)" }, { value: "card_to_card", label: "کارت‌به‌کارت" },
+                { value: "paya", label: "پایا" }, { value: "satna", label: "ساتنا" }, { value: "pol", label: "پل" }]} />
+          </label> : null}
+          {quote.loading ? <p className="tx-simple-hint" role="status">در حال بررسی حساب…</p> : null}
+          {quote.error ? <p className="field-error" role="alert">{quote.error}</p> : null}
+        </div> : null}
         {!isTransfer ? <div className="tx-simple-category">
           <label>دسته‌بندی<Select aria-label="دسته‌بندی تراکنش" value={m.form.categoryId} disabled={m.serviceExpense}
             onChange={categoryId => m.setForm(previous => ({ ...previous, categoryId, label: "" }))}

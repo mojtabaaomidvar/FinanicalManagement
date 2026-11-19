@@ -7,7 +7,7 @@ import { useState } from "react";
 import { Card, Icon, Modal, TextInput } from "@/shared/ui";
 import { maskCardNumber } from "@/domain/account/account.rules";
 import type { Account } from "@/domain/account/account.types";
-import { formatAmount, formatSignedAmount } from "@/shared/lib/format";
+import { formatAmount, formatAccountAmount } from "@/shared/lib/format";
 import { toFa } from "@/shared/lib/digits";
 import { toDisplay } from "@/shared/lib/currency";
 import { AddHoldingModal, HoldingsStatus } from "@/features/holdings";
@@ -344,7 +344,7 @@ export function AccountsFeature({ m }: { m: AccountsModel }) {
                     </p>
                   </div>
                   <div className={`account-balance${balance < 0 ? " is-negative" : ""}`}>
-                    <b dir="ltr">{formatSignedAmount(toDisplay(balance, m.cur))}</b>
+                    <b dir="ltr">{formatAccountAmount(balance, m.cur)}</b>
                     <span>{m.cur}</span>
                   </div>
                 </div>
@@ -401,7 +401,7 @@ export function AccountsFeature({ m }: { m: AccountsModel }) {
                     </div>
                   </div>
                   <div className={`wallet-balance${balance < 0 ? " is-negative" : ""}`}>
-                    <b dir="ltr">{formatSignedAmount(toDisplay(balance, m.cur))}</b>
+                    <b dir="ltr">{formatAccountAmount(balance, m.cur)}</b>
                     <span>{m.cur}</span>
                   </div>
                   {balance < 0 ? <NegativeBalanceNotice /> : null}

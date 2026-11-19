@@ -514,8 +514,6 @@ function MainShell({
             onNotificationPrefsChanged={() => void Promise.all([notif.reload(), refreshTasks()])}
           />
         ) : null}
-      </div>
-
       {route === "notifications" ? <NotificationCenterFeature
         m={notif}
         sms={{ count: pendingSms.list.length, loading: pendingSms.loading, error: pendingSms.loadError }}
@@ -551,6 +549,7 @@ function MainShell({
       {route === "sms" ? <SmsPage model={pendingSms} onImported={async () => {
         await bumpRefresh(); await pendingSms.load({ review: true });
       }} /> : null}
+      </div>
       <FloatingNavigation home={route === "hub"} sections={route === "sections"} onHome={() => nav("hub")}
         onSections={() => nav("sections")} notifications={route === "notifications"} count={notif.count + pendingSms.list.length}
         onNotifications={() => nav("notifications")} hidden={form.open || pendingSms.open} />

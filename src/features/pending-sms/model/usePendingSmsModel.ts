@@ -9,6 +9,7 @@ import { fromDisplay, toDisplay } from "@/shared/lib/currency";
 import { toEn } from "@/shared/lib/digits";
 import { parse, formatISO, jalaliToIso, isoToJalali } from "@/shared/lib/jalali";
 import { categoriesFor } from "@/domain/category/category.catalog";
+import { formatExpressionValue } from "@/shared/ui";
 import { expenseBalanceWarning } from "@/features/transaction-form/model/expenseBalance";
 import { clearSmsReceipt, readSmsReceipt, rememberSmsReceipt } from "./pendingSmsReceipt";
 import { readPendingDraft, rememberPendingDraft, clearPendingDraft, type PendingSmsDraft } from "./smsDraftStorage";
@@ -67,8 +68,8 @@ export function usePendingSmsModel(
     const baseAmount = original?.amount ?? d.amount;
     const draftNumeric = draft ? Number(toEn(draft.amount).replace(/[٬،,\s]/g, "")) : null;
     setAmount(draft ? draftNumeric && Number.isFinite(draftNumeric)
-      ? formatAmount(toDisplay(fromDisplay(draftNumeric, draft.currency), currency)) : draft.amount
-      : baseAmount ? formatAmount(toDisplay(baseAmount, currency)) : "");
+      ? formatExpressionValue(toDisplay(fromDisplay(draftNumeric, draft.currency), currency)) : draft.amount
+      : baseAmount ? formatExpressionValue(toDisplay(baseAmount, currency)) : "");
     setAmountNeedsReview(d.amountNeedsReview);
     setDate(original ? formatISO(isoToJalali(original.date)) : draft?.date ?? formatISO(d.jalaliDate));
     setMemberId(currentMemberId);

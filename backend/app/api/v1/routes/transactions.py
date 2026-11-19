@@ -29,6 +29,7 @@ from app.schemas.data import (
 )
 from app.services import transactions as tx_service
 from app.services.common import to_uuid
+from app.services.transfer_fees import calculate_transfer_fee_rial
 
 router = APIRouter(tags=["transactions"])
 
@@ -46,6 +47,11 @@ def transaction_member(
 
 TenantMember = Annotated[Member, Depends(transaction_member)]
 DbSession = Annotated[Session, Depends(get_db)]
+
+
+@router.get("/transactions/transfer-fee")
+def quote_transfer_fee(member: TenantMember, method: str, amount_rial: int, payment_count: int = 1) -> dict:
+    return {"fee_rial": calculate_transfer_fee_rial(method, amount_rial, payment_count)}
 
 
 @router.get("/transactions", response_model=list[TransactionOut])

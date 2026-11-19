@@ -66,7 +66,7 @@ PY
 trap rollback EXIT
 
 echo 'Building the new API while the current application remains available...'
-docker build --network=host --build-arg PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple \
+docker build --network=host --build-arg PIP_INDEX_URL=https://pypi.org/simple \
     -t "$image" "$source_root/backend"
 mkdir -p -- "$backup_dir"
 cp -p -- .env "$backup_dir/env-before"

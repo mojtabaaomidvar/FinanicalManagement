@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { TxType } from "@/domain/transaction/transaction.types";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
-import { formatSignedAmount } from "@/shared/lib/format";
-import { toDisplay } from "@/shared/lib/currency";
+import { formatAccountAmount } from "@/shared/lib/format";
 import { toFa } from "@/shared/lib/digits";
 import { Icon } from "@/shared/ui";
 import { HomeBillboardArt, type BillboardSection } from "./HomeBillboardArt";
@@ -109,7 +108,7 @@ export function HomeBillboard({ wallets, budget, dues, currency, loading, incomp
     setMotion({ index, offset: 0, direction: 1, phase: "idle" });
   }
   function amount(value: number) {
-    return <span className="home-billboard-amount"><bdi>{formatSignedAmount(toDisplay(value, currency))}</bdi>
+    return <span className="home-billboard-amount"><bdi>{formatAccountAmount(value, currency)}</bdi>
       <small>{currencyDisplayLabel(currency)}</small></span>;
   }
   return <section className="home-billboard" aria-label="دسترسی‌های مهم خانه" aria-roledescription="نمایش کارت‌های خانه"

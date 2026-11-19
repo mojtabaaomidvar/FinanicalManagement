@@ -16,6 +16,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    BigInteger,
     Numeric,
     Text,
     UniqueConstraint,
@@ -33,11 +34,12 @@ class Transaction(Base):
     __table_args__ = (
         UniqueConstraint("id", "family_id", name="uq_transactions_id_family"),
         CheckConstraint(
-            "source_kind IS NULL OR source_kind = 'vehicle_service'", name="transaction_source_kind"
+            "source_kind IS NULL OR source_kind IN ('vehicle_service','transfer_fee')", name="transaction_source_kind"
         ),
         CheckConstraint(
-            "source_kind IS NULL OR (type='expense' AND category='transport' "
-            "AND repeat='none' AND repeat_end IS NULL)",
+            "source_kind IS NULL OR (source_kind='vehicle_service' AND type='expense' AND category='transport' "
+            "AND repeat='none' AND repeat_end IS NULL) OR (source_kind='transfer_fee' AND type='expense' "
+            "AND category='finance' AND repeat='none' AND repeat_end IS NULL AND transfer_fee_for_id IS NOT NULL)",
             name="transaction_source_shape",
         ),
         # D-7 FIX: افزودن 'transfer' به قید نوع
@@ -57,6 +59,9 @@ class Transaction(Base):
     )
     type: Mapped[str] = mapped_column(Text, nullable=False)
     source_kind: Mapped[str | None] = mapped_column(Text)
+    transfer_fee_method: Mapped[str | None] = mapped_column(Text)
+    transfer_fee_rial: Mapped[int | None] = mapped_column(BigInteger)
+    transfer_fee_for_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
     category: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'other-e'"))
     date: Mapped[date] = mapped_column(Date, nullable=False, index=True)  # میلادی؛ جلالی در کلاینت

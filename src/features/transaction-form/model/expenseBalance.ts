@@ -17,7 +17,7 @@ export function expenseBalanceWarning(
   editingId?: string,
 ): ExpenseBalanceWarning | null {
   const [{ balance: available }] = accountBalances(
-    transactions.filter(transaction => transaction.id !== editingId),
+    transactions.filter(transaction => !editingId || (transaction.id !== editingId && transaction.transferFeeForId !== editingId)),
     [account],
   );
   const remaining = available - amount;

@@ -42,9 +42,9 @@ class Account(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     kind: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'bank'"))
-    # موجودی اولیه؛ تراکنش‌ها روی این مبنا جمع می‌شوند (بدون اعشار)
+    # واحد ذخیره تومان؛ یک رقم اعشار، یک ریال را بدون گرد کردن نگه می‌دارد.
     initial_balance: Mapped[Decimal] = mapped_column(
-        Numeric(18, 0), nullable=False, server_default=text("0")
+        Numeric(19, 1), nullable=False, server_default=text("0")
     )
     # رضایت صریح کاربر برای تشخیص تراکنش از پیامک — فقط همین حساب.
     # پیش‌فرض false؛ هیچ حسابی بدون انتخاب کاربر مشمول نمی‌شود.

@@ -5,6 +5,7 @@ import type { Subcategory } from "@/domain/category/subcategory.types";
 import type {
   Transaction,
   TxRepeat,
+  TransferFeeMethod,
 } from "@/domain/transaction/transaction.types";
 import type { UseCases } from "@/application/useCases";
 import type { Member } from "@/domain/family/family.types";
@@ -36,6 +37,8 @@ export interface TxFormState {
   accountId: string;
   /** حساب مقصد انتقال — الزامی برای type=transfer */
   toAccountId: string;
+  feeChoice: "" | "yes" | "no";
+  feeMethod: "" | TransferFeeMethod;
   /** لیبل آزاد (زیردسته) — اختیاری؛ در صورت پر بودن ساخته/یافته می‌شود */
   label: string;
   /** دوره تکرار */
@@ -140,6 +143,8 @@ export function useTxFormModel(
       note: "",
       accountId: "",
       toAccountId: "",
+      feeChoice: "",
+      feeMethod: "",
       label: "",
       repeat: "none",
       repeatEnd: "",
@@ -163,6 +168,7 @@ export function useTxFormModel(
 
   function openEdit(tx: Transaction) {
     if (saving.current) return;
+    if (tx.sourceKind === "transfer_fee") return notify("برای تغییر کارمزد، انتقال اصلی را ویرایش کنید.");
     generation.current += 1;
     savedTransaction.current = tx;
     setEditing(tx);
@@ -178,6 +184,8 @@ export function useTxFormModel(
       note: tx.note ?? "",
       accountId: tx.accountId ?? "",
       toAccountId: tx.toAccountId ?? "",
+      feeChoice: tx.transferFeeMethod ? "yes" : "no",
+      feeMethod: tx.transferFeeMethod ?? "",
       label: subcategories.find((s) => s.id === tx.subcategoryId)?.name ?? "",
       repeat: tx.repeat,
       repeatEnd: tx.repeatEnd ? formatISO(isoToJalali(tx.repeatEnd)) : "",
@@ -238,6 +246,8 @@ export function useTxFormModel(
       note: source.note ?? "",
       accountId: source.accountId ?? "",
       toAccountId: source.toAccountId ?? "",
+      feeChoice: source.transferFeeMethod ? "yes" : "",
+      feeMethod: source.transferFeeMethod ?? "",
       label: subcategories.find((s) => s.id === source.subcategoryId)?.name ?? "",
       repeat: "none",
       repeatEnd: "",
@@ -354,6 +364,8 @@ export function useTxFormModel(
     let receiptsSaved = false;
     let occurrenceHandled = occurrence === null;
     let phase: "occurrence" | "balance" | "label" | "transaction" | "receipts" = occurrence ? "occurrence" : checkingBalance ? "balance" : "label";
+    let transferFeeMethod: TransferFeeMethod | null = null;
+    let transferFeeRial = 0;
     try {
       if (occurrence) {
         const transactions = await useCases.listTransactions.execute();
@@ -388,10 +400,25 @@ export function useTxFormModel(
           notify("فقط حساب‌های خودتان قابل انتخاب‌اند");
           return;
         }
+        if (isTransfer) {
+          const destination = accounts.find(item => item.id === form.toAccountId);
+          if (!destination) return notify("حساب مقصد در دسترس نیست؛ حساب دیگری انتخاب کنید.");
+          if (account.kind === "bank" && destination.kind === "bank") {
+            if (!form.feeChoice) return notify("مشخص کنید این انتقال کارمزد داشته است یا خیر.");
+            if (form.feeChoice === "yes") {
+              if (!form.feeMethod) return notify("نوع انتقال را انتخاب کنید.");
+              transferFeeMethod = form.feeMethod;
+              const rial = Math.round(baseAmount * 10);
+              if (Math.abs(rial - baseAmount * 10) > 0.00001) return notify("مبلغ انتقال باید عدد صحیح مثبت به ریال باشد.");
+              transferFeeRial = await useCases.quoteTransferFee.execute(transferFeeMethod, rial);
+              if (!current()) return;
+            }
+          }
+        }
         if (form.type === "income") {
           setBalanceWarning(null);
         } else {
-        const warning = expenseBalanceWarning(account, transactions, baseAmount, original?.id);
+        const warning = expenseBalanceWarning(account, transactions, baseAmount + transferFeeRial / 10, original?.id);
         if (warning) {
           reviewedBalance.current = null;
           writeForm(previous => ({ ...previous, accountId: "" }));
@@ -412,6 +439,7 @@ export function useTxFormModel(
         subcategoryId = sub.id;
       }
       const input = {
+        transferFeeMethod,
         requireAvailableBalance: true,
         memberId: form.memberId || currentMemberId,
         type: form.type,

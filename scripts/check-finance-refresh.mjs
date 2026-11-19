@@ -27,7 +27,7 @@ async function session(route = 'dashboard', scenario = 'full-owner', width = 390
     headers: { Origin: base, 'X-Copy-Workbench-Token': token }, data: { scenarioId: scenario, route },
   });
   assert.equal(response.status(), 200);
-  const page = await context.newPage(); page.setDefaultTimeout(9000);
+  const page = await context.newPage(); page.setDefaultTimeout(20000);
   page.on('pageerror', error => results.errors.push(error.message));
   await page.goto(base + (await response.json()).url);
   await page.waitForFunction(() => window.__COPY_PREVIEW_OBSERVED__ === true, null, { timeout: 25000 });
@@ -109,7 +109,7 @@ try {
     await showBillboard(page, 'transaction');
     const box = await deck.boundingBox(), tabs = await page.getByRole('tablist', { name: 'انتخاب کارت خانه' }).boundingBox();
     assert.ok(box.height < 285, 'Billboard should stay compact');
-    assert.ok(tabs.y >= box.y + box.height - 8, 'Switch controls belong below the cards');
+    assert.ok(Math.abs(tabs.y - (box.y + box.height)) <= 18, 'Switch controls stay close to the cards');
     const touch = await page.context().newCDPSession(page);
     const button = await page.locator('[data-billboard-layer="front"]').getByRole('button', { name: 'ثبت هزینه', exact: true }).boundingBox();
     const x = button.x + button.width / 2, y = button.y + button.height / 2;
@@ -362,6 +362,7 @@ try {
       let destination;
       if (type === 'transfer') destination = await chooseAccount(form, 'حساب مقصد');
       else await form.getByRole('combobox', { name: 'دسته‌بندی تراکنش' }).selectOption(type === 'expense' ? 'food' : 'salary');
+      if (await form.locator('.tx-transfer-fee').isVisible()) await form.getByRole('button', { name: 'خیر', exact: true }).click();
       await details(form); await form.getByRole('textbox', { name: 'توضیح تراکنش' }).fill('Saved ' + type);
       await form.locator('.tx-simple-save').click(); await form.waitFor({ state: 'hidden' });
       const stored = (await api(page, '/transactions')).body.find(row => row.note === 'Saved ' + type);

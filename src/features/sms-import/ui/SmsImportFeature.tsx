@@ -5,9 +5,8 @@ import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
 import { useSmsImportModel } from "../model/useSmsImportModel";
 import { Modal } from "@/shared/ui";
-import { formatAmount } from "@/shared/lib/format";
+import { formatAmount, formatAccountAmount } from "@/shared/lib/format";
 import { formatISO } from "@/shared/lib/jalali";
-import { toDisplay } from "@/shared/lib/currency";
 
 export function SmsImportFeature({
   onImported,
@@ -99,7 +98,7 @@ export function SmsImportFeature({
                   <span>{x.p.bank || "بانک ناشناس"}</span>
                   <b className={x.p.type!}>
                     {x.p.type === "income" ? "واریز" : "برداشت"} ·{" "}
-                    {formatAmount(x.baseAmount == null ? x.p.amount! : toDisplay(x.baseAmount, cur))}
+                    {x.baseAmount == null ? formatAmount(x.p.amount!) : formatAccountAmount(x.baseAmount, cur)}
                     <span className="cur-tag">{x.baseAmount == null ? "واحد نامشخص" : currencyDisplayLabel(cur)}</span>
                   </b>
                   <span>

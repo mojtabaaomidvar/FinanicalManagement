@@ -18,6 +18,15 @@ export class ListTransactionsUseCase {
   }
 }
 
+export class QuoteTransferFeeUseCase {
+  constructor(private readonly repo: TransactionRepository) {}
+  execute(method: import("@/domain/transaction/transaction.types").TransferFeeMethod, amountRial: number): Promise<number> {
+    if (!Number.isSafeInteger(amountRial) || amountRial <= 0) throw new AppError("INVALID_TX", "مبلغ انتقال باید عدد صحیح مثبت به ریال باشد.");
+    if (!this.repo.quoteTransferFee) throw new AppError("SERVER", "بررسی کارمزد ممکن نشد؛ دوباره تلاش کنید.");
+    return this.repo.quoteTransferFee(method, amountRial);
+  }
+}
+
 export class AddTransactionUseCase {
   constructor(private readonly repo: TransactionRepository) {}
   async execute(input: TransactionInput): Promise<Transaction> {

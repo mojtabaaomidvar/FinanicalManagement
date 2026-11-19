@@ -1,4 +1,6 @@
-.notifications-content { max-width: 552px; margin-inline: auto; padding: 12px 16px 24px; }
+.notifications-page { min-height: 100dvh; }
+.notifications-content { max-width: 552px; margin-inline: auto; padding: 0 16px 24px; }
+.notifications-page .app-header { top: 0; }
 .notifications-page .notifications-note { margin: 18px 0; color: var(--text-3); font-size: 12px; line-height: 1.7; }
 .notifications-page .notif-group-title { display: flex; align-items: center; justify-content: space-between; margin: 24px 0 10px; font-size: 14px; font-weight: 750; line-height: 1.5; }
 .notifications-page .notif-group-title > span { color: var(--text-3); font-size: 12px; font-variant-numeric: tabular-nums; }

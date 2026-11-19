@@ -9446,3 +9446,5 @@ button.market-row:active {
 .dev-btn:hover {
   border-color: #4b5563;
 }
+.sms-account-suggestion { padding: 12px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
+.sms-account-suggestion p { margin: 0 0 8px; line-height: 1.5; }

@@ -41,10 +41,7 @@ export class AddAccountUseCase {
     return this.repo.add({
       ...input,
       cardNumber: input.cardNumber ? digitsOf(input.cardNumber) : null,
-      initialBalance:
-        input.initialBalance != null
-          ? Math.max(0, Math.round(input.initialBalance))
-          : 0,
+      initialBalance: input.initialBalance ?? 0,
     });
   }
 }
@@ -62,11 +59,7 @@ export class UpdateAccountUseCase {
     return this.repo.update({
       ...patch,
       cardNumber: patch.cardNumber ? digitsOf(patch.cardNumber) : null,
-      /* برخلاف افزودن، صفر و منفی هم عبور می‌کنند — فقط گرد می‌شود */
-      initialBalance:
-        patch.initialBalance != null
-          ? Math.round(patch.initialBalance)
-          : undefined,
+      initialBalance: patch.initialBalance ?? undefined,
     });
   }
 }

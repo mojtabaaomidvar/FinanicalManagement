@@ -1,6 +1,7 @@
 /* انتیتی تراکنش و ورودی آن */
 
 export type TxType = "expense" | "income" | "transfer";
+export type TransferFeeMethod = "internal" | "card_to_card" | "paya" | "satna" | "pol";
 
 /** دوره تکرار تراکنش (برای قسط/حقوق/اجاره و…) */
 export type TxRepeat = "none" | "weekly" | "monthly" | "yearly";
@@ -25,7 +26,10 @@ export interface Transaction {
   recurringDueDate?: string | null;
   id: string;
   /** Server-assigned provenance survives removal of the originating vehicle. */
-  sourceKind?: "vehicle_service" | null;
+  sourceKind?: "vehicle_service" | "transfer_fee" | null;
+  transferFeeMethod?: TransferFeeMethod | null;
+  transferFeeRial?: number | null;
+  transferFeeForId?: string | null;
   familyId: string;
   memberId: string;
   type: TxType;
@@ -54,6 +58,7 @@ export interface Transaction {
 }
 
 export interface TransactionInput {
+  transferFeeMethod?: TransferFeeMethod | null;
   requireAvailableBalance?: boolean;
   memberId: string;
   type: TxType;

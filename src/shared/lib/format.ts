@@ -12,6 +12,12 @@ export function formatSignedAmount(n: number): string {
   return toFa(n.toLocaleString("en-US", { maximumFractionDigits: 2 }));
 }
 
+/** Preserve rial precision; the chosen toman display rounds only the presentation. */
+export function formatAccountAmount(amountInToman: number, currency: string): string {
+  const displayed = currency === "ریال" ? amountInToman * 10 : Math.round(amountInToman);
+  return toFa(displayed.toLocaleString("en-US", { maximumFractionDigits: currency === "ریال" ? 2 : 0 }));
+}
+
 /* درصد فارسی */
 export function formatPercent(n: number): string {
   return toFa(Math.round(n)) + "٪";

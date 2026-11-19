@@ -3,9 +3,8 @@ import type { usePendingSmsModel } from "@/features/pending-sms/model/usePending
 import { SmsImportFeature } from "@/features/sms-import";
 import { Icon } from "@/shared/ui";
 import { smsAmountInToman } from "@/domain/sms/sms.rules";
-import { toDisplay } from "@/shared/lib/currency";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
-import { formatAmount } from "@/shared/lib/format";
+import { formatAmount, formatAccountAmount } from "@/shared/lib/format";
 import { formatLong, isoToJalali } from "@/shared/lib/jalali";
 import "./SmsPage.css";
 
@@ -34,7 +33,7 @@ export function SmsPage({ model: m, onImported }: {
           data-sms-id={sms.id} onClick={() => void m.load({ review: true, smsId: sms.id })}>
           <span className="sms-inbox-icon" aria-hidden="true"><Icon name="i-sms" size={20} /></span>
           <span className="sms-inbox-copy"><b>{sms.bank ?? "بانک نامشخص"}<span> · </span>{sms.type === "income" ? "واریز" : sms.type === "expense" ? "برداشت" : "نیازمند بررسی"}</b>
-            <span>{baseAmount === null ? sms.amount === null ? "مبلغ نامشخص" : formatAmount(sms.amount) : formatAmount(toDisplay(baseAmount, cur))}
+            <span>{baseAmount === null ? sms.amount === null ? "مبلغ نامشخص" : formatAmount(sms.amount) : formatAccountAmount(baseAmount, cur)}
               <span> </span>{baseAmount === null ? "واحد نامشخص" : currencyDisplayLabel(cur)}<span> · </span>
               {sms.date ? formatLong(isoToJalali(sms.date)) : "بدون تاریخ"}<span> · </span>{member?.name}</span></span>
           <Icon name="i-arrow-l" size={17} />

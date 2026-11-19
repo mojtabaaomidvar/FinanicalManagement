@@ -122,6 +122,9 @@ class TransactionOut(BaseModel):
     photos: list[TransactionPhotoOut]
     created_at: datetime
     source_kind: str | None = None
+    transfer_fee_method: str | None = None
+    transfer_fee_rial: int | None = None
+    transfer_fee_for_id: str | None = None
     recurring_plan: RecurringPlanOut | None = None
     recurring_source_id: str | None = None
     recurring_due_date: str | None = None
@@ -151,6 +154,9 @@ class TransactionOut(BaseModel):
             photos=[TransactionPhotoOut.of(p) for p in photos],
             created_at=t.created_at,
             source_kind=t.source_kind,
+            transfer_fee_method=t.transfer_fee_method,
+            transfer_fee_rial=t.transfer_fee_rial,
+            transfer_fee_for_id=_uuid_opt(t.transfer_fee_for_id),
             recurring_plan=RecurringPlanOut(
                 amount=t.recurring_amount if t.recurring_amount is not None else t.amount,
                 category=t.recurring_category or t.category,
@@ -394,11 +400,12 @@ class TransactionWrite(BaseModel):
     repeat: str = "none"
     repeat_end: _date | None = None
     require_available_balance: bool = False
+    transfer_fee_method: str | None = None
 
     @model_validator(mode="before")
     @classmethod
     def source_is_server_owned(cls, value):
-        if isinstance(value, dict) and "source_kind" in value:
+        if isinstance(value, dict) and any(key in value for key in ("source_kind", "transfer_fee_rial", "transfer_fee_for_id")):
             raise ValueError("Transaction source is set by the server.")
         return value
 

@@ -10,6 +10,7 @@ import type {
   TransactionPhoto,
   RecurringUpdate,
   OccurrenceSettle,
+  TransferFeeMethod,
 } from "@/domain/transaction/transaction.types";
 import type { RestClient } from "@/infrastructure/api/restClient";
 import { AppError } from "@/shared/lib/appError";
@@ -19,6 +20,7 @@ import { mapTransaction, type TransactionRow } from "./mappers";
 function toBody(input: TransactionInput) {
   return {
     member_id: input.memberId,
+    ...(input.transferFeeMethod !== undefined ? { transfer_fee_method: input.transferFeeMethod } : {}),
     require_available_balance: input.requireAvailableBalance ?? false,
     type: input.type,
     amount: input.amount,
@@ -39,6 +41,13 @@ function toBody(input: TransactionInput) {
 
 export class SupabaseTransactionRepository implements TransactionRepository {
   constructor(private readonly client: RestClient) {}
+
+  async quoteTransferFee(method: TransferFeeMethod, amountRial: number): Promise<number> {
+    const query = new URLSearchParams({ method, amount_rial: String(amountRial) });
+    const result = await this.client.get<{ fee_rial: number }>(`/transactions/transfer-fee?${query}`);
+    if (!Number.isSafeInteger(result.fee_rial) || result.fee_rial < 0) throw new AppError("SERVER", "بررسی کارمزد ممکن نشد؛ دوباره تلاش کنید.");
+    return result.fee_rial;
+  }
 
   async list(): Promise<Transaction[]> {
     const rows = await this.client.get<TransactionRow[]>("/transactions");

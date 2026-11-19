@@ -13,8 +13,7 @@ import {
   normalizeExpressionInput,
 } from "@/shared/ui";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
-import { formatSignedAmount } from "@/shared/lib/format";
-import { toDisplay } from "@/shared/lib/currency";
+import { formatAccountAmount } from "@/shared/lib/format";
 import { BANK_OPTIONS, bankDisplayLabel } from "@/shared/lib/banks";
 import { isSmsReaderAvailable } from "@/shared/native/smsReader";
 import type { AccountKind } from "@/domain/account/account.types";
@@ -223,7 +222,7 @@ export function AccountFormFeature({ m }: { m: AccountsModel }) {
             </p>
             <p className="account-reviewed-balance">
               <span>موجودی ثبت‌شده:</span>{" "}
-              <b dir="ltr">{formatSignedAmount(toDisplay(m.editingBalance, m.cur))}</b>{" "}
+              <b dir="ltr">{formatAccountAmount(m.editingBalance, m.cur)}</b>{" "}
               <span>{currencyDisplayLabel(m.cur)}</span>
             </p>
             <label className="bal-warn-ack">

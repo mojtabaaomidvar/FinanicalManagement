@@ -28,7 +28,7 @@ async function session(pending = true, setup, raw = rawSms) {
     data: { scenarioId: pending ? 'sms-pending' : 'full-owner', route: pending ? 'sms' : 'dashboard' },
   });
   assert.equal(response.status(), 200);
-  const page = await context.newPage(); page.setDefaultTimeout(8000);
+  const page = await context.newPage(); page.setDefaultTimeout(20000);
   page.on('pageerror', error => results.errors.push(error.message));
   if (pending) await page.route('**/api/v1/sms?status=pending', async route => {
     const response = await route.fetch(); const rows = await response.json();

@@ -12,14 +12,14 @@ import {
 } from "@/shared/ui";
 import { categoriesFor } from "@/domain/category/category.catalog";
 import { toFa } from "@/shared/lib/digits";
-import { toDisplay } from "@/shared/lib/currency";
 import { transactionAccountChoices } from "@/features/transaction-form/model/transactionAccounts";
 import { parseScheduledAmount } from "@/domain/transaction/recurring.rules";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
-import { formatSignedAmount } from "@/shared/lib/format";
+import { formatAccountAmount } from "@/shared/lib/format";
+import { suggestSmsAccount } from "@/domain/sms/sms-parser-account-suggestion";
 
 export function PendingSmsFeature({ model: m }: { model: ReturnType<typeof usePendingSmsModel> }) {
-  const { member, accounts, txs, subcategories, refreshData } = useApp();
+  const { member, members, accounts, txs, subcategories, refreshData } = useApp();
   const [showAll, setShowAll] = useState(false);
   const amount = parseScheduledAmount(m.amount, m.entryCurrency);
   const ownCount = accounts.filter(account => account.memberId === member?.id).length;
@@ -30,6 +30,9 @@ export function PendingSmsFeature({ model: m }: { model: ReturnType<typeof usePe
     if (!m.savedId && m.accountId && !choices.some(row => row.account.id === m.accountId)) m.setAccountId("");
   }, [m.accountId, m.savedId, choices]);
   const subsOfCategory = subcategories.filter(s => s.category === m.categoryId);
+  const suggestion = suggestSmsAccount(m.raw, accounts, members, member?.id ?? "");
+  const suggestionAvailable = suggestion.account && transactionAccountChoices(accounts, txs, member?.id ?? "", amount,
+    m.type === "expense", true).some(row => row.account.id === suggestion.account?.id);
 
   return (
     <>
@@ -52,6 +55,18 @@ export function PendingSmsFeature({ model: m }: { model: ReturnType<typeof usePe
       {m.savedId ? <p className="section-hint" role="status">تراکنش ثبت شده؛ فقط تأیید پیامک باقی مانده است.</p> : null}
       {m.amountNeedsReview && !m.savedId ? <p className="section-hint">واحد مبلغ پیامک مشخص نیست؛ مبلغ را در واحد انتخابی وارد کنید.</p> : null}
       <p className="section-hint">ثبت برای <b>{member?.name}</b></p>
+      {!m.savedId && (suggestion.member || suggestion.account) ? <div className="sms-account-suggestion">
+        {suggestion.member ? <p>نام احتمالی در پیامک: <b>{suggestion.member.name}</b></p> : null}
+        {suggestion.member && suggestion.member.id !== member?.id ? <p className="section-hint">نام عضو دیگری در پیامک دیده می‌شود؛ ثبت همچنان فقط از حساب‌های خودتان انجام می‌شود.</p> : null}
+        {suggestion.account ? <>
+          <p>حساب پیشنهادی: <b>{suggestion.account.title}</b></p>
+          <button type="button" className="btn-secondary" disabled={m.busy || !suggestionAvailable} onClick={() => {
+            setShowAll(true); m.setAccountId(suggestion.account!.id);
+          }}>انتخاب حساب پیشنهادی</button>
+          {!suggestionAvailable ? <p className="field-error">موجودی حساب پیشنهادی برای این هزینه کافی نیست.</p> : null}
+        </> : null}
+        <p className="section-hint">پیشنهاد را با متن پیامک بررسی کنید.</p>
+      </div> : null}
       <div>
         <div className="pending-progress">
           <div
@@ -134,7 +149,7 @@ export function PendingSmsFeature({ model: m }: { model: ReturnType<typeof usePe
                   },
                   ...choices.map(({ account, balance }) => ({
                     value: account.id,
-                    label: /* @copy-text sms.review.account_choice */ `${account.title} · ${formatSignedAmount(toDisplay(balance, m.entryCurrency))} ${currencyDisplayLabel(m.entryCurrency)}`,
+                    label: /* @copy-text sms.review.account_choice */ `${account.title} · ${formatAccountAmount(balance, m.entryCurrency)} ${currencyDisplayLabel(m.entryCurrency)}`,
                   })),
                 ]}
               />

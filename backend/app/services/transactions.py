@@ -19,6 +19,7 @@ from typing import Literal
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
+from sqlalchemy.dialects.postgresql import insert
 
 from app.core.errors import AppError
 from app.models.account import Account
@@ -28,6 +29,7 @@ from app.models.transaction import Transaction, TransactionPhoto
 from app.schemas.data import OccurrenceSettle, PhotoCreate, RecurringUpdate, TransactionWrite
 from app.services.common import is_admin, to_uuid, to_uuid_opt
 from app.services.member_age import document_age_restricted, today_tehran
+from app.services.transfer_fees import TRANSFER_METHODS, calculate_transfer_fee_rial
 
 _TIME_RE = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
 _REPEATS = {"none", "weekly", "monthly", "yearly"}
@@ -72,7 +74,7 @@ def list_for_family(
     """تراکنش‌های خانواده (نزولی بر created_at) به‌همراه عکس‌های هر تراکنش."""
     query = select(Transaction).where(Transaction.family_id == family_id)
     if actor is not None and document_age_restricted(actor):
-        query = query.where(Transaction.source_kind.is_(None))
+        query = query.where(Transaction.source_kind.is_distinct_from("vehicle_service"))
     txs = list(db.scalars(query.order_by(Transaction.created_at.desc())))
     photos = list(
         db.execute(
@@ -199,6 +201,19 @@ def _prepare(db: Session, family_id: uuid.UUID, req: TransactionWrite) -> dict:
         raise AppError("INVALID_SUBCATEGORY", "زیردسته نامعتبر است.", 422)
 
     note = (req.note or "").strip() or None
+    fee_method = req.transfer_fee_method
+    fee_rial = None
+    if fee_method is not None:
+        if req.type != "transfer" or fee_method not in TRANSFER_METHODS:
+            raise AppError("INVALID_TRANSFER_FEE", "نوع انتقال را انتخاب کنید.", 422)
+        bank_accounts = list(db.scalars(select(Account).where(
+            Account.family_id == family_id, Account.id.in_([account_id, to_account_id]))))
+        if len(bank_accounts) != 2 or any(account.kind != "bank" for account in bank_accounts):
+            raise AppError("INVALID_TRANSFER_FEE", "کارمزد انتقال فقط برای انتقال بین دو حساب بانکی است.", 422)
+        rial = req.amount * 10
+        if rial != rial.to_integral_value():
+            raise AppError("INVALID_TRANSFER_FEE", "مبلغ انتقال باید عدد صحیح مثبت به ریال باشد.", 422)
+        fee_rial = calculate_transfer_fee_rial(fee_method, int(rial))
     return {
         "member_id": member_id,
         "type": req.type,
@@ -212,6 +227,8 @@ def _prepare(db: Session, family_id: uuid.UUID, req: TransactionWrite) -> dict:
         "subcategory_id": subcategory_id,
         "repeat": req.repeat,
         "repeat_end": req.repeat_end if req.repeat != "none" else None,
+        "transfer_fee_method": fee_method,
+        "transfer_fee_rial": fee_rial,
     }
 
 
@@ -276,9 +293,11 @@ def create(
 ) -> Transaction:
     values = _prepare(db, family_id, req)
     if actor is not None:
-        _check_payment_account(db, actor, values, req.require_available_balance)
+        _check_payment_account(db, actor, values, req.require_available_balance or values["transfer_fee_method"] is not None)
     row = Transaction(family_id=family_id, **values)
     db.add(row)
+    db.flush()
+    _sync_transfer_fee(db, row)
     db.commit()
     db.refresh(row)
     return row
@@ -298,8 +317,14 @@ def update(db: Session, actor: Member, tx_id: uuid.UUID, req: TransactionWrite) 
         raise AppError("NOT_FOUND", "تراکنش یافت نشد.", 404)
 
     _require_source_access(actor, row)
+    if row.source_kind == "transfer_fee":
+        raise AppError("SOURCE_IMMUTABLE", "کارمزد همراه انتقال مدیریت می‌شود؛ انتقال اصلی را ویرایش یا حذف کنید.", 422)
+    if "transfer_fee_method" not in req.model_fields_set and req.type == "transfer":
+        req = req.model_copy(update={"transfer_fee_method": row.transfer_fee_method})
     values = _prepare(db, actor.family_id, req)
-    _check_payment_account(db, actor, values, req.require_available_balance, replacing=row)
+    if all(values[key] == getattr(row, key) for key in ("amount", "type", "account_id", "to_account_id", "transfer_fee_method")):
+        values["transfer_fee_rial"] = row.transfer_fee_rial
+    _check_payment_account(db, actor, values, req.require_available_balance or values["transfer_fee_method"] is not None, replacing=row)
     if row.source_kind == "vehicle_service" and (
         any(
             values[key] != getattr(row, key)
@@ -324,6 +349,7 @@ def update(db: Session, actor: Member, tx_id: uuid.UUID, req: TransactionWrite) 
         row.recurring_revision += 1
     for key, value in values.items():
         setattr(row, key, value)
+    _sync_transfer_fee(db, row)
     db.commit()
 
 
@@ -343,6 +369,8 @@ def delete_uncommitted(db: Session, actor: Member, tx_id: uuid.UUID) -> None:
     if row is None:
         raise AppError("NOT_FOUND", "تراکنش یافت نشد.", 404)
     _require_source_access(actor, row)
+    if row.source_kind == "transfer_fee":
+        raise AppError("SOURCE_IMMUTABLE", "کارمزد همراه انتقال مدیریت می‌شود؛ انتقال اصلی را ویرایش یا حذف کنید.", 422)
     if (
         db.scalar(
             select(Transaction.id)
@@ -361,6 +389,35 @@ def delete_uncommitted(db: Session, actor: Member, tx_id: uuid.UUID) -> None:
         )
     db.delete(row)
     db.flush()
+
+
+def _sync_transfer_fee(db: Session, parent: Transaction) -> None:
+    """One derived fee expense, in the parent's unit of work; never a second commit."""
+    fee = db.scalar(select(Transaction).where(
+        Transaction.family_id == parent.family_id, Transaction.transfer_fee_for_id == parent.id))
+    amount = Decimal(parent.transfer_fee_rial or 0) / 10
+    if amount == 0:
+        if fee is not None:
+            db.delete(fee)
+        return
+    # This is a stored system tag, distinct from editable display copy.
+    tag_name = "کارمزد انتقال"
+    db.execute(insert(Subcategory).values(family_id=parent.family_id, category="finance", name=tag_name)
+               .on_conflict_do_nothing(index_elements=["family_id", "category", "name"]))
+    tag = db.scalar(select(Subcategory.id).where(Subcategory.family_id == parent.family_id,
+        Subcategory.category == "finance", Subcategory.name == tag_name))
+    if fee is None:
+        fee = Transaction(family_id=parent.family_id, transfer_fee_for_id=parent.id, source_kind="transfer_fee",
+                          type="expense", category="finance", repeat="none")
+        db.add(fee)
+    fee.member_id = parent.member_id
+    fee.account_id = parent.account_id
+    fee.to_account_id = None
+    fee.amount = amount
+    fee.date = parent.date
+    fee.time = parent.time
+    fee.subcategory_id = tag
+    fee.note = None
 
 
 def delete(db: Session, actor: Member, tx_id: uuid.UUID) -> None:
@@ -441,13 +498,13 @@ def _check_payment_account(
     )
     balance = account.initial_balance
     for transaction in transactions:
-        if replacing is not None and transaction.id == replacing.id:
+        if replacing is not None and (transaction.id == replacing.id or transaction.transfer_fee_for_id == replacing.id):
             continue
         if transaction.account_id == account_id:
             balance += transaction.amount if transaction.type == "income" else -transaction.amount
         if transaction.type == "transfer" and transaction.to_account_id == account_id:
             balance += transaction.amount
-    if balance < values["amount"]:
+    if balance < values["amount"] + Decimal(values.get("transfer_fee_rial") or 0) / 10:
         raise AppError("INSUFFICIENT_BALANCE", "موجودی این حساب برای مبلغ واردشده کافی نیست.", 409)
 
 
@@ -597,6 +654,7 @@ def settle_occurrence(
                 else None
             ),
             repeat="none",
+            transfer_fee_method=source.transfer_fee_method if source else row.transfer_fee_method,
         ),
     )
     _check_payment_account(db, actor, values, True)
@@ -607,6 +665,8 @@ def settle_occurrence(
         **values,
     )
     db.add(payment)
+    db.flush()
+    _sync_transfer_fee(db, payment)
     row.handled_occurrences = [*(row.handled_occurrences or []), req.due_date.isoformat()]
     db.commit()
     db.refresh(payment)

@@ -26,4 +26,9 @@ describe("transaction account choices", () => {
   it("allows another family member's account as a transfer destination", () => {
     expect(transactionAccountChoices([account("other", 0, "bank", "peer")], [], null, null, false, false)).toHaveLength(1);
   });
+  it("reverses both a transfer and its linked fee when editing", () => {
+    const rows = [{ id: "transfer", type: "transfer", accountId: "cash", amount: 150_000 },
+      { id: "fee", type: "expense", accountId: "cash", amount: 1100, transferFeeForId: "transfer" }] as Transaction[];
+    expect(transactionAccountChoices([account("cash", 151_100)], rows, "self", 151_100, true, true, "transfer")[0].balance).toBe(151_100);
+  });
 });
