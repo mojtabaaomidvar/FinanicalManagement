@@ -4,13 +4,13 @@
 
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useState } from "react";
-import { Card, Icon } from "@/shared/ui";
+import { Card, Icon, Modal, TextInput } from "@/shared/ui";
 import { maskCardNumber } from "@/domain/account/account.rules";
 import type { Account } from "@/domain/account/account.types";
 import { formatAmount, formatSignedAmount } from "@/shared/lib/format";
 import { toFa } from "@/shared/lib/digits";
 import { toDisplay } from "@/shared/lib/currency";
-import { AddHoldingModal } from "@/features/holdings";
+import { AddHoldingModal, HoldingsStatus } from "@/features/holdings";
 import {
   KIND_LABEL,
   KIND_UNIT,
@@ -20,6 +20,7 @@ import type { Holding, HoldingKind } from "@/domain/holding/holding.types";
 import type { AccountsModel } from "../model/useAccountsModel";
 import { WALLET_PRESETS } from "../model/useAccountsModel";
 import { AccountFormFeature } from "./AccountFormFeature";
+import { bankDisplayLabel } from "@/shared/lib/banks";
 import { NegativeBalanceNotice } from "./NegativeBalanceNotice";
 
 /** جلوی باز شدن فرم ویرایش را می‌گیرد — برای دکمه‌های داخل کارت کلیک‌پذیر */
@@ -160,6 +161,7 @@ function HoldingsCard({ m }: { m: AccountsModel }) {
   };
 
   const removeOne = async (x: Holding) => {
+    if (h.isLocked()) return;
     if (!confirm(`«${x.name}» از دارایی‌ها حذف شود؟`)) return;
     await h.remove(x.id);
   };
@@ -176,14 +178,17 @@ function HoldingsCard({ m }: { m: AccountsModel }) {
                   key={x.id}
                   className="hold-card tappable"
                   role="button"
-                  tabIndex={0}
+                  tabIndex={h.locked ? -1 : 0}
+                  aria-disabled={h.locked}
                   aria-label={`ویرایش ${x.name}`}
                   onClick={() => {
+                    if (h.isLocked()) return;
                     h.clearError();
                     setEditing(x);
                   }}
                   onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
                     if (e.target !== e.currentTarget) return;
+                    if (h.isLocked()) return;
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
                       h.clearError();
@@ -216,6 +221,7 @@ function HoldingsCard({ m }: { m: AccountsModel }) {
                   <div className="account-actions">
                     <button
                       className="icon-btn small danger"
+                      disabled={h.locked}
                       aria-label={`حذف ${x.name}`}
                       onClick={(e) => {
                         stop(e);
@@ -231,14 +237,13 @@ function HoldingsCard({ m }: { m: AccountsModel }) {
               );
             })}
           </div>
-        ) : h.loading ? (
-          <p className="accounts-empty">در حال دریافت…</p>
-        ) : (
+        ) : h.loading || h.loadError ? null : (
           <p className="accounts-empty">
             هنوز دارایی‌ای ثبت نشده — از «ارز و بورس» روی هر قیمت بزنید تا به
             این فهرست اضافه شود
           </p>
         )}
+        <HoldingsStatus model={h} />
 
         {h.unpriced > 0 ? (
           /* «جمع بالا» نمی‌گوییم: این کامپوننت در زیرصفحهٔ تنظیمات هم رندر
@@ -277,6 +282,7 @@ function HoldingsCard({ m }: { m: AccountsModel }) {
         busy={h.busy}
         error={h.error}
         onClose={() => {
+          if (h.isSaving()) return;
           /* خطا هم پاک می‌شود وگرنه پس از «انصراف»، پیام شکست ذخیره
              روی کارت پشت مودال باقی می‌ماند و بی‌ربط به نظر می‌رسد. */
           h.clearError();
@@ -291,6 +297,19 @@ function HoldingsCard({ m }: { m: AccountsModel }) {
 export function AccountsFeature({ m }: { m: AccountsModel }) {
   return (
     <>
+      <Modal open={!!m.deleting} onClose={m.closeDelete} title="بررسی حذف حساب" sheetClassName="account-delete-sheet">
+        <p>{m.deleting?.title}</p>
+        {m.deleteHasHistory ? <p role="status">این حساب سابقهٔ تراکنش دارد و حذف نمی‌شود؛ سابقهٔ مالی حفظ می‌شود.</p> : <>
+          <p>حذف حساب برگشت‌پذیر نیست. برای تأیید، نام حساب را دقیق وارد کنید.</p>
+          <TextInput value={m.deleteConfirmation} onChange={m.setDeleteConfirmation} aria-label="نام حساب برای تأیید حذف"
+            disabled={m.locked} autoComplete="off" />
+        </>}
+        <div className="modal-actions">
+          <button type="button" className="btn-secondary" disabled={m.locked} onClick={m.closeDelete}>انصراف</button>
+          {!m.deleteHasHistory ? <button type="button" className="btn-primary danger" disabled={m.locked || m.deleteConfirmation !== m.deleting?.title}
+            onClick={() => void m.confirmDelete()}>{m.busy ? "در حال حذف…" : "حذف حساب"}</button> : null}
+        </div>
+      </Modal>
       {/* حساب‌های بانکی */}
       <Card
         title="حساب‌های بانکی"
@@ -320,7 +339,7 @@ export function AccountsFeature({ m }: { m: AccountsModel }) {
                   <div className="account-title">
                     <h4>{acc.title}</h4>
                     <p>
-                      {acc.bank || "بانک نامشخص"}
+                      {acc.bank ? bankDisplayLabel(acc.bank) : "بانک نامشخص"}
                       {owner ? ` · ${owner.name}` : ""}
                     </p>
                   </div>

@@ -36,6 +36,7 @@ export class SupabaseAccountRepository implements AccountRepository {
       `/accounts/${encodeURIComponent(patch.id)}`,
       {
         title: patch.title,
+        confirm_card_change: patch.confirmCardChange ?? false,
         bank: patch.bank ?? null,
         card_number: patch.cardNumber ?? null,
         /* null = دست‌نزن؛ سرور مقدار فعلی را نگه می‌دارد */
@@ -45,7 +46,7 @@ export class SupabaseAccountRepository implements AccountRepository {
     return mapAccount(row);
   }
 
-  async remove(id: string): Promise<void> {
-    await this.client.del<void>(`/accounts/${encodeURIComponent(id)}`);
+  async remove(id: string, confirmation?: string): Promise<void> {
+    await this.client.del<void>(`/accounts/${encodeURIComponent(id)}`, undefined, { confirmation });
   }
 }

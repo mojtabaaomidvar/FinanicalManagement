@@ -1,17 +1,16 @@
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
-/* خانه: دسترسی شخصی → موعدهای واقعی → دسته‌های قابل جابه‌جایی.
+/* خانه: بیلبورد → دسترسی شخصی → موعدهای واقعی؛ بخش‌ها در صفحهٔ جدا.
    دادهٔ آنلاین از snapshot مجاز همان نشست می‌آید؛ دادهٔ آفلاین محدود است. */
 
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { Icon } from "@/shared/ui";
 import { toFa } from "@/shared/lib/digits";
 import { formatAmount, formatSignedAmount } from "@/shared/lib/format";
 import { toDisplay } from "@/shared/lib/currency";
 import { txsInJalaliMonth } from "@/domain/transaction/transaction.rules";
-import { monthTotals, totalCashBalance } from "@/domain/report/report.rules";
-import { monthCategorySpend, budgetStatus } from "@/domain/budget/budget.rules";
-import { buildCategoryResolver } from "@/domain/category/resolve";
+import { accountBalances, monthTotals, totalCashBalance } from "@/domain/report/report.rules";
+import { monthCategorySpend } from "@/domain/budget/budget.rules";
 import { findDollar } from "@/domain/market/market.rules";
 import { lowItems, totalPending } from "@/domain/shopping/shopping.rules";
 import { useMarket } from "@/features/market";
@@ -23,39 +22,27 @@ import { useOnline } from "@/shared/lib/useOnline";
 import type { Route } from "@/app/router";
 import { SOON_MODULES, type HubModule } from "./modules";
 import { HomeOverview } from "./HomeOverview";
+import { HomeBillboard } from "./HomeBillboard";
+import type { TxType } from "@/domain/transaction/transaction.types";
 import { HomeModules } from "./HomeModules";
 import { useHomePreferences } from "./useHomePreferences";
 import { useHomeToday } from "./useHomeToday";
 import "./HubPage.css";
 
-type Banner = {
-  id: string;
-  title: string;
-  desc: string;
-  icon?: string;
-  tone: string;
-  cta: string;
-  route: Route;
-};
-
 export function HubPage({
   onNav,
   onAddTransaction,
-  bell,
   summary,
   onOpenItem,
   onRetry,
+  view = "dashboard",
 }: {
   onNav: (r: Route) => void;
-  onAddTransaction: () => void;
-  /* زنگِ اعلان — به‌صورتِ نود تزریق می‌شود نه ساخته‌شده در همین صفحه.
-     دلیل: مرکزِ اعلان به TxFormModel و به ناوبریِ زیرصفحهٔ تنظیمات نیاز
-     دارد و هر دو در MainShell زندگی می‌کنند؛ ساختنش این‌جا یعنی کشیدنِ آن
-     دو تا داخلِ صفحه‌ای که کارش فقط کاشی‌هاست. */
-  bell?: ReactNode;
+  onAddTransaction: (type: TxType) => void;
   summary: Pick<NotificationsModel, "documents" | "equipment" | "vehicles" | "goals" | "activities" | "onlineSummaryState">;
   onOpenItem: (ref: NotificationRef) => void;
   onRetry: () => void;
+  view?: "dashboard" | "sections";
 }) {
   const {
     member,
@@ -64,7 +51,6 @@ export function HubPage({
     txs,
     accounts,
     budgets,
-    customCategories,
     cur,
     bills,
     events,
@@ -108,8 +94,8 @@ export function HubPage({
     const monthTxs = txsInJalaliMonth(txs, jy, jm);
     const totals = monthTotals(monthTxs);
     const spend = monthCategorySpend(txs, jy, jm);
-    const resolve = buildCategoryResolver(customCategories);
     const unpaid = bills.filter((b) => b.state === "unpaid");
+    const walletBalances = accountBalances(txs, accounts.filter(account => account.memberId === member?.id && account.kind === "wallet"));
     /* نزدیک‌ترین رویداد معتبر؛ برنامهٔ انجام‌شده یا لغوشده در خلاصه نمی‌آید. */
     const nextEv = events.filter((e) => (e.kind !== "activity" || e.activityStatus === "planned")
       && cmp(isoToJalali(e.date), now) >= 0).sort((a, b) => a.date.localeCompare(b.date))[0];
@@ -122,22 +108,13 @@ export function HubPage({
         )
       : 0;
 
-    let overBudget: string | null = null;
-    let warnBudget: string | null = null;
-    for (const b of budgets) {
-      const st = budgetStatus(b.amount, spend.get(b.category) ?? 0);
-      if (st.level === "over" && !overBudget)
-        overBudget = resolve(b.category).name;
-      else if (st.level === "warn" && !warnBudget)
-        warnBudget = resolve(b.category).name;
-    }
-
     return {
       monthCount: monthTxs.length,
       monthExpense: totals.expense,
       balance: totalCashBalance(txs, accounts),
-      overBudget,
-      warnBudget,
+      wallets: { count: walletBalances.length, balance: walletBalances.reduce((sum, row) => sum + row.balance, 0) },
+      budget: { limit: budgets.reduce((sum, budget) => sum + budget.amount, 0),
+        spent: budgets.reduce((sum, budget) => sum + (spend.get(budget.category) ?? 0), 0) },
       unpaidBills: unpaid.length,
       unpaidTotal: unpaid.reduce((s, b) => s + b.amount, 0),
       nextEvent: nextEv?.title ?? null,
@@ -148,7 +125,7 @@ export function HubPage({
       lowStock: lowItems(inventory).length,
       stockCount: inventory.length,
     };
-  }, [txs, accounts, budgets, customCategories, bills, events, shoppingLists, inventory, todayIso]);
+  }, [txs, accounts, budgets, bills, events, shoppingLists, inventory, todayIso, member?.id]);
 
   const money = (n: number) => `${formatSignedAmount(toDisplay(n, cur))} ${currencyDisplayLabel(cur)}`;
 
@@ -213,91 +190,19 @@ export function HubPage({
     return liveSub[module.id] ?? module.sub;
   };
 
-  /* بنرها — فقط وقتی واقعاً موضوعی هست؛ هیچ‌کدام تزئینی نیست */
-  const banners = useMemo<Banner[]>(() => {
-    if (restricted || loading || incomplete) return [];
-    const list: Banner[] = [];
-    if (members.length < 2) {
-      list.push({
-        id: "invite",
-        title: "خانواده‌ات را دعوت کن",
-        desc: "با هم ثبت کنید تا تصویر کامل خرج خانه را ببینید.",
-        icon: "i-users",
-        tone: "indigo",
-        cta: "دعوت از اعضا",
-        route: "settings",
-      });
-    }
-    if (!accounts.length) {
-      list.push({
-        id: "account",
-        title: "اولین حساب را بساز",
-        desc: "کارت یا کیف پولت را اضافه کن تا موجودی درست حساب شود.",
-        icon: "i-wallet",
-        tone: "emerald",
-        cta: "افزودن حساب",
-        route: "accounts",
-      });
-    }
-    if (stats.overBudget) {
-      list.push({
-        id: "over",
-        title: `بودجه‌ی ${stats.overBudget} تمام شد`,
-        desc: "مصرف این ماه از سقفی که گذاشته‌ای بیشتر شده است.",
-        icon: "i-alert",
-        tone: "rose",
-        cta: /* @copy-text src/pages/HubPage/HubPage.tsx:108:typescript-string */ "بودجه‌ها",
-        route: "budgets",
-      });
-    } else if (stats.warnBudget) {
-      list.push({
-        id: "warn",
-        title: `بودجه‌ی ${stats.warnBudget} نزدیک سقف`,
-        desc: "بیش از ۸۰٪ بودجه‌ی این ماه مصرف شده است.",
-        icon: "i-piggy",
-        tone: "amber",
-        cta: /* @copy-text src/pages/HubPage/HubPage.tsx:115:typescript-string */ "بودجه‌ها",
-        route: "budgets",
-      });
-    }
-    if (!budgets.length) {
-      list.push({
-        id: "budget",
-        title: "برای خرج ماه سقف بگذار",
-        desc: "بودجه‌ی دسته‌ها را تعیین کن تا جلوی خرج اضافه گرفته شود.",
-        icon: "i-piggy",
-        tone: "amber",
-        cta: "ساختن بودجه",
-        route: "budgets",
-      });
-    }
-    return list.slice(0, 3);
-  }, [members.length, accounts.length, budgets.length, stats, restricted, loading, incomplete]);
-
-  /* نقطه‌های کاروسل — در RTL مقدار scrollLeft منفی می‌شود، پس قدرمطلق */
-  const stripRef = useRef<HTMLDivElement | null>(null);
-  const [slide, setSlide] = useState(0);
-  function onStripScroll() {
-    const el = stripRef.current;
-    if (!el || !el.clientWidth) return;
-    const i = Math.round(Math.abs(el.scrollLeft) / el.clientWidth);
-    setSlide(Math.max(0, Math.min(i, banners.length - 1)));
-  }
-
   const initial = (member?.name ?? "؟").trim().charAt(0);
 
   return (
-    <section className="page active hub-page">
+    <section className={`page active hub-page${view === "sections" ? " home-sections-page" : ""}`}>
       <header className="hub-head">
         <div className="hub-id">
-          <h1>{family?.name ?? "خانه‌ی من"}</h1>
+          <h1>{view === "sections" ? "بخش‌های خانه" : family?.name ?? "خانه‌ی من"}</h1>
           <p>
             {members.length ? `${toFa(members.length)} عضو` : "خانه‌ی شما"}
             {member ? ` · ${member.name}` : ""}
           </p>
         </div>
         <div className="hub-head-actions">
-          {bell}
           <button
             type="button"
             className="hub-avatar"
@@ -310,63 +215,27 @@ export function HubPage({
         </div>
       </header>
 
+      {view === "dashboard" ? <HomeBillboard wallets={stats.wallets} budget={stats.budget}
+        dues={{ overdue: overview.overdue.length, today: overview.today.length, upcoming: overview.upcoming.length }}
+        currency={cur} loading={loading} incomplete={incomplete} offline={restricted}
+        onTransaction={onAddTransaction} onAccounts={() => onNav("accounts")} onBudgets={() => onNav("budgets")}
+        onRetry={onRetry} onDues={() => {
+          const title = document.getElementById("home-overview-title");
+          title?.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+          title?.focus({ preventScroll: true });
+        }} /> : null}
+
       <HomeModules key={`${family?.id}:${member?.id}`} preferences={homePreferences.preferences}
         onChange={homePreferences.changePreferences} disabled={!homePreferences.ready}
-        lifecycleKey={`${member?.id}:${restricted}`} subtitle={subtitle} onNav={onNav}
+        view={view} subtitle={subtitle} onNav={onNav}
         saving={homePreferences.saving} pending={homePreferences.pending} conflict={homePreferences.conflict}
-        error={homePreferences.error} restricted={restricted} onRetry={homePreferences.retry} onReset={homePreferences.resetPreferences}>
+        error={homePreferences.error} restricted={restricted} onRetry={homePreferences.retry}>
       <HomeOverview overview={overview} data={overviewData} todayIso={todayIso} loading={loading}
         incomplete={incomplete} offline={restricted} onOpen={onOpenItem} onRetry={onRetry} />
 
-      {banners.length ? (
-        <div className="hub-banners">
-          <div className="hub-strip" ref={stripRef} onScroll={onStripScroll}>
-            {banners.map((b) => (
-              <article key={b.id} className={`hub-banner tone-${b.tone}`}>
-                {b.icon ? <span className="hub-banner-ic" aria-hidden="true">
-                  <Icon name={b.icon} size={24} />
-                </span> : null}
-                <div className="hub-banner-txt">
-                  <b>{b.title}</b>
-                  <span>{b.desc}</span>
-                </div>
-                <button
-                  type="button"
-                  className="hub-banner-cta"
-                  onClick={() => onNav(b.route)}
-                >
-                  {b.cta}
-                  <Icon name="i-arrow-l" size={16} />
-                </button>
-              </article>
-            ))}
-          </div>
-          {banners.length > 1 ? (
-            <div className="hub-dots" aria-hidden="true">
-              {banners.map((b, i) => (
-                <span
-                  key={b.id}
-                  className={`hub-dot${i === slide ? " active" : ""}`}
-                />
-              ))}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
-      {!restricted ? <button type="button" className="hub-add" onClick={onAddTransaction}>
-        <span className="hub-add-ic" aria-hidden="true">
-          <Icon name="i-plus" size={20} />
-        </span>
-        <span className="hub-add-txt">
-          <b>ثبت خرج یا درآمد</b>
-          <span>سریع‌ترین راه برای ثبت یک تراکنش</span>
-        </span>
-      </button> : null}
-
       </HomeModules>
 
-      {SOON_MODULES.length ? <><h2 className="hub-section">
+      {view === "sections" && SOON_MODULES.length ? <><h2 className="hub-section">
         به‌زودی
         <span className="hub-section-note">در حال ساخت</span>
       </h2>

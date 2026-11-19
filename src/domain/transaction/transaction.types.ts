@@ -20,6 +20,9 @@ export interface TransactionPhoto {
 }
 
 export interface Transaction {
+  recurringPlan?: { amount: number; category: string; note: string | null; startDate: string | null; revision: number } | null;
+  recurringSourceId?: string | null;
+  recurringDueDate?: string | null;
   id: string;
   /** Server-assigned provenance survives removal of the originating vehicle. */
   sourceKind?: "vehicle_service" | null;
@@ -51,6 +54,7 @@ export interface Transaction {
 }
 
 export interface TransactionInput {
+  requireAvailableBalance?: boolean;
   memberId: string;
   type: TxType;
   amount: number;
@@ -70,4 +74,13 @@ export interface TransactionInput {
   repeat?: TxRepeat;
   /** تاریخ پایان تکرار (میلادی ISO) — الزامی وقتی repeat ≠ none؛ باید بعد از date باشد */
   repeatEnd?: string | null;
+}
+
+export interface RecurringUpdate {
+  amount: number; category: string; note: string | null; startDate: string;
+  repeat: TxRepeat; repeatEnd: string | null; revision: number;
+}
+export interface OccurrenceSettle {
+  dueDate: string; revision: number; accountId: string | null; toAccountId?: string | null;
+  transaction?: TransactionInput;
 }

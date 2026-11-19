@@ -36,7 +36,7 @@ export function SmsImportFeature({
           </span>
           <span className="tx-sms-text">
             <b>ثبت از پیامک بانکی</b>
-            <small>متن پیامک را بچسبانید تا خودکار ثبت شود</small>
+            <small>متن پیامک را بچسبانید و اطلاعاتش را بررسی کنید</small>
           </span>
           <svg className="tx-sms-go">
             <use href="#i-arrow-r" />
@@ -78,11 +78,13 @@ export function SmsImportFeature({
         </p>
 
         <div className="form-row">
-          <label>متن پیامک‌ها</label>
+          <label htmlFor="sms-import-text">متن پیامک‌ها</label>
           <textarea
+            id="sms-import-text"
             className="text-input sms-textarea"
             rows={5}
-            placeholder="متن پیامک بانک ..."
+            placeholder="متن پیامک بانک…"
+            disabled={m.busy}
             value={m.raw}
             onChange={(e) => m.setRaw(e.target.value)}
           />
@@ -96,8 +98,8 @@ export function SmsImportFeature({
                   <span>{x.p.bank || "بانک ناشناس"}</span>
                   <b className={x.p.type!}>
                     {x.p.type === "income" ? "واریز" : "برداشت"} ·{" "}
-                    {formatAmount(toDisplay(x.p.amount!, cur))}
-                    <span className="cur-tag">{currencyDisplayLabel(cur)}</span>
+                    {formatAmount(x.baseAmount == null ? x.p.amount! : toDisplay(x.baseAmount, cur))}
+                    <span className="cur-tag">{x.baseAmount == null ? "واحد نامشخص" : currencyDisplayLabel(cur)}</span>
                   </b>
                   <span>
                     {x.p.date
@@ -116,15 +118,16 @@ export function SmsImportFeature({
         ) : null}
 
         <div className="modal-actions">
-          <button className="btn-secondary" onClick={() => m.setOpen(false)}>
+          <button type="button" className="btn-secondary" disabled={m.busy} onClick={() => m.setOpen(false)}>
             انصراف
           </button>
           <button
             className="btn-primary"
+            type="button"
             disabled={m.busy}
             onClick={() => m.save(onImported)}
           >
-            افزودن پیامک‌ها
+            {m.busy ? "در حال افزودن پیامک‌ها…" : "افزودن پیامک‌ها"}
           </button>
         </div>
       </Modal>

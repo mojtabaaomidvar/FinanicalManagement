@@ -5,12 +5,13 @@ import { Card, Field, JalaliDateInput, Modal, Segmented, Select, TextInput,
 import { CATEGORIES } from "@/domain/category/category.catalog";
 import type { Transaction, TxRepeat } from "@/domain/transaction/transaction.types";
 import { sortTxDesc } from "@/domain/transaction/transaction.rules";
-import { parseScheduledAmount, stoppedRecurringInput } from "@/domain/transaction/recurring.rules";
+import { parseScheduledAmount, recurringTemplate, nextPendingOccurrence } from "@/domain/transaction/recurring.rules";
+import { transactionAccountChoices } from "@/features/transaction-form/model/transactionAccounts";
 import { toDisplay } from "@/shared/lib/currency";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 import { formatISO, isoToJalali, jalaliToIso, parse, today } from "@/shared/lib/jalali";
 
-type SchedType = "expense" | "income";
+type SchedType = "expense" | "income" | "transfer";
 const TYPE_TABS: { value: SchedType; label: string }[] = [
   { value: "expense", label: "هزینه" }, { value: "income", label: "درآمد" },
 ];
@@ -18,7 +19,7 @@ const REPEATS: { value: TxRepeat; label: string }[] = [
   { value: "monthly", label: "ماهانه" }, { value: "weekly", label: "هفتگی" }, { value: "yearly", label: "سالانه" },
 ];
 const NOTE_HINT: Record<SchedType, string> = {
-  expense: "مثلاً: قسط وام مسکن", income: "مثلاً: حقوق ماهانه یا اجارهٔ مغازه",
+  expense: "مثلاً: قسط وام مسکن", income: "مثلاً: حقوق ماهانه یا اجارهٔ مغازه", transfer: "توضیح انتقال دوره‌ای",
 };
 interface ScheduledForm {
   type: SchedType;
@@ -32,8 +33,13 @@ interface ScheduledForm {
 }
 
 export function ScheduledTxsCard() {
-  const { useCases, txs, cur, member, family, customCategories, refreshData, offlineSession } = useApp();
+  const { useCases, txs, accounts, cur, member, family, customCategories, refreshData, offlineSession } = useApp();
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Transaction | null>(null);
+  const [settling, setSettling] = useState<Transaction | null>(null);
+  const [settleAccount, setSettleAccount] = useState("");
+  const [settleDestination, setSettleDestination] = useState("");
+  const [allAccounts, setAllAccounts] = useState(false);
   const [busy, setBusy] = useState(false);
   const writing = useRef(false);
   const mounted = useRef(true);
@@ -55,7 +61,7 @@ export function ScheduledTxsCard() {
       note: "", date: formatISO(today()), repeat: "monthly", repeatEnd: "", currency: cur };
   }
   const scheduled = useMemo(() => sortTxDesc(txs.filter(tx => tx.repeat !== "none")), [txs]);
-  const catOptions = useMemo(() => [...CATEGORIES.filter(category => category.type === form.type).map(category => ({ value: category.id, label: category.name })),
+  const catOptions = useMemo(() => form.type === "transfer" ? [{ value: "transfer", label: "انتقال" }] : [...CATEGORIES.filter(category => category.type === form.type).map(category => ({ value: category.id, label: category.name })),
     ...customCategories.filter(category => category.type === form.type).map(category => ({ value: category.id, label: category.name }))], [form.type, customCategories]);
   const selectedCategory = catOptions.some(category => category.value === form.category) ? form.category : "";
   const resolveName = (id: string) => CATEGORIES.find(category => category.id === id)?.name
@@ -72,7 +78,18 @@ export function ScheduledTxsCard() {
     if (writing.current) return;
     setForm(previous => ({ ...previous, ...values })); setFormError(null);
   }
-  function openNew() { if (!available || writing.current) return; setForm(empty()); setFormError(null); setNotice(null); setOpen(true); }
+  function openNew() { if (!available || writing.current) return; setEditing(null); setForm(empty()); setFormError(null); setNotice(null); setOpen(true); }
+  function openEdit(tx: Transaction) {
+    if (!available || writing.current || !canManage(tx)) return;
+    const template = recurringTemplate(tx);
+    const next = nextPendingOccurrence(tx);
+    const start = next && next >= jalaliToIso(today()) ? next : jalaliToIso(today());
+    setEditing(tx); setFormError(null); setNotice(null);
+    setForm({ type: tx.type, amount: formatExpressionValue(toDisplay(template.amount, cur)), category: template.category,
+      note: template.note ?? "", date: formatISO(isoToJalali(start)), repeat: tx.repeat,
+      repeatEnd: tx.repeatEnd ? formatISO(isoToJalali(tx.repeatEnd)) : "", currency: cur });
+    setOpen(true);
+  }
   function close() { if (!writing.current) setOpen(false); }
   function changeType(type: SchedType) { patch({ type, category: CATEGORIES.find(category => category.type === type)?.id ?? "" }); }
   function changeAmount(raw: string, start: number, end = start) {
@@ -111,11 +128,13 @@ export function ScheduledTxsCard() {
     if (!begin()) return;
     const current = currentRequest(); let saved = false; setFormError(null);
     try {
-      await useCases!.addTransaction.execute({ memberId: member!.id, type: form.type, amount, category: selectedCategory,
+      if (editing) await useCases!.updateRecurring.execute(editing.id, { amount, category: selectedCategory, note,
+        startDate: startIso, repeat: form.repeat, repeatEnd: endIso, revision: editing.recurringPlan?.revision ?? 0 });
+      else await useCases!.addTransaction.execute({ memberId: member!.id, type: form.type, amount, category: selectedCategory,
         date: startIso, time: null, note, accountId: null, toAccountId: null, subcategoryId: null,
         repeat: form.repeat, repeatEnd: endIso });
       if (!current()) return;
-      saved = true; setOpen(false); setNotice("تراکنش تکرارشونده ثبت شد");
+      saved = true; setOpen(false); setNotice(editing ? "برنامهٔ تکرار ویرایش شد؛ پرداخت‌های قبلی تغییر نکردند" : "تراکنش تکرارشونده ثبت شد");
       await refreshData();
     } catch (error) {
       if (current()) {
@@ -135,13 +154,51 @@ export function ScheduledTxsCard() {
       const fresh = rows.find(item => item.id === tx.id);
       if (fresh && fresh.repeat !== "none") {
         if (!canManage(fresh)) return setNotice("اجازهٔ تغییر این تراکنش را ندارید");
-        await useCases!.updateTransaction.execute(fresh.id, stoppedRecurringInput(fresh));
+        const template = recurringTemplate(fresh);
+        await useCases!.updateRecurring.execute(fresh.id, { amount: template.amount, category: template.category,
+          note: template.note, startDate: fresh.recurringPlan?.startDate ?? fresh.date,
+          repeat: "none", repeatEnd: null, revision: fresh.recurringPlan?.revision ?? 0 });
         if (!current()) return;
       }
       stopped = true; setNotice("تکرار متوقف شد؛ سابقهٔ مالی باقی ماند");
       await refreshData();
     } catch (error) {
       if (current()) setNotice(stopped ? "تکرار متوقف شد؛ اطلاعات صفحه تازه نشد. صفحه را بازخوانی کنید" : (error as Error).message || "توقف تکرار ناموفق بود");
+    } finally { finish(current); }
+  }
+
+  const settlementTemplate = settling ? recurringTemplate(settling) : null;
+  const settlementDue = settling ? nextPendingOccurrence(settling) : null;
+  const settlementAccounts = transactionAccountChoices(accounts, txs, member?.id ?? "",
+    settlementTemplate?.amount ?? null, settlementTemplate?.type !== "income", allAccounts);
+  const settlementNeedsAccount = accounts.some(account => account.memberId === member?.id);
+  const settlementDestinations = transactionAccountChoices(accounts, txs, null, null, false, allAccounts)
+    .filter(row => row.account.id !== settleAccount);
+  const settleAccountAvailable = settlementAccounts.some(row => row.account.id === settleAccount);
+  const settleDestinationAvailable = settlementDestinations.some(row => row.account.id === settleDestination);
+  useEffect(() => {
+    if (settling && !busy && settleAccount && !settleAccountAvailable) setSettleAccount("");
+    if (settling && !busy && settleDestination && !settleDestinationAvailable) setSettleDestination("");
+  }, [settling, busy, settleAccount, settleAccountAvailable, settleDestination, settleDestinationAvailable]);
+  function openSettlement(tx: Transaction) {
+    if (!available || writing.current || !canManage(tx)) return;
+    setSettling(tx); setSettleAccount(""); setSettleDestination(""); setAllAccounts(false); setFormError(null);
+  }
+  async function settle() {
+    if (!settling || !settlementDue || !begin()) return;
+    const current = currentRequest(); setFormError(null); let saved = false;
+    try {
+      await useCases!.settleOccurrence.execute(settling.id, { dueDate: settlementDue,
+        revision: settling.recurringPlan?.revision ?? 0, accountId: settleAccount || null,
+        toAccountId: settleDestination || null });
+      if (!current()) return;
+      saved = true; setSettling(null); setNotice("نوبت تسویه شد؛ پرداخت امروز ثبت شد");
+      await refreshData();
+    } catch (error) {
+      if (current()) {
+        if (saved) setNotice("تسویه ثبت شد؛ اطلاعات صفحه تازه نشد. صفحه را بازخوانی کنید");
+        else setFormError((error as Error).message || "تسویه ناموفق بود؛ دوباره تلاش کنید");
+      }
     } finally { finish(current); }
   }
 
@@ -154,25 +211,51 @@ export function ScheduledTxsCard() {
       {notice !== null ? <p className="field-error scheduled-notice" role="status">{notice}</p> : null}
       {scheduled.length ? <div className="scheduled-list" style={{ marginTop: 10 }}>
         {scheduled.map(tx => {
-          const label = tx.note?.trim() || resolveName(tx.category);
+          const template = recurringTemplate(tx);
+          const label = template.note?.trim() || resolveName(template.category);
           return <div className="scheduled-row" key={tx.id}>
             <span className="scheduled-repeat"><svg><use href="#i-repeat" /></svg>
               {REPEATS.find(repeat => repeat.value === tx.repeat)?.label ?? "تکرار نامشخص"}
               {tx.repeatEnd ? /* @copy-text recurring.until */ ` تا ${formatISO(isoToJalali(tx.repeatEnd))}` : ""}
             </span>
             <b className="scheduled-title">{label}</b>
-            <span className="scheduled-amount">{formatExpressionValue(toDisplay(tx.amount, cur))} {currencyDisplayLabel(cur)}</span>
+            <span className="scheduled-amount">{formatExpressionValue(toDisplay(template.amount, cur))} {currencyDisplayLabel(cur)}</span>
+            {canManage(tx) ? <div className="scheduled-actions">
+              {<button type="button" className="link-btn" disabled={busy || !available}
+                aria-label={/* @copy-text recurring.edit_label */ `ویرایش تکرار ${label}`} onClick={() => openEdit(tx)}>ویرایش</button>}
+              <button type="button" className="link-btn" disabled={busy || !available || !nextPendingOccurrence(tx)}
+                aria-label={/* @copy-text recurring.settle_label */ `تسویهٔ درجا ${label}`} onClick={() => openSettlement(tx)}>تسویهٔ درجا</button>
+            </div> : null}
             {canManage(tx) ? <button type="button" className="scheduled-stop" disabled={busy || !available}
               aria-label={/* @copy-text recurring.stop_label */ `توقف تکرار ${label}`} onClick={() => void stop(tx, label)}>توقف</button> : null}
           </div>;
         })}
       </div> : <p className="modal-sub" style={{ marginTop: 10 }}>تراکنش تکرارشونده‌ای ندارید؛ قسط، حقوق یا اجاره را اینجا ثبت کنید.</p>}
     </Card>
-    <Modal open={open} onClose={close} title="تراکنش تکرارشونده" sheetClassName="scheduled-form-sheet">
+    <Modal open={!!settling} onClose={() => { if (!writing.current) setSettling(null); }} title="تسویهٔ درجا" sheetClassName="scheduled-settle-sheet">
+      {settlementTemplate && settlementDue ? <>
+        <p>{settlementTemplate.note || resolveName(settlementTemplate.category)}</p>
+        <p>نوبت {formatISO(isoToJalali(settlementDue))}</p>
+        <b>{formatExpressionValue(toDisplay(settlementTemplate.amount, cur))} {currencyDisplayLabel(cur)}</b>
+        <p className="modal-sub">پرداخت امروز ثبت می‌شود؛ این نوبت دوباره ثبت نخواهد شد.</p>
+        <Field label="حساب تسویه"><Select value={settleAccount} onChange={setSettleAccount} disabled={busy} aria-label="حساب تسویه"
+          options={[{ value: "", label: settlementNeedsAccount ? "انتخاب حساب تسویه…" : "بدون حساب مشخص" }, ...settlementAccounts.map(({ account, balance }) => ({ value: account.id,
+            label: /* @copy-text recurring.settle_account */ `${account.title} · ${formatExpressionValue(toDisplay(balance, cur))} ${currencyDisplayLabel(cur)}` }))]} /></Field>
+        <button type="button" className="link-btn" disabled={busy} onClick={() => setAllAccounts(value => !value)}>{allAccounts ? "فهرست کوتاه حساب‌ها" : "نمایش همهٔ حساب‌های من"}</button>
+        {settlementTemplate.type === "transfer" ? <Field label="حساب مقصد"><Select value={settleDestination} onChange={setSettleDestination} disabled={busy}
+          aria-label="حساب مقصد تسویه" options={[{ value: "", label: "انتخاب حساب مقصد…" }, ...settlementDestinations
+            .map(({ account }) => ({ value: account.id, label: account.title }))]} /></Field> : null}
+        {formError !== null ? <p className="field-error" role="alert">{formError}</p> : null}
+        <div className="modal-actions"><button type="button" className="btn-secondary" disabled={busy} onClick={() => setSettling(null)}>انصراف</button>
+          <button type="button" className="btn-primary" disabled={busy || (settlementNeedsAccount && !settleAccount) || (settlementTemplate.type === "transfer" && (!settleAccount || !settleDestination))}
+            onClick={() => void settle()}>{busy ? "در حال تسویه…" : "تأیید تسویه"}</button></div>
+      </> : <p role="status">نوبت قابل تسویه‌ای باقی نمانده است.</p>}
+    </Modal>
+    <Modal open={open} onClose={close} title={editing ? "ویرایش برنامهٔ تکرار" : "تراکنش تکرارشونده"} sheetClassName="scheduled-form-sheet">
       <form onSubmit={event => { event.preventDefault(); void save(); }}>
         <fieldset className="scheduled-fields" disabled={busy} aria-busy={busy}>
           <div className="sched-form">
-            <Segmented value={form.type} onChange={changeType} options={TYPE_TABS} />
+            {!editing ? <Segmented value={form.type} onChange={changeType} options={TYPE_TABS} /> : null}
             <Field label="مبلغ"><div className="amt-field">
               <input ref={amountRef} type="text" className="num-input big" inputMode="decimal" aria-label="مبلغ تراکنش تکرارشونده"
                 value={form.amount} onChange={amountChanged} onKeyDown={amountKeyDown} />
@@ -187,11 +270,11 @@ export function ScheduledTxsCard() {
               <div className="sched-when-head"><svg><use href="#i-repeat" /></svg>زمان‌بندی تکرار</div>
               <div className="sched-grid">
                 <Field label="دوره"><Select value={form.repeat} onChange={repeat => patch({ repeat: repeat as TxRepeat })} aria-label="دورهٔ تکرار" options={REPEATS} /></Field>
-                <Field label="شروع"><JalaliDateInput value={form.date} onChange={date => patch({ date })} aria-label="تاریخ شروع تکرار" /></Field>
+                <Field label={editing ? "موعد بعدی" : "شروع"}><JalaliDateInput value={form.date} onChange={date => patch({ date })} aria-label="تاریخ شروع تکرار" /></Field>
               </div>
               <Field label="پایان تکرار"><JalaliDateInput value={form.repeatEnd} onChange={repeatEnd => patch({ repeatEnd })} aria-label="تاریخ پایان تکرار" placeholder="تا چه زمانی تکرار شود؟" /></Field>
             </div>
-            <p className="modal-sub">نوبت اول بدون حساب مشخص در تراکنش‌ها ثبت می‌شود؛ نوبت‌های بعدی نیاز به تأیید دارند.</p>
+            <p className="modal-sub">{editing ? "تغییرها فقط برای نوبت‌های بعدی‌اند؛ مبلغ، تاریخ و حساب پرداخت‌های ثبت‌شده تغییر نمی‌کنند." : "نوبت اول بدون حساب مشخص در تراکنش‌ها ثبت می‌شود؛ نوبت‌های بعدی نیاز به تأیید دارند."}</p>
             {formError !== null ? <p className="field-error scheduled-form-error" role="alert">{formError}</p> : null}
           </div>
           <div className="modal-actions">

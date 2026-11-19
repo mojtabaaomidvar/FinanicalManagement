@@ -31,7 +31,7 @@
     "copy:studio:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-copy-workbench.ps1 -Action Check",
     "copy:studio:test": "node --test scripts/copy-workbench/*.test.mjs",
     "copy:studio:coverage": "node scripts/check-copy-coverage.mjs",
-    "copy:studio:finance-check": "node scripts/check-finance-transactions.mjs",
+    "copy:studio:finance-check": "node scripts/check-finance-refresh.mjs",
     "sandbox:calendar-check": "node scripts/check-calendar.mjs",
     "sandbox:profile-check": "node scripts/check-profile.mjs",
     "sandbox:birthday-calendar-check": "node scripts/check-birthday-calendar.mjs",

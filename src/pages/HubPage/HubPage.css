@@ -102,5 +102,4 @@
 .hub-page .hub-tile-title,
 .hub-page .hub-tile-sub { min-width: 0; overflow-wrap: anywhere; }
 .hub-page .hub-tile-sub { font-size: 12.5px; line-height: 1.45; color: var(--text-2); }
-.hub-page .hub-banner { flex-wrap: wrap; }
-.hub-page .hub-banner-txt { flex-basis: 55%; }
+.hub-overview-head h2 { scroll-margin-block-start: 18px; }

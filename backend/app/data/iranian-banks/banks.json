@@ -1,0 +1,564 @@
+[
+  {
+    "id": "wepod",
+    "name_fa": "ویپاد (ترابانک پاسارگاد)",
+    "name_en": "WePod",
+    "parent_bank": "بانک پاسارگاد",
+    "type": "neobank",
+    "bins": [
+      "502229"
+    ],
+    "iban_code": "057",
+    "color": "#0E7490",
+    "logo_svg": "logos/svg/wepod.svg",
+    "logo_png": "logos/png/wepod.png",
+    "website": "https://wepod.ir"
+  },
+  {
+    "id": "blubank",
+    "name_fa": "بلوبانک (نئوبانک سامان)",
+    "name_en": "BluBank",
+    "parent_bank": "بانک سامان",
+    "type": "neobank",
+    "bins": [
+      "62198618",
+      "62198619"
+    ],
+    "iban_code": "056",
+    "color": "#004B87",
+    "logo_svg": "logos/svg/blubank.svg",
+    "logo_png": "logos/png/blubank.png",
+    "website": "https://blubank.com"
+  },
+  {
+    "id": "bankino",
+    "name_fa": "بانکینو (نئوبانک خاورمیانه)",
+    "name_en": "Bankino",
+    "parent_bank": "بانک خاورمیانه",
+    "type": "neobank",
+    "bins": [
+      "505785"
+    ],
+    "iban_code": "078",
+    "color": "#4F46E5",
+    "logo_svg": "logos/svg/bankino.svg",
+    "logo_png": "logos/png/bankino.png",
+    "website": "https://bankino.digital"
+  },
+  {
+    "id": "banket",
+    "name_fa": "بانکت (نئوبانک مهر ایران)",
+    "name_en": "Banket",
+    "parent_bank": "بانک قرض‌الحسنه مهر ایران",
+    "type": "neobank",
+    "bins": [],
+    "iban_code": "060",
+    "color": "#231F20",
+    "logo_svg": "logos/svg/banket.svg",
+    "logo_png": "logos/png/banket.png",
+    "website": "https://banket.app"
+  },
+  {
+    "id": "tobank",
+    "name_fa": "توبانک (نئوبانک گردشگری)",
+    "name_en": "Tobank",
+    "parent_bank": "بانک گردشگری",
+    "type": "neobank",
+    "bins": [],
+    "iban_code": "064",
+    "color": "#0284C7",
+    "logo_svg": "logos/svg/tobank.svg",
+    "logo_png": "logos/png/tobank.png",
+    "website": "https://tobank.ir"
+  },
+  {
+    "id": "omidbank",
+    "name_fa": "امیدبانک (بانک دیجیتال سپه)",
+    "name_en": "Omid Bank",
+    "parent_bank": "بانک سپه",
+    "type": "neobank",
+    "bins": [],
+    "iban_code": "015",
+    "color": "#1E3A8A",
+    "logo_svg": "logos/svg/omidbank.svg",
+    "logo_png": "logos/png/omidbank.png",
+    "website": "https://omidbank.ir"
+  },
+  {
+    "id": "abank",
+    "name_fa": "آبانک (بانک دیجیتال آینده)",
+    "name_en": "Abank",
+    "parent_bank": "بانک آینده",
+    "type": "neobank",
+    "bins": [],
+    "iban_code": "062",
+    "color": "#7C3AED",
+    "logo_svg": "logos/svg/abank.svg",
+    "logo_png": "logos/png/abank.png",
+    "website": "https://abankapp.ir"
+  },
+  {
+    "id": "cbi",
+    "name_fa": "بانک مرکزی جمهوری اسلامی ایران",
+    "name_en": "Central Bank of Iran (CBI)",
+    "parent_bank": null,
+    "type": "central_bank",
+    "bins": [],
+    "iban_code": "010",
+    "color": "#15803D",
+    "logo_svg": "logos/svg/cbi.svg",
+    "logo_png": "logos/png/cbi.png",
+    "website": "https://cbi.ir"
+  },
+  {
+    "id": "melli",
+    "name_fa": "بانک ملی ایران",
+    "name_en": "Bank Melli Iran",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "603799",
+      "170019"
+    ],
+    "iban_code": "017",
+    "color": "#0284C7",
+    "logo_svg": "logos/svg/melli.svg",
+    "logo_png": "logos/png/melli.png",
+    "website": "https://bmi.ir"
+  },
+  {
+    "id": "sepah",
+    "name_fa": "بانک سپه",
+    "name_en": "Bank Sepah",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "589210",
+      "627381",
+      "639599",
+      "504172",
+      "627760"
+    ],
+    "iban_code": "015",
+    "color": "#D97706",
+    "logo_svg": "logos/svg/sepah.svg",
+    "logo_png": "logos/png/sepah.png",
+    "website": "https://banksepah.ir"
+  },
+  {
+    "id": "mellat",
+    "name_fa": "بانک ملت",
+    "name_en": "Bank Mellat",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "610433",
+      "991975"
+    ],
+    "iban_code": "012",
+    "color": "#DC2626",
+    "logo_svg": "logos/svg/mellat.svg",
+    "logo_png": "logos/png/mellat.png",
+    "website": "https://bankmellat.ir"
+  },
+  {
+    "id": "saderat",
+    "name_fa": "بانک صادرات ایران",
+    "name_en": "Bank Saderat Iran",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "603769",
+      "903769"
+    ],
+    "iban_code": "019",
+    "color": "#1E3A8A",
+    "logo_svg": "logos/svg/saderat.svg",
+    "logo_png": "logos/png/saderat.png",
+    "website": "https://bsi.ir"
+  },
+  {
+    "id": "tejarat",
+    "name_fa": "بانک تجارت",
+    "name_en": "Tejarat Bank",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "585983",
+      "627353"
+    ],
+    "iban_code": "018",
+    "color": "#2563EB",
+    "logo_svg": "logos/svg/tejarat.svg",
+    "logo_png": "logos/png/tejarat.png",
+    "website": "https://tejaratbank.ir"
+  },
+  {
+    "id": "keshavarzi",
+    "name_fa": "بانک کشاورزی",
+    "name_en": "Agri Bank (Keshavarzi)",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "603770",
+      "639217"
+    ],
+    "iban_code": "016",
+    "color": "#15803D",
+    "logo_svg": "logos/svg/keshavarzi.svg",
+    "logo_png": "logos/png/keshavarzi.png",
+    "website": "https://bki.ir"
+  },
+  {
+    "id": "maskan",
+    "name_fa": "بانک مسکن",
+    "name_en": "Bank Maskan",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "628023"
+    ],
+    "iban_code": "014",
+    "color": "#EA580C",
+    "logo_svg": "logos/svg/maskan.svg",
+    "logo_png": "logos/png/maskan.png",
+    "website": "https://bank-maskan.ir"
+  },
+  {
+    "id": "refah",
+    "name_fa": "بانک رفاه کارگران",
+    "name_en": "Refah Bank",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "589463"
+    ],
+    "iban_code": "013",
+    "color": "#4338CA",
+    "logo_svg": "logos/svg/refah.svg",
+    "logo_png": "logos/png/refah.png",
+    "website": "https://refah-bank.ir"
+  },
+  {
+    "id": "pasargad",
+    "name_fa": "بانک پاسارگاد",
+    "name_en": "Bank Pasargad",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "639347",
+      "502229"
+    ],
+    "iban_code": "057",
+    "color": "#CA8A04",
+    "logo_svg": "logos/svg/pasargad.svg",
+    "logo_png": "logos/png/pasargad.png",
+    "website": "https://bpi.ir"
+  },
+  {
+    "id": "saman",
+    "name_fa": "بانک سامان",
+    "name_en": "Saman Bank",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "621986"
+    ],
+    "iban_code": "056",
+    "color": "#0284C7",
+    "logo_svg": "logos/svg/saman.svg",
+    "logo_png": "logos/png/saman.png",
+    "website": "https://sb24.ir"
+  },
+  {
+    "id": "parsian",
+    "name_fa": "بانک پارسیان",
+    "name_en": "Parsian Bank",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "622106",
+      "639194",
+      "627884"
+    ],
+    "iban_code": "054",
+    "color": "#B91C1C",
+    "logo_svg": "logos/svg/parsian.svg",
+    "logo_png": "logos/png/parsian.png",
+    "website": "https://parsian-bank.ir"
+  },
+  {
+    "id": "eghtesad-novin",
+    "name_fa": "بانک اقتصاد نوین",
+    "name_en": "Eghtesad Novin Bank",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "627412"
+    ],
+    "iban_code": "055",
+    "color": "#7E22CE",
+    "logo_svg": "logos/svg/eghtesad-novin.svg",
+    "logo_png": "logos/png/eghtesad-novin.png",
+    "website": "https://enbank.ir"
+  },
+  {
+    "id": "karafarin",
+    "name_fa": "بانک کارآفرین",
+    "name_en": "Karafarin Bank",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "627488",
+      "502910"
+    ],
+    "iban_code": "053",
+    "color": "#16A34A",
+    "logo_svg": "logos/svg/karafarin.svg",
+    "logo_png": "logos/png/karafarin.png",
+    "website": "https://karafarinbank.ir"
+  },
+  {
+    "id": "sina",
+    "name_fa": "بانک سینا",
+    "name_en": "Sina Bank",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "639346"
+    ],
+    "iban_code": "059",
+    "color": "#2563EB",
+    "logo_svg": "logos/svg/sina.svg",
+    "logo_png": "logos/png/sina.png",
+    "website": "https://sinabank.ir"
+  },
+  {
+    "id": "sarmayeh",
+    "name_fa": "بانک سرمایه",
+    "name_en": "Sarmayeh Bank",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "639607"
+    ],
+    "iban_code": "058",
+    "color": "#4338CA",
+    "logo_svg": "logos/svg/sarmayeh.svg",
+    "logo_png": "logos/png/sarmayeh.png",
+    "website": "https://sbank.ir"
+  },
+  {
+    "id": "shahr",
+    "name_fa": "بانک شهر",
+    "name_en": "Shahr Bank",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "502806",
+      "504706"
+    ],
+    "iban_code": "061",
+    "color": "#DC2626",
+    "logo_svg": "logos/svg/shahr.svg",
+    "logo_png": "logos/png/shahr.png",
+    "website": "https://shahr-bank.ir"
+  },
+  {
+    "id": "dey",
+    "name_fa": "بانک دی",
+    "name_en": "Day Bank",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "502938"
+    ],
+    "iban_code": "066",
+    "color": "#0284C7",
+    "logo_svg": "logos/svg/dey.svg",
+    "logo_png": "logos/png/dey.png",
+    "website": "https://day24.ir"
+  },
+  {
+    "id": "ayandeh",
+    "name_fa": "بانک آینده",
+    "name_en": "Ayandeh Bank",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "636214"
+    ],
+    "iban_code": "062",
+    "color": "#854D0E",
+    "logo_svg": "logos/svg/ayandeh.svg",
+    "logo_png": "logos/png/ayandeh.png",
+    "website": "https://ba24.ir"
+  },
+  {
+    "id": "gardeshgari",
+    "name_fa": "بانک گردشگری",
+    "name_en": "Tourism Bank (Gardeshgari)",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "505416",
+      "505426"
+    ],
+    "iban_code": "064",
+    "color": "#7F1D1D",
+    "logo_svg": "logos/svg/gardeshgari.svg",
+    "logo_png": "logos/png/gardeshgari.png",
+    "website": "https://tourismbank.ir"
+  },
+  {
+    "id": "iran-zamin",
+    "name_fa": "بانک ایران زمین",
+    "name_en": "Iran Zamin Bank",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "505785"
+    ],
+    "iban_code": "069",
+    "color": "#7C2D12",
+    "logo_svg": "logos/svg/iran-zamin.svg",
+    "logo_png": "logos/png/iran-zamin.png",
+    "website": "https://izbank.ir"
+  },
+  {
+    "id": "khavarmianeh",
+    "name_fa": "بانک خاورمیانه",
+    "name_en": "Middle East Bank",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "585947"
+    ],
+    "iban_code": "078",
+    "color": "#1E293B",
+    "logo_svg": "logos/svg/khavarmianeh.svg",
+    "logo_png": "logos/png/khavarmianeh.png",
+    "website": "https://middleeastbank.ir"
+  },
+  {
+    "id": "mehr-iran",
+    "name_fa": "بانک قرض‌الحسنه مهر ایران",
+    "name_en": "Qarz Al-Hasaneh Mehr Iran Bank",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "606373"
+    ],
+    "iban_code": "060",
+    "color": "#047857",
+    "logo_svg": "logos/svg/mehr-iran.svg",
+    "logo_png": "logos/png/mehr-iran.png",
+    "website": "https://qmb.ir"
+  },
+  {
+    "id": "resalat",
+    "name_fa": "بانک قرض‌الحسنه رسالت",
+    "name_en": "Resalat Qarz Al-Hasaneh Bank",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "504172"
+    ],
+    "iban_code": "070",
+    "color": "#1D4ED8",
+    "logo_svg": "logos/svg/resalat.svg",
+    "logo_png": "logos/png/resalat.png",
+    "website": "https://rqbank.ir"
+  },
+  {
+    "id": "post",
+    "name_fa": "پست بانک ایران",
+    "name_en": "Post Bank Iran",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "627760"
+    ],
+    "iban_code": "021",
+    "color": "#065F46",
+    "logo_svg": "logos/svg/post.svg",
+    "logo_png": "logos/png/post.png",
+    "website": "https://postbank.ir"
+  },
+  {
+    "id": "tosee-taavon",
+    "name_fa": "بانک توسعه تعاون",
+    "name_en": "Tosee Taavon Bank",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "502908"
+    ],
+    "iban_code": "051",
+    "color": "#1E3A8A",
+    "logo_svg": "logos/svg/tosee-taavon.svg",
+    "logo_png": "logos/png/tosee-taavon.png",
+    "website": "https://ttbank.ir"
+  },
+  {
+    "id": "tosee-saderat",
+    "name_fa": "بانک توسعه صادرات ایران",
+    "name_en": "Export Development Bank of Iran (EDBI)",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "627648",
+      "207177"
+    ],
+    "iban_code": "020",
+    "color": "#0284C7",
+    "logo_svg": "logos/svg/tosee-saderat.svg",
+    "logo_png": "logos/png/tosee-saderat.png",
+    "website": "https://edbi.ir"
+  },
+  {
+    "id": "sanat-madan",
+    "name_fa": "بانک صنعت و معدن",
+    "name_en": "Bank of Industry and Mine",
+    "parent_bank": null,
+    "type": "bank",
+    "bins": [
+      "627961"
+    ],
+    "iban_code": "022",
+    "color": "#064E3B",
+    "logo_svg": "logos/svg/sanat-madan.svg",
+    "logo_png": "logos/png/sanat-madan.png",
+    "website": "https://bim.ir"
+  },
+  {
+    "id": "melal",
+    "name_fa": "موسسه اعتباری ملل",
+    "name_en": "Melal Credit Institution",
+    "parent_bank": null,
+    "type": "institution",
+    "bins": [
+      "606256"
+    ],
+    "iban_code": "075",
+    "color": "#991B1B",
+    "logo_svg": "logos/svg/melal.svg",
+    "logo_png": "logos/png/melal.png",
+    "website": "https://melalbank.ir"
+  },
+  {
+    "id": "noor",
+    "name_fa": "موسسه اعتباری نور",
+    "name_en": "Noor Credit Institution",
+    "parent_bank": "بانک ملی ایران",
+    "type": "institution",
+    "bins": [
+      "507677"
+    ],
+    "iban_code": "080",
+    "color": "#1E293B",
+    "logo_svg": "logos/svg/noor.svg",
+    "logo_png": "logos/png/noor.png",
+    "website": "https://noorbank.ir"
+  }
+]

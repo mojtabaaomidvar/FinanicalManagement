@@ -15,6 +15,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Integer,
     Numeric,
     Text,
     UniqueConstraint,
@@ -75,6 +76,15 @@ class Transaction(Base):
     )
     repeat: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'none'"))
     repeat_end: Mapped[date | None] = mapped_column(Date)
+    recurring_amount: Mapped[Decimal | None] = mapped_column(Numeric(15, 2))
+    recurring_category: Mapped[str | None] = mapped_column(Text)
+    recurring_note: Mapped[str | None] = mapped_column(Text)
+    recurring_start_date: Mapped[date | None] = mapped_column(Date)
+    recurring_revision: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("0")
+    )
+    recurring_source_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    recurring_due_date: Mapped[date | None] = mapped_column(Date)
     # سررسیدهای رسیدگی‌شدهٔ تراکنش تکرارشونده (فهرست "YYYY-MM-DD")
     handled_occurrences: Mapped[list] = mapped_column(
         JSONB, nullable=False, server_default=text("'[]'::jsonb")

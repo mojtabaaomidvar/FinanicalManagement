@@ -15,7 +15,7 @@ import {
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 import { formatSignedAmount } from "@/shared/lib/format";
 import { toDisplay } from "@/shared/lib/currency";
-import { BANK_NAMES } from "@/shared/lib/banks";
+import { BANK_OPTIONS, bankDisplayLabel } from "@/shared/lib/banks";
 import { isSmsReaderAvailable } from "@/shared/native/smsReader";
 import type { AccountKind } from "@/domain/account/account.types";
 import type { AccountsModel } from "../model/useAccountsModel";
@@ -94,6 +94,15 @@ export function AccountFormFeature({ m }: { m: AccountsModel }) {
           </div>
         )}
 
+        {!editing && !isWallet && m.canAddForChild && m.children.length ? <div className="form-row full">
+          <Field label="صاحب حساب"><Select value={m.form.memberId} onChange={memberId => m.patch({ memberId })}
+            aria-label="صاحب حساب" options={[
+              { value: m.member?.id ?? "", label: "خودم" },
+              ...m.children.map(child => ({ value: child.id, label: child.name })),
+            ]} /></Field>
+          <p className="modal-sub">مدیر می‌تواند برای فرزند حساب اضافه کند؛ ویرایش و حذف فقط با صاحب حساب است.</p>
+        </div> : null}
+
         <div className="form-row full">
           <Field label={isWallet ? "نام کیف‌پول" : "عنوان کارت/حساب"}>
             <TextInput
@@ -143,7 +152,9 @@ export function AccountFormFeature({ m }: { m: AccountsModel }) {
                   aria-label="بانک"
                   options={[
                     { value: "", label: "انتخاب کنید" },
-                    ...BANK_NAMES.map((b) => ({ value: b, label: b })),
+                    ...(m.form.bank && !BANK_OPTIONS.some(bank => bank.value === m.form.bank)
+                      ? [{ value: m.form.bank, label: bankDisplayLabel(m.form.bank) }] : []),
+                    ...BANK_OPTIONS,
                   ]}
                 />
               </Field>
@@ -194,6 +205,10 @@ export function AccountFormFeature({ m }: { m: AccountsModel }) {
         </div>
 
         {/* هشدار ویرایش دستی موجودی */}
+        {m.cardChanged ? <label className="bal-warn-ack full">
+          <input type="checkbox" checked={m.cardChangeAck} onChange={event => m.setCardChangeAck(event.target.checked)} />
+          <span>تغییر شماره کارت این حساب را بررسی و تأیید می‌کنم</span>
+        </label> : null}
         {editing && m.balanceChanged ? (
           <div className="bal-warn" style={{ gridColumn: "1 / -1" }}>
             <div className="bal-warn-head">
@@ -260,7 +275,7 @@ export function AccountFormFeature({ m }: { m: AccountsModel }) {
         <button
           className="btn-primary"
           disabled={
-            m.locked || (editing !== null && m.balanceChanged && !m.balanceAck)
+            m.locked || (editing !== null && m.balanceChanged && !m.balanceAck) || (m.cardChanged && !m.cardChangeAck)
           }
           onClick={m.save}
         >

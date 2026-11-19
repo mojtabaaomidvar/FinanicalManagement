@@ -5,7 +5,7 @@ import { SCENARIOS, ROUTES, createPreviewSession, handlePreviewRequest } from '.
 const create = (scenario = 'full-owner', route = 'hub') => createPreviewSession(scenario, route, { now: '2026-11-16T08:00:00.000Z' });
 const request = (session, path, method = 'GET', body) => handlePreviewRequest(session, { path, method, body });
 
-test('recurring acknowledgements are idempotent manager actions without financial writes', () => {
+test('recurring acknowledgements are idempotent owner or manager actions without financial writes', () => {
   for (const role of ['full-owner', 'full-admin']) {
     const session = create(role), transaction = session.data.transactions.find(row => row.repeat === 'monthly');
     const before = structuredClone(session.data.transactions), path = '/transactions/' + transaction.id + '/occurrences';
@@ -17,7 +17,9 @@ test('recurring acknowledgements are idempotent manager actions without financia
     assert.equal(request(session, path, 'GET').status, 405);
   }
   const member = create('full-member'), tx = member.data.transactions.find(row => row.repeat === 'monthly');
-  assert.equal(request(member, '/transactions/' + tx.id + '/occurrences', 'POST', { due_date: member.data.today }).status, 403);
+  assert.equal(request(member, '/transactions/' + tx.id + '/occurrences', 'POST', { due_date: member.data.today }).status, 204);
+  tx.member_id = member.data.members.find(row => row.role === 'owner').id;
+  assert.equal(request(member, '/transactions/' + tx.id + '/occurrences', 'POST', { due_date: member.data.today }).status, 404);
 });
 
 test('bill payment and reversal create and remove one linked expense without changing other records', () => {
@@ -105,18 +107,16 @@ test('deleting a label clears its link and preserves every financial field', () 
   assert.deepEqual(after, before.map(row => ({ ...row, subcategory_id: row.subcategory_id === label.id ? null : row.subcategory_id })));
 });
 
-test('deleting an account preserves the ledger and clears only its transfer and direct account links', () => {
+test('deleting an account with history is blocked and preserves the ledger', () => {
   const session = create(), accounts = request(session, '/accounts').body;
   const source = accounts[0].id, destination = accounts[1].id;
   request(session, '/transactions', 'POST', { type: 'transfer', amount: 100, category: 'transfer', date: '2026-11-16',
     member_id: session.data.actor.id, account_id: source, to_account_id: destination, note: 'Account removal regression' });
   const before = structuredClone(request(session, '/transactions').body);
-  assert.equal(request(session, '/accounts/' + source, 'DELETE').status, 204);
+  assert.equal(request(session, '/accounts/' + source, 'DELETE').status, 422);
+  assert.equal(request(session, '/accounts/' + source, 'DELETE', { confirmation: accounts[0].title }).status, 409);
   const after = request(session, '/transactions').body;
-  assert.deepEqual(after.map(row => row.id), before.map(row => row.id));
-  for (const [index, row] of after.entries()) assert.deepEqual(row, { ...before[index],
-    account_id: before[index].account_id === source ? null : before[index].account_id,
-    to_account_id: before[index].to_account_id === source ? null : before[index].to_account_id });
+  assert.deepEqual(after, before);
   assert.equal(after.find(row => row.note === 'Account removal regression').to_account_id, destination);
 });
 
@@ -132,8 +132,8 @@ test('all scenarios and routes have stable distinct IDs and safe defaults', () =
   assert.throws(() => createPreviewSession('full-owner', 'https://production.invalid'));
 });
 
-test('all 23 actual app routes and settings sections are represented', () => {
-  assert.equal(ROUTES.filter(item => !item.baseRoute).length, 23);
+test('all 24 actual app routes and settings sections are represented', () => {
+  assert.equal(ROUTES.filter(item => !item.baseRoute).length, 24);
   assert.equal(ROUTES.filter(item => item.baseRoute === 'settings').length, 13);
   assert.equal(create('full-owner', 'settings/notifications').routeInfo.sectionLabel, 'اعلان‌ها');
 });
@@ -304,10 +304,10 @@ test('writes and returned DTO mutations never affect another session', () => {
 
 test('account edits preserve a null opening balance while explicit zero remains a valid update', () => {
   const session = create(); const account = request(session, '/accounts').body[0];
-  const updated = request(session, '/accounts/' + account.id, 'PATCH', { title: 'Renamed account', initial_balance: null });
+  const updated = request(session, '/accounts/' + account.id, 'PATCH', { title: 'Renamed account', card_number: account.card_number, initial_balance: null });
   assert.equal(updated.status, 200); assert.equal(updated.body.initial_balance, account.initial_balance);
   assert.equal(updated.body.title, 'Renamed account');
-  assert.equal(request(session, '/accounts/' + account.id, 'PATCH', { initial_balance: 0 }).body.initial_balance, 0);
+  assert.equal(request(session, '/accounts/' + account.id, 'PATCH', { card_number: account.card_number, initial_balance: 0 }).body.initial_balance, 0);
 });
 
 test('unknown, absolute or unsupported requests fail locally without fallback', () => {

@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
 import { useHoldings } from "@/features/holdings";
-import { bankOfCard, cardMatchesBank } from "@/shared/lib/banks";
+import { bankOfCard, bankDisplayLabel, cardMatchesBank } from "@/shared/lib/banks";
 import { digitsOf, formatCardFa, parseAccountBalance } from "@/domain/account/account.rules";
 import type { Account, AccountKind } from "@/domain/account/account.types";
 import { accountBalances } from "@/domain/report/report.rules";
@@ -25,6 +25,7 @@ export const WALLET_PRESETS = [
 
 /** حالت فرم — مشترک بین افزودن و ویرایش */
 interface FormState {
+  memberId: string;
   kind: AccountKind;
   title: string;
   bank: string;
@@ -37,6 +38,7 @@ interface FormState {
 }
 
 const EMPTY: FormState = {
+  memberId: "",
   kind: "bank",
   title: "",
   bank: "",
@@ -46,13 +48,24 @@ const EMPTY: FormState = {
 };
 
 export function useAccountsModel() {
-  const { useCases, accounts, members, member, txs, cur, refreshData } =
+  const { useCases, accounts, members, member, family, txs, cur, refreshData } =
     useApp();
   const { show } = useToast();
+  const mounted = useRef(true);
+  const identity = `${family?.id ?? ""}:${member?.id ?? ""}`;
+  const identityRef = useRef(identity); identityRef.current = identity;
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  function currentRequest() {
+    const scope = identityRef.current;
+    return () => mounted.current && identityRef.current === scope;
+  }
 
   const [open, setOpen] = useState(false);
   /* null = افزودن، Account = ویرایش همان حساب */
   const [editing, setEditing] = useState<Account | null>(null);
+  const [deleting, setDeleting] = useState<Account | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [cardChangeAck, setCardChangeAck] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [busy, setBusy] = useState(false);
   const writing = useRef(false);
@@ -72,6 +85,11 @@ export function useAccountsModel() {
      عمداً ref است نه state: نباید رندر بدهد، فقط باید یادمان بماند که
      هنگام بستن مودال یک‌بار داده را تازه کنیم. */
   const smsDirty = useRef(false);
+  useEffect(() => {
+    writing.current = false; smsWriting.current = false; smsDirty.current = false;
+    setOpen(false); setEditing(null); setDeleting(null); setBusy(false); setSmsBusy(false);
+    setNotice(null); setRevealed(new Set());
+  }, [identity]);
 
   /* موجودی هر حساب = موجودی اولیه + اثر تراکنش‌ها */
   const balances = useMemo(
@@ -114,11 +132,14 @@ export function useAccountsModel() {
   const banks = balances.filter((b) => b.account.kind !== "wallet");
   const wallets = balances.filter((b) => b.account.kind === "wallet");
 
-  /** آیا این کاربر اجازه‌ی ویرایش/حذف این حساب را دارد؟
-      مدیر خانواده همه را، عضو عادی فقط حساب‌های خودش را. */
+  /** صاحب حساب می‌تواند آن را ویرایش یا حذف کند. */
   function canEdit(acc: Account): boolean {
-    return member?.role === "owner" || member?.role === "admin" || acc.memberId === member?.id;
+    return !!member && acc.memberId === member.id;
   }
+  const children = members.filter(child => child.relation === "فرزند" && child.membershipState === "active");
+  const canAddForChild = member?.role === "owner" || member?.role === "admin";
+  const cardChanged = !!editing && editing.kind === "bank" && digitsOf(form.cardNo) !== (editing.cardNumber ?? "");
+  const deleteHasHistory = !!deleting && txs.some(tx => tx.accountId === deleting.id || tx.toAccountId === deleting.id);
 
   /* خطای هم‌خوانی کارت با بانک — زنده هنگام تایپ */
   const binError = useMemo(() => {
@@ -132,7 +153,7 @@ export function useAccountsModel() {
       return "";
     }
     if (!cardMatchesBank(digits, form.bank)) {
-      return `این شماره کارت متعلق به «${bankOfCard(digits) ?? "بانک دیگری"}» است، نه «${form.bank}»`;
+      return `این شماره کارت متعلق به «${bankOfCard(digits) ? bankDisplayLabel(bankOfCard(digits)!) : "بانک دیگری"}» است، نه «${bankDisplayLabel(form.bank)}»`;
     }
     return "";
   }, [form.cardNo, form.bank, form.kind]);
@@ -160,7 +181,8 @@ export function useAccountsModel() {
     setNotice(null);
     setReviewedBalance(null);
     setEditing(null);
-    setForm({ ...EMPTY, kind, title });
+    setForm({ ...EMPTY, kind, title, memberId: member?.id ?? "" });
+    setCardChangeAck(false);
     setBalanceAck(false);
     setBalanceTouched(false);
     /* حساب تازه هنوز شناسه‌ای ندارد، پس کلید پیامک اینجا معنا ندارد */
@@ -177,6 +199,7 @@ export function useAccountsModel() {
     const shown = Math.round(toDisplay(balanceOf.get(acc.id) ?? 0, cur));
     setEditing(acc);
     setForm({
+      memberId: acc.memberId,
       kind: acc.kind,
       title: acc.title,
       bank: acc.bank ?? "",
@@ -185,6 +208,7 @@ export function useAccountsModel() {
       negative: (balanceOf.get(acc.id) ?? 0) < 0,
     });
     setBalanceAck(false);
+    setCardChangeAck(false);
     setBalanceTouched(false);
     setSmsOn(acc.smsEnabled);
     setOpen(true);
@@ -225,6 +249,8 @@ export function useAccountsModel() {
   function patch(p: Partial<FormState>) {
     if (writing.current || smsWriting.current) return;
     setNotice(null);
+    if (p.cardNo !== undefined || p.bank !== undefined) setCardChangeAck(false);
+    if (p.kind === "wallet") p.memberId = member?.id ?? "";
     if (p.balance !== undefined) {
       setBalanceTouched(true);
       setBalanceAck(false);
@@ -241,8 +267,10 @@ export function useAccountsModel() {
     if (!useCases || !acc || acc.kind !== "bank" || writing.current || smsWriting.current) return;
     smsWriting.current = true;
     setSmsBusy(true);
+    const current = currentRequest();
     try {
       const updated = await useCases.setAccountSmsEnabled.execute(acc, next);
+      if (!current()) return;
       /* هرچه سرور گفت همان نمایش داده می‌شود، نه آنچه کاربر کلیک کرد */
       setSmsOn(updated.smsEnabled);
       show(
@@ -254,10 +282,9 @@ export function useAccountsModel() {
          وسطِ کار عوض نشود — توضیح کامل در close */
       smsDirty.current = true;
     } catch (e) {
-      show((e as Error).message || "خطا در تغییر وضعیت پیامک");
+      if (current()) show((e as Error).message || "خطا در تغییر وضعیت پیامک");
     } finally {
-      smsWriting.current = false;
-      setSmsBusy(false);
+      if (current()) { smsWriting.current = false; setSmsBusy(false); }
     }
   }
 
@@ -265,6 +292,7 @@ export function useAccountsModel() {
   function setCardNo(v: string) {
     if (writing.current || smsWriting.current) return;
     setNotice(null);
+    setCardChangeAck(false);
     const digits = digitsOf(v);
     const detected = bankOfCard(digits);
     setForm((f) => ({
@@ -278,6 +306,8 @@ export function useAccountsModel() {
     if (!useCases || !open || writing.current || smsWriting.current) return;
     if (binError) return notify(binError);
     if (targetBalance === null) return notify("موجودی معتبر وارد کنید");
+    if (editing && !canEdit(editing)) return notify("فقط صاحب حساب می‌تواند آن را تغییر دهد");
+    if (cardChanged && !cardChangeAck) return notify("تغییر شماره کارت را تأیید کنید");
 
     /* تغییر موجودی تراکنش اصلاحی می‌سازد و نیاز به تأیید همان مبلغ دارد. */
     if (editing && balanceChanged && !balanceAck) {
@@ -287,6 +317,7 @@ export function useAccountsModel() {
     writing.current = true;
     setBusy(true);
     setNotice(null);
+    const current = currentRequest();
     let metadataSaved = false;
     let committed = false;
     try {
@@ -297,16 +328,17 @@ export function useAccountsModel() {
             useCases.listAccounts.execute(),
             useCases.listTransactions.execute(),
           ]);
+          if (!current()) return;
           if (!freshAccounts.some(account => account.id === editing.id)) {
             return notify("این حساب در دسترس نیست؛ فهرست حساب‌ها را تازه کنید");
           }
-          const current = accountBalances(freshTransactions, freshAccounts).find(row => row.account.id === editing.id)!.balance;
-          if (current !== editingBalance) {
-            setReviewedBalance(current);
+          const currentBalance = accountBalances(freshTransactions, freshAccounts).find(row => row.account.id === editing.id)!.balance;
+          if (currentBalance !== editingBalance) {
+            setReviewedBalance(currentBalance);
             setBalanceAck(false);
             return notify("موجودی حساب تغییر کرده؛ مبلغ اصلاح را دوباره بررسی و تأیید کنید");
           }
-          delta = targetBalance - current;
+          delta = targetBalance - currentBalance;
           if (Math.abs(delta) > MAX_AMOUNT) return notify("مبلغ اصلاح موجودی از سقف مجاز تراکنش بیشتر است");
         }
         /* فیلدهای متنی حساب ذخیره می‌شوند؛ «موجودی اولیه» دست نمی‌خورد.
@@ -317,12 +349,14 @@ export function useAccountsModel() {
            موجودی را دقیقاً به عدد هدف می‌رساند. */
         await useCases.updateAccount.execute({
           id: editing.id,
+          confirmCardChange: cardChangeAck,
           kind: editing.kind,
           title: form.title.trim(),
           bank: editing.kind === "bank" ? form.bank || null : null,
           cardNumber:
             editing.kind === "bank" ? form.cardNo.trim() || null : null,
         });
+        if (!current()) return;
         metadataSaved = true;
 
         if (balanceChanged) {
@@ -339,17 +373,19 @@ export function useAccountsModel() {
               accountId: editing.id,
               note: null,
             });
+            if (!current()) return;
           }
         }
       } else {
         await useCases.addAccount.execute({
-          memberId: member?.id || "",
+          memberId: form.memberId || member?.id || "",
           title: form.title.trim(),
           kind: form.kind,
           bank: form.kind === "bank" ? form.bank || null : null,
           cardNumber: form.kind === "bank" ? form.cardNo.trim() || null : null,
           initialBalance: targetBalance,
         });
+        if (!current()) return;
       }
       committed = true;
       show(editing ? "ذخیره شد" : form.kind === "wallet" ? "کیف‌پول اضافه شد" : "حساب بانکی اضافه شد");
@@ -358,31 +394,38 @@ export function useAccountsModel() {
       finishClose();
       await refreshData();
     } catch (e) {
+      if (!current()) return;
       if (committed) show("حساب ذخیره شد؛ اطلاعات صفحه تازه نشد. صفحه را بازخوانی کنید");
       else if (metadataSaved) notify("اطلاعات حساب ذخیره شد، اما اصلاح موجودی انجام نشد؛ دوباره تلاش کنید");
       else notify((e as Error).message || "خطا در ذخیره");
     } finally {
-      writing.current = false;
-      setBusy(false);
+      if (current()) { writing.current = false; setBusy(false); }
     }
   }
 
-  async function remove(acc: Account) {
+  function remove(acc: Account) {
     if (!useCases || writing.current || smsWriting.current || !canEdit(acc)) return;
-    if (!confirm(`«${acc.title}» حذف شود؟`)) return;
+    setDeleting(acc); setDeleteConfirmation(""); setNotice(null);
+  }
+  async function confirmDelete() {
+    const acc = deleting;
+    if (!useCases || !acc || writing.current || smsWriting.current || !canEdit(acc) || deleteHasHistory
+      || deleteConfirmation !== acc.title) return;
     writing.current = true;
     setBusy(true);
+    const current = currentRequest();
     let deleted = false;
     try {
-      await useCases.deleteAccount.execute(acc.id);
+      await useCases.deleteAccount.execute(acc.id, deleteConfirmation);
+      if (!current()) return;
       deleted = true;
+      setDeleting(null); setDeleteConfirmation("");
       show("حذف شد");
       await refreshData();
     } catch (e) {
-      show(deleted ? "حساب حذف شد؛ اطلاعات صفحه تازه نشد. صفحه را بازخوانی کنید" : (e as Error).message || "خطا در حذف");
+      if (current()) show(deleted ? "حساب حذف شد؛ اطلاعات صفحه تازه نشد. صفحه را بازخوانی کنید" : (e as Error).message || "خطا در حذف");
     } finally {
-      writing.current = false;
-      setBusy(false);
+      if (current()) { writing.current = false; setBusy(false); }
     }
   }
 
@@ -442,6 +485,12 @@ export function useAccountsModel() {
     close,
     save,
     remove,
+    deleting, deleteConfirmation, deleteHasHistory, confirmDelete,
+    setDeleteConfirmation: (value: string) => { if (!writing.current) setDeleteConfirmation(value); },
+    closeDelete: () => { if (!writing.current) { setDeleting(null); setDeleteConfirmation(""); } },
+    cardChanged, cardChangeAck,
+    setCardChangeAck: (value: boolean) => { if (!writing.current) setCardChangeAck(value); },
+    children, canAddForChild,
   };
 }
 

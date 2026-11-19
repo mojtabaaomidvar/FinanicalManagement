@@ -1,0 +1,17 @@
+.floating-navigation { position: fixed; bottom: max(14px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(340px, calc(100% - 40px)); display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 8px; border: 1px solid var(--tabbar-border); border-radius: 24px; background: var(--tabbar-glass); backdrop-filter: blur(22px) saturate(145%); -webkit-backdrop-filter: blur(22px) saturate(145%); box-shadow: 0 6px 28px rgba(13,27,42,.12); z-index: 45; }
+.floating-navigation button { display: grid; justify-items: center; align-content: center; gap: 4px; min-height: 56px; border: 0; border-radius: 18px; background: transparent; color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
+.floating-navigation svg { width: 22px; height: 22px; }
+.floating-navigation button[aria-current] { background: var(--accent-soft); color: var(--accent-strong); }
+.floating-navigation button:disabled { opacity: .5; cursor: default; }
+.floating-bell { position: relative; display: flex; }
+.floating-bell b { position: absolute; top: -5px; right: -9px; min-width: 16px; padding: 0 3px; border-radius: 9px; background: var(--danger); color: white; font-size: 10px; }
+.app-with-mobile-back .app-header { padding-inline-start: 74px; }
+.app-with-mobile-back .home-sections-page .hub-head { padding-inline-start: 58px; }
+.app-with-mobile-back .settings-inline-back { display: none; }
+.app-with-mobile-back .page-inline-back { display: none; }
+.mobile-page-back { position: fixed; top: calc(12px + env(safe-area-inset-top)); right: max(16px, calc((100vw - 552px) / 2 + 16px)); z-index: 42; width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 14px; background: var(--header-blur); backdrop-filter: blur(16px); color: var(--text); cursor: pointer; }
+.mobile-page-back svg { width: 22px; height: 22px; }
+body:has(.modal-overlay, .dp-overlay, dialog[open]) .mobile-page-back { display: none; }
+.app-with-floating-navigation { padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
+.floating-navigation button:focus-visible, .mobile-page-back:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 3px; }
+@supports not (backdrop-filter: blur(1px)) { .floating-navigation { background: var(--card); } }

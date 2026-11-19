@@ -70,7 +70,7 @@ export async function createWorkbench({ root = defaultRoot, port = 5701, build, 
 
   function claimRestart() {
     // There is no await between checking the mutation lock and claiming it.
-    if (!ready || busy) throw new WorkbenchError('BUSY', 'عملیات قبلی هنوز تمام نشده است؛ اجرای دوباره باید صبر کند.', 409);
+    if (busy || (!ready && !initError)) throw new WorkbenchError('BUSY', 'عملیات قبلی هنوز تمام نشده است؛ اجرای دوباره باید صبر کند.', 409);
     const previousOperation = operation;
     restartClaim = { expiresAt: new Date(Date.now() + 5000).toISOString() };
     busy = true;

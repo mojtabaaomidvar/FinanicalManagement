@@ -1,0 +1,34 @@
+.modal-sheet.tx-simple-sheet { max-width: 540px; border-radius: 28px 28px 0 0; background: var(--card); }
+.tx-simple { color: var(--text); font-size: 14px; }
+.tx-simple-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 22px 16px; }
+.tx-simple-head h2 { margin: 0; font-size: 18px; font-weight: 700; }
+.tx-simple-fields { border: 0; margin: 0; padding: 0 22px 20px; display: grid; gap: 20px; min-width: 0; }
+.tx-simple .tx-tabs { margin: 0; padding: 4px; background: var(--bg); border-radius: 14px; }
+.tx-simple .tx-tab { min-height: 42px; }
+.tx-simple-amount { padding: 18px 0; border-bottom: 1px solid var(--border); }
+.tx-simple label { display: grid; gap: 9px; font-weight: 500; }
+.tx-simple-amount-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.tx-simple .tx-amount { flex: 1 1 0; width: 0; min-width: 0; padding: 0; font-family: inherit; letter-spacing: normal; font-size: clamp(28px, 8vw, 42px); font-weight: 700; border: 0; background: transparent; color: var(--text); font-variant-numeric: tabular-nums; text-align: start; }
+.tx-simple .tx-currency-btn { flex-shrink: 0; min-height: 42px; padding: 6px 12px; background: var(--bg); border-radius: 12px; }
+.tx-simple-account { display: grid; gap: 14px; }
+.tx-simple select, .tx-simple textarea { width: 100%; min-width: 0; min-height: 48px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); color: var(--text); font: inherit; font-size: 16px; }
+.tx-all-accounts { justify-self: start; padding: 6px 0; min-height: 36px; color: var(--accent); background: transparent; border: 0; font: inherit; cursor: pointer; }
+.tx-simple-hint { color: var(--text-3); font-size: 13px; line-height: 1.55; margin: 0; }
+.tx-simple-category { display: grid; gap: 8px; }
+.tx-simple-category > .link-btn { justify-self: start; }
+.tx-simple-details { border-top: 1px solid var(--border); padding-top: 16px; }
+.tx-simple-details summary { cursor: pointer; min-height: 42px; font-weight: 600; }
+.tx-simple-details summary span { display: block; color: var(--text-3); font-size: 12px; font-weight: 400; margin: 5px 0; }
+.tx-details-body { display: grid; gap: 18px; margin-top: 18px; }
+.tx-simple-tags { display: grid; gap: 10px; }
+.tx-simple-tags p { margin: 0; }
+.tx-simple .tx-tags { padding: 0; display: flex; flex-wrap: wrap; overflow: visible; }
+.tx-simple .tx-tag { min-height: 36px; }
+.tx-simple .tx-scan-btn { margin: 0; min-height: 44px; }
+.tx-simple-footer { position: sticky; bottom: 0; display: flex; gap: 12px; padding: 16px 22px max(16px, env(safe-area-inset-bottom)); background: var(--card); border-top: 1px solid var(--border); z-index: 2; }
+.tx-simple-save { width: 100%; min-height: 50px; border-radius: 14px; font-size: 16px; }
+.tx-simple .tx-save-status { margin: 0 22px 16px; }
+.tx-simple .tx-simple-sms { padding-top: 4px; }
+.account-delete-sheet p { line-height: 1.6; }
+.tx-simple button:focus-visible, .tx-simple summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (min-width: 640px) { .modal-sheet.tx-simple-sheet { border-radius: 24px; } }

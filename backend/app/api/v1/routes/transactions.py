@@ -20,8 +20,10 @@ from app.models.family import Member
 from app.schemas.data import (
     CaptionUpdate,
     OccurrenceMark,
+    OccurrenceSettle,
     PhotoCreate,
     PhotoOut,
+    RecurringUpdate,
     TransactionOut,
     TransactionWrite,
 )
@@ -61,7 +63,7 @@ def add_transaction(
     member: TenantMember,
     db: DbSession,
 ) -> TransactionOut:
-    row = tx_service.create(db, member.family_id, body)
+    row = tx_service.create(db, member.family_id, body, actor=member)
     return TransactionOut.of(row, [])
 
 
@@ -74,6 +76,26 @@ def update_transaction(
 ) -> Response:
     tx_service.update(db, member, to_uuid(tx_id, "NOT_FOUND", "تراکنش یافت نشد.", 404), body)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.patch("/transactions/{tx_id}/recurring", response_model=TransactionOut)
+def update_recurring(
+    tx_id: str, body: RecurringUpdate, member: TenantMember, db: DbSession
+) -> TransactionOut:
+    row = tx_service.update_recurring(
+        db, member, to_uuid(tx_id, "NOT_FOUND", "تراکنش یافت نشد.", 404), body
+    )
+    return TransactionOut.of(row, tx_service.photos_for_transaction(db, member.family_id, row.id))
+
+
+@router.post("/transactions/{tx_id}/settle", response_model=TransactionOut)
+def settle_recurring(
+    tx_id: str, body: OccurrenceSettle, member: TenantMember, db: DbSession
+) -> TransactionOut:
+    row = tx_service.settle_occurrence(
+        db, member, to_uuid(tx_id, "NOT_FOUND", "تراکنش یافت نشد.", 404), body
+    )
+    return TransactionOut.of(row, tx_service.photos_for_transaction(db, member.family_id, row.id))
 
 
 @router.delete("/transactions/{tx_id}", status_code=status.HTTP_204_NO_CONTENT)

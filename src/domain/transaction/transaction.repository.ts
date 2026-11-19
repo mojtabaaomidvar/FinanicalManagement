@@ -1,6 +1,6 @@
 /* اینترفیس مخزن تراکنش‌ها — پیاده‌سازی در infrastructure/repositories */
 
-import type { Transaction, TransactionInput, TransactionPhoto } from "./transaction.types";
+import type { Transaction, TransactionInput, TransactionPhoto, RecurringUpdate, OccurrenceSettle } from "./transaction.types";
 
 export interface TransactionRepository {
   list(): Promise<Transaction[]>;
@@ -10,6 +10,8 @@ export interface TransactionRepository {
   /** ثبت رسیدگی به یک سررسید تراکنش تکرارشونده (ثبت‌شده یا رد‌شده) —
       تاریخ سررسید میلادی ISO به فهرست handled_occurrences افزوده می‌شود */
   markOccurrence(id: string, dueDate: string): Promise<void>;
+  updateRecurring?(id: string, input: RecurringUpdate): Promise<Transaction>;
+  settleOccurrence?(id: string, input: OccurrenceSettle): Promise<Transaction>;
   /** آپلود تصویر پیوست به Storage — URL عمومی برمی‌گرداند */
   uploadPhoto(dataUrl: string): Promise<string>;
   addPhoto(txId: string, url: string, caption: string | null): Promise<TransactionPhoto>;

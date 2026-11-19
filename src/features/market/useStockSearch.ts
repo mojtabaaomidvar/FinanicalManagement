@@ -25,6 +25,7 @@ export function useStockSearch() {
   const [data, setData] = useState<StockSearch | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   const turn = useRef(0);
   // زنده‌بودن کامپوننت: جلوی setState بعد از unmount را می‌گیرد.
@@ -39,14 +40,13 @@ export function useStockSearch() {
   useEffect(() => {
     const q = query.trim();
     const mine = ++turn.current;
+    setData(null);
+    setError(null);
 
-    if (q.length < MIN_CHARS) {
-      setData(null);
-      setError(null);
+    if (q.length < MIN_CHARS || !useCases) {
       setLoading(false);
       return;
     }
-    if (!useCases) return;
 
     setLoading(true);
     setError(null);
@@ -66,8 +66,13 @@ export function useStockSearch() {
         });
     }, DEBOUNCE_MS);
 
-    return () => window.clearTimeout(t);
-  }, [query, useCases]);
+    return () => {
+      window.clearTimeout(t);
+      turn.current++;
+    };
+  }, [query, useCases, attempt]);
+
+  const retry = useCallback(() => setAttempt(value => value + 1), []);
 
   const clear = useCallback(() => {
     turn.current++; // پاسخ در راه را بی‌اعتبار کن
@@ -77,5 +82,5 @@ export function useStockSearch() {
     setLoading(false);
   }, []);
 
-  return { query, setQuery, data, error, loading, clear, minChars: MIN_CHARS };
+  return { query, setQuery, data, error, loading, clear, retry, minChars: MIN_CHARS };
 }

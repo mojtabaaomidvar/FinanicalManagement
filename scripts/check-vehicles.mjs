@@ -69,7 +69,7 @@ async function screenshot(name, target = page) {
   await target.screenshot({ path: '.local-test/' + name + '.png', fullPage: true });
 }
 async function openNotifications() {
-  await page.reload({ waitUntil: 'networkidle' }); await page.locator('.hub-bell').click();
+  await page.reload({ waitUntil: 'networkidle' }); await page.locator('.floating-navigation').getByRole('button', { name: 'اعلان‌ها', exact: true }).click();
   await page.getByRole('heading', { name: 'اعلان‌ها', exact: true }).waitFor();
 }
 async function createDocument(visibility) {

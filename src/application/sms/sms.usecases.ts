@@ -2,7 +2,7 @@
 
 import type { SmsRepository } from "@/domain/sms/sms.repository";
 import type { BankSms, NewBankSms } from "@/domain/sms/sms.types";
-import type { TransactionInput } from "@/domain/transaction/transaction.types";
+import type { Transaction, TransactionInput } from "@/domain/transaction/transaction.types";
 import { parseSms, splitSmsBlocks } from "@/shared/lib/sms-parser";
 import { jalaliToIso } from "@/shared/lib/jalali";
 import { AddTransactionUseCase } from "@/application/transaction/transaction.usecases";
@@ -11,9 +11,9 @@ import { AddTransactionUseCase } from "@/application/transaction/transaction.use
 export class ParseSmsImportUseCase {
   execute(rawText: string): NewBankSms[] {
     return splitSmsBlocks(rawText)
-      .map((block) => {
+      .map((block): NewBankSms | null => {
         const p = parseSms(block);
-        if (!p) return null;
+        if (!p?.type || p.amount == null || !Number.isFinite(p.amount) || p.amount <= 0) return null;
         return {
           rawText: block,
           bank: p.bank,
@@ -66,8 +66,15 @@ export class RecordSmsUseCase {
     private readonly addTx: AddTransactionUseCase,
   ) {}
 
-  async execute(sms: BankSms, input: TransactionInput): Promise<void> {
-    await this.addTx.execute(input);
-    await this.repo.setStatus(sms.id, "recorded");
+  async execute(sms: BankSms, input: TransactionInput, recovery?: {
+    transactionId?: string;
+    onCreated?: (transaction: Transaction) => void;
+    isCurrent?: () => boolean;
+  }): Promise<void> {
+    if (!recovery?.transactionId) {
+      const transaction = await this.addTx.execute(input);
+      recovery?.onCreated?.(transaction);
+    }
+    if (!recovery?.isCurrent || recovery.isCurrent()) await this.repo.setStatus(sms.id, "recorded");
   }
 }

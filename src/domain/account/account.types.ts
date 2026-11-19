@@ -37,6 +37,7 @@ export interface AccountInput {
 
 /** ورودی ویرایش — نوع حساب و مالک تغییر نمی‌کنند */
 export interface AccountPatch {
+  confirmCardChange?: boolean;
   id: string;
   title: string;
   bank?: string | null;

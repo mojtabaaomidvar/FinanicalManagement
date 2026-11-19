@@ -6,5 +6,5 @@ export interface AccountRepository {
   list(): Promise<Account[]>;
   add(input: AccountInput): Promise<Account>;
   update(patch: AccountPatch): Promise<Account>;
-  remove(id: string): Promise<void>;
+  remove(id: string, confirmation?: string): Promise<void>;
 }

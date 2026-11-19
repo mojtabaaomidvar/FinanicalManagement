@@ -44,7 +44,7 @@ export function stoppedRecurringInput(tx: Transaction): TransactionInput {
 
 export function occurrenceStatus(tx: Transaction, dueIso: string): "pending" | "handled" | "invalid" {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dueIso) || !Number.isFinite(Date.parse(dueIso))) return "invalid";
-  if (tx.repeat === "none" || !dueOccurrences(tx.date, tx.repeat, tx.repeatEnd, isoToJalali(dueIso)).includes(dueIso)) return "invalid";
+  if (tx.repeat === "none" || !transactionDueOccurrences(tx, isoToJalali(dueIso)).includes(dueIso)) return "invalid";
   return tx.handledOccurrences.includes(dueIso) ? "handled" : "pending";
 }
 
@@ -88,6 +88,7 @@ export function dueOccurrences(
   repeat: TxRepeat,
   repeatEndIso: string | null,
   todayJ: JDate,
+  includeStart = false,
 ): string[] {
   if (repeat === "none") return [];
 
@@ -97,12 +98,28 @@ export function dueOccurrences(
   const limit = end && cmp(end, todayJ) < 0 ? end : todayJ;
 
   const out: string[] = [];
-  for (let n = 1; n <= MAX_OCCURRENCES; n++) {
+  for (let n = includeStart ? 0 : 1; n <= MAX_OCCURRENCES; n++) {
     const occ = stepJalali(start, repeat, n);
     if (cmp(occ, limit) > 0) break;
     out.push(jalaliToIso(occ));
   }
   return out;
+}
+
+/** Future plan fields never replace the original transaction in financial reports. */
+export function recurringTemplate(tx: Transaction): Transaction {
+  const plan = tx.recurringPlan;
+  return plan ? { ...tx, amount: plan.amount, category: plan.category, note: plan.note,
+    subcategoryId: plan.category === tx.category ? tx.subcategoryId : null } : tx;
+}
+export function transactionDueOccurrences(tx: Transaction, horizon: JDate): string[] {
+  return dueOccurrences(tx.recurringPlan?.startDate ?? tx.date, tx.repeat, tx.repeatEnd, horizon,
+    !!tx.recurringPlan?.startDate);
+}
+export function nextPendingOccurrence(tx: Transaction): string | null {
+  if (tx.repeat === "none") return null;
+  const horizon = isoToJalali(tx.repeatEnd ?? jalaliToIso(addDays(isoToJalali(tx.date), 365 * 30)));
+  return transactionDueOccurrences(tx, horizon).find(due => !tx.handledOccurrences.includes(due)) ?? null;
 }
 
 /**
@@ -148,10 +165,10 @@ export function pendingDueList(
   const out: DueOccurrence[] = [];
   for (const tx of txs) {
     if (tx.repeat === "none") continue;
-    const due = dueOccurrences(tx.date, tx.repeat, tx.repeatEnd, horizonJ);
+    const due = transactionDueOccurrences(tx, horizonJ);
     const handled = new Set(tx.handledOccurrences);
     for (const dueIso of pendingOccurrences(due, handled)) {
-      out.push({ tx, dueIso });
+      out.push({ tx: recurringTemplate(tx), dueIso });
     }
   }
   out.sort((a, b) => {

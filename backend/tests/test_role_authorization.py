@@ -48,9 +48,7 @@ def transaction_manager(request: Any, client: Any, home_a: Actor) -> Actor:
     if request.param == "owner":
         return home_a
     promoted = add_active_member(client, home_a, "مدیر دومِ تراکنش")
-    response = client.post(
-        f"{AUTH}/members/{promoted.member_id}/promote", headers=home_a.h
-    )
+    response = client.post(f"{AUTH}/members/{promoted.member_id}/promote", headers=home_a.h)
     assert response.status_code == 200, response.text
     assert response.json()["role"] == "admin"
     admin = login_as(client, promoted.phone)
@@ -64,20 +62,12 @@ def transaction_manager(request: Any, client: Any, home_a: Actor) -> Actor:
 def test_member_cannot_run_owner_only_operations(
     client: Any, home_a: Actor, member_a: Actor
 ) -> None:
-    owner_tx = make_transaction(client, home_a)
-
     denied = [
         ("PATCH", f"{API}/family/settings", {"budget": "999"}, "سقف بودجهٔ خانواده"),
         ("POST", f"{AUTH}/members", {"name": "نفوذی", "phone": "09129999999"}, "افزودن عضو"),
         ("POST", f"{AUTH}/invite", None, "ساخت لینک دعوت"),
         ("POST", f"{API}/category-budgets", {"category": CATEGORY, "amount": "1"}, "سقف دسته"),
         ("DELETE", f"{API}/category-budgets/{CATEGORY}", None, "حذف سقف دسته"),
-        (
-            "POST",
-            f"{API}/transactions/{owner_tx}/occurrences",
-            {"due_date": "2026-09-01"},
-            "تأیید سررسید",
-        ),
         ("DELETE", f"{AUTH}/members/{home_a.member_id}", None, "حذف عضو"),
     ]
 
@@ -89,11 +79,17 @@ def test_member_cannot_run_owner_only_operations(
         )
 
     # شاهدِ مثبت — همین مسیرها با هدرِ مدیر واقعاً کار می‌کنند.
-    assert client.patch(f"{API}/family/settings", headers=home_a.h, json={"budget": "999"}).status_code == 204
+    assert (
+        client.patch(f"{API}/family/settings", headers=home_a.h, json={"budget": "999"}).status_code
+        == 204
+    )
     assert client.post(f"{AUTH}/invite", headers=home_a.h).status_code == 200
-    assert client.post(
-        f"{API}/category-budgets", headers=home_a.h, json={"category": CATEGORY, "amount": "1"}
-    ).status_code == 200
+    assert (
+        client.post(
+            f"{API}/category-budgets", headers=home_a.h, json={"category": CATEGORY, "amount": "1"}
+        ).status_code
+        == 200
+    )
 
 
 def test_owner_cannot_be_removed_even_by_owner(client: Any, home_a: Actor) -> None:
@@ -116,6 +112,12 @@ def test_member_cannot_reach_owner_rows(client: Any, home_a: Actor, member_a: Ac
         ("DELETE", f"{API}/accounts/{owner_acc}", None, "حذف کارتِ مدیر"),
         ("PATCH", f"{API}/accounts/{owner_acc}", {"title": "مالِ من"}, "ویرایش کارتِ مدیر"),
         ("DELETE", f"{API}/transactions/{owner_tx}", None, "حذف تراکنشِ مدیر"),
+        (
+            "POST",
+            f"{API}/transactions/{owner_tx}/occurrences",
+            {"due_date": "2026-09-01"},
+            "تأیید سررسید مدیر",
+        ),
         ("DELETE", f"{API}/events/{owner_ev}", None, "حذف رویدادِ مدیر"),
         ("PATCH", f"{API}/holdings/{owner_hold}", {"quantity": "999"}, "ویرایش داراییِ مدیر"),
         (
@@ -145,33 +147,45 @@ def test_member_can_manage_its_own_rows(client: Any, home_a: Actor, member_a: Ac
     own_acc = make_account(client, member_a, "کارتِ خودم")
     own_tx = make_transaction(client, member_a)
 
-    assert client.patch(
-        f"{API}/accounts/{own_acc}",
-        headers=member_a.h,
-        json={"title": "کارتِ تازه", "card_number": next_card()},
-    ).status_code == 200
+    assert (
+        client.patch(
+            f"{API}/accounts/{own_acc}",
+            headers=member_a.h,
+            json={"title": "کارتِ تازه", "card_number": next_card(), "confirm_card_change": True},
+        ).status_code
+        == 200
+    )
     assert client.delete(f"{API}/transactions/{own_tx}", headers=member_a.h).status_code == 204
-    assert client.delete(f"{API}/accounts/{own_acc}", headers=member_a.h).status_code == 204
+    assert (
+        client.request(
+            "DELETE",
+            f"{API}/accounts/{own_acc}",
+            headers=member_a.h,
+            json={"confirmation": "کارتِ تازه"},
+        ).status_code
+        == 204
+    )
 
 
 def test_owner_can_reach_every_row_of_the_household(
     client: Any, home_a: Actor, member_a: Actor
 ) -> None:
-    """مدیر روی دادهٔ «مشترکِ خانواده» دستِ بازی دارد — این خواستهٔ فعلیِ محصول است."""
+    """مدیر تراکنش مشترک را مدیریت می‌کند؛ حساب شخصی فقط در اختیار صاحب آن است."""
     member_acc = make_account(client, member_a, "کارتِ عضو")
     member_tx = make_transaction(client, member_a)
 
-    assert client.patch(
-        f"{API}/accounts/{member_acc}",
-        headers=home_a.h,
-        json={"title": "اصلاحِ مدیر", "card_number": next_card()},
-    ).status_code == 200
+    assert (
+        client.patch(
+            f"{API}/accounts/{member_acc}",
+            headers=home_a.h,
+            json={"title": "اصلاحِ مدیر", "card_number": next_card()},
+        ).status_code
+        == 404
+    )
     assert client.delete(f"{API}/transactions/{member_tx}", headers=home_a.h).status_code == 204
 
 
-def test_member_cannot_edit_peer_transaction(
-    client: Any, home_a: Actor, member_a: Actor
-) -> None:
+def test_member_cannot_edit_peer_transaction(client: Any, home_a: Actor, member_a: Actor) -> None:
     """عضو عادی حتی با نسبت‌دادن PATCH به خودش، تراکنشِ عضو دیگر را نمی‌گیرد."""
     peer = add_active_member(client, home_a, "عضو دیگرِ تراکنش")
     peer_tx = make_transaction(client, peer, "40000")
@@ -298,7 +312,9 @@ def test_admin_does_not_override_private_personal_data(
     یک بازنویسیِ بعدی بی‌سروصدا آن را به «خانواده‌محور» برنگرداند.
     """
     created = client.post(
-        f"{API}/sms/numbers", headers=member_a.h, json={"phone": "09121234567", "label": "همراهِ دوم"}
+        f"{API}/sms/numbers",
+        headers=member_a.h,
+        json={"phone": "09121234567", "label": "همراهِ دوم"},
     )
     expect_status(created, 201)
     number_id = created.json()["id"]
@@ -306,7 +322,9 @@ def test_admin_does_not_override_private_personal_data(
     assert client.get(f"{API}/sms/numbers", headers=home_a.h).json() == [], (
         "مدیر شمارهٔ شخصیِ عضو را دید — Rule 16 شکست"
     )
-    assert client.delete(f"{API}/sms/numbers/{number_id}", headers=home_a.h).status_code == NOT_FOUND
+    assert (
+        client.delete(f"{API}/sms/numbers/{number_id}", headers=home_a.h).status_code == NOT_FOUND
+    )
     assert (
         client.patch(
             f"{API}/sms/numbers/{number_id}", headers=home_a.h, json={"active": False}

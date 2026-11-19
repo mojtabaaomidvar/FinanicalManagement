@@ -80,7 +80,7 @@ def migrate(check_only: bool, generated_key: bool) -> None:
             revision = connection.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()
-            if revision not in {f"{number:04d}" for number in range(11, 25)}:
+            if revision not in {f"{number:04d}" for number in range(11, 26)}:
                 raise RuntimeError("Unexpected database revision; no migration was performed.")
             if generated_key:
                 for table in ("documents", "goals"):
@@ -103,7 +103,7 @@ def migrate(check_only: bool, generated_key: bool) -> None:
         from alembic import command  # noqa: I001 -- import after selecting the migration database
         from alembic.config import Config
 
-        command.upgrade(Config("alembic.ini"), "0024")
+        command.upgrade(Config("alembic.ini"), "0025")
         with engine.begin() as connection:
             role_name = connection.dialect.identifier_preparer.quote(app_url.username)
             connection.exec_driver_sql(
@@ -116,9 +116,9 @@ def migrate(check_only: bool, generated_key: bool) -> None:
             revision = connection.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()
-            if revision != "0024":
-                raise RuntimeError("Database migration did not reach 0024.")
-        print("Database upgraded to 0024; application permissions granted with RLS retained.")
+            if revision != "0025":
+                raise RuntimeError("Database migration did not reach 0025.")
+        print("Database upgraded to 0025; application permissions granted with RLS retained.")
     finally:
         engine.dispose()
 

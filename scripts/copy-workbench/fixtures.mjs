@@ -65,6 +65,7 @@ const settingsRoutes = [
   ['sms', 'تشخیص تراکنش از پیامک'], ['notifications', 'اعلان‌ها'], ['about', 'درباره'],
 ];
 export const ROUTES = [
+  { id: 'sections', label: 'بخش‌های خانه' },
   ...baseRoutes.map(([id, label]) => ({ id, label })),
   ...settingsRoutes.map(([section, sectionLabel]) => ({ id: `settings/${section}`, label: `تنظیمات · ${sectionLabel}`, baseRoute: 'settings', section, sectionLabel })),
 ];
@@ -253,7 +254,8 @@ function normalizeCreate(session, key, body) {
   const data = session.data;
   const defaults = {
     transactions: { member_id: data.actor.id, source_kind: null, type: 'expense', amount: 0, category: 'other', date: data.today, time: null,
-      note: null, account_id: null, to_account_id: null, subcategory_id: null, repeat: 'none', repeat_end: null, handled_occurrences: [], photos: [] },
+      note: null, account_id: null, to_account_id: null, subcategory_id: null, repeat: 'none', repeat_end: null,
+      recurring_plan: null, recurring_source_id: null, recurring_due_date: null, handled_occurrences: [], photos: [] },
     accounts: { member_id: data.actor.id, title: 'نمونه: حساب جدید', kind: 'bank', bank: null, card_number: null, initial_balance: 0, sms_enabled: false },
     tasks: { title: 'نمونه: کار جدید', description: null, assignee_id: null, due_date: null, completed: false, completed_at: null, completed_by: null, completion_photo_url: null },
     bills: { kind: 'other', title: 'نمونه: قبض جدید', amount: 0, due_date: data.today, state: 'unpaid', bill_no: null, payment_no: null, note: null, paid_at: null, paid_by_member_id: null, transaction_id: null },
@@ -527,13 +529,51 @@ export function handlePreviewRequest(session, request) {
   }
   if (/^\/transactions\/[^/]+\/occurrences$/.test(path)) {
     if (method !== 'POST') return error('METHOD_NOT_ALLOWED', 'این عملیات پشتیبانی نمی‌شود.', 405);
-    if (!managersOnly(session)) return error('FORBIDDEN', 'فقط مدیر خانواده مجاز است.', 403);
     const transaction = data.transactions.find(item => item.id === path.split('/')[2]);
-    if (!transaction || transaction.repeat === 'none') return error('NOT_FOUND', 'تراکنش تکرارشونده یافت نشد.', 404);
+    if (!transaction || transaction.repeat === 'none' || (!managersOnly(session) && transaction.member_id !== data.actor.id)) return error('NOT_FOUND', 'تراکنش تکرارشونده یافت نشد.', 404);
     const date = new Date(body.due_date);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(body.due_date) || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== body.due_date) return error('INVALID_DATE', 'تاریخ سررسید نامعتبر است.', 422);
     if (!transaction.handled_occurrences.includes(body.due_date)) transaction.handled_occurrences.push(body.due_date);
     return response(null, 204);
+  }
+  if (/^\/transactions\/[^/]+\/(recurring|settle)$/.test(path)) {
+    const row = data.transactions.find(item => item.id === path.split('/')[2]);
+    if (!row || (!managersOnly(session) && row.member_id !== data.actor.id)) return error('NOT_FOUND', 'تراکنش یافت نشد.', 404);
+    const action = path.split('/')[3];
+    if (action === 'settle' && method === 'POST') {
+      const existing = data.transactions.find(item => item.recurring_source_id === row.id && item.recurring_due_date === body.due_date);
+      if (existing) return response(existing);
+    }
+    if (body.revision !== (row.recurring_plan?.revision ?? 0)) return error('RECURRING_CONFLICT', 'برنامهٔ تکرار تغییر کرده؛ اطلاعات را تازه کنید.', 409);
+    if (action === 'recurring' && method === 'PATCH') {
+      if (row.repeat === 'none' || row.source_kind) return error('NOT_FOUND', 'تراکنش تکرارشونده یافت نشد.', 404);
+      if (!Number.isFinite(Number(body.amount)) || Number(body.amount) <= 0) return error('INVALID_AMOUNT', 'مبلغ باید بزرگ‌تر از صفر باشد.', 422);
+      if (!['none', 'weekly', 'monthly', 'yearly'].includes(body.repeat)) return error('INVALID_REPEAT', 'دورهٔ تکرار نامعتبر است.', 422);
+      if (body.repeat !== 'none' && (!validIso(body.start_date) || body.start_date < data.today)) return error('INVALID_DATE', 'موعد بعدی را از امروز به بعد انتخاب کنید.', 422);
+      if (body.repeat !== 'none' && (!validIso(body.repeat_end) || body.repeat_end < body.start_date)) return error('INVALID_REPEAT_END', 'تاریخ پایان تکرار پیش از تاریخ تراکنش است.', 422);
+      row.recurring_plan = { amount: Number(body.amount), category: body.category, note: String(body.note ?? '').trim(), start_date: body.start_date, revision: body.revision + 1 };
+      row.repeat = body.repeat; row.repeat_end = body.repeat === 'none' ? null : body.repeat_end;
+      return response(row);
+    }
+    if (action === 'settle' && method === 'POST') {
+      const pending = previewSchedule(row).filter(due => !row.handled_occurrences.includes(due));
+      if (!pending.includes(body.due_date) || (!body.transaction && pending[0] !== body.due_date)) return error('OCCURRENCE_UNAVAILABLE', 'این نوبت دیگر قابل تسویه نیست؛ برنامه را تازه کنید.', 409);
+      const source = body.transaction;
+      if (source && (source.type !== row.type || source.repeat !== 'none' || !validIso(source.date) || source.date > data.today)) return error('INVALID_OCCURRENCE', 'نوع نوبت و تاریخ پرداخت را بررسی کنید.', 422);
+      const plan = row.recurring_plan;
+      const values = { member_id: row.member_id, type: row.type, repeat: 'none',
+        amount: source?.amount ?? plan?.amount ?? row.amount, category: source?.category ?? plan?.category ?? row.category,
+        note: source ? source.note : plan ? plan.note : row.note, date: source?.date ?? data.today, time: source?.time ?? null,
+        account_id: source ? source.account_id : body.account_id, to_account_id: source ? source.to_account_id : body.to_account_id,
+        subcategory_id: source ? source.subcategory_id : plan && plan.category !== row.category ? null : row.subcategory_id,
+        require_available_balance: true };
+      const invalid = checkPreviewPayment(session, values);
+      if (invalid) return invalid;
+      const payment = normalizeCreate(session, 'transactions', { ...values, recurring_source_id: row.id, recurring_due_date: body.due_date });
+      data.transactions.push(payment); row.handled_occurrences.push(body.due_date);
+      return response(payment);
+    }
+    return error('METHOD_NOT_ALLOWED', 'این عملیات پشتیبانی نمی‌شود.', 405);
   }
   if (/^\/transactions\/[^/]+\/photos$/.test(path) && method === 'POST') {
     const transaction = data.transactions.find(item => item.id === path.split('/')[2]);
@@ -570,6 +610,15 @@ export function handlePreviewRequest(session, request) {
     if (method === 'GET' || method === 'HEAD') return { ...collectionResponse(session, collection), delayMs };
     if (method === 'POST') {
       let createBody = body;
+      if (collection === 'accounts') {
+        const target = data.members.find(member => member.id === body.member_id && member.membership_state === 'active');
+        if (!target) return error('INVALID_MEMBER', 'عضو نامعتبر است.', 422);
+        if (target.id !== data.actor.id && !(managersOnly(session) && target.relation === 'فرزند' && body.kind === 'bank')) return error('FORBIDDEN', 'فقط برای خودتان حساب بسازید؛ مدیر می‌تواند برای فرزند حساب اضافه کند.', 403);
+      }
+      if (collection === 'transactions') {
+        const invalid = checkPreviewPayment(session, body);
+        if (invalid) return invalid;
+      }
       if (collection === 'bills') {
         const prepared = prepareBill(body);
         if (prepared.status) return prepared;
@@ -604,10 +653,16 @@ function mutateRow(session, key, itemId, method, body) {
   const list = session.data[key], item = list.find(row => row.id === itemId);
   if (!item) return error('NOT_FOUND', 'مورد نمونه یافت نشد.', 404);
   if (method === 'GET' || method === 'HEAD') return response(item);
+  if (key === 'accounts' && item.member_id !== session.data.actor.id) return error('NOT_FOUND', 'حساب یافت نشد.', 404);
   if (body.base_revision !== undefined && item.revision !== body.base_revision) return error('SYNC_CONFLICT', 'این مورد تغییر کرده است؛ نسخهٔ ذخیره‌شده را بررسی کنید.', 409);
   if (['children', 'pets'].includes(key) && !managersOnly(session)) return error('FORBIDDEN', 'فقط مدیر خانواده مجاز است.', 403);
   if (key === 'bills' && item.state === 'paid' && ['DELETE', 'PATCH'].includes(method)) return error('BILL_ALREADY_PAID', 'قبض پرداخت‌شده قابل تغییر نیست؛ ابتدا پرداخت را برگردانید.', 409);
   if (method === 'DELETE') {
+    if (key === 'accounts') {
+      if (body.confirmation !== item.title) return error('ACCOUNT_CONFIRMATION_REQUIRED', 'برای تأیید حذف، نام حساب را دقیق وارد کنید.', 422);
+      if (session.data.transactions.some(row => row.account_id === itemId || row.to_account_id === itemId)) return error('ACCOUNT_IN_USE', 'این حساب سابقهٔ تراکنش دارد و حذف نمی‌شود؛ سابقهٔ مالی حفظ می‌شود.', 409);
+    }
+    if (key === 'transactions' && session.data.transactions.some(row => row.recurring_source_id === itemId)) return error('RECURRING_HISTORY_EXISTS', 'این تراکنش نوبت تسویه‌شده دارد؛ تکرار را متوقف کنید تا سابقه حفظ شود.', 409);
     if (key === 'customCategories' && session.data.transactions.some(transaction => transaction.category === itemId)) {
       return error('CATEGORY_IN_USE', 'این دسته در تراکنش‌ها به‌کار رفته و حذف نمی‌شود.', 409);
     }
@@ -621,11 +676,6 @@ function mutateRow(session, key, itemId, method, body) {
       if (transaction.subcategory_id === itemId) transaction.subcategory_id = null;
     }
     session.data[key] = list.filter(row => row.id !== itemId);
-    // Match the ledger's SET NULL account relationships without removing transactions.
-    if (key === 'accounts') for (const transaction of session.data.transactions) {
-      if (transaction.account_id === itemId) transaction.account_id = null;
-      if (transaction.to_account_id === itemId) transaction.to_account_id = null;
-    }
     if (key === 'transactions') for (const bill of session.data.bills) {
       if (bill.transaction_id === itemId) bill.transaction_id = null;
     }
@@ -633,6 +683,14 @@ function mutateRow(session, key, itemId, method, body) {
   }
   if (method === 'PATCH' || method === 'POST') {
     const values = clone(body); delete values.base_revision; delete values.operation_id;
+    if (key === 'accounts') {
+      if ((values.card_number ?? null) !== item.card_number && !values.confirm_card_change) return error('ACCOUNT_CONFIRMATION_REQUIRED', 'تغییر شماره کارت را تأیید کنید.', 422);
+      delete values.confirm_card_change; delete values.member_id; delete values.kind;
+    }
+    if (key === 'transactions') {
+      const invalid = checkPreviewPayment(session, values, item);
+      if (invalid) return invalid;
+    }
     if (key === 'bills') {
       const prepared = prepareBill(values);
       if (prepared.status) return prepared;
@@ -643,6 +701,54 @@ function mutateRow(session, key, itemId, method, body) {
     Object.assign(item, values, { revision: (item.revision || 0) + 1 }); return response(item);
   }
   return error('METHOD_NOT_ALLOWED', 'این عملیات در پیش‌نمایش پشتیبانی نمی‌شود.', 405);
+}
+
+function validIso(value) {
+  const date = new Date(value);
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+const persianCalendar = new Intl.DateTimeFormat('en-u-ca-persian', { timeZone: 'UTC', year: 'numeric', month: 'numeric', day: 'numeric' });
+function persianParts(date) {
+  const parts = Object.fromEntries(persianCalendar.formatToParts(date).map(part => [part.type, Number(part.value)]));
+  return [parts.year, parts.month, parts.day];
+}
+function persianIso(year, month, day) {
+  const target = year * 10000 + month * 100 + day;
+  let lo = Math.floor(Date.UTC(year + 621, 0, 1) / 86400000), hi = Math.floor(Date.UTC(year + 622, 11, 31) / 86400000);
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi + 1) / 2), [y, m, d] = persianParts(new Date(mid * 86400000));
+    if (y * 10000 + m * 100 + d <= target) lo = mid; else hi = mid - 1;
+  }
+  return new Date(lo * 86400000).toISOString().slice(0, 10);
+}
+function previewSchedule(row) {
+  if (row.repeat === 'none') return [];
+  const start = row.recurring_plan?.start_date ?? row.date, [year, month, day] = persianParts(new Date(start));
+  const dates = [];
+  for (let n = row.recurring_plan?.start_date ? 0 : 1; n <= 1200; n++) {
+    const index = year * 12 + month - 1 + n;
+    const due = row.repeat === 'weekly' ? new Date(Date.parse(start) + n * 7 * 86400000).toISOString().slice(0, 10)
+      : row.repeat === 'monthly' ? persianIso(Math.floor(index / 12), index % 12 + 1, day) : persianIso(year + n, month, day);
+    if (row.repeat_end && due > row.repeat_end) break;
+    dates.push(due);
+  }
+  return dates;
+}
+function checkPreviewPayment(session, values, replacing) {
+  const { data } = session;
+  if (!managersOnly(session) && values.member_id !== data.actor.id) return error('FORBIDDEN', 'نمی‌توانید تراکنش را به عضو دیگری نسبت دهید.', 403);
+  if (!Number.isFinite(Number(values.amount)) || Number(values.amount) <= 0) return error('INVALID_AMOUNT', 'مبلغ باید بزرگ‌تر از صفر باشد.', 422);
+  const account = data.accounts.find(item => item.id === values.account_id);
+  if (!values.account_id && values.require_available_balance && data.accounts.some(item => item.member_id === data.actor.id)) return error('ACCOUNT_REQUIRED', 'حساب پرداخت یا دریافت را انتخاب کنید.', 422);
+  if (values.account_id && (!account || account.member_id !== (replacing && managersOnly(session) ? replacing.member_id : data.actor.id))) return error('ACCOUNT_FORBIDDEN', 'فقط حساب‌های خودتان قابل انتخاب‌اند.', 403);
+  if (values.type === 'transfer' && (!account || values.to_account_id === account.id || !data.accounts.some(item => item.id === values.to_account_id))) return error('INVALID_TRANSFER', 'انتقال به حساب مبدأ و مقصد متفاوت نیاز دارد.', 422);
+  if (account && values.require_available_balance && values.type !== 'income') {
+    const balance = data.transactions.filter(item => item.id !== replacing?.id).reduce((sum, item) => sum
+      + (item.account_id === account.id ? Number(item.amount) * (item.type === 'income' ? 1 : -1) : 0)
+      + (item.type === 'transfer' && item.to_account_id === account.id ? Number(item.amount) : 0), Number(account.initial_balance));
+    if (balance < Number(values.amount)) return error('INSUFFICIENT_BALANCE', 'موجودی حساب برای این پرداخت کافی نیست.', 409);
+  }
+  return null;
 }
 
 function prepareBill(body) {

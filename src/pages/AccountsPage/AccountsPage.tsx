@@ -101,8 +101,10 @@ export function AccountsPage() {
               dir="ltr"
             >
               <FitText>
+                {m.holdings.loading || m.holdings.loadError ? /* @copy-text accounts.wealth_unavailable */ "—" : <>
                 {formatSignedAmount(toDisplay(m.totalWealth, m.cur))}
                 <span>{m.cur}</span>
+                </>}
               </FitText>
             </b>
           </div>

@@ -8,6 +8,8 @@ import type {
   Transaction,
   TransactionInput,
   TransactionPhoto,
+  RecurringUpdate,
+  OccurrenceSettle,
 } from "@/domain/transaction/transaction.types";
 import type { RestClient } from "@/infrastructure/api/restClient";
 import { AppError } from "@/shared/lib/appError";
@@ -17,6 +19,7 @@ import { mapTransaction, type TransactionRow } from "./mappers";
 function toBody(input: TransactionInput) {
   return {
     member_id: input.memberId,
+    require_available_balance: input.requireAvailableBalance ?? false,
     type: input.type,
     amount: input.amount,
     category: input.category,
@@ -66,6 +69,19 @@ export class SupabaseTransactionRepository implements TransactionRepository {
       `/transactions/${encodeURIComponent(id)}/occurrences`,
       { due_date: dueDate },
     );
+  }
+
+  async updateRecurring(id: string, input: RecurringUpdate): Promise<Transaction> {
+    return mapTransaction(await this.client.patch<TransactionRow>(`/transactions/${encodeURIComponent(id)}/recurring`, {
+      amount: input.amount, category: input.category, note: input.note, start_date: input.startDate,
+      repeat: input.repeat, repeat_end: input.repeatEnd, revision: input.revision,
+    }));
+  }
+  async settleOccurrence(id: string, input: OccurrenceSettle): Promise<Transaction> {
+    return mapTransaction(await this.client.post<TransactionRow>(`/transactions/${encodeURIComponent(id)}/settle`, {
+      due_date: input.dueDate, revision: input.revision, account_id: input.accountId, to_account_id: input.toAccountId ?? null,
+      ...(input.transaction ? { transaction: toBody(input.transaction) } : {}),
+    }));
   }
 
   async uploadPhoto(dataUrl: string): Promise<string> {

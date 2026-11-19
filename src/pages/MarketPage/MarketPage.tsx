@@ -21,8 +21,8 @@ import { toFa } from "@/shared/lib/digits";
 import { formatAmount } from "@/shared/lib/format";
 import { useBackGuard } from "@/shared/lib/useBackGuard";
 import { useApp } from "@/app/providers/AppProvider";
-import { useMarket, useStockSearch } from "@/features/market";
-import { AddHoldingModal, useHoldings } from "@/features/holdings";
+import { MarketStatus, useMarket, useStockSearch } from "@/features/market";
+import { AddHoldingModal, HoldingsStatus, useHoldings } from "@/features/holdings";
 import type { HoldingTarget } from "@/features/holdings";
 import { findHolding, formatQuantity } from "@/domain/holding/holding.rules";
 import type { HoldingKind } from "@/domain/holding/holding.types";
@@ -193,13 +193,14 @@ export function MarketPage() {
     : undefined;
 
   const pick = (t: HoldingTarget) => {
+    if (holdings.isLocked()) return;
     /* خطای مانده از تلاش قبلی نباید بالای فرم تازه ظاهر شود. */
     holdings.clearError();
     setTarget(t);
   };
 
   const submit = async (quantity: number) => {
-    if (!target) return;
+    if (!target || holdings.isLocked()) return;
     const ok = existing
       ? await holdings.update({ id: existing.id, quantity })
       : await holdings.add({
@@ -222,7 +223,7 @@ export function MarketPage() {
       existingQuantity={existing?.quantity}
       busy={holdings.busy}
       error={holdings.error}
-      onClose={() => setTarget(null)}
+      onClose={() => { if (!holdings.isSaving()) setTarget(null); }}
       onSubmit={(q) => void submit(q)}
     />
   );
@@ -256,6 +257,8 @@ export function MarketPage() {
           onBack={() => setOpen(null)}
           action={refreshBtn}
         >
+          <HoldingsStatus model={holdings} />
+          <MarketStatus data={data} error={error} loading={loading} refresh={refresh} />
           {open === "bourse" ? (
             <>
               {data.bourse ? <BourseCard b={data.bourse} /> : null}
@@ -290,7 +293,7 @@ export function MarketPage() {
             <p>
               {data
                 ? `به‌روزرسانی ${toFa(data.bourse?.time ?? data.gold[0]?.time ?? "")}${
-                    data.stale ? " · ممکن است قدیمی باشد" : ""
+                    data?.stale ? " · ممکن است قدیمی باشد" : ""
                   }`
                 : "قیمت لحظه‌ای طلا، ارز و شاخص بورس"}
             </p>
@@ -299,28 +302,8 @@ export function MarketPage() {
         </header>
 
         <div className="content">
-          {loading && !data ? (
-            <div className="loading-block">
-              <span className="spinner" />
-              در حال دریافت قیمت‌ها…
-            </div>
-          ) : null}
-
-          {error && !data ? (
-            <div className="empty-state">
-              <span className="empty-icon" aria-hidden="true">
-                <Icon name="i-alert" size={28} />
-              </span>
-              <p>{error}</p>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => void refresh()}
-              >
-                تلاش دوباره
-              </button>
-            </div>
-          ) : null}
+          <HoldingsStatus model={holdings} />
+          <MarketStatus data={data} error={error} loading={loading} refresh={refresh} />
 
           {data ? (
             <div className="market-grid">
@@ -686,7 +669,7 @@ function StockSearchCard({
   onPick: (s: Stock) => void;
   heldOf: (s: Stock) => number | undefined;
 }) {
-  const { query, setQuery, data, error, loading, clear, minChars } =
+  const { query, setQuery, data, error, loading, clear, retry, minChars } =
     useStockSearch();
   const [openSymbol, setOpenSymbol] = useState<string | null>(null);
   const typed = query.trim().length;
@@ -732,12 +715,19 @@ function StockSearchCard({
       ) : null}
 
       {loading ? (
-        <p className="market-search-hint">
+        <p className="market-search-hint" role="status">
           <span className="spinner" /> در حال جست‌وجو…
         </p>
       ) : null}
 
-      {error ? <p className="market-search-hint is-error">{error}</p> : null}
+      {error ? (
+        <div role="alert">
+          <p className="market-search-hint is-error">{error}</p>
+          <button type="button" className="btn-secondary" disabled={loading} onClick={retry}>
+            جست‌وجوی دوباره
+          </button>
+        </div>
+      ) : null}
 
       {!loading && !error && data && typed >= minChars ? (
         data.results.length ? (

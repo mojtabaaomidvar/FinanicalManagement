@@ -301,17 +301,16 @@ try {
     && await header.locator('img').evaluate(element => element.complete && element.naturalWidth > 0), 'Uploaded avatar did not display in Home header');
   assert.equal(await header.locator('img').getAttribute('src'), uploaded);
   assert.equal(await header.getAttribute('title'), 'پروفایل و تنظیمات');
-  const avatarBox = await header.boundingBox(), bellBox = await page.locator('.hub-bell').boundingBox();
-  assert.ok(avatarBox && bellBox && Math.abs((avatarBox.y + avatarBox.height / 2) - (bellBox.y + bellBox.height / 2)) < 3,
-    'Avatar and notification bell are not aligned in the Home header');
-  assert.ok(avatarBox.x + avatarBox.width <= bellBox.x + 1 || bellBox.x + bellBox.width <= avatarBox.x + 1, 'Header actions overlap');
+  assert.equal(await page.locator('.mobile-page-back').count(), 0, 'Home must omit the back button');
+  assert.equal(await page.locator('.hub-head .hub-bell').count(), 0);
+  assert.equal(await page.locator('.floating-navigation').getByRole('button', { name: 'اعلان‌ها', exact: true }).isVisible(), true);
   assert.equal(await page.locator('[data-home-module="settings"]').count(), 0);
   await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'light'));
   await screenshot('profile-home-header-mobile-light');
   await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
   await screenshot('profile-home-header-mobile-dark');
   await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'light'));
-  checks.push('real avatar upload saves and displays next to the bell in the 360px light/dark Home header; Settings tile is absent');
+  checks.push('real avatar upload displays in the 360px light/dark Home header, Home omits back and notifications are in the bottom navigation');
   const mountedHome = await page.locator('.hub-page').elementHandle();
   const currentProfile = { name: changedName, gender: saved.gender, birth_date: null };
   const missingAvatar = base + '/' + marker + '-missing-avatar.png';

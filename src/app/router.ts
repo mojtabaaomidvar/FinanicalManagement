@@ -8,6 +8,7 @@ export type Route =
   | "auth"
   | "invite"
   | "hub"
+  | "sections"
   | "dashboard"
   | "transactions"
   | "reports"
@@ -31,6 +32,7 @@ export type Route =
 
 export const MAIN_ROUTES: Route[] = [
   "hub",
+  "sections",
   "dashboard",
   "transactions",
   "reports",

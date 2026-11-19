@@ -6,6 +6,8 @@ import type {
   Transaction,
   TransactionInput,
   TransactionPhoto,
+  RecurringUpdate,
+  OccurrenceSettle,
 } from "@/domain/transaction/transaction.types";
 import { AppError } from "@/shared/lib/appError";
 
@@ -47,6 +49,21 @@ export class MarkRecurringOccurrenceUseCase {
   constructor(private readonly repo: TransactionRepository) {}
   execute(id: string, dueDate: string): Promise<void> {
     return this.repo.markOccurrence(id, dueDate);
+  }
+}
+
+export class UpdateRecurringUseCase {
+  constructor(private readonly repo: TransactionRepository) {}
+  execute(id: string, input: RecurringUpdate): Promise<Transaction> {
+    if (!this.repo.updateRecurring) throw new AppError("SERVER", "ویرایش تکرار در دسترس نیست");
+    return this.repo.updateRecurring(id, input);
+  }
+}
+export class SettleOccurrenceUseCase {
+  constructor(private readonly repo: TransactionRepository) {}
+  execute(id: string, input: OccurrenceSettle): Promise<Transaction> {
+    if (!this.repo.settleOccurrence) throw new AppError("SERVER", "تسویهٔ نوبت در دسترس نیست");
+    return this.repo.settleOccurrence(id, input);
   }
 }
 

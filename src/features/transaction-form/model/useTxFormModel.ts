@@ -15,12 +15,12 @@ import {
   liveFormatJalaliDate,
   nowTime,
 } from "@/shared/lib/format";
-import { evaluateExpression, normalizeExpressionInput, formatExpressionValue } from "@/shared/ui";
+import { normalizeExpressionInput, formatExpressionValue } from "@/shared/ui";
 import { compressImage } from "@/shared/lib/image";
-import { currencyFactor, fromDisplay, toDisplay } from "@/shared/lib/currency";
+import { toDisplay } from "@/shared/lib/currency";
 import { isoToJalali, today, formatISO } from "@/shared/lib/jalali";
-import { expenseBalanceWarning, sameExpenseBalance, type ExpenseBalanceWarning } from "./expenseBalance";
-import { occurrenceStatus } from "@/domain/transaction/recurring.rules";
+import { expenseBalanceWarning, type ExpenseBalanceWarning } from "./expenseBalance";
+import { occurrenceStatus, parseScheduledAmount, recurringTemplate } from "@/domain/transaction/recurring.rules";
 import { clearPendingOccurrence, readPendingOccurrence, rememberPendingOccurrence } from "./pendingOccurrence";
 
 export interface TxFormState {
@@ -224,7 +224,7 @@ export function useTxFormModel(
       if (pendingId && !stored) {
         return notify("تراکنش قبلی این نوبت پیدا نشد؛ پیش از ثبت دوباره، هزینه‌ها را بررسی کنید");
       }
-      const source = stored ?? recurring;
+      const source = stored ?? recurringTemplate(recurring);
       savedTransaction.current = stored ?? null;
       setEditing(stored ?? null);
       setOccurrence({ recurringId: tx.id, dueDate, familyId: tx.familyId });
@@ -270,21 +270,20 @@ export function useTxFormModel(
   function switchEntryCurrency(next: string) {
     if (saving.current || occurrencePending) return;
     if (!form.amount.trim()) { setEntryCurrency(next); return; }
-    const v = evaluateExpression(form.amount);
-    if (v === null || v < 0) return notify("مبلغ یا عبارت محاسباتی را کامل و درست وارد کنید");
+    const v = parseScheduledAmount(form.amount, entryCurrency);
+    if (v === null) return notify("مبلغ معتبر وارد کنید");
     setForm((f) => ({
       ...f,
-      amount: formatExpressionValue(v / currencyFactor(entryCurrency) * currencyFactor(next)),
+      amount: formatExpressionValue(toDisplay(v, next)),
     }));
     setEntryCurrency(next);
   }
 
-  async function save(onDone: () => Promise<void>, accountsCount: number, confirmBalance = false) {
+  async function save(onDone: () => Promise<void>, accountsCount: number, _confirmBalance = false) {
     if (saving.current || !open) return;
-    /* مبلغ می‌تواند عبارت ریاضی باشد — همان‌جا ارزیابی می‌شود */
-    const amount = evaluateExpression(form.amount);
-    if (!amount || amount <= 0) return notify("لطفاً مبلغ معتبر وارد کنید");
-    const baseAmount = occurrencePending && editing ? editing.amount : fromDisplay(amount, entryCurrency);
+    const amount = parseScheduledAmount(form.amount, entryCurrency);
+    if (amount === null) return notify("لطفاً مبلغ معتبر وارد کنید");
+    const baseAmount = occurrencePending && editing ? editing.amount : amount;
     if (!Number.isFinite(baseAmount) || baseAmount <= 0) return notify("لطفاً مبلغ معتبر وارد کنید");
     const parsedDate = parse(form.date);
     if (!parsedDate) return notify("تاریخ تراکنش را انتخاب کنید");
@@ -345,11 +344,12 @@ export function useTxFormModel(
 
     // The ref locks synchronously, including the label request before React rerenders.
     saving.current = true;
-    const checkingBalance = !occurrencePending && form.type === "expense" && !!form.accountId;
+    const checkingBalance = !occurrencePending && !!form.accountId;
     setActivity(occurrence ? "checkOccurrence" : checkingBalance ? "checkBalance" : "save");
     setReceiptError(null);
     const current = currentRequest();
-    const original = savedTransaction.current;
+    let original = savedTransaction.current;
+    let recurringRevision = 0;
     let transactionSaved = false;
     let receiptsSaved = false;
     let occurrenceHandled = occurrence === null;
@@ -359,9 +359,15 @@ export function useTxFormModel(
         const transactions = await useCases.listTransactions.execute();
         if (!current()) return;
         const recurring = transactions.find(item => item.id === occurrence.recurringId);
+        recurringRevision = recurring?.recurringPlan?.revision ?? 0;
         const status = recurring ? occurrenceStatus(recurring, occurrence.dueDate) : "invalid";
+        if (!original) {
+          original = transactions.find(item => item.recurringSourceId === occurrence.recurringId
+            && item.recurringDueDate === occurrence.dueDate) ?? null;
+          if (original) { savedTransaction.current = original; setEditing(original); }
+        }
         if (status !== "pending" && !original) return notify("این سررسید دیگر نیاز به ثبت ندارد؛ اطلاعات را بازخوانی کنید");
-        if (original && !transactions.some(item => item.id === original.id)) return notify("تراکنش قبلی این نوبت پیدا نشد؛ هزینه‌ها را بررسی کنید");
+        if (original && !transactions.some(item => item.id === original?.id)) return notify("تراکنش قبلی این نوبت پیدا نشد؛ هزینه‌ها را بررسی کنید");
         if (status === "invalid" && original) return notify("تکرار متوقف یا تغییر کرده است؛ تراکنش ثبت‌شده در هزینه‌ها باقی می‌ماند");
         occurrenceHandled = status === "handled";
       }
@@ -377,15 +383,24 @@ export function useTxFormModel(
           notify("حساب انتخاب‌شده در دسترس نیست؛ حساب دیگری انتخاب کنید");
           return;
         }
+        const ownerId = original && !occurrence ? original.memberId : currentMemberId;
+        if (account.memberId !== ownerId) {
+          notify("فقط حساب‌های خودتان قابل انتخاب‌اند");
+          return;
+        }
+        if (form.type === "income") {
+          setBalanceWarning(null);
+        } else {
         const warning = expenseBalanceWarning(account, transactions, baseAmount, original?.id);
-        const consent = confirmBalance ? balanceWarning : reviewedBalance.current;
-        if (warning && !sameExpenseBalance(consent, warning)) {
+        if (warning) {
           reviewedBalance.current = null;
-          setBalanceWarning(warning);
+          writeForm(previous => ({ ...previous, accountId: "" }));
+          notify("موجودی این حساب برای مبلغ واردشده کافی نیست؛ حساب دیگری انتخاب کنید");
           return;
         }
         reviewedBalance.current = warning;
         setBalanceWarning(null);
+        }
       }
       setActivity("save");
       phase = "label";
@@ -397,6 +412,7 @@ export function useTxFormModel(
         subcategoryId = sub.id;
       }
       const input = {
+        requireAvailableBalance: true,
         memberId: form.memberId || currentMemberId,
         type: form.type,
         amount: baseAmount,
@@ -419,6 +435,13 @@ export function useTxFormModel(
         await useCases.updateTransaction.execute(original.id, input);
         if (!current()) return;
         stored = { ...original, ...input };
+      } else if (occurrence) {
+        stored = await useCases.settleOccurrence.execute(occurrence.recurringId, {
+          dueDate: occurrence.dueDate, revision: recurringRevision, accountId: input.accountId,
+          toAccountId: input.toAccountId, transaction: input,
+        });
+        if (!current()) return;
+        occurrenceHandled = true;
       } else {
         stored = await useCases.addTransaction.execute(input);
         if (!current()) return;

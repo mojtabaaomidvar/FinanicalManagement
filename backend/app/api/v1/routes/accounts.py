@@ -5,23 +5,27 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_tenant_member
 from app.db.session import get_db
 from app.models.family import Member
-from app.schemas.data import AccountCreate, AccountOut, AccountUpdate
+from app.schemas.data import AccountCreate, AccountDelete, AccountOut, AccountUpdate
 from app.services import accounts as account_service
 from app.services.common import to_uuid
 
 router = APIRouter(tags=["accounts"])
+TenantMember = Annotated[Member, Depends(get_tenant_member)]
+DbSession = Annotated[Session, Depends(get_db)]
 
 
 @router.get("/accounts", response_model=list[AccountOut])
 def list_accounts(
-    member: Member = Depends(get_tenant_member),
-    db: Session = Depends(get_db),
+    member: TenantMember,
+    db: DbSession,
 ) -> list[AccountOut]:
     return [AccountOut.of(a) for a in account_service.list_for_family(db, member.family_id)]
 
@@ -29,18 +33,18 @@ def list_accounts(
 @router.post("/accounts", response_model=AccountOut, status_code=status.HTTP_201_CREATED)
 def add_account(
     body: AccountCreate,
-    member: Member = Depends(get_tenant_member),
-    db: Session = Depends(get_db),
+    member: TenantMember,
+    db: DbSession,
 ) -> AccountOut:
-    return AccountOut.of(account_service.create(db, member.family_id, body))
+    return AccountOut.of(account_service.create(db, member, body))
 
 
 @router.patch("/accounts/{account_id}", response_model=AccountOut)
 def update_account(
     account_id: str,
     body: AccountUpdate,
-    member: Member = Depends(get_tenant_member),
-    db: Session = Depends(get_db),
+    member: TenantMember,
+    db: DbSession,
 ) -> AccountOut:
     row = account_service.update(
         db, member, to_uuid(account_id, "NOT_FOUND", "حساب یافت نشد.", 404), body
@@ -51,10 +55,14 @@ def update_account(
 @router.delete("/accounts/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_account(
     account_id: str,
-    member: Member = Depends(get_tenant_member),
-    db: Session = Depends(get_db),
+    member: TenantMember,
+    db: DbSession,
+    body: AccountDelete | None = None,
 ) -> Response:
     account_service.delete(
-        db, member, to_uuid(account_id, "NOT_FOUND", "حساب یافت نشد.", 404)
+        db,
+        member,
+        to_uuid(account_id, "NOT_FOUND", "حساب یافت نشد.", 404),
+        body.confirmation if body else None,
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)

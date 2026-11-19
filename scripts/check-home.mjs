@@ -154,7 +154,7 @@ try {
   assert.equal(await row(ownerPage, distantTask.id).count(), 0, 'Eight-day task should stay outside the weekly overview');
   assert.equal(await row(ownerPage, activity.id).count(), 1, 'Activity and calendar entry were duplicated');
   assert.equal(await ownerPage.getByText(otherGoal.title, { exact: true }).count(), 0, 'Manager can see another member private goal');
-  assert.equal(await ownerPage.locator('.hub-bell-dot').count(), 0, 'Reminders were not disabled');
+  assert.equal(await ownerPage.locator('.floating-bell b').count(), 0, 'Reminders were not disabled');
   checks.push('real household tasks, seven-day boundary, shared event identity and reminders-off independence');
 
   assert.equal(await ownerPage.getByRole('heading', { name: 'به‌زودی', exact: true }).count(), 0, 'Empty roadmap heading remains');

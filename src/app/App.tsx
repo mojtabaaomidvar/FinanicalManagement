@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "./providers/AppProvider";
 import { useBackGuard } from "@/shared/lib/useBackGuard";
+import { requestBack } from "@/shared/lib/backGuard";
+import { FloatingNavigation } from "@/widgets/quick-actions/FloatingNavigation";
 import { useNativeSmsReader } from "./useNativeSmsReader";
 import { useTheme } from "./providers/useTheme";
 import { MAIN_ROUTES, type Route } from "./router";
@@ -252,9 +254,15 @@ function AppBody() {
     );
   }
 
+  const showPageBack = phase !== "ready" || route !== "hub" || Boolean(devOverride) || (install.visible && !inviteToken);
+
   return (
     <>
-      {content()}
+      <div className={showPageBack ? "app-with-mobile-back" : undefined}>{content()}</div>
+      {showPageBack ? <button type="button" className="mobile-page-back" aria-label="بازگشت به صفحهٔ قبل"
+        onClick={() => { if (!requestBack()) { if (phase === "ready" && route !== "hub") setRoute("hub"); else if (history.length > 1) history.back(); } }}>
+        <svg><use href="#i-arrow-r" /></svg>
+      </button> : null}
       {/* §۸.۶ — بیرونِ content() و بی‌قیدِ phase: کسی که آفلاین است و روی
           صفحهٔ ورود گیر کرده بیشتر از همه به این خبر نیاز دارد، چون بدونش
           «رمزم غلط است» برداشت می‌کند. خودش وقتی چیزی برای گفتن نداشته
@@ -348,7 +356,7 @@ function MainShell({
 
   const nav = useCallback(
     (r: Route) => {
-      if (restricted && !["hub", "shopping", "inventory", "tasks"].includes(r)) {
+      if (restricted && !["hub", "sections", "shopping", "inventory", "tasks"].includes(r)) {
         show("این بخش به اتصال اینترنت نیاز دارد؛ خرید، انبار و کارهای خانه آفلاین در دسترس‌اند.");
         return;
       }
@@ -374,7 +382,7 @@ function MainShell({
       setGoalId(undefined);
       setActivityId(undefined);
       setCalendarDate(undefined);
-      if (!["hub", "shopping", "inventory", "tasks"].includes(route)) setRoute("hub");
+      if (!["hub", "sections", "shopping", "inventory", "tasks"].includes(route)) setRoute("hub");
       form.close();
     }
   }, [restricted, route, setRoute]);
@@ -425,50 +433,18 @@ function MainShell({
 
   return (
     <>
-      <div key={route} className="page-anim">
-        {route === "hub" ? (
+      <div key={route} className="page-anim app-with-floating-navigation">
+        {route === "hub" || route === "sections" ? (
           <HubPage
+            view={route === "sections" ? "sections" : "dashboard"}
             onNav={nav}
-            onAddTransaction={() => restricted ? show("ثبت تراکنش به اتصال اینترنت نیاز دارد.") : form.openNew()}
+            onAddTransaction={type => {
+              if (restricted) { show("ثبت تراکنش به اتصال اینترنت نیاز دارد."); return; }
+              form.openNew(); form.setType(type);
+            }}
             summary={notif}
             onOpenItem={openRecord}
             onRetry={() => { void Promise.allSettled([bumpRefresh(), notif.reload()]); }}
-            bell={
-              <NotificationCenterFeature
-                m={notif}
-                form={form}
-                joinRequests={notif.joinRequests}
-                onOpenJoinRequests={() => navSettingsSection("joinRequests")}
-                onOpenBills={() => nav("bills")}
-                onOpenInventory={() => nav("inventory")}
-                onOpenTasks={() => nav("tasks")}
-                onOpenCalendar={(date) => {
-                  if (restricted) return;
-                  nav("calendar"); setCalendarDate(date);
-                }}
-                onOpenDocuments={() => nav("documents")}
-                onOpenEquipment={(id) => {
-                  if (restricted) return;
-                  nav("equipment");
-                  setEquipmentId(id);
-                }}
-                onOpenVehicles={(id) => {
-                  if (restricted) return;
-                  nav("vehicles");
-                  setVehicleId(id);
-                }}
-                onOpenGoal={(id) => {
-                  if (restricted) return;
-                  nav("goals");
-                  setGoalId(id);
-                }}
-                onOpenActivity={(id) => {
-                  if (restricted) return;
-                  nav("activities");
-                  setActivityId(id);
-                }}
-              />
-            }
           />
         ) : null}
         {route === "dashboard" ? (
@@ -536,15 +512,43 @@ function MainShell({
         ) : null}
       </div>
 
+      <NotificationCenterFeature
+        m={notif}
+        hideTrigger
+        form={form}
+        joinRequests={notif.joinRequests}
+        onOpenJoinRequests={() => navSettingsSection("joinRequests")}
+        onOpenBills={() => nav("bills")}
+        onOpenInventory={() => nav("inventory")}
+        onOpenTasks={() => nav("tasks")}
+        onOpenCalendar={(date) => {
+          if (restricted) return;
+          nav("calendar"); setCalendarDate(date);
+        }}
+        onOpenDocuments={() => nav("documents")}
+        onOpenEquipment={(id) => {
+          if (restricted) return;
+          nav("equipment"); setEquipmentId(id);
+        }}
+        onOpenVehicles={(id) => {
+          if (restricted) return;
+          nav("vehicles"); setVehicleId(id);
+        }}
+        onOpenGoal={(id) => {
+          if (restricted) return;
+          nav("goals"); setGoalId(id);
+        }}
+        onOpenActivity={(id) => {
+          if (restricted) return;
+          nav("activities"); setActivityId(id);
+        }}
+      />
+      <FloatingNavigation home={route === "hub"} sections={route === "sections"} onHome={() => nav("hub")}
+        onSections={() => nav("sections")} count={notif.count}
+        onNotifications={() => notif.setOpen(true)} hidden={form.open || notif.open} />
       {!restricted ? <TransactionFormFeature form={form} onImported={bumpRefresh} /> : null}
       {!restricted ? <PendingSmsFeature refreshKey={refreshKey} /> : null}
 
-      {/* داک پایین (تب‌بار ۵تایی + FAB پلاس) از بازطراحی «هاب خانه»
-          بازنشسته شد: ناوبری حالا از راه کاشی‌های هاب و بازگشت
-          سخت‌افزاری/سوایپ انجام می‌شود و ثبت تراکنش از دکمه‌ی پهن
-          «ثبت خرج یا درآمد» در هاب باز می‌شود. NAV_ITEMS و کلاس‌های
-          CSS تب‌بار و دکمه‌ی شناور عمداً نگه داشته شده‌اند تا اگر
-          خواستیم دوباره برگردند. */}
     </>
   );
 }

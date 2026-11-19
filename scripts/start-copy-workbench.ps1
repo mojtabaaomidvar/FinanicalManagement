@@ -44,7 +44,20 @@ function Request-IdleRestart {
         $claim = Invoke-RestMethod -Uri ($workbenchUrl + '/__copy/restart-claim') -Method Post -ContentType 'application/json' `
             -Headers @{ Origin = $workbenchUrl; 'X-Copy-Workbench-Token' = $editorConfig.csrfToken } -Body '{}' -TimeoutSec 10
     } catch {
-        if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 409) { return $false }
+        if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 409) {
+            # Older runtimes cannot claim restart after failed initialization. They reject
+            # all source mutations while unready; stop only this exact owned, idle process.
+            $failedStatus = Invoke-RestMethod -Uri ($workbenchUrl + '/__copy/status?quick=1') -TimeoutSec 5
+            if (-not $failedStatus.ready -and -not $failedStatus.busy -and
+                $failedStatus.operation.kind -eq 'initialize' -and
+                $failedStatus.message -ne $failedStatus.operation.message) {
+                $failedProcess = Get-OwnedProcess
+                if (-not $failedProcess) { throw 'Editor ownership changed during recovery.' }
+                Stop-Process -Id $failedProcess.Id
+                return $true
+            }
+            return $false
+        }
         throw 'This editor must be stopped while idle with stop-copy-editor.bat before its first upgrade.'
     }
     if (-not $claim.claimed) { return $false }

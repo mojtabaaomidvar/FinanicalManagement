@@ -19,7 +19,7 @@ export function SettingsSubPage({
         >
           <button
             type="button"
-            className="icon-btn"
+            className="icon-btn settings-inline-back"
             aria-label="بازگشت"
             onClick={onBack}
           >

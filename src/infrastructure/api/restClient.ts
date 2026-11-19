@@ -309,8 +309,8 @@ export class RestClient {
     return this.request<T>("PATCH", path, body, opts);
   }
 
-  del<T>(path: string, opts?: ReqOpts): Promise<T> {
-    return this.request<T>("DELETE", path, undefined, opts);
+  del<T>(path: string, opts?: ReqOpts, body?: unknown): Promise<T> {
+    return this.request<T>("DELETE", path, body, opts);
   }
 
   postForm<T>(path: string, body: FormData, opts?: ReqOpts): Promise<T> {

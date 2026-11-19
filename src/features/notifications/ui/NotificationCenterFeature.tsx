@@ -1,4 +1,5 @@
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
+import { recurringTemplate } from "@/domain/transaction/recurring.rules";
 /* §۷ — مرکزِ اعلان (زنگ + فهرست).
 
    ── متن کجا ساخته می‌شود و چرا این‌جا ──
@@ -61,6 +62,7 @@ export function NotificationCenterFeature({
   onOpenGoal,
   onOpenActivity,
   onOpenCalendar,
+  hideTrigger = false,
 }: {
   m: NotificationsModel;
   form: TxFormModel;
@@ -75,6 +77,7 @@ export function NotificationCenterFeature({
   onOpenGoal?: (goalId: string) => void;
   onOpenActivity?: (activityId: string) => void;
   onOpenCalendar?: (dateIso: string) => void;
+  hideTrigger?: boolean;
 }) {
   const { txs, events, cur, customCategories, bills, inventory, tasks, member } = useApp();
 
@@ -186,7 +189,8 @@ export function NotificationCenterFeature({
       };
     }
     if (n.ref.kind === "recurring") {
-      const tx = txById.get(n.ref.txId);
+      const original = txById.get(n.ref.txId);
+      const tx = original ? recurringTemplate(original) : undefined;
       /* اگر تراکنش بینِ مشتق‌سازی و رندر حذف شده باشد، ردیف حذف می‌شود نه
          اینکه با «نامشخص» نمایش داده شود — اعلانِ بی‌مرجع بی‌معناست. */
       if (!tx) return null;
@@ -325,7 +329,7 @@ export function NotificationCenterFeature({
 
   return (
     <>
-      <button
+      {!hideTrigger ? <button
         type="button"
         className="hub-bell"
         aria-label={
@@ -339,7 +343,7 @@ export function NotificationCenterFeature({
         {m.count > 0 ? (
           <span className="hub-bell-dot">{toFa(m.count)}</span>
         ) : null}
-      </button>
+      </button> : null}
 
       <Modal
         open={m.open}

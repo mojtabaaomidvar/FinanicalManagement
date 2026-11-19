@@ -264,6 +264,22 @@ test('a protected restart claim blocks mutations and releases itself if the laun
   } finally { await f.close(); }
 });
 
+test('failed initialization can claim an idle restart after source has been corrected', async () => {
+  const f = await fixture(); let failed;
+  try {
+    await f.workbench.close();
+    await writeFile(join(f.root, 'src/sample.tsx'), 'export const Screen = () => <h1>نسخهٔ تازه</h1>;');
+    failed = await createWorkbench({ root: f.root, port: 0, build: async () => { throw new Error('Build failed'); } });
+    await failed.initialized;
+    assert.equal(failed.status().ready, false); assert.equal(failed.status().busy, false);
+    const html = await (await fetch(failed.origin)).text();
+    const config = JSON.parse(html.match(/window\.__COPY_WORKBENCH__=(.+?);<\/script>/)[1]);
+    const response = await fetch(failed.origin + '/__copy/restart-claim', { method: 'POST',
+      headers: { Origin: failed.origin, 'Content-Type': 'application/json', 'X-Copy-Workbench-Token': config.csrfToken }, body: '{}' });
+    assert.equal(response.status, 200); assert.equal((await response.json()).claimed, true);
+  } finally { await failed?.close(); await f.close(); }
+});
+
 test('racing source Apply and restart cannot both acquire the mutation lock', async () => {
   const f = await fixture(); let release;
   try {

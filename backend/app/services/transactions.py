@@ -17,7 +17,7 @@ from datetime import date as _date
 from decimal import Decimal
 from typing import Literal
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
@@ -25,9 +25,9 @@ from app.models.account import Account
 from app.models.category import CustomCategory, Subcategory
 from app.models.family import Member
 from app.models.transaction import Transaction, TransactionPhoto
-from app.schemas.data import PhotoCreate, TransactionWrite
+from app.schemas.data import OccurrenceSettle, PhotoCreate, RecurringUpdate, TransactionWrite
 from app.services.common import is_admin, to_uuid, to_uuid_opt
-from app.services.member_age import document_age_restricted
+from app.services.member_age import document_age_restricted, today_tehran
 
 _TIME_RE = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
 _REPEATS = {"none", "weekly", "monthly", "yearly"}
@@ -271,8 +271,12 @@ def create_vehicle_service_uncommitted(
     )
 
 
-def create(db: Session, family_id: uuid.UUID, req: TransactionWrite) -> Transaction:
+def create(
+    db: Session, family_id: uuid.UUID, req: TransactionWrite, *, actor: Member | None = None
+) -> Transaction:
     values = _prepare(db, family_id, req)
+    if actor is not None:
+        _check_payment_account(db, actor, values, req.require_available_balance)
     row = Transaction(family_id=family_id, **values)
     db.add(row)
     db.commit()
@@ -295,6 +299,7 @@ def update(db: Session, actor: Member, tx_id: uuid.UUID, req: TransactionWrite) 
 
     _require_source_access(actor, row)
     values = _prepare(db, actor.family_id, req)
+    _check_payment_account(db, actor, values, req.require_available_balance, replacing=row)
     if row.source_kind == "vehicle_service" and (
         any(
             values[key] != getattr(row, key)
@@ -315,6 +320,8 @@ def update(db: Session, actor: Member, tx_id: uuid.UUID, req: TransactionWrite) 
         )
     if not is_family_admin and values["member_id"] != actor.id:
         raise AppError("FORBIDDEN", "نمی‌توانید تراکنش خود را به عضو دیگری نسبت دهید.", 403)
+    if (row.repeat, row.repeat_end) != (values["repeat"], values["repeat_end"]):
+        row.recurring_revision += 1
     for key, value in values.items():
         setattr(row, key, value)
     db.commit()
@@ -332,10 +339,26 @@ def delete_uncommitted(db: Session, actor: Member, tx_id: uuid.UUID) -> None:
     )
     if not is_admin(actor):
         stmt = stmt.where(Transaction.member_id == actor.id)
-    row = db.execute(stmt).scalar_one_or_none()
+    row = db.execute(stmt.with_for_update()).scalar_one_or_none()
     if row is None:
         raise AppError("NOT_FOUND", "تراکنش یافت نشد.", 404)
     _require_source_access(actor, row)
+    if (
+        db.scalar(
+            select(Transaction.id)
+            .where(
+                Transaction.family_id == actor.family_id,
+                Transaction.recurring_source_id == row.id,
+            )
+            .limit(1)
+        )
+        is not None
+    ):
+        raise AppError(
+            "RECURRING_HISTORY_EXISTS",
+            "این تراکنش نوبت تسویه‌شده دارد؛ تکرار را متوقف کنید تا سابقه حفظ شود.",
+            409,
+        )
     db.delete(row)
     db.flush()
 
@@ -347,14 +370,10 @@ def delete(db: Session, actor: Member, tx_id: uuid.UUID) -> None:
 
 
 def mark_occurrence(db: Session, actor: Member, tx_id: uuid.UUID, due_date: _date | None) -> None:
-    """ثبت رسیدگی به یک سررسید تراکنش تکرارشونده (فقط مدیر؛ idempotent)."""
-    if not is_admin(actor):
-        raise AppError("FORBIDDEN", "فقط مدیر خانواده مجاز است.", 403)
+    """ثبت رسیدگی توسط صاحب تراکنش یا مدیر، بدون ثبت پرداخت دوباره."""
     if due_date is None:
         raise AppError("INVALID_DATE", "تاریخ سررسید نامعتبر است.", 422)
-    row = db.execute(
-        select(Transaction).where(Transaction.id == tx_id, Transaction.family_id == actor.family_id)
-    ).scalar_one_or_none()
+    row = _recurring_row(db, actor, tx_id)
     if row is not None:
         _require_source_access(actor, row)
     if row is None or row.repeat == "none":
@@ -368,6 +387,247 @@ def mark_occurrence(db: Session, actor: Member, tx_id: uuid.UUID, due_date: _dat
 
 
 # ── عکس‌های تراکنش ───────────────────────────────────────────
+def _check_payment_account(
+    db: Session,
+    actor: Member,
+    values: dict,
+    require_balance: bool,
+    *,
+    replacing: Transaction | None = None,
+) -> None:
+    if not is_admin(actor) and values["member_id"] != actor.id:
+        raise AppError("FORBIDDEN", "نمی‌توانید تراکنش را به عضو دیگری نسبت دهید.", 403)
+    account_id = values["account_id"]
+    if account_id is None:
+        if (
+            require_balance
+            and db.scalar(
+                select(Account.id)
+                .where(
+                    Account.family_id == actor.family_id,
+                    Account.member_id == actor.id,
+                )
+                .limit(1)
+            )
+            is not None
+        ):
+            raise AppError("ACCOUNT_REQUIRED", "حساب پرداخت یا دریافت را انتخاب کنید.", 422)
+        return
+    ids = {account_id}
+    if values["to_account_id"] is not None:
+        ids.add(values["to_account_id"])
+    rows = list(
+        db.scalars(
+            select(Account)
+            .where(
+                Account.family_id == actor.family_id,
+                Account.id.in_(ids),
+            )
+            .order_by(Account.id)
+            .with_for_update()
+        )
+    )
+    account = next((row for row in rows if row.id == account_id), None)
+    owner_id = replacing.member_id if replacing is not None and is_admin(actor) else actor.id
+    if account is None or account.member_id != owner_id:
+        raise AppError("ACCOUNT_FORBIDDEN", "فقط حساب‌های خودتان قابل انتخاب‌اند.", 403)
+    if not require_balance or values["type"] == "income":
+        return
+    transactions = db.scalars(
+        select(Transaction).where(
+            Transaction.family_id == actor.family_id,
+            or_(Transaction.account_id == account_id, Transaction.to_account_id == account_id),
+        )
+    )
+    balance = account.initial_balance
+    for transaction in transactions:
+        if replacing is not None and transaction.id == replacing.id:
+            continue
+        if transaction.account_id == account_id:
+            balance += transaction.amount if transaction.type == "income" else -transaction.amount
+        if transaction.type == "transfer" and transaction.to_account_id == account_id:
+            balance += transaction.amount
+    if balance < values["amount"]:
+        raise AppError("INSUFFICIENT_BALANCE", "موجودی این حساب برای مبلغ واردشده کافی نیست.", 409)
+
+
+def _recurring_row(db: Session, actor: Member, tx_id: uuid.UUID) -> Transaction:
+    query = select(Transaction).where(
+        Transaction.id == tx_id, Transaction.family_id == actor.family_id
+    )
+    if not is_admin(actor):
+        query = query.where(Transaction.member_id == actor.id)
+    row = db.scalar(query.with_for_update())
+    if row is None:
+        raise AppError("NOT_FOUND", "تراکنش تکرارشونده یافت نشد.", 404)
+    _require_source_access(actor, row)
+    return row
+
+
+def _schedule_dates(row: Transaction):
+    from datetime import timedelta
+
+    import jdatetime
+
+    if row.repeat == "none":
+        return
+    start = jdatetime.date.fromgregorian(date=row.recurring_start_date or row.date)
+    for n in range(0 if row.recurring_start_date else 1, 1201):
+        if row.repeat == "weekly":
+            due = start.togregorian() + timedelta(days=7 * n)
+        else:
+            months = start.year * 12 + start.month - 1 + (n if row.repeat == "monthly" else 12 * n)
+            year, month = divmod(months, 12)
+            month += 1
+            if not 1 <= year <= 9377:
+                return
+            day = start.day
+            while True:
+                try:
+                    due = jdatetime.date(year, month, day).togregorian()
+                    break
+                except ValueError:
+                    day -= 1
+                    if day < 1:
+                        return
+        if row.repeat_end is not None and due > row.repeat_end:
+            break
+        yield due
+
+
+def update_recurring(
+    db: Session, actor: Member, tx_id: uuid.UUID, req: RecurringUpdate
+) -> Transaction:
+    row = _recurring_row(db, actor, tx_id)
+    if row.repeat == "none" or row.source_kind is not None:
+        raise AppError("NOT_FOUND", "تراکنش تکرارشونده یافت نشد.", 404)
+    if row.recurring_revision != req.revision:
+        raise AppError("RECURRING_CONFLICT", "برنامهٔ تکرار تغییر کرده؛ اطلاعات را تازه کنید.", 409)
+    if req.repeat not in _REPEATS or (req.repeat != "none" and req.start_date < today_tehran()):
+        raise AppError("INVALID_DATE", "موعد بعدی را از امروز به بعد انتخاب کنید.", 422)
+    prepared = _prepare(
+        db,
+        actor.family_id,
+        TransactionWrite(
+            member_id=str(row.member_id),
+            type=row.type,
+            amount=req.amount,
+            category=req.category,
+            date=req.start_date,
+            note=req.note,
+            account_id=str(row.account_id) if row.account_id else None,
+            to_account_id=str(row.to_account_id) if row.to_account_id else None,
+            repeat=req.repeat,
+            repeat_end=req.repeat_end,
+        ),
+    )
+    # Only future plan columns change. The first actual transaction and all paid rows stay intact.
+    row.recurring_amount = prepared["amount"]
+    row.recurring_category = prepared["category"]
+    row.recurring_note = prepared["note"] or ""
+    row.recurring_start_date = req.start_date
+    row.repeat = req.repeat
+    row.repeat_end = req.repeat_end if req.repeat != "none" else None
+    row.recurring_revision += 1
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def settle_occurrence(
+    db: Session, actor: Member, tx_id: uuid.UUID, req: OccurrenceSettle
+) -> Transaction:
+    row = _recurring_row(db, actor, tx_id)
+    existing = db.scalar(
+        select(Transaction).where(
+            Transaction.family_id == actor.family_id,
+            Transaction.recurring_source_id == row.id,
+            Transaction.recurring_due_date == req.due_date,
+        )
+    )
+    if existing is not None:
+        return existing
+    if row.recurring_revision != req.revision:
+        raise AppError("RECURRING_CONFLICT", "برنامهٔ تکرار تغییر کرده؛ اطلاعات را تازه کنید.", 409)
+    pending = (
+        day
+        for day in _schedule_dates(row)
+        if day.isoformat() not in (row.handled_occurrences or [])
+    )
+    available = (
+        req.due_date in pending
+        if req.transaction is not None
+        else next(pending, None) == req.due_date
+    )
+    if not available:
+        raise AppError(
+            "OCCURRENCE_UNAVAILABLE", "این نوبت دیگر قابل تسویه نیست؛ برنامه را تازه کنید.", 409
+        )
+    source = req.transaction
+    if source is not None and (
+        source.type != row.type
+        or source.repeat != "none"
+        or source.date is None
+        or source.date > today_tehran()
+    ):
+        raise AppError("INVALID_OCCURRENCE", "نوع نوبت و تاریخ پرداخت را بررسی کنید.", 422)
+    values = _prepare(
+        db,
+        actor.family_id,
+        TransactionWrite(
+            member_id=str(row.member_id),
+            type=row.type,
+            amount=source.amount if source else row.recurring_amount or row.amount,
+            category=source.category if source else row.recurring_category or row.category,
+            date=source.date if source else today_tehran(),
+            time=source.time if source else None,
+            note=source.note
+            if source
+            else row.recurring_note
+            if row.recurring_note is not None
+            else row.note,
+            account_id=source.account_id if source else req.account_id,
+            to_account_id=source.to_account_id if source else req.to_account_id,
+            subcategory_id=source.subcategory_id
+            if source
+            else (
+                str(row.subcategory_id)
+                if row.subcategory_id is not None
+                and (row.recurring_category or row.category) == row.category
+                else None
+            ),
+            repeat="none",
+        ),
+    )
+    _check_payment_account(db, actor, values, True)
+    payment = Transaction(
+        family_id=actor.family_id,
+        recurring_source_id=row.id,
+        recurring_due_date=req.due_date,
+        **values,
+    )
+    db.add(payment)
+    row.handled_occurrences = [*(row.handled_occurrences or []), req.due_date.isoformat()]
+    db.commit()
+    db.refresh(payment)
+    return payment
+
+
+def photos_for_transaction(
+    db: Session, family_id: uuid.UUID, tx_id: uuid.UUID
+) -> list[TransactionPhoto]:
+    return list(
+        db.scalars(
+            select(TransactionPhoto)
+            .where(
+                TransactionPhoto.family_id == family_id,
+                TransactionPhoto.transaction_id == tx_id,
+            )
+            .order_by(TransactionPhoto.created_at)
+        )
+    )
+
+
 def _photo_permitted(db: Session, actor: Member, photo: TransactionPhoto) -> bool:
     """مجاز: مدیر، آپلودر، یا سازندهٔ تراکنش همان عکس."""
     transaction = db.execute(

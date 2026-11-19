@@ -1,80 +1,35 @@
-/* فهرست بانک‌های رایج ایران + پیش‌شماره (BIN) کارت‌های هر بانک
-   BINها ۶ رقم ابتدای کارت هستند و بانک صادرکننده را مشخص می‌کنند */
+import { BANK_CATALOG } from "./bankCatalog";
+import { toEn } from "./digits";
 
-export const BANK_NAMES: string[] = [
-  "بانک ملت",
-  "بانک ملی",
-  "بانک صادرات",
-  "بانک تجارت",
-  "بانک سپه",
-  "بانک کشاورزی",
-  "بانک پارسیان",
-  "بانک پاسارگاد",
-  "بانک سامان",
-  "بانک رفاه",
-  "بانک مسکن",
-  "بانک آینده",
-  "بانک انصاری",
-  "بانک گردشگری",
-  "بانک شهر",
-  "بانک دی",
-  "بانک سینا",
-  "بانک کارآفرین",
-  "بانک توسعه صادرات",
-  "بانک قرض‌الحسنه مهر ایران",
-  "بانک خاورمیانه",
-  "بانک حکمت",
-  "بانک سرمایه",
-  "بانک ایران‌زمین",
-  "سایر",
-];
-
-/** پیش‌شماره‌های ۶ رقمی کارت هر بانک (معتبرترین BINهای رایج) */
-export const BANK_BINS: Record<string, string[]> = {
-  "بانک ملت": ["610433", "991975", "639217", "628023"],
-  "بانک ملی": ["617353", "627483", "639346", "603799", "639607", "627353"],
-  "بانک صادرات": ["603769", "639347", "621986", "639618"],
-  "بانک تجارت": ["585983", "627354", "502229", "502910", "207177", "636214"],
-  "بانک سپه": ["589210", "603769"],
-  "بانک کشاورزی": ["603770", "639217", "502908", "504172", "627418"],
-  "بانک پارسیان": ["622106", "627889", "639194", "502229", "504172"],
-  "بانک پاسارگاد": ["502229", "502910", "603799", "639347", "621986", "628157"],
-  "بانک سامان": ["621986", "639346"],
-  "بانک رفاه": ["589463", "621986"],
-  "بانک مسکن": ["628023", "627483", "639217"],
-  "بانک آینده": ["636214", "502910"],
-  "بانک انصاری": ["627381", "639217"],
-  "بانک گردشگری": ["505801", "505809", "621986"],
-  "بانک شهر": ["502806", "504706", "603769"],
-  "بانک دی": ["502938", "603769"],
-  "بانک سینا": ["639346", "621986"],
-  "بانک کارآفرین": ["627488", "502908", "621986", "639607"],
-  "بانک توسعه صادرات": ["207177", "627648", "636214"],
-  "بانک قرض‌الحسنه مهر ایران": ["606373", "639217"],
-  "بانک خاورمیانه": ["585949", "636214"],
-  "بانک حکمت": ["623676", "639217"],
-  "بانک سرمایه": ["639347", "502229"],
-  "بانک ایران‌زمین": ["505785", "627483"],
+// Existing stored names remain valid when official wording differs.
+const BANK_ALIASES: Record<string, string> = {
+  "بانک ملی": "melli", "بانک صادرات": "saderat", "بانک رفاه": "refah",
+  "بانک ایران‌زمین": "iran-zamin", "بانک توسعه صادرات": "tosee-saderat",
+  "بانک انصاری": "sepah", "بانک انصار": "sepah", "بانک حکمت": "sepah",
 };
-
-/** تشخیص بانک از روی ۶ رقم اول کارت — null اگر ناشناخته */
+export const BANK_NAMES = BANK_CATALOG.map(bank => bank.value);
+export const BANK_OPTIONS = BANK_CATALOG.map(bank => ({ value: bank.value, label: bank.label }));
+export const BANK_BINS = Object.fromEntries(BANK_CATALOG.map(bank => [bank.value, bank.bins]));
+function entryFor(value: string) {
+  return BANK_CATALOG.find(bank => bank.value === value || bank.id === value || bank.id === BANK_ALIASES[value]);
+}
+export function bankDisplayLabel(value: string): string { return entryFor(value)?.label ?? value; }
+function cardCandidates(cardNumber: string) {
+  const digits = toEn(cardNumber).replace(/\D/g, "");
+  if (digits.length < 6) return [];
+  const matching = BANK_CATALOG.flatMap(bank => bank.bins
+    .filter(bin => digits.startsWith(bin)).map(bin => ({ bank, length: bin.length })));
+  const longest = Math.max(0, ...matching.map(item => item.length));
+  return matching.filter(item => item.length === longest).map(item => item.bank);
+}
+/** Shared prefixes require a choice; eight digits take priority over six. */
 export function bankOfCard(cardNumber: string): string | null {
-  const bin = cardNumber.replace(/\D/g, "").slice(0, 6);
-  if (bin.length !== 6) return null;
-  for (const [bank, bins] of Object.entries(BANK_BINS)) {
-    if (bins.includes(bin)) return bank;
-  }
-  return null;
+  const candidates = cardCandidates(cardNumber);
+  return candidates.length === 1 ? candidates[0].value : null;
 }
-
-/** آیا کارت با بانک انتخاب‌شده هم‌خوانی دارد؟
-    «سایر» و بانک‌های بدون BIN ثبت‌شده همیشه قبول */
-export function cardMatchesBank(cardNumber: string, bank: string): boolean {
-  if (!bank || bank === "سایر") return true;
-  const bins = BANK_BINS[bank];
-  if (!bins || !bins.length) return true;
-  const bin = cardNumber.replace(/\D/g, "").slice(0, 6);
-  if (bin.length !== 6) return true; /* هنوز کامل تایپ نشده */
-  return bins.includes(bin);
+export function cardMatchesBank(cardNumber: string, value: string): boolean {
+  const selected = entryFor(value), candidates = cardCandidates(cardNumber);
+  if (!selected || !candidates.length) return true;
+  return candidates.some(bank => bank.id === selected.id || bank.parentId === selected.id
+    || selected.parentId === bank.id || (!!selected.parentId && selected.parentId === bank.parentId));
 }
-

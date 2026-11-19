@@ -86,7 +86,7 @@ export function HomeOverview({ overview, data, todayIso, loading, incomplete, of
     <section className="hub-overview" aria-labelledby="home-overview-title" aria-busy={loading}>
       <div className="hub-overview-head">
         <div>
-          <h2 id="home-overview-title">امروز و فردا</h2>
+          <h2 id="home-overview-title" tabIndex={-1}>امروز و فردا</h2>
           <p>{formatLong(isoToJalali(todayIso))}</p>
         </div>
         <Icon name="i-clock" size={24} />

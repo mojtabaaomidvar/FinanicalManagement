@@ -53,7 +53,7 @@ async function poll(test, message, p = page) {
 }
 async function ready(p = page) {
   await p.locator('.home-catalog').waitFor();
-  await poll(async () => !(await p.locator('.home-quick-access .home-section-head > button').isDisabled()), 'Home preferences did not become ready', p);
+  await poll(async () => !(await p.locator('[data-home-drag="module"]').first().isDisabled()), 'Home preferences did not become ready', p);
 }
 async function settled(p = page, account = owner) {
   await ready(p);
@@ -155,9 +155,11 @@ async function keyboardMove(p, kind, id, keys, commit = true) {
   await p.keyboard.press(commit ? 'Enter' : 'Escape'); await p.waitForTimeout(400); await noDrag(p);
 }
 async function layout(p, value) {
-  await p.locator('.home-quick-access .home-section-head > button').click();
-  await p.locator('#home-layout').selectOption(value);
-  await p.getByRole('button', { name: 'بستن تنظیم چیدمان', exact: true }).click(); await settled(p);
+  // Seed a previously saved layout: the Home layout dialog has been removed.
+  await settled(p);
+  const saved = (await api(preferencePath, owner.token)).preferences;
+  await setRemote(owner, { ...saved, layout: value });
+  await p.reload({ waitUntil: 'networkidle' }); await settled(p);
 }
 async function screen(p, name, theme) {
   await p.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
@@ -177,6 +179,7 @@ try {
 
   await check('real grouped Home retains all19 modules, header settings, agenda and independent grips', async () => {
     await catalogIntact(); assert.deepEqual(await groups(page), groupIdsExpected);
+    assert.equal(await page.locator('[data-home-arrange], .home-arrange-dialog, .home-quick-access .home-section-head > button').count(), 0);
     assert.deepEqual(await pins(page), ['chores', 'shopping', 'calendar']);
     assert.equal(await page.locator('details[data-home-group][open]').count(), 0);
     assert.equal(await page.getByRole('button', { name: 'پروفایل و تنظیمات', exact: true }).count(), 1);
@@ -223,13 +226,11 @@ try {
         { tag: 'SUMMARY', group: 'family' }, 'A fast collapsed drop must return focus to its visible group summary');
     }
   });
-  await check('position controls transfer modules and an empty group accepts a mouse drop', async () => {
+  await check('keyboard transfers modules and an empty group accepts a mouse drop', async () => {
     for (const id of ['equipment', 'vehicles', 'docs']) {
       await reveal(page, id); await settled();
-      await tile(page, id).locator('[data-home-arrange="module"]').click();
-      await page.locator('#home-transfer-group').selectOption('daily');
-      assert.equal(await page.locator('#home-transfer-group').inputValue(), 'daily');
-      await page.getByRole('button', { name: 'بستن تنظیم چیدمان', exact: true }).click(); await settled();
+      await keyboardMove(page, 'module', id, ['Control+ArrowUp']); await settled();
+      assert.ok((await inGroup(page, 'daily')).includes(id));
     }
     assert.deepEqual(await inGroup(page, 'belongings'), []);
     await reveal(page, 'docs'); await settled();

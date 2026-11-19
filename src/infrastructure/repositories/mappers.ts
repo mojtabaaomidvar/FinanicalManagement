@@ -40,6 +40,9 @@ export interface FamilyRow {
 }
 
 export interface TransactionRow {
+  recurring_plan?: { amount: number | string; category: string; note: string | null; start_date: string | null; revision: number } | null;
+  recurring_source_id?: string | null;
+  recurring_due_date?: string | null;
   id: string;
   source_kind?: string | null;
   family_id: string;
@@ -159,6 +162,9 @@ export function mapJoinRequest(r: JoinRequestRow): JoinRequest {
 
 export function mapTransaction(r: TransactionRow): Transaction {
   return {
+    recurringPlan: r.recurring_plan ? { ...r.recurring_plan, amount: +r.recurring_plan.amount, startDate: r.recurring_plan.start_date } : null,
+    recurringSourceId: r.recurring_source_id ?? null,
+    recurringDueDate: r.recurring_due_date ?? null,
     id: r.id,
     sourceKind: r.source_kind === "vehicle_service" ? "vehicle_service" : null,
     familyId: r.family_id,

@@ -204,7 +204,7 @@ try {
   child = await api('/children/' + child.id, owner, 'PATCH', { name: child.name, birth_date: birthTenJalaliYearsAgo(tomorrowIso), base_revision: child.revision });
   const reminderDate = (await api('/children/' + child.id, owner)).birthday.date;
   const selectedReminder = parts(new Date(reminderDate + 'T12:00:00Z'), 'persian');
-  await page.reload({ waitUntil: 'networkidle' }); await page.locator('.hub-bell').click();
+  await page.reload({ waitUntil: 'networkidle' }); await page.locator('.floating-navigation').getByRole('button', { name: 'اعلان‌ها', exact: true }).click();
   await page.getByRole('heading', { name: 'اعلان‌ها', exact: true }).waitFor();
   const birthdayReminder = page.locator('.notif-item').filter({ hasText: 'تولد ' + child.name });
   await birthdayReminder.waitFor(); assert.equal(await birthdayReminder.count(), 1);

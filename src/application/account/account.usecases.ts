@@ -73,7 +73,7 @@ export class UpdateAccountUseCase {
 
 export class DeleteAccountUseCase {
   constructor(private readonly repo: AccountRepository) {}
-  execute(id: string): Promise<void> {
-    return this.repo.remove(id);
+  execute(id: string, confirmation?: string): Promise<void> {
+    return this.repo.remove(id, confirmation);
   }
 }

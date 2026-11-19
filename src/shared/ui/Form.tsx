@@ -33,6 +33,7 @@ export function TextInput({ "aria-label": ariaLabel, ...props }: {
   inputMode?: "text" | "tel" | "numeric" | "decimal";
   className?: string;
   autoFocus?: boolean;
+  disabled?: boolean;
   maxLength?: number;
   "aria-label"?: string;
 }) {
@@ -47,6 +48,7 @@ export function TextInput({ "aria-label": ariaLabel, ...props }: {
       inputMode={props.inputMode}
       maxLength={props.maxLength}
       autoFocus={props.autoFocus}
+      disabled={props.disabled}
       aria-label={ariaLabel}
       onChange={(e: ChangeEvent<HTMLInputElement>) =>
         props.onChange(e.target.value)

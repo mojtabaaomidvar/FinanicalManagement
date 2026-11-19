@@ -96,9 +96,9 @@ export function AddHoldingModal({
   return (
     <Modal
       open={target !== null}
-      onClose={onClose}
+      onClose={() => { if (!busy) onClose(); }}
       title={editing ? "ویرایش دارایی" : "افزودن به دارایی‌ها"}
-      dragToClose
+      dragToClose={!busy}
     >
       <div className="hold-target">
         <b className="hold-target-name">{target.name}</b>
@@ -115,7 +115,10 @@ export function AddHoldingModal({
       <Field label={`مقدار (${KIND_UNIT[target.kind]})`}>
         <TextInput
           value={raw}
+          disabled={busy}
+          aria-label={`مقدار (${KIND_UNIT[target.kind]})`}
           onChange={(v) => {
+            if (busy) return;
             setRaw(liveFormatQuantity(v));
             setTouched(true);
           }}

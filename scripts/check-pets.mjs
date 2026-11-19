@@ -100,7 +100,7 @@ async function poll(check, message, target = page) {
 }
 async function serverTask(id) { return (await api('/tasks', owner.token)).find(task => task.id === id); }
 async function notifications(target = page) {
-  await target.reload({ waitUntil: 'networkidle' }); await target.locator('.hub-bell').click();
+  await target.reload({ waitUntil: 'networkidle' }); await target.locator('.floating-navigation').getByRole('button', { name: 'اعلان‌ها', exact: true }).click();
   await target.getByRole('heading', { name: 'اعلان‌ها', exact: true }).waitFor(); await target.waitForTimeout(250);
 }
 async function enableTaskNotifications(account) {

@@ -25,7 +25,7 @@ export function MarketSubPage({
         <div className="market-sub-head">
           <button
             type="button"
-            className="icon-btn"
+            className="icon-btn page-inline-back"
             aria-label="بازگشت"
             onClick={onBack}
           >

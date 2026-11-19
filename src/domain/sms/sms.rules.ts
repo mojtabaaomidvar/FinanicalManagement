@@ -4,7 +4,7 @@ import { categoriesFor } from "../category/category.catalog";
 import type { SmsTxType } from "./sms.types";
 import type { BankSms } from "./sms.types";
 import type { TransactionInput } from "../transaction/transaction.types";
-import { parseSms } from "@/shared/lib/sms-parser";
+import { normalizeSms, parseSms } from "@/shared/lib/sms-parser";
 import { formatAmount } from "@/shared/lib/format";
 import { isoToJalali, jalaliToIso, today } from "@/shared/lib/jalali";
 
@@ -16,6 +16,19 @@ export interface SmsDraftDefaults {
   /** ورودی تاریخ جلالی کاربر-friendly: "۱۴۰۴/۰۶/۱۵" */
   jalaliDate: [number, number, number];
   note: string;
+  amountNeedsReview: boolean;
+}
+
+/** SMS rows retain the original numeric unit; only transaction drafts use toman. */
+export function smsAmountInToman(rawText: string, amount: number | null): number | null {
+  if (amount == null || !Number.isFinite(amount) || amount <= 0) return null;
+  const text = normalizeSms(rawText).replace(/[٬،]/g, ",");
+  const matchingUnits = [...text.matchAll(/(\d[\d,]*(?:\.\d+)?)\s*(ریال|تومان)/g)]
+    .filter(match => Number(match[1].replace(/,/g, "")) === amount)
+    .map(match => match[2]);
+  const units = new Set(matchingUnits.length ? matchingUnits : text.match(/ریال|تومان/g) ?? []);
+  if (units.size !== 1) return null;
+  return units.has("ریال") ? amount / 10 : amount;
 }
 
 /**
@@ -41,14 +54,16 @@ export function smsDraftDefaults(
       : today();
 
   const note = smsSummary(sms);
+  const amount = smsAmountInToman(sms.rawText, sms.amount ?? parsed?.amount ?? null);
 
   return {
     type,
     categoryId,
-    amount: sms.amount ?? parsed?.amount ?? 0,
+    amount: amount ?? 0,
     memberId: sms.memberId ?? currentMemberId,
     jalaliDate,
     note,
+    amountNeedsReview: amount == null,
   };
 }
 

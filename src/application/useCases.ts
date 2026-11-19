@@ -59,6 +59,8 @@ import {
   AddTxPhotoUseCase,
   ListTransactionsUseCase,
   MarkRecurringOccurrenceUseCase,
+  UpdateRecurringUseCase,
+  SettleOccurrenceUseCase,
   UpdateTransactionUseCase,
   UpdateTxPhotoCaptionUseCase,
   UploadTxPhotoUseCase,
@@ -244,6 +246,8 @@ export interface UseCases {
   updateTransaction: UpdateTransactionUseCase;
   deleteTransaction: DeleteTransactionUseCase;
   markRecurringOccurrence: MarkRecurringOccurrenceUseCase;
+  updateRecurring: UpdateRecurringUseCase;
+  settleOccurrence: SettleOccurrenceUseCase;
 
   uploadTxPhoto: UploadTxPhotoUseCase;
   addTxPhoto: AddTxPhotoUseCase;
@@ -431,6 +435,8 @@ export function createUseCases(c: Container): UseCases {
     ),
 
     listTransactions: new ListTransactionsUseCase(c.repos.transactions),
+    updateRecurring: new UpdateRecurringUseCase(c.repos.transactions),
+    settleOccurrence: new SettleOccurrenceUseCase(c.repos.transactions),
     addTransaction: new AddTransactionUseCase(c.repos.transactions),
     updateTransaction: new UpdateTransactionUseCase(c.repos.transactions),
     deleteTransaction: new DeleteTransactionUseCase(c.repos.transactions),

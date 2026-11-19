@@ -84,3 +84,11 @@ export function popGuard(id: symbol) {
   stack.splice(i, 1);
   reconcileHistory();
 }
+
+/** Visible back controls consume the same top layer as the native back button. */
+export function requestBack(): boolean {
+  if (internalBackPending) return true;
+  if (!stack.length) return false;
+  history.back();
+  return true;
+}

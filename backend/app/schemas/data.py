@@ -91,6 +91,18 @@ class TransactionPhotoOut(BaseModel):
         return cls(id=_uuid(p.id), url=p.url, caption=p.caption)
 
 
+class RecurringPlanOut(BaseModel):
+    amount: Decimal
+    category: str
+    note: str | None
+    start_date: str | None
+    revision: int
+
+    @field_serializer("amount")
+    def _ser_amount(self, value: Decimal) -> float:
+        return float(value)
+
+
 class TransactionOut(BaseModel):
     id: str
     family_id: str
@@ -110,6 +122,9 @@ class TransactionOut(BaseModel):
     photos: list[TransactionPhotoOut]
     created_at: datetime
     source_kind: str | None = None
+    recurring_plan: RecurringPlanOut | None = None
+    recurring_source_id: str | None = None
+    recurring_due_date: str | None = None
 
     @field_serializer("amount")
     def _ser_amount(self, v: Decimal) -> float:
@@ -136,6 +151,17 @@ class TransactionOut(BaseModel):
             photos=[TransactionPhotoOut.of(p) for p in photos],
             created_at=t.created_at,
             source_kind=t.source_kind,
+            recurring_plan=RecurringPlanOut(
+                amount=t.recurring_amount if t.recurring_amount is not None else t.amount,
+                category=t.recurring_category or t.category,
+                note=t.recurring_note if t.recurring_note is not None else t.note,
+                start_date=_isodate(t.recurring_start_date),
+                revision=t.recurring_revision,
+            )
+            if t.repeat != "none"
+            else None,
+            recurring_source_id=_uuid_opt(t.recurring_source_id),
+            recurring_due_date=_isodate(t.recurring_due_date),
         )
 
 
@@ -367,6 +393,7 @@ class TransactionWrite(BaseModel):
     to_account_id: str | None = None
     repeat: str = "none"
     repeat_end: _date | None = None
+    require_available_balance: bool = False
 
     @model_validator(mode="before")
     @classmethod
@@ -380,6 +407,24 @@ class OccurrenceMark(BaseModel):
     """ثبت رسیدگی به یک سررسید تراکنش تکرارشونده."""
 
     due_date: _date | None = None
+
+
+class RecurringUpdate(BaseModel):
+    amount: Decimal
+    category: str
+    note: str | None = None
+    start_date: _date
+    repeat: str
+    repeat_end: _date | None
+    revision: int
+
+
+class OccurrenceSettle(BaseModel):
+    due_date: _date
+    revision: int
+    account_id: str | None = None
+    to_account_id: str | None = None
+    transaction: TransactionWrite | None = None
 
 
 class PhotoCreate(BaseModel):
@@ -407,6 +452,11 @@ class AccountUpdate(BaseModel):
     bank: str | None = None
     card_number: str | None = None
     initial_balance: Decimal | None = None
+    confirm_card_change: bool = False
+
+
+class AccountDelete(BaseModel):
+    confirmation: str
 
 
 class SubcategoryCreate(BaseModel):
