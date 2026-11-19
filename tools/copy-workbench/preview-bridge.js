@@ -87,6 +87,10 @@
     const mode = config?.scenario?.mode ?? config?.mode ?? 'full';
     await poll(() => document.querySelector('main,section.page,.auth-header,.onb-page,.onboarding,.onb-login,.install-prompt,.a2hs-page'));
     const routeId = typeof config.route === 'string' ? config.route : config.route?.id ?? 'hub';
+    if (routeId === 'support') {
+      await poll(() => document.querySelector('.support-shell'));
+      installObservation(); send({ type: 'copy-preview-ready', mode, route: routeId }); return;
+    }
     const guest = config.guest === true || ['auth', 'intro', 'invite', 'install', 'a2hs'].includes(mode)
       || config.scenario?.id?.startsWith('auth-') || ['auth', 'invite'].includes(routeId) || mode.startsWith('auth-') || mode.startsWith('invite-');
     if (guest) {

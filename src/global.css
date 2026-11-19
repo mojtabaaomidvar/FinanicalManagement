@@ -13,3 +13,10 @@
   margin: 0;
   padding-inline-start: var(--sp-5);
 }
+/* The member's own opaque reference; no operator link or private metadata. */
+.own-support-code { margin-block:18px; padding:16px; border:1px solid var(--border,#ddd); border-radius:12px; }
+.own-support-code h3 { margin:0 0 10px; font-size:16px; }
+.own-support-code p { margin:8px 0; line-height:1.5; }
+.own-support-code > div { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin-top:12px; }
+.own-support-code code { font-family:ui-monospace,monospace; font-size:14px; overflow-wrap:anywhere; user-select:all; max-width:100%; }
+.own-support-code button { min-height:40px; padding:8px 12px; border-radius:8px; cursor:pointer; font:inherit; }

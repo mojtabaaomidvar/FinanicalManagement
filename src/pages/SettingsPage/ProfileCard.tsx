@@ -18,6 +18,7 @@ import { MEMBER_RELATIONS } from "@/domain/family/family.types";
 import { canEditRelation, relationLabel } from "@/domain/family/family.rules";
 import { isoToJalali, jalaliToIso, parse, formatISO } from "@/shared/lib/jalali";
 import { compressImage } from "@/shared/lib/image";
+import { OwnSupportCode } from "./OwnSupportCode";
 
 export function ProfileCard() {
   const { member, useCases, updateMember, refreshData } = useApp();
@@ -157,6 +158,7 @@ export function ProfileCard() {
       </button>
 
       <div className="form-grid">
+        <div className="form-row full"><OwnSupportCode /></div>
         <div className="form-row full">
           <Field label="نام">
             <TextInput value={name} onChange={setName} placeholder="نام شما" />

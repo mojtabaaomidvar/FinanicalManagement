@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     session_sliding_days: int = 7
     session_absolute_days: int = 90
 
+    # Separate operator login; unset credentials keep the support panel disabled.
+    support_username: str = ""
+    support_password_hash: str = ""
+    rl_support_login_per_ip: int = 5
+
     # ── OTP و ضد brute-force ──────────────────────────────
     otp_ttl_seconds: int = 300             # ۵ دقیقه — یکسان با سرور (رفع D-8)
     otp_max_attempts: int = 5

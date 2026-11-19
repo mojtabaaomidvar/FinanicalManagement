@@ -18,7 +18,7 @@ function Write-JsonFile($Path, $Value) {
 }
 
 function Get-SandboxEnvironment($Config) {
-    return @{
+    $environment = @{
         APP_ENV = 'local-sandbox'
         DATABASE_URL = 'postgresql+psycopg://khaneyar_sandbox:' + $Config.AppPassword + '@127.0.0.1:55439/khaneyar_local_sandbox'
         FILE_SIGNING_SECRET = $Config.SigningSecret
@@ -27,6 +27,13 @@ function Get-SandboxEnvironment($Config) {
         STORAGE_DIR = Join-Path $taskDir 'uploads'
         PYTHONUTF8 = '1'
     }
+    $operatorPath = Join-Path $taskDir 'support-operator.json'
+    if (Test-Path -LiteralPath $operatorPath) {
+        $operator = Get-Content -LiteralPath $operatorPath -Raw | ConvertFrom-Json
+        $environment['SUPPORT_USERNAME'] = $operator.Username
+        $environment['SUPPORT_PASSWORD_HASH'] = $operator.PasswordHash
+    }
+    return $environment
 }
 
 function Test-OwnedProcess($Record) {

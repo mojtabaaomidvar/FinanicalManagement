@@ -1,4 +1,5 @@
 import { memberRelationLabel } from "@/shared/lib/uiLabels";
+import { OwnSupportCode } from "@/pages/SettingsPage/OwnSupportCode";
 /* UI پذیرش دعوت — عضویت در خانواده با لینک/QR */
 
 import { useEffect } from "react";
@@ -33,6 +34,7 @@ export function InviteAcceptFeature({ token }: { token: string }) {
             </svg>
           </div>
           <h1>درخواست شما ثبت شد</h1>
+          {m.joinPending?.supportCode && <OwnSupportCode providedCode={m.joinPending.supportCode} />}
           <p className="auth-sub">
             درخواست عضویت شما در خانواده «{m.joinPending?.familyName}» برای مدیر
             خانواده فرستاده شد.

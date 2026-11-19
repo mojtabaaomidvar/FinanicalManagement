@@ -1,0 +1,34 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { supportApi } from "./api";
+import { supportRequest } from "@/infrastructure/api/restClient";
+
+afterEach(() => vi.unstubAllGlobals());
+describe("independent support API boundary", () => {
+  it("uses only its cookie and no household bearer, with no browser response cache", async () => {
+    const fetcher = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ authenticated: true }), { status: 200 })));
+    vi.stubGlobal("fetch",fetcher);
+    await supportApi.session();
+    await supportApi.login("operator", "password-marker");
+    expect(fetcher.mock.calls[0][0]).toMatch(/\/api\/v1\/support\/session$/);
+    for (const [,init] of fetcher.mock.calls) {
+      expect(init.credentials).toBe("include");
+      expect(init.cache).toBe("no-store");
+      expect(init.headers).not.toHaveProperty("Authorization");
+    }
+    expect(JSON.parse(fetcher.mock.calls[1][1].body)).toEqual({ username:"operator",password:"password-marker" });
+  });
+  it("refuses household endpoints without a request", async () => {
+    const fetcher = vi.fn(); vi.stubGlobal("fetch",fetcher);
+    await expect(supportRequest("/accounts")).rejects.toThrow();
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it("encodes code filters and preserves the independent authorization error code", async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error:"SUPPORT_UNAUTHORIZED",message:"expired" }),{status:401}));
+    vi.stubGlobal("fetch",fetcher);
+    await expect(supportApi.users({ code:"code & marker",membership:"pending",registration:"all",offset:25 }))
+      .rejects.toMatchObject({ serverCode:"SUPPORT_UNAUTHORIZED",status:401 });
+    const url = new URL(fetcher.mock.calls[0][0],"http://test.local");
+    expect(url.searchParams.get("code")).toBe("code & marker");
+    expect(url.searchParams.get("offset")).toBe("25");
+  });
+});

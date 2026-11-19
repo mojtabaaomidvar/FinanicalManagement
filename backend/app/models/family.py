@@ -79,6 +79,10 @@ class Member(Base):
     family_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("families.id", ondelete="CASCADE"), nullable=False
     )
+    # Independent opaque reference, never the internal member/family identifier.
+    support_code: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=False, unique=True, server_default=text("gen_random_uuid()")
+    )
     name: Mapped[str] = mapped_column(Text, nullable=False)
     role: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'member'"))
     phone: Mapped[str | None] = mapped_column(Text)  # 09xxxxxxxxx — یکتایی جزئی در __table_args__

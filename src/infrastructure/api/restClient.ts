@@ -291,6 +291,28 @@ export interface ReqOpts {
   cache?: RequestCache;
 }
 
+/** Independent operator cookie, with no access to the household TokenProvider. */
+export async function supportRequest<T>(path: string, body?: unknown): Promise<T> {
+  if (!/^\/(session|login|logout|overview|users|technical)(\?|$)/.test(path)) {
+    throw new AppError("SERVER", "مسیر پشتیبانی معتبر نیست.");
+  }
+  const url = API_URL + "/support" + path;
+  assertHttps(url);
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(url, {
+      method: body === undefined ? "GET" : "POST",
+      credentials: "include",
+      cache: "no-store",
+      headers: { Accept: "application/json", ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    }, RUN_TIMEOUT_MS);
+  } catch {
+    throw new AppError("NETWORK", "ارتباط با پنل پشتیبانی برقرار نشد. دوباره تلاش کنید.");
+  }
+  return parseResponse<T>(response);
+}
+
 type Method = "GET" | "POST" | "PATCH" | "DELETE";
 
 /** کلاینت REST که همهٔ مخازن از آن استفاده می‌کنند. یک نمونه در container ساخته می‌شود. */

@@ -27,6 +27,7 @@ export interface AuthResult {
 export interface JoinPendingResult {
   familyName: string;
   state: "pending";
+  supportCode?: string;
 }
 
 export interface ValidatedSession {

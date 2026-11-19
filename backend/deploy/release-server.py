@@ -80,7 +80,7 @@ def migrate(check_only: bool, generated_key: bool) -> None:
             revision = connection.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()
-            if revision not in {f"{number:04d}" for number in range(11, 27)}:
+            if revision not in {f"{number:04d}" for number in range(11, 28)}:
                 raise RuntimeError("Unexpected database revision; no migration was performed.")
             if generated_key:
                 for table in ("documents", "goals"):
@@ -99,11 +99,32 @@ def migrate(check_only: bool, generated_key: bool) -> None:
         if check_only:
             print("Database revision and restricted application role verified.")
             return
+        # The installer has stopped the API. Hash every existing table before and
+        # after migration; only the additive member support reference is omitted.
+        # No record contents or credentials leave the migration process.
+        def fingerprint(connection, tables):
+            result = {}
+            for table in tables:
+                quoted = connection.dialect.identifier_preparer.quote(table)
+                expression = "to_jsonb(t) - 'support_code'" if table == "members" else "to_jsonb(t)"
+                result[table] = tuple(connection.exec_driver_sql(
+                    "SELECT count(*), md5(coalesce(string_agg((" + expression
+                    + ")::text, '' ORDER BY (" + expression + ")::text), '')) FROM "
+                    + quoted + " t"
+                ).one())
+            return result
+        with engine.connect() as connection:
+            connection.exec_driver_sql("SET TRANSACTION READ ONLY")
+            tables = connection.execute(text(
+                "SELECT tablename FROM pg_tables WHERE schemaname='public' "
+                "AND tablename <> 'alembic_version' ORDER BY tablename"
+            )).scalars().all() if revision in ("0026", "0027") else []
+            before = fingerprint(connection, tables)
         os.environ["DATABASE_URL"] = admin_url.render_as_string(hide_password=False)
         from alembic import command  # noqa: I001 -- import after selecting the migration database
         from alembic.config import Config
 
-        command.upgrade(Config("alembic.ini"), "0026")
+        command.upgrade(Config("alembic.ini"), "0027")
         with engine.begin() as connection:
             role_name = connection.dialect.identifier_preparer.quote(app_url.username)
             connection.exec_driver_sql(
@@ -116,9 +137,13 @@ def migrate(check_only: bool, generated_key: bool) -> None:
             revision = connection.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()
-            if revision != "0026":
-                raise RuntimeError("Database migration did not reach 0026.")
-        print("Database upgraded to 0026; application permissions granted with RLS retained.")
+            if revision != "0027":
+                raise RuntimeError("Database migration did not reach 0027.")
+            if fingerprint(connection, tables) != before:
+                raise RuntimeError("Existing records changed during migration; upgrade stopped.")
+        print("Database upgraded to 0027; application permissions granted with RLS retained.")
+        if tables:
+            print("Existing records verified unchanged during the support migration.")
     finally:
         engine.dispose()
 

@@ -147,6 +147,7 @@ class JoinPendingResult(BaseModel):
 
     family_name: str
     state: str = "pending"
+    support_code: str | None = None
 
 
 class JoinRequestOut(BaseModel):

@@ -14,6 +14,7 @@ from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.errors import AppError
 from app.core.logging import configure_logging
+from app.services import support as support_service
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,7 @@ def _error_headers(request: Request) -> dict[str, str]:
         for prefix in (
             "/api/v1/documents", "/api/v1/equipment", "/api/v1/vehicles", "/api/v1/goals",
             "/api/v1/activities", "/api/v1/events", "/api/v1/children", "/api/v1/pets",
+            "/api/v1/support", "/api/v1/members/me/support-code",
         )
     ):
         return {"Cache-Control": "no-store", "Pragma": "no-cache"}
@@ -51,6 +53,19 @@ def create_app() -> FastAPI:
         allow_headers=["Authorization", "Content-Type"],
     )
 
+    @app.middleware("http")
+    async def support_headers(request: Request, call_next):
+        response = await call_next(request)
+        if request.url.path == "/api/v1/support" or request.url.path.startswith("/api/v1/support/"):
+            response.headers.update({"Cache-Control": "no-store", "Pragma": "no-cache"})
+        if request.url.path == "/api/v1/members/me/support-code":
+            response.headers.update({"Cache-Control": "no-store", "Pragma": "no-cache"})
+        if request.method == "POST" and response.status_code >= 400 and request.url.path in support_service.ERROR_ROUTES:
+            # Aggregate fixed route/status only; no request body or response text.
+            from starlette.concurrency import run_in_threadpool
+            await run_in_threadpool(support_service.record_error, request.url.path, response.status_code)
+        return response
+
     # خطاهای برنامه → پاسخ JSON با کد پایدار
     @app.exception_handler(AppError)
     async def _app_error_handler(request: Request, exc: AppError) -> JSONResponse:
@@ -64,6 +79,9 @@ def create_app() -> FastAPI:
     @app.exception_handler(Exception)
     async def _unhandled_handler(request: Request, exc: Exception) -> JSONResponse:
         logger.exception("خطای مدیریت‌نشده: %s", type(exc).__name__)
+        if request.method == "POST" and request.url.path in support_service.ERROR_ROUTES:
+            from starlette.concurrency import run_in_threadpool
+            await run_in_threadpool(support_service.record_error, request.url.path, 500)
         return JSONResponse(
             status_code=500,
             content={"error": "INTERNAL", "message": "خطای داخلی سرور."},

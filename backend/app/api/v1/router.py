@@ -34,6 +34,7 @@ from app.api.v1.routes import (
     pets,
     shopping,
     sms,
+    support,
     tasks,
     transactions,
     uploads,
@@ -44,6 +45,7 @@ from app.api.v1.routes import (
 api_router = APIRouter()
 api_router.include_router(health.router)
 api_router.include_router(auth.router)
+api_router.include_router(support.router)
 # ── دادهٔ خانواده‌محور (فاز ۶/۷) — همه تحت get_tenant_member و RLS ──
 api_router.include_router(transactions.router)
 api_router.include_router(accounts.router)

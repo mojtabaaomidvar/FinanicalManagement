@@ -217,7 +217,7 @@ def accept_invite(
     inv.used_by = member.id
     db.commit()
     family = family_of(db, inv.family_id)
-    return JoinPendingResult(family_name=family.name)
+    return JoinPendingResult(family_name=family.name, support_code=str(member.support_code))
 
 
 def join_by_code(
@@ -228,7 +228,7 @@ def join_by_code(
     family = db.execute(select(Family).where(Family.code == req.code).limit(1)).scalar_one_or_none()
     if family is None:
         raise AppError("INVALID_CODE", "کد خانواده نامعتبر است.", 404)
-    _register_pending_joiner(
+    member = _register_pending_joiner(
         db,
         family_id=family.id,
         member_name=req.member_name,
@@ -240,7 +240,7 @@ def join_by_code(
         invite_id=None,
     )
     db.commit()
-    return JoinPendingResult(family_name=family.name)
+    return JoinPendingResult(family_name=family.name, support_code=str(member.support_code))
 
 
 # ── تأییدِ عضویت (فقط مدیر؛ زمینهٔ RLS بسته است) ──────────────

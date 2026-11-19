@@ -70,6 +70,12 @@ def configure_sandbox():
     ):
         os.environ[key] = ""
     os.environ["CORS_ORIGINS"] = "http://127.0.0.1:5700,http://localhost:5700"
+    # Never inherit an operator from production dotenv or a caller's environment.
+    import json
+    operator_path = PROJECT_DIR / ".local-test" / "support-operator.json"
+    operator = json.loads(operator_path.read_text(encoding="utf-8")) if operator_path.exists() else {}
+    os.environ["SUPPORT_USERNAME"] = operator.get("Username", "")
+    os.environ["SUPPORT_PASSWORD_HASH"] = operator.get("PasswordHash", "")
     os.environ["DEBUG"] = "false"
     for key in ("FILE_SIGNING_SECRET", "RATE_LIMIT_SALT", "DOCUMENT_ENCRYPTION_KEY"):
         if not os.environ.get(key):

@@ -8,6 +8,7 @@ import { useAuthModel, type AuthPrefill } from "../model/useAuthModel";
 import { MEMBER_RELATIONS } from "@/domain/family/family.types";
 import { toFa } from "@/shared/lib/digits";
 import { usePwaUpdateState } from "@/app/pwaUpdate.tsx";
+import { OwnSupportCode } from "@/pages/SettingsPage/OwnSupportCode";
 
 export function AuthFeature({ prefill }: { prefill?: AuthPrefill } = {}) {
   const { useCases, onAuthenticated, refreshData } = useApp();
@@ -48,6 +49,7 @@ export function AuthFeature({ prefill }: { prefill?: AuthPrefill } = {}) {
           <div className="prereg-banner">
             تا وقتی مدیر خانواده تأیید نکند، امکان ورود وجود ندارد.
           </div>
+          {m.joinPending?.supportCode && <OwnSupportCode providedCode={m.joinPending.supportCode} />}
           <p className="auth-note">
             بعد از تأیید، با همین شماره موبایل و رمزی که انتخاب کردید وارد شوید.
           </p>

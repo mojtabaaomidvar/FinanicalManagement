@@ -22,6 +22,7 @@ from app.api.deps import get_current_member, require_admin
 from app.db.session import get_db
 from app.models.family import Member
 from app.schemas.auth import MemberPublic
+from app.schemas.support import OwnSupportCode
 from app.schemas.data import (
     CurrencyUpdate,
     FamilySettingsUpdate,
@@ -35,6 +36,11 @@ from app.services import home_preferences as home_service
 from app.services.common import to_uuid
 
 router = APIRouter(tags=["members"])
+
+
+@router.get("/members/me/support-code", response_model=OwnSupportCode)
+def own_support_code(member: Member = Depends(get_current_member)) -> OwnSupportCode:
+    return OwnSupportCode(support_code=member.support_code)
 
 
 @router.patch("/family/settings", status_code=status.HTTP_204_NO_CONTENT)

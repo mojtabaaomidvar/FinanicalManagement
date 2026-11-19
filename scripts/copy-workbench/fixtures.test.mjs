@@ -5,6 +5,38 @@ import { SCENARIOS, ROUTES, createPreviewSession, handlePreviewRequest } from '.
 const create = (scenario = 'full-owner', route = 'hub') => createPreviewSession(scenario, route, { now: '2026-11-16T08:00:00.000Z' });
 const request = (session, path, method = 'GET', body) => handlePreviewRequest(session, { path, method, body });
 
+test('support preview uses independent metadata and a separate operator session', () => {
+  const session = create('auth-login', 'support');
+  const actorBefore = structuredClone(session.data.actor), moneyBefore = structuredClone(session.data.transactions);
+  assert.deepEqual(request(session, '/support/session').body, { authenticated: false });
+  assert.equal(request(session, '/support/users').status, 401);
+  assert.equal(request(session, '/support/login', 'POST', { username: 'support', password: 'fixture' }).status, 200);
+  const users = request(session, '/support/users').body;
+  assert.equal(users.items.length, 25);
+  assert.equal(users.total, 31);
+  assert.deepEqual(Object.keys(users.items[0]).sort(), ['created_at', 'membership_state', 'registration_state', 'support_code']);
+  assert.ok(!session.data.members.some(member => member.id === users.items[0].support_code));
+  assert.equal(request(session, '/support/users?code=' + users.items[0].support_code).body.items.length, 1);
+  assert.equal(request(session, '/support/users?offset=25').body.items.length, 6);
+  assert.equal(request(session, '/support/overview?days=30').body.daily.length, 30);
+  assert.equal(request(session, '/support/logout', 'POST', {}).status, 204);
+  assert.equal(request(session, '/support/technical').status, 401);
+  assert.deepEqual(session.data.actor, actorBefore);
+  assert.deepEqual(session.data.transactions, moneyBefore);
+});
+
+test('support preview exposes empty, failed and delayed display states', () => {
+  assert.deepEqual(request(create('empty-owner', 'support'), '/support/users').body.items, []);
+  assert.equal(request(create('empty-owner', 'support'), '/support/overview').body.registered, 0);
+  assert.equal(request(create('errors', 'support'), '/support/session').status, 200);
+  assert.equal(request(create('errors', 'support'), '/support/overview').status, 503);
+  assert.equal(request(create('loading', 'support'), '/support/users').delayMs, 20000);
+  const session = create();
+  const own = request(session, '/members/me/support-code').body.support_code;
+  assert.ok(!session.data.members.some(member => member.id === own));
+  assert.equal(request(session, '/auth/join', 'POST', {}).body.support_code.length, 36);
+});
+
 test('SMS import remains pending and each actor can only read or change own messages', () => {
   for (const role of ['full-owner', 'full-admin', 'full-member']) {
     const session = create(role, 'sms');
@@ -148,8 +180,9 @@ test('all scenarios and routes have stable distinct IDs and safe defaults', () =
   assert.throws(() => createPreviewSession('full-owner', 'https://production.invalid'));
 });
 
-test('all 26 actual app routes and settings sections are represented', () => {
-  assert.equal(ROUTES.filter(item => !item.baseRoute).length, 26);
+test('all app routes, independent support and settings sections are represented', () => {
+  assert.equal(ROUTES.filter(item => !item.baseRoute).length, 27);
+  assert.ok(ROUTES.some(item => item.id === 'support'));
   assert.equal(ROUTES.filter(item => item.baseRoute === 'settings').length, 13);
   assert.equal(create('full-owner', 'settings/notifications').routeInfo.sectionLabel, 'اعلان‌ها');
 });

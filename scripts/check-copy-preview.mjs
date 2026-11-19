@@ -21,13 +21,13 @@ const results = { startedAt: previousRun?.startedAt ?? new Date().toISOString(),
   unknownEndpoints: previousRun?.unknownEndpoints ?? [], blockedRequests: previousRun?.blockedRequests ?? [],
   screenshots: previousRun?.screenshots ?? [], ...(previousRun ? { retriedChecks: [...retryNames], retriedAt: new Date().toISOString() } : {}) };
 const headings = { hub: /خانه.*نمونه/, dashboard: /^سلام،/, transactions: 'تراکنش‌ها', reports: 'گزارش‌ها',
-  sections: 'بخش‌های خانه', notifications: 'اعلان‌ها', sms: 'پیامک‌های بانکی',
+  support: 'نمای کلی', sections: 'بخش‌های خانه', notifications: 'اعلان‌ها', sms: 'پیامک‌های بانکی',
   accounts: 'کیف پول‌ها', budgets: 'بودجه‌بندی', bills: 'قبوض و شارژ', calendar: 'تقویم و مناسبت‌ها',
   shopping: 'لیست خرید', inventory: 'انبار خانه', tasks: 'کارهای خانه', documents: 'اسناد خانه',
   meals: 'برنامهٔ غذایی', equipment: 'وسایل خانه', vehicles: 'خودرو و نگهداری', goals: 'اهداف و آرزوها',
   activities: 'تفریح و برنامه‌های خانوادگی', children: 'فرزندان و برنامه‌های آن‌ها', pets: 'حیوانات خانگی و مراقبت',
   market: 'ارز و بورس', settings: 'تنظیمات', auth: 'خانه یار', invite: 'دعوت به خانواده',
-  'settings/profile': 'پروفایل من', 'settings/premium': 'نسخه پرمیوم', 'settings/family': 'خانواده',
+  'settings/profile': 'پروفایل', 'settings/premium': 'نسخه پرمیوم', 'settings/family': 'خانواده',
   'settings/joinRequests': 'درخواست‌های عضویت', 'settings/events': 'رویدادهای مهم',
   'settings/accounts': 'کارت‌ها و حساب‌ها', 'settings/scheduled': 'تراکنش‌های تکرارشونده',
   'settings/categories': 'دسته‌ها', 'settings/labels': 'برچسب‌ها', 'settings/export': 'خروجی داده‌ها',
@@ -441,7 +441,7 @@ try {
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.locator('#preview-route option').first().waitFor({ state: 'attached' });
   const metadata = await page.evaluate(async () => (await fetch('/__copy/scenarios')).json());
-  assert.equal(metadata.routes.length, 39); assert.equal(metadata.scenarios.length, 24);
+  assert.equal(metadata.routes.length, 40); assert.equal(metadata.scenarios.length, 24);
   results.availableRoutes = metadata.routes.map(value => value.id); results.availableScenarios = metadata.scenarios.map(value => value.id);
   // Do not interrupt the studio's initial preview bootstrap with another reset.
   await page.waitForFunction(() => (window.__previewCheckEvents ?? []).some(event => ['copy-preview-ready', 'copy-preview-error'].includes(event.type)), null, { timeout: 28000 });

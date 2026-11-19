@@ -137,7 +137,7 @@ export class SupabaseAuthRepository implements AuthRepository {
   ): Promise<JoinPendingResult> {
     /* §۲.۶ — پاسخ سرور عمداً نشست ندارد: فقط نام خانواده و state='pending'.
        هرگز از mapAuth رد نشود؛ member/family/session_token اینجا وجود ندارند. */
-    const r = await this.client.post<{ family_name: string; state?: string }>(
+    const r = await this.client.post<{ family_name: string; state?: string; support_code?: string | null }>(
       "/auth/accept-invite",
       {
         invite_token: input.inviteToken,
@@ -148,7 +148,7 @@ export class SupabaseAuthRepository implements AuthRepository {
         relation: input.relation ?? "سایر",
       },
     );
-    return { familyName: r.family_name, state: "pending" };
+    return { familyName: r.family_name, state: "pending", ...(r.support_code ? { supportCode: r.support_code } : {}) };
   }
 
   async joinByCode(
@@ -158,7 +158,7 @@ export class SupabaseAuthRepository implements AuthRepository {
     /* §۲.۶ — دوقلوی acceptInvite با اندپوینتِ دیگر. همان قاعده: نه mapAuth،
        نه نشست. سرور کد را با `^\d{6}$` می‌سنجد، پس کد باید پیش از رسیدن به
        اینجا لاتین شده باشد (toEn در لایهٔ فیچر). */
-    const r = await this.client.post<{ family_name: string; state?: string }>(
+    const r = await this.client.post<{ family_name: string; state?: string; support_code?: string | null }>(
       "/auth/join",
       {
         code: input.code,
@@ -169,7 +169,7 @@ export class SupabaseAuthRepository implements AuthRepository {
         relation: input.relation ?? "سایر",
       },
     );
-    return { familyName: r.family_name, state: "pending" };
+    return { familyName: r.family_name, state: "pending", ...(r.support_code ? { supportCode: r.support_code } : {}) };
   }
 
   async getInvite(token: string): Promise<InviteInfo> {

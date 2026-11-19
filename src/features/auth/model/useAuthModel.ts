@@ -90,7 +90,7 @@ export function useAuthModel(
 
   /* §۲.۶ — درخواست عضویت ثبت شد و منتظر تأیید مدیر است (بدون نشست).
      تا وقتی این مقدار پر است، صفحه دعوت به‌جای فرم، پیام انتظار را نشان می‌دهد. */
-  const [joinPending, setJoinPending] = useState<{ familyName: string } | null>(
+  const [joinPending, setJoinPending] = useState<{ familyName: string; supportCode?: string } | null>(
     null,
   );
 
@@ -311,7 +311,7 @@ export function useAuthModel(
       setBusy(true);
       try {
         const p = await useCases.acceptInvite.execute(input, null);
-        markJoinPending(p.familyName);
+        markJoinPending(p.familyName, p.supportCode);
         return;
       } catch (e) {
         if (!(e instanceof AppError && e.code === "INVALID_OTP")) {
@@ -335,8 +335,8 @@ export function useAuthModel(
   }
 
   /** پایان مشترک مسیر دعوت: صفحه انتظار به‌جای نشست. */
-  function markJoinPending(familyName: string) {
-    setJoinPending({ familyName: familyName || inviteFamilyName });
+  function markJoinPending(familyName: string, supportCode?: string) {
+    setJoinPending({ familyName: familyName || inviteFamilyName, supportCode });
     setStep("pending");
     notify("درخواست عضویت ثبت شد — منتظر تأیید مدیر خانواده");
   }
@@ -384,7 +384,7 @@ export function useAuthModel(
       setBusy(true);
       try {
         const p = await useCases.joinByCode.execute(input, null);
-        markJoinPending(p.familyName);
+        markJoinPending(p.familyName, p.supportCode);
         return;
       } catch (e) {
         if (!(e instanceof AppError && e.code === "INVALID_OTP")) {
@@ -428,7 +428,7 @@ export function useAuthModel(
           },
           code,
         );
-        markJoinPending(p.familyName);
+        markJoinPending(p.familyName, p.supportCode);
         return;
       }
 
@@ -447,7 +447,7 @@ export function useAuthModel(
           },
           code,
         );
-        markJoinPending(p.familyName);
+        markJoinPending(p.familyName, p.supportCode);
         return;
       }
 

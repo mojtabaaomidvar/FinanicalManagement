@@ -65,6 +65,7 @@ const settingsRoutes = [
   ['sms', 'تشخیص تراکنش از پیامک'], ['notifications', 'اعلان‌ها'], ['about', 'درباره'],
 ];
 export const ROUTES = [
+  { id: 'support', label: 'پنل پشتیبانی' },
   { id: 'sections', label: 'بخش‌های خانه' },
   { id: 'notifications', label: 'اعلان‌ها' },
   { id: 'sms', label: 'پیامک‌های بانکی' },
@@ -199,7 +200,8 @@ export function createPreviewSession(scenarioId = 'full-owner', route, options =
   const data = makeData(scenario, now);
   return { id: randomUUID(), scenario: clone(scenario), route: routeId, routeInfo: clone(routeInfo),
     credentials: { phone: data.actor.phone, password: 'Test12345!' }, guest: guestModes.has(scenario.mode) || ['auth', 'invite'].includes(routeId),
-    token: `copy-preview-${scenario.id}-${'0'.repeat(64)}`, data };
+    token: `copy-preview-${scenario.id}-${'0'.repeat(64)}`,
+    supportAuthenticated: !guestModes.has(scenario.mode), data };
 }
 
 function offlineSnapshot(data) {
@@ -327,6 +329,44 @@ export function handlePreviewRequest(session, request) {
   data.requests.push({ method, path }); if (data.requests.length > 200) data.requests.shift();
   if (method === 'OPTIONS') return response(null, 204);
   if (!['GET', 'HEAD', 'POST', 'PATCH', 'DELETE'].includes(method)) return error('METHOD_NOT_ALLOWED', 'این عملیات در پیش‌نمایش پشتیبانی نمی‌شود.', 405);
+  if (path.startsWith('/support/')) {
+    if (path === '/support/session' && method === 'GET') return response({ authenticated: session.supportAuthenticated });
+    if (path === '/support/login' && method === 'POST') {
+      if (mode === 'invalid-login' || mode === 'save-errors') return error('SUPPORT_LOGIN_FAILED', 'نام کاربری یا رمز پشتیبانی درست نیست.', 401);
+      session.supportAuthenticated = true; return response({ authenticated: true });
+    }
+    if (path === '/support/logout' && method === 'POST') { session.supportAuthenticated = false; return response(null, 204); }
+    if (!session.supportAuthenticated) return error('SUPPORT_UNAUTHORIZED', 'برای مشاهدهٔ پنل، وارد حساب پشتیبانی شوید.', 401);
+    if (method !== 'GET') return error('METHOD_NOT_ALLOWED', 'این عملیات در پیش‌نمایش پشتیبانی نمی‌شود.', 405);
+    if (mode === 'errors') return error('SERVER', 'دریافت اطلاعات پنل انجام نشد.', 503);
+    const delayMs = mode === 'loading' ? 20_000 : 0;
+    // Independent fictional metadata, never a serialized member/family object.
+    const users = mode === 'empty' ? [] : Array.from({ length: 31 }, (_, index) => ({
+      support_code: id(9600 + index), created_at: data.timestamp,
+      registration_state: ['registered', 'introduced', 'managed'][index % 3],
+      membership_state: ['active', 'pending', 'rejected', 'expired', 'suspended', 'removed'][index % 6],
+    }));
+    if (path === '/support/users') {
+      const code = query.get('code')?.trim(), membership = query.get('membership') || 'all', registration = query.get('registration') || 'all';
+      const filtered = users.filter(user => (!code || user.support_code === code)
+        && (membership === 'all' || membership === user.membership_state)
+        && (registration === 'all' || registration === user.registration_state));
+      const offset = Number(query.get('offset') || 0), limit = Number(query.get('limit') || 25);
+      return response({ items: filtered.slice(offset, offset + limit), total: filtered.length, offset, limit }, 200, { delayMs });
+    }
+    if (path === '/support/overview') {
+      const days = Number(query.get('days') || 7), registered = users.filter(user => user.registration_state === 'registered');
+      return response({ registered: registered.length, introduced: users.filter(user => user.registration_state === 'introduced').length,
+        managed: users.filter(user => user.registration_state === 'managed').length,
+        awaiting_approval: registered.filter(user => user.membership_state === 'pending').length,
+        active: registered.filter(user => user.membership_state === 'active').length, new_registrations: registered.length,
+        daily: Array.from({ length: days }, (_, index) => ({ day: dayOffset(data.today, index - days + 1),
+          registrations: index === days - 1 ? registered.length : 0 })), checked_at: data.timestamp }, 200, { delayMs });
+    }
+    if (path === '/support/technical') return response({ api: 'available', database: 'available', sms: 'disabled',
+      login_errors: 0, registration_errors: 0, server_errors: 0, measured_hours: 24, checked_at: data.timestamp }, 200, { delayMs });
+    return error('PREVIEW_ENDPOINT_UNKNOWN', 'مسیر پیش‌نمایش موجود نیست.', 404);
+  }
   if (['minor', 'missing-birth'].includes(mode)) {
     if (/^\/documents(?:\/|$)/.test(path)) return error('DOCUMENT_FORBIDDEN', 'دسترسی به مدارک برای این حساب مجاز نیست.', 403);
     if (/^\/vehicles(?:\/|$)/.test(path) && (!['GET', 'HEAD'].includes(method) || path.endsWith('/services'))) {
@@ -368,7 +408,7 @@ export function handlePreviewRequest(session, request) {
   if (path === '/auth/invite') return response({ token: 'copy-preview-invite' });
   if (path === '/auth/accept-invite' || path === '/auth/join') {
     if (mode === 'invite-expired') return error('INVALID_INVITE', 'لینک دعوت نامعتبر یا منقضی شده است.', 404);
-    return response({ family_name: data.family.name, state: 'pending' });
+    return response({ family_name: data.family.name, state: 'pending', support_code: id(9699) });
   }
   if (['/auth/logout', '/auth/logout-all', '/auth/change-password', '/auth/password-reset/request', '/auth/password-reset/confirm'].includes(path)) return response({ ok: true });
   if (path === '/members/me/home-preferences') {
@@ -378,6 +418,7 @@ export function handlePreviewRequest(session, request) {
       data.home = { revision: data.home.revision + 1, preferences: clone(body.preferences) }; return response(data.home);
     }
   }
+  if (path === '/members/me/support-code' && method === 'GET') return response({ support_code: id(9698) });
   if (path === '/members/me' && method === 'PATCH') { Object.assign(data.actor, clone(body)); return response(data.actor); }
   if (path === '/members/me/theme') { data.actor.theme = body.theme; return response(null, 204); }
   if (path === '/members/me/currency') { data.actor.currency = body.currency; return response(data.actor); }

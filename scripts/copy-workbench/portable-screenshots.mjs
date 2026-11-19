@@ -7,6 +7,7 @@ import { ROUTES, SCENARIOS } from './fixtures.mjs';
 const MAX_IMAGE_HEIGHT = 12_000, MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 const imageId = value => createHash('sha256').update(value).digest('hex').slice(0, 32);
 const sectionByRoute = {
+  support: 'پنل پشتیبانی',
   hub: 'خانه', dashboard: 'مالی و گزارش‌ها', transactions: 'مالی و گزارش‌ها', reports: 'مالی و گزارش‌ها',
   accounts: 'کیف پول', budgets: 'بودجه‌ها', bills: 'قبوض', calendar: 'تقویم و مناسبت‌ها',
   shopping: 'خرید و انبار', inventory: 'خرید و انبار', tasks: 'کارهای خانه', documents: 'اسناد خانه',

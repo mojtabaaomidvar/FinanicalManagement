@@ -9,7 +9,7 @@ test('portable screenshot plan covers every page and every scenario without dupl
   assert.equal(new Set(plan.map(item => item.scenarioId + ':' + item.route)).size, plan.length);
   for (const route of ROUTES) assert.ok(plan.some(item => item.route === route.id), route.id);
   for (const scenario of SCENARIOS) assert.ok(plan.some(item => item.scenarioId === scenario.id), scenario.id);
-  assert.ok(plan.length <= 60); assert.ok(plan.every(item => typeof item.label === 'string' && typeof item.section === 'string'));
+  assert.ok(plan.length <= ROUTES.length + SCENARIOS.length); assert.ok(plan.every(item => typeof item.label === 'string' && typeof item.section === 'string'));
 });
 
 test('portable screenshot collector refuses the real sandbox and external origins before any request', async () => {
