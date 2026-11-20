@@ -24,7 +24,6 @@
 .support-sidebar-footer button { background:transparent; color:#fff; border-color:#52675c; }
 .support-main { flex:1; min-width:0; max-width:1280px; padding:28px clamp(20px,4vw,58px) 48px; }
 .support-header { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:28px; }
-.support-shell .support-back { color:var(--support-muted); border:none; background:transparent; padding:0 2px; text-decoration:none; display:inline-flex; align-items:center; gap:7px; min-height:36px; margin-bottom:8px; }
 .support-refresh { flex-shrink:0; }
 .support-metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin-bottom:22px; }
 .support-metric { background:#fff; border:1px solid var(--support-line); border-radius:16px; padding:23px; display:flex; flex-direction:column; gap:18px; }
@@ -79,7 +78,6 @@
 .support-loader { width:28px; height:28px; border:3px solid #d5e4cb; border-top-color:#477448; border-radius:50%; animation:support-spin 1s linear infinite; }
 @keyframes support-spin { to { transform:rotate(360deg); } }
 .support-auth { position:relative; align-items:center; justify-content:center; padding:72px 20px 32px; background:radial-gradient(ellipse at 8% 4%,#e4ebd5,transparent 55%),#f4f6f2; }
-.support-auth > .support-back { position:absolute; top:24px; right:28px; }
 .support-auth-card { width:100%; max-width:450px; border:1px solid #d5ded2; border-radius:22px; padding:36px; background:#fff; box-shadow:0 20px 50px #243a2610; }
 .support-auth-card h1 { margin-top:30px; }
 .support-auth-card > p { color:var(--support-muted); margin-top:10px; }

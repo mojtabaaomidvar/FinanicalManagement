@@ -81,7 +81,9 @@ with engine.connect() as db:
         with urlopen(Request("https://pwa.khaanehyar.ir/"+file,headers={"Cache-Control":"no-cache"}),timeout=20) as response:
             assert hashlib.sha256(response.read()).hexdigest()==digest,file
     with urlopen("https://supp.khaanehyar.ir/",timeout=20) as response:
-        assert hashlib.sha256(response.read()).hexdigest()==manifest["pwa_sha256"]["index.html"]
+        assert hashlib.sha256(response.read()).hexdigest()==manifest["pwa_sha256"]["support.html"]
+    with urlopen("https://supp.khaanehyar.ir/support.webmanifest",timeout=20) as response:
+        assert hashlib.sha256(response.read()).hexdigest()==manifest["pwa_sha256"]["support.webmanifest"]
     with urlopen("https://pwa.khaanehyar.ir/support",timeout=20) as response:
         assert response.url=="https://supp.khaanehyar.ir/"
     for path,status in [("/api/v1/support/users",401),("/api/v1/transactions",404),("/sw.js",404)]:

@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import { fileURLToPath, URL } from "node:url";
 import { copySourcePlugin } from "./scripts/copy-workbench/instrument.mjs";
+import { supportBrandingPlugin } from "./scripts/support-branding-plugin";
 
 /* شناسه ساخت — هر بار که build اجرا شود عوض می‌شود، پس هر انتشار
    خودبه‌خود یکتاست و لازم نیست یادتان باشد عدد نسخه را دستی جلو ببرید.
@@ -69,7 +70,14 @@ export default defineConfig(({ mode }) => {
       // The custom worker retains shell-only caching and runs the encrypted outbox.
       injectManifest: { globPatterns: ["**/*.{js,css,html,png,svg,woff2}"] },
     }),
+    supportBrandingPlugin(),
   ],
+  ...(!isLocalSandbox ? {
+    build: { rollupOptions: { input: {
+      app: fileURLToPath(new URL("./index.html", import.meta.url)),
+      support: fileURLToPath(new URL("./support.html", import.meta.url)),
+    } } },
+  } : {}),
   /* سرور توسعه — ویندوز بازه‌ی ۴۹۳۲ تا ۵۶۵۷ را برای Hyper-V/WSL رزرو کرده،
      پس پورت پیش‌فرض ویت (۵۱۷۳) خطای EACCES می‌دهد. ۵۷۰۰ بیرون آن بازه است.
      host:true یعنی روی IP شبکه‌ی محلی هم گوش می‌دهد تا بشود اپ را

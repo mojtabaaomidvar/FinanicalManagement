@@ -4,7 +4,7 @@ import { supportApi, type MembershipState, type RegistrationState, type SupportO
   type SupportPage, type SupportTechnical, type SupportUsers } from "./api";
 import type { SupportUsage as UsageData } from "./api";
 import { SupportUsage } from "./SupportUsage";
-import { householdAppUrl } from "@/shared/config/support";
+import { supportPageTitle } from "./branding";
 import "./support.css";
 
 const pageLabels: Record<SupportPage, string> = { overview: "نمای کلی", users: "پیگیری کاربران", usage: "آمار استفاده", technical: "وضعیت فنی" };
@@ -16,7 +16,6 @@ const attentionLabels: Record<NonNullable<SupportUsers["items"][number]["attenti
   waiting_approval: "در انتظار تأیید مدیر خانواده است.", rejected: "درخواست عضویت رد شده است.", expired: "درخواست عضویت منقضی شده است.",
   suspended: "عضویت حساب تعلیق شده است.", removed: "عضویت حساب پایان یافته است.",
 };
-const supportPageTitle = /* @copy-text support.page_title */ "پنل پشتیبانی خانه‌یار";
 const registrationLabels: Record<RegistrationState, string> = {
   registered: "ثبت‌نام کامل", introduced: "معرفی‌شده؛ ثبت‌نام ناتمام", managed: "پروفایل مدیریت‌شده",
 };
@@ -126,9 +125,8 @@ export function SupportPanel() {
     finally { lock.current = false; setBusy(false); }
   }
 
-  const brand = <div className="support-brand"><img src="/khaneyar-mark.svg" alt="خانه‌یار" /><div><strong>خانه‌یار</strong><span>پنل پشتیبانی</span></div></div>;
+  const brand = <div className="support-brand"><img src="/support-mark.svg" alt="پشتیبانی" /><div><strong>پشتیبانی</strong><span>خانه‌یار</span></div></div>;
   if (phase !== "ready") return <main className="support-shell support-auth" dir="rtl">
-    <a className="support-back" href={householdAppUrl}>بازگشت به برنامه <span aria-hidden="true">↗</span></a>
     <div className="support-auth-card">{brand}<h1>ورود پشتیبانی</h1>
       <p>پیگیری ثبت‌نام و وضعیت نرم‌افزار</p>
       {phase === "checking" ? sessionError
@@ -209,9 +207,7 @@ export function SupportPanel() {
       aria-current={page === key ? "page" : undefined} onClick={() => setPage(key)}>{pageLabels[key]}</button>)}</nav>
     <div className="support-sidebar-footer"><span>دسترسی فقط برای مشاهده</span><button disabled={busy} onClick={() => void logout()}>
       {busy ? "در حال خروج…" : "خروج از پنل"}</button></div></aside>
-    <div className="support-main"><header className="support-header"><div><button className="support-back" onClick={() => {
-      if (page !== "overview") setPage("overview"); else window.location.assign(householdAppUrl);
-    }}><span aria-hidden="true">→</span> بازگشت</button><h1>{pageLabels[page]}</h1></div>
+    <div className="support-main"><header className="support-header"><h1>{pageLabels[page]}</h1>
       <button className="support-refresh" disabled={loading || busy} onClick={() => setRefresh(n => n+1)}>به‌روزرسانی</button></header>
       {page === "users" && <div className="support-filters"><form onSubmit={event => { event.preventDefault(); setCode(search.trim()); setOffset(0); setRefresh(n => n+1); }}>
         <label>کد پشتیبانی<input dir="ltr" value={search} onChange={e => setSearch(e.target.value)} maxLength={64} placeholder="کد دریافتی از کاربر" /></label>
