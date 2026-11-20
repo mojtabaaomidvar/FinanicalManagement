@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+import json
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -22,7 +23,8 @@ def seed() -> None:
     configure_sandbox()
     from alembic import command
     from alembic.config import Config
-    from sqlalchemy import select
+    from sqlalchemy import select, create_engine, text
+    from sqlalchemy.engine import URL
 
     from app.core.security import hash_password
     from app.db.rls import bind_family_to_session
@@ -35,7 +37,37 @@ def seed() -> None:
 
     migration_config = Config(str(BACKEND_DIR / "alembic.ini"))
     migration_config.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
-    command.upgrade(migration_config, "head")
+    # Only the checked loopback sandbox uses this private migration administrator.
+    config_path = BACKEND_DIR.parent / ".local-test" / "config.json"
+    local_config = json.loads(config_path.read_text(encoding="utf-8-sig"))
+    migration_url = URL.create("postgresql+psycopg", username="sandbox_bootstrap",
+        password=local_config["BootstrapPassword"], host="127.0.0.1", port=55439, database="khaneyar_local_sandbox")
+    migration_config.attributes["migration_url"] = migration_url.render_as_string(hide_password=False)
+    migration_engine = create_engine(migration_url, hide_parameters=True)
+    def fingerprint(db):
+        result = {}
+        for table in ("accounts", "transactions", "sms_messages", "members", "families"):
+            if db.execute(text("SELECT to_regclass(:table)"), {"table": table}).scalar() is None:
+                continue
+            expression = "to_jsonb(t) - ARRAY['support_registered_at','support_last_login_at']" if table == "members" else "to_jsonb(t)"
+            result[table] = list(db.execute(text("SELECT count(*),md5(coalesce(string_agg(("+expression+")::text,'' ORDER BY id),'')) FROM "+table+" t")).one())
+        return result
+    try:
+        with migration_engine.connect() as db:
+            before = fingerprint(db)
+        if before:
+            (config_path.parent / "support-usage-migration-before.json").write_text(json.dumps(before,indent=2),encoding="utf-8")
+        command.upgrade(migration_config, "head")
+        with migration_engine.begin() as db:
+            db.execute(text("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO khaneyar_sandbox"))
+            db.execute(text("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO khaneyar_sandbox"))
+            db.execute(text("GRANT EXECUTE ON FUNCTION public.support_record_counts() TO khaneyar_sandbox"))
+            after = fingerprint(db)
+            if before and before != after:
+                raise SandboxError("Existing manual records changed during migration; initialization stopped.")
+            (config_path.parent / "support-usage-migration-after.json").write_text(json.dumps(after,indent=2),encoding="utf-8")
+    finally:
+        migration_engine.dispose()
 
     with SessionLocal() as db:
         require_sandbox_database(db)

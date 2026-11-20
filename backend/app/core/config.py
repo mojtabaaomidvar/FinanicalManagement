@@ -11,6 +11,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    support_origins: str = ""
+    rl_usage_open_per_member: int = 120
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -112,6 +114,10 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> list[str]:
         """فهرست منشأهای مجاز CORS از رشتهٔ کامایی."""
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def support_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.support_origins.split(",") if o.strip()] or self.cors_origins_list
 
     @property
     def trusted_proxy_list(self) -> list[str]:

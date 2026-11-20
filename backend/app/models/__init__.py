@@ -32,7 +32,7 @@ from app.models.settings import AppSetting
 from app.models.shopping import InventoryItem, ShoppingItem, ShoppingList
 from app.models.shopping_sync import ShoppingSyncReceipt
 from app.models.task import Task
-from app.models.support import SupportSession, SupportErrorCounter
+from app.models.support import SupportSession, SupportErrorCounter, SupportUsageCounter
 from app.models.transaction import Transaction, TransactionPhoto
 from app.models.vehicle import Vehicle
 
@@ -78,4 +78,5 @@ __all__ = [
     "Pet",
     "SupportSession",
     "SupportErrorCounter",
+    "SupportUsageCounter",
 ]

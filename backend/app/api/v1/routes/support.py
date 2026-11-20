@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 from app.db.session import SessionLocal, get_db
 from app.core.errors import AppError
 from app.schemas.support import (SupportLogin, SupportOverview, SupportSessionOut,
-                                 SupportTechnical, SupportUsers)
-from app.services import support
+                                 SupportTechnical, SupportUsers, SupportUsage)
+from app.services import support, usage
 
 router = APIRouter(prefix="/support", tags=["support"])
 
@@ -29,6 +29,7 @@ def read_only_db(_operator: None = Depends(require_operator)) -> Iterator[Sessio
 @router.get("/session", response_model=SupportSessionOut)
 def session(request: Request, db: Session = Depends(get_db)) -> SupportSessionOut:
     support.require_enabled()
+    support.require_origin(request, allow_absent=True)
     return SupportSessionOut(authenticated=support.authenticated(db, request))
 
 
@@ -70,3 +71,10 @@ def overview(days: int = Query(default=7, ge=7, le=30), db: Session = Depends(re
 @router.get("/technical", response_model=SupportTechnical)
 def technical(db: Session = Depends(read_only_db)) -> SupportTechnical:
     return support.technical(db)
+
+
+@router.get("/usage", response_model=SupportUsage)
+def usage_report(days: int = Query(default=7, ge=7, le=30), db: Session = Depends(read_only_db)) -> SupportUsage:
+    if days not in (7, 30):
+        raise AppError("INVALID_INPUT", "بازهٔ آمار معتبر نیست.", 422)
+    return usage.report(db, days)

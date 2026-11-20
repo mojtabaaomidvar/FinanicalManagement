@@ -1,11 +1,12 @@
 import { Component, lazy, StrictMode, Suspense, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import "@/global.css";
+import { isSupportHost } from "@/shared/config/support";
 const Application = lazy(() => import("@/app/Application"));
 const SupportPanel = lazy(() => import("@/features/support/SupportPanel").then(module => ({ default: module.SupportPanel })));
 const previewSupport = import.meta.env.MODE === "copy-workbench"
   && (window as Window & { __COPY_PREVIEW__?: { route?: string } }).__COPY_PREVIEW__?.route === "support";
-const isSupport = window.location.pathname.replace(/\/$/, "") === "/support" || previewSupport;
+const isSupport = isSupportHost() || window.location.pathname.replace(/\/$/, "") === "/support" || previewSupport;
 
 class EntryBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false };

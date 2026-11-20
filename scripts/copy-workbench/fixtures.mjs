@@ -345,6 +345,13 @@ export function handlePreviewRequest(session, request) {
       support_code: id(9600 + index), created_at: data.timestamp,
       registration_state: ['registered', 'introduced', 'managed'][index % 3],
       membership_state: ['active', 'pending', 'rejected', 'expired', 'suspended', 'removed'][index % 6],
+    })).map(user => ({ ...user,
+      registered_at: user.registration_state === 'registered' ? data.timestamp : null,
+      last_login_at: user.registration_state === 'registered' && user.membership_state === 'active' ? data.timestamp : null,
+      stage: user.registration_state === 'introduced' ? 'registration_required' : user.registration_state === 'managed' ? 'managed_profile'
+        : user.membership_state === 'active' ? 'ready' : user.membership_state === 'pending' ? 'approval_pending' : 'inactive',
+      attention_reason: user.registration_state === 'introduced' ? 'registration_incomplete' : user.registration_state === 'managed' ? 'managed_profile'
+        : user.membership_state === 'active' ? null : user.membership_state === 'pending' ? 'waiting_approval' : user.membership_state,
     }));
     if (path === '/support/users') {
       const code = query.get('code')?.trim(), membership = query.get('membership') || 'all', registration = query.get('registration') || 'all';
@@ -365,7 +372,30 @@ export function handlePreviewRequest(session, request) {
     }
     if (path === '/support/technical') return response({ api: 'available', database: 'available', sms: 'disabled',
       login_errors: 0, registration_errors: 0, server_errors: 0, measured_hours: 24, checked_at: data.timestamp }, 200, { delayMs });
+    if (path === '/support/usage') {
+      const modules = ['dashboard','transactions','accounts','budgets','bills','reports','calendar','shopping','inventory','tasks','documents','meals','equipment','vehicles','goals','activities','children','pets','market','settings','notifications'];
+      const counters = session.usageCounters ??= modules.map((module,index) => ({ module,
+        opens: mode === 'empty' ? 0 : (index % 4) * 12, creates: mode === 'empty' ? 0 : index % 3,
+        updates: mode === 'empty' ? 0 : index % 2, completes: mode === 'empty' ? 0 : index % 4, deletes: 0 }));
+      const days = Number(query.get('days') || 7);
+      return response({ days, modules: counters,
+        daily: Array.from({ length: days },(_,index) => ({ day: dayOffset(data.today,index-days+1),
+          opens: index === days-1 ? counters.reduce((sum,row)=>sum+row.opens,0) : 0,
+          operations: index === days-1 ? counters.reduce((sum,row)=>sum+row.creates+row.updates+row.completes+row.deletes,0) : 0 })),
+        records: { transactions: data.transactions.filter(row=>row.repeat==='none').length,
+          scheduled_plans: data.transactions.filter(row=>row.repeat!=='none').length,
+          open_tasks: data.tasks.filter(row=>!row.completed).length, completed_tasks: data.tasks.filter(row=>row.completed).length,
+          shopping_lists: data.lists.length, documents: data.documents.length },
+        measured_since: mode === 'empty' ? null : data.timestamp, checked_at: data.timestamp },200,{delayMs});
+    }
     return error('PREVIEW_ENDPOINT_UNKNOWN', 'مسیر پیش‌نمایش موجود نیست.', 404);
+  }
+  if (path === '/usage/open' && method === 'POST') {
+    const modules = ['dashboard','transactions','accounts','budgets','bills','reports','calendar','shopping','inventory','tasks','documents','meals','equipment','vehicles','goals','activities','children','pets','market','settings','notifications'];
+    if (!modules.includes(body.module) || Object.keys(body).some(key=>key!=='module')) return error('INVALID_INPUT','اطلاعات ارسالی معتبر نیست؛ ورودی‌ها را بررسی کنید.',422);
+    const counters = session.usageCounters ??= modules.map(module=>({module,opens:0,creates:0,updates:0,completes:0,deletes:0}));
+    counters.find(row=>row.module===body.module).opens += 1;
+    return response(null,204);
   }
   if (['minor', 'missing-birth'].includes(mode)) {
     if (/^\/documents(?:\/|$)/.test(path)) return error('DOCUMENT_FORBIDDEN', 'دسترسی به مدارک برای این حساب مجاز نیست.', 403);

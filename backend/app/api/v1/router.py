@@ -11,6 +11,7 @@ get_tenant_member و RLS‌اند؛ روت‌های «هویتی» (members: ت�
 from __future__ import annotations
 
 from fastapi import APIRouter
+from app.api.v1.routes import usage
 
 from app.api.v1.routes import (
     accounts,
@@ -43,6 +44,7 @@ from app.api.v1.routes import (
 )
 
 api_router = APIRouter()
+api_router.include_router(usage.router)
 api_router.include_router(health.router)
 api_router.include_router(auth.router)
 api_router.include_router(support.router)

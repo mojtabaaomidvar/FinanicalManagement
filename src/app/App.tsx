@@ -8,6 +8,7 @@ import { FloatingNavigation } from "@/widgets/quick-actions/FloatingNavigation";
 import { useNativeSmsReader } from "./useNativeSmsReader";
 import { useTheme } from "./providers/useTheme";
 import { MAIN_ROUTES, type Route } from "./router";
+import { recordUsageOpen } from "@/features/support/trackUsage";
 import { PwaUpdateProvider, usePwaUpdateState } from "./pwaUpdate.tsx";
 import {
   AuthFeature,
@@ -313,6 +314,12 @@ function MainShell({
   const { useCases, members, cur, subcategories, shoppingSync, offlineSession, refreshTasks } = useApp();
   const online = useOnline();
   const restricted = !online || shoppingSync.offline || offlineSession;
+  const previousUsageRoute = useRef<Route | null>(null);
+  useEffect(() => {
+    if (previousUsageRoute.current === route) return;
+    previousUsageRoute.current = route;
+    if (!restricted) void recordUsageOpen(route);
+  }, [route, restricted]);
   const financeIdentity = useRef({ memberId: currentMemberId, restricted });
   const financeMounted = useRef(true);
   if (financeIdentity.current.memberId !== currentMemberId || financeIdentity.current.restricted !== restricted) {

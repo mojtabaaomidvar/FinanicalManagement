@@ -28,3 +28,16 @@ class SupportErrorCounter(Base):
     kind: Mapped[str] = mapped_column(Text, primary_key=True)
     http_family: Mapped[str] = mapped_column(Text, primary_key=True)
     count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+
+class SupportUsageCounter(Base):
+    __tablename__ = "support_usage_counters"
+    __table_args__ = (
+        CheckConstraint("module IN ('dashboard','transactions','accounts','budgets','bills','reports','calendar','shopping','inventory','tasks','documents','meals','equipment','vehicles','goals','activities','children','pets','market','settings','notifications')", name="support_usage_module"),
+        CheckConstraint("action IN ('open','create','update','complete','delete')", name="support_usage_action"),
+        CheckConstraint("count > 0", name="support_usage_positive"),
+    )
+    hour: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
+    module: Mapped[str] = mapped_column(Text, primary_key=True)
+    action: Mapped[str] = mapped_column(Text, primary_key=True)
+    count: Mapped[int] = mapped_column(BigInteger, nullable=False)

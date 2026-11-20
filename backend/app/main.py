@@ -15,6 +15,7 @@ from app.core.config import settings
 from app.core.errors import AppError
 from app.core.logging import configure_logging
 from app.services import support as support_service
+from app.services import usage as usage_service
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,11 @@ def create_app() -> FastAPI:
             # Aggregate fixed route/status only; no request body or response text.
             from starlette.concurrency import run_in_threadpool
             await run_in_threadpool(support_service.record_error, request.url.path, response.status_code)
+        if 200 <= response.status_code < 300:
+            operation = usage_service.successful_operation(request.url.path, request.method)
+            if operation:
+                from starlette.concurrency import run_in_threadpool
+                await run_in_threadpool(usage_service.record, *operation)
         return response
 
     # خطاهای برنامه → پاسخ JSON با کد پایدار

@@ -2,9 +2,21 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "rea
 import { AppError } from "@/shared/lib/appError";
 import { supportApi, type MembershipState, type RegistrationState, type SupportOverview,
   type SupportPage, type SupportTechnical, type SupportUsers } from "./api";
+import type { SupportUsage as UsageData } from "./api";
+import { SupportUsage } from "./SupportUsage";
+import { householdAppUrl } from "@/shared/config/support";
 import "./support.css";
 
-const pageLabels: Record<SupportPage, string> = { overview: "نمای کلی", users: "پیگیری کاربران", technical: "وضعیت فنی" };
+const pageLabels: Record<SupportPage, string> = { overview: "نمای کلی", users: "پیگیری کاربران", usage: "آمار استفاده", technical: "وضعیت فنی" };
+const stageLabels: Record<SupportUsers["items"][number]["stage"], string> = {
+  registration_required: "تکمیل ثبت‌نام", managed_profile: "پروفایل مدیریت‌شده", approval_pending: "تأیید عضویت", ready: "آمادهٔ ورود", inactive: "عضویت غیرفعال",
+};
+const attentionLabels: Record<NonNullable<SupportUsers["items"][number]["attention_reason"]>, string> = {
+  registration_incomplete: "ثبت‌نام مستقل هنوز کامل نشده است.", managed_profile: "این پروفایل ثبت‌نام مستقل ندارد.",
+  waiting_approval: "در انتظار تأیید مدیر خانواده است.", rejected: "درخواست عضویت رد شده است.", expired: "درخواست عضویت منقضی شده است.",
+  suspended: "عضویت حساب تعلیق شده است.", removed: "عضویت حساب پایان یافته است.",
+};
+const supportPageTitle = /* @copy-text support.page_title */ "پنل پشتیبانی خانه‌یار";
 const registrationLabels: Record<RegistrationState, string> = {
   registered: "ثبت‌نام کامل", introduced: "معرفی‌شده؛ ثبت‌نام ناتمام", managed: "پروفایل مدیریت‌شده",
 };
@@ -53,9 +65,14 @@ export function SupportPanel() {
   const [membership, setMembership] = useState("all");
   const [registration, setRegistration] = useState("all");
   const [offset, setOffset] = useState(0);
-  const [data, setData] = useState<{ page: SupportPage; value: SupportOverview | SupportUsers | SupportTechnical } | null>(null);
+  const [data, setData] = useState<{ page: SupportPage; value: SupportOverview | SupportUsers | SupportTechnical | UsageData } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const previous = document.title; document.title = supportPageTitle;
+    return () => { document.title = previous; };
+  }, []);
 
   useEffect(() => {
     let current = true;
@@ -76,6 +93,7 @@ export function SupportPanel() {
     setLoading(true); setError(""); setData(null);
     const pending = page === "overview" ? supportApi.overview(days)
       : page === "technical" ? supportApi.technical()
+      : page === "usage" ? supportApi.usage(days)
       : supportApi.users({ code, membership, registration, offset });
     void pending.then(value => { if (current) setData({ page, value }); }).catch((e: unknown) => {
       if (!current) return;
@@ -110,7 +128,7 @@ export function SupportPanel() {
 
   const brand = <div className="support-brand"><img src="/khaneyar-mark.svg" alt="خانه‌یار" /><div><strong>خانه‌یار</strong><span>پنل پشتیبانی</span></div></div>;
   if (phase !== "ready") return <main className="support-shell support-auth" dir="rtl">
-    <a className="support-back" href="/">بازگشت به برنامه <span aria-hidden="true">↗</span></a>
+    <a className="support-back" href={householdAppUrl}>بازگشت به برنامه <span aria-hidden="true">↗</span></a>
     <div className="support-auth-card">{brand}<h1>ورود پشتیبانی</h1>
       <p>پیگیری ثبت‌نام و وضعیت نرم‌افزار</p>
       {phase === "checking" ? sessionError
@@ -157,14 +175,22 @@ export function SupportPanel() {
       <div className="support-section-heading"><h2>وضعیت کاربران</h2><span>{count(users.total)} مورد</span></div>
       {!users.items.length ? <div className="support-state"><p>موردی با این کد یا فیلترها پیدا نشد.</p>
         <p>کد پشتیبانی را از خود کاربر بگیرید یا فیلترها را تغییر دهید.</p></div>
-        : <div className="support-table-scroll"><table><thead><tr><th>کد پشتیبانی</th><th>تاریخ ایجاد</th><th>ثبت‌نام</th><th>عضویت</th></tr></thead>
+        : <div className="support-table-scroll"><table><thead><tr><th>کد پشتیبانی</th><th>تاریخ ایجاد</th><th>ثبت‌نام</th><th>عضویت</th><th>تکمیل ثبت‌نام</th><th>آخرین ورود موفق</th><th>مرحله و علت پیگیری</th></tr></thead>
           <tbody>{users.items.map(user => <tr key={user.support_code}><td><CopyCode value={user.support_code} /></td>
             <td>{date(user.created_at)}</td><td>{registrationLabels[user.registration_state]}</td><td>
-              <span className={`support-badge support-badge-${user.membership_state}`}>{membershipLabels[user.membership_state]}</span></td></tr>)}</tbody></table></div>}
+              <span className={`support-badge support-badge-${user.membership_state}`}>{membershipLabels[user.membership_state]}</span></td>
+            <td>{user.registered_at ? <time dateTime={user.registered_at}>{date(user.registered_at)}، {time(user.registered_at)}</time>
+              : user.registration_state === "registered" ? <span className="support-caption">سابقهٔ این زمان ثبت نشده</span> : <span className="support-caption">تکمیل نشده</span>}</td>
+            <td>{user.last_login_at ? <time dateTime={user.last_login_at}>{date(user.last_login_at)}، {time(user.last_login_at)}</time>
+              : <span className="support-caption">سابقهٔ این زمان ثبت نشده</span>}</td>
+            <td className="support-stage"><strong>{stageLabels[user.stage]}</strong><small>{user.attention_reason
+              ? attentionLabels[user.attention_reason] : <>مانعی در وضعیت عضویت ثبت نشده است.</>}</small></td></tr>)}</tbody></table></div>}
       <div className="support-pagination"><button disabled={offset === 0} onClick={() => setOffset(n => Math.max(0,n-25))}>قبلی</button>
         <span>صفحهٔ {count(Math.floor(offset/25)+1)}</span><button disabled={offset+users.items.length >= users.total}
           onClick={() => setOffset(n => n+25)}>بعدی</button></div>
     </section>;
+  } else if (data?.page === page && page === "usage") {
+    content = <SupportUsage data={data.value as UsageData} days={days} onDaysChange={setDays} />;
   } else if (data?.page === page && page === "technical") {
     const technical = data.value as SupportTechnical;
     content = <><section className="support-section"><div className="support-section-heading"><div><h2>وضعیت سرویس‌ها</h2><p>وضعیت بررسی‌شده در همین درخواست</p></div>
@@ -184,7 +210,7 @@ export function SupportPanel() {
     <div className="support-sidebar-footer"><span>دسترسی فقط برای مشاهده</span><button disabled={busy} onClick={() => void logout()}>
       {busy ? "در حال خروج…" : "خروج از پنل"}</button></div></aside>
     <div className="support-main"><header className="support-header"><div><button className="support-back" onClick={() => {
-      if (page !== "overview") setPage("overview"); else window.location.assign("/");
+      if (page !== "overview") setPage("overview"); else window.location.assign(householdAppUrl);
     }}><span aria-hidden="true">→</span> بازگشت</button><h1>{pageLabels[page]}</h1></div>
       <button className="support-refresh" disabled={loading || busy} onClick={() => setRefresh(n => n+1)}>به‌روزرسانی</button></header>
       {page === "users" && <div className="support-filters"><form onSubmit={event => { event.preventDefault(); setCode(search.trim()); setOffset(0); setRefresh(n => n+1); }}>

@@ -16,7 +16,11 @@ export default defineConfig(({ mode }) => {
   define: {
     __BUILD_TIME__: JSON.stringify(BUILD_TIME),
     // محیط تست همیشه از پروکسی محلی استفاده می‌کند، حتی با وجود .env.local تولید.
-    ...(isLocalSandbox ? { "import.meta.env.VITE_API_URL": JSON.stringify("") } : {}),
+    ...(isLocalSandbox ? {
+      "import.meta.env.VITE_API_URL": JSON.stringify(""),
+      "import.meta.env.VITE_SUPPORT_HOST": JSON.stringify(""),
+      "import.meta.env.VITE_APP_URL": JSON.stringify(""),
+    } : {}),
   },
   plugins: [
     ...(mode === "copy-workbench" ? [copySourcePlugin()] : []),

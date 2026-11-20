@@ -177,6 +177,7 @@ def _register_pending_joiner(
         role="member",
         phone=phone,
         password_hash=hash_password(password),
+        support_registered_at=utcnow(),
         relation=rel,
         membership_state="pending",  # status پیش‌فرض 'active' = خودش ثبت‌نام کرده
     )

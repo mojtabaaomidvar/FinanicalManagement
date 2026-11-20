@@ -14,7 +14,7 @@ test('support preview uses independent metadata and a separate operator session'
   const users = request(session, '/support/users').body;
   assert.equal(users.items.length, 25);
   assert.equal(users.total, 31);
-  assert.deepEqual(Object.keys(users.items[0]).sort(), ['created_at', 'membership_state', 'registration_state', 'support_code']);
+  assert.deepEqual(Object.keys(users.items[0]).sort(), ['attention_reason','created_at','last_login_at','membership_state','registered_at','registration_state','stage','support_code']);
   assert.ok(!session.data.members.some(member => member.id === users.items[0].support_code));
   assert.equal(request(session, '/support/users?code=' + users.items[0].support_code).body.items.length, 1);
   assert.equal(request(session, '/support/users?offset=25').body.items.length, 6);

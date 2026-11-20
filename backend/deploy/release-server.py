@@ -80,7 +80,7 @@ def migrate(check_only: bool, generated_key: bool) -> None:
             revision = connection.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()
-            if revision not in {f"{number:04d}" for number in range(11, 28)}:
+            if revision not in {f"{number:04d}" for number in range(11, 29)}:
                 raise RuntimeError("Unexpected database revision; no migration was performed.")
             if generated_key:
                 for table in ("documents", "goals"):
@@ -99,6 +99,7 @@ def migrate(check_only: bool, generated_key: bool) -> None:
         if check_only:
             print("Database revision and restricted application role verified.")
             return
+        starting_revision = revision
         # The installer has stopped the API. Hash every existing table before and
         # after migration; only the additive member support reference is omitted.
         # No record contents or credentials leave the migration process.
@@ -106,7 +107,12 @@ def migrate(check_only: bool, generated_key: bool) -> None:
             result = {}
             for table in tables:
                 quoted = connection.dialect.identifier_preparer.quote(table)
-                expression = "to_jsonb(t) - 'support_code'" if table == "members" else "to_jsonb(t)"
+                excluded = ["support_registered_at", "support_last_login_at"] if starting_revision in ("0026", "0027") else []
+                if starting_revision == "0026":
+                    excluded.append("support_code")
+                expression = "to_jsonb(t)"
+                if table == "members" and excluded:
+                    expression += " - ARRAY[" + ",".join("'" + field + "'" for field in excluded) + "]"
                 result[table] = tuple(connection.exec_driver_sql(
                     "SELECT count(*), md5(coalesce(string_agg((" + expression
                     + ")::text, '' ORDER BY (" + expression + ")::text), '')) FROM "
@@ -118,13 +124,13 @@ def migrate(check_only: bool, generated_key: bool) -> None:
             tables = connection.execute(text(
                 "SELECT tablename FROM pg_tables WHERE schemaname='public' "
                 "AND tablename <> 'alembic_version' ORDER BY tablename"
-            )).scalars().all() if revision in ("0026", "0027") else []
+            )).scalars().all() if revision in ("0026", "0027", "0028") else []
             before = fingerprint(connection, tables)
         os.environ["DATABASE_URL"] = admin_url.render_as_string(hide_password=False)
         from alembic import command  # noqa: I001 -- import after selecting the migration database
         from alembic.config import Config
 
-        command.upgrade(Config("alembic.ini"), "0027")
+        command.upgrade(Config("alembic.ini"), "0028")
         with engine.begin() as connection:
             role_name = connection.dialect.identifier_preparer.quote(app_url.username)
             connection.exec_driver_sql(
@@ -134,14 +140,15 @@ def migrate(check_only: bool, generated_key: bool) -> None:
             connection.exec_driver_sql(
                 "GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO " + role_name
             )
+            connection.exec_driver_sql("GRANT EXECUTE ON FUNCTION public.support_record_counts() TO " + role_name)
             revision = connection.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()
-            if revision != "0027":
-                raise RuntimeError("Database migration did not reach 0027.")
+            if revision != "0028":
+                raise RuntimeError("Database migration did not reach 0028.")
             if fingerprint(connection, tables) != before:
                 raise RuntimeError("Existing records changed during migration; upgrade stopped.")
-        print("Database upgraded to 0027; application permissions granted with RLS retained.")
+        print("Database upgraded to 0028; application permissions granted with RLS retained.")
         if tables:
             print("Existing records verified unchanged during the support migration.")
     finally:

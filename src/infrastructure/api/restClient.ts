@@ -11,6 +11,7 @@
    هیچ fetch مستقیمی خارج از این فایل مجاز نیست. */
 
 import { API_URL } from "@/shared/config/apiUrl";
+import { isSupportHost } from "@/shared/config/support";
 import { AppError, type AppErrorCode } from "@/shared/lib/appError";
 import type { TokenProvider } from "@/infrastructure/repositories/sessionRepository";
 
@@ -293,10 +294,10 @@ export interface ReqOpts {
 
 /** Independent operator cookie, with no access to the household TokenProvider. */
 export async function supportRequest<T>(path: string, body?: unknown): Promise<T> {
-  if (!/^\/(session|login|logout|overview|users|technical)(\?|$)/.test(path)) {
+  if (!/^\/(session|login|logout|overview|users|technical|usage)(\?|$)/.test(path)) {
     throw new AppError("SERVER", "مسیر پشتیبانی معتبر نیست.");
   }
-  const url = API_URL + "/support" + path;
+  const url = (isSupportHost() ? "/api/v1" : API_URL) + "/support" + path;
   assertHttps(url);
   let response: Response;
   try {

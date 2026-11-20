@@ -72,6 +72,9 @@ def _resolve_test_url() -> URL:
 
 TEST_URL = _resolve_test_url()
 TEST_DB_NAME = TEST_URL.database or ""
+MIGRATION_URL = make_url(os.environ.get("TEST_MIGRATION_DATABASE_URL") or TEST_URL.render_as_string(hide_password=False))
+if (MIGRATION_URL.database, MIGRATION_URL.host, MIGRATION_URL.port) != (TEST_URL.database, TEST_URL.host, TEST_URL.port):
+    raise RuntimeError("Migration administrator must use the same isolated test database and server.")
 
 # چرخاندن تنظیمات به دیتابیس تست — «پیش از» import شدن app.db.session.
 _rendered = TEST_URL.render_as_string(hide_password=False)
@@ -117,10 +120,10 @@ settings.rate_limit_salt = "test-only-rate-limit-salt"
 #  ۲) ساخت دیتابیس + مهاجرت‌ها (یک‌بار در هر اجرا)
 # ═══════════════════════════════════════════════════════════════════
 @pytest.fixture(scope="session")
-def database() -> Iterator[None]:
+def database() -> Iterator[Any]:
     """دیتابیس تست را می‌سازد (اگر نبود) و تا `head` مهاجرت می‌دهد."""
     admin = create_engine(
-        TEST_URL.set(database="postgres"),
+        MIGRATION_URL.set(database="postgres"),
         isolation_level="AUTOCOMMIT",
         future=True,
     )
@@ -140,19 +143,30 @@ def database() -> Iterator[None]:
 
     cfg = Config(str(BACKEND_DIR / "alembic.ini"))
     cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
+    cfg.attributes["migration_url"] = MIGRATION_URL.render_as_string(hide_password=False)
     command.upgrade(cfg, "head")
-    yield
+    migration_engine = create_engine(MIGRATION_URL, hide_parameters=True)
+    try:
+        with migration_engine.begin() as connection:
+            role = connection.dialect.identifier_preparer.quote(TEST_URL.username)
+            connection.exec_driver_sql("GRANT USAGE, CREATE ON SCHEMA public TO " + role)
+            connection.exec_driver_sql("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO " + role)
+            connection.exec_driver_sql("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO " + role)
+            connection.exec_driver_sql("GRANT EXECUTE ON FUNCTION public.support_record_counts() TO " + role)
+        yield migration_engine
+    finally:
+        migration_engine.dispose()
 
 
 @pytest.fixture(autouse=True)
-def clean_tables(database: None) -> Iterator[None]:
+def clean_tables(database: Any) -> Iterator[None]:
     """پیش از هر تست، همهٔ جدول‌های داده خالی می‌شوند (به‌جز alembic_version).
 
     TRUNCATE مشمول پالیسی‌های RLS نیست، پس نیازی به زمینهٔ خانواده ندارد.
     """
-    from app.db.session import engine
-
-    with engine.begin() as conn:
+    # Cleanup alone uses the checked test administrator; API assertions still
+    # use the original NOSUPERUSER/NOBYPASSRLS application engine.
+    with database.begin() as conn:
         names = (
             conn.execute(
                 text(

@@ -13,13 +13,14 @@ from __future__ import annotations
 import uuid
 from datetime import timedelta
 
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.errors import AppError
 from app.core.security import hash_token, new_session_token
 from app.models.auth import Session as SessionModel
+from app.models.family import Member
 from app.services.clock import utcnow
 
 _SLIDING = timedelta(days=settings.session_sliding_days)
@@ -30,6 +31,7 @@ def create_session(db: Session, member_id: uuid.UUID) -> str:
     """نشست تازه می‌سازد و «توکن خام» را برمی‌گرداند (فقط همین‌جا در دسترس است)."""
     raw, token_hash = new_session_token()
     now = utcnow()
+    db.execute(update(Member).where(Member.id == member_id).values(support_last_login_at=now))
     db.add(
         SessionModel(
             token=token_hash,

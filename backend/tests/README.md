@@ -236,3 +236,12 @@ RLS + FORCE است، پس بی‌زمینه **صفر ردیف** برمی‌گش�
 > این تله یک‌بار سرِ خودمان آمد: `join_requests` (۰۰۰۶)، `bills` (۰۰۱۰) و
 > `notification_dismissals` (۰۰۰۹) هر سه RLS و پالیسی داشتند ولی به `PROTECTED`
 > اضافه نشده بودند. تست درست کار می‌کرد؛ فقط هیچ‌وقت اجرا نشده بود.
+# Aggregate support counts
+
+Migration 0028 creates a fixed, argument-free function that returns six global
+counts. Run migrations as the migration administrator and grant its execution
+to the non-superuser application role; the release and manual launchers do this.
+For tests, set `TEST_MIGRATION_DATABASE_URL` to the same isolated `_test` database
+using its administrator. `TEST_DATABASE_URL` remains the restricted application
+role used by every API and RLS assertion. Cleanup alone uses the administrator.
+Never point either setting at the manual sandbox or production database.

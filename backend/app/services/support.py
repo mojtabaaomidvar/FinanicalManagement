@@ -53,9 +53,11 @@ def credential_tag() -> str:
     return hashlib.sha256((settings.support_username + "\0" + settings.support_password_hash).encode()).hexdigest()
 
 
-def require_origin(request: Request) -> None:
+def require_origin(request: Request, *, allow_absent: bool = False) -> None:
     origin = request.headers.get("origin")
-    if origin not in settings.cors_origins_list:
+    if origin is None and allow_absent:
+        return
+    if origin not in settings.support_origins_list:
         raise AppError("SUPPORT_ORIGIN", "این درخواست پشتیبانی مجاز نیست.", 403)
 
 
@@ -92,6 +94,7 @@ def authenticated(db: Session, request: Request) -> bool:
 
 def require_session(db: Session, request: Request) -> None:
     require_enabled()
+    require_origin(request, allow_absent=True)
     if not authenticated(db, request):
         raise AppError("SUPPORT_UNAUTHORIZED", "برای مشاهدهٔ پنل، وارد حساب پشتیبانی شوید.", 401)
 
@@ -114,7 +117,8 @@ def list_users(db: Session, *, code: str, membership: str, registration: str,
                offset: int, limit: int) -> SupportUsers:
     state = registration_expression()
     query = select(Member.support_code, Member.created_at,
-                   state.label("registration_state"), Member.membership_state)
+                   state.label("registration_state"), Member.membership_state,
+                   Member.support_registered_at.label("registered_at"), Member.support_last_login_at.label("last_login_at"))
     conditions = []
     if code.strip():
         try:
@@ -129,8 +133,20 @@ def list_users(db: Session, *, code: str, membership: str, registration: str,
     total = db.execute(select(func.count()).select_from(Member).where(*conditions)).scalar_one()
     rows = db.execute(query.where(*conditions).order_by(Member.created_at.desc(), Member.support_code)
                       .offset(offset).limit(limit)).all()
-    return SupportUsers(items=[SupportUser(**row._mapping) for row in rows],
+    return SupportUsers(items=[SupportUser(**row._mapping, **onboarding_state(row.registration_state, row.membership_state)) for row in rows],
                         total=total, offset=offset, limit=limit)
+
+
+def onboarding_state(registration: str, membership: str) -> dict:
+    if registration == "introduced":
+        return {"stage": "registration_required", "attention_reason": "registration_incomplete"}
+    if registration == "managed":
+        return {"stage": "managed_profile", "attention_reason": "managed_profile"}
+    if membership == "pending":
+        return {"stage": "approval_pending", "attention_reason": "waiting_approval"}
+    if membership == "active":
+        return {"stage": "ready", "attention_reason": None}
+    return {"stage": "inactive", "attention_reason": membership}
 
 
 def overview(db: Session, days: int) -> SupportOverview:

@@ -22,6 +22,7 @@ def operator(monkeypatch):
     monkeypatch.setattr(settings, "support_username", "operator")
     monkeypatch.setattr(settings, "support_password_hash", hash_password(PASSWORD))
     monkeypatch.setattr(settings, "cors_origins", "http://testserver")
+    monkeypatch.setattr(settings, "support_origins", "")
     monkeypatch.setattr(settings, "rl_support_login_per_ip", 20)
 
 
@@ -132,7 +133,7 @@ def test_roster_has_only_independent_code_and_signup_metadata(client):
     login(client)
     roster = client.get(PREFIX+"/users").json()
     assert roster["total"] == 1
-    assert set(roster["items"][0]) == {"support_code","created_at","registration_state","membership_state"}
+    assert set(roster["items"][0]) == {"support_code","created_at","registration_state","membership_state","registered_at","last_login_at","stage","attention_reason"}
     assert roster["items"][0]["support_code"] == code
     assert roster["items"][0]["registration_state"] == "registered"
     for private in ("PRIVATE_NAME","PRIVATE_FAMILY",owner.phone,owner.member_id,owner.family_id):
@@ -233,4 +234,4 @@ def test_pending_join_receives_own_code_without_a_member_session(client):
     login(client)
     user = client.get(PREFIX + "/users", params={"code": code}).json()["items"][0]
     assert user["registration_state"] == "registered" and user["membership_state"] == "pending"
-    assert set(user) == {"support_code", "created_at", "registration_state", "membership_state"}
+    assert set(user) == {"support_code", "created_at", "registration_state", "membership_state", "registered_at", "last_login_at", "stage", "attention_reason"}

@@ -70,6 +70,7 @@ def configure_sandbox():
     ):
         os.environ[key] = ""
     os.environ["CORS_ORIGINS"] = "http://127.0.0.1:5700,http://localhost:5700"
+    os.environ["SUPPORT_ORIGINS"] = os.environ["CORS_ORIGINS"]
     # Never inherit an operator from production dotenv or a caller's environment.
     import json
     operator_path = PROJECT_DIR / ".local-test" / "support-operator.json"

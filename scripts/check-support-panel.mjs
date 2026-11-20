@@ -139,7 +139,7 @@ try {
         assert.equal(result.headers()['cache-control'], 'no-store');
         if (path === 'users') {
           const data = await result.json();
-          for (const user of data.items) assert.deepEqual(Object.keys(user).sort(), ['created_at', 'membership_state', 'registration_state', 'support_code']);
+          for (const user of data.items) assert.deepEqual(Object.keys(user).sort(), ['attention_reason','created_at','last_login_at','membership_state','registered_at','registration_state','stage','support_code']);
         }
       }
       await api.request.post(base + '/api/v1/support/logout', { headers: { Origin: base } });

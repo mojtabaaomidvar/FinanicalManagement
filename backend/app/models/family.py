@@ -88,6 +88,8 @@ class Member(Base):
     phone: Mapped[str | None] = mapped_column(Text)  # 09xxxxxxxxx — یکتایی جزئی در __table_args__
     # هش رمز: Argon2id ($argon2id$…). قالب‌های قدیمی bcrypt/sha256 هنگام ورود ارتقا می‌یابند.
     password_hash: Mapped[str | None] = mapped_column(Text)
+    support_registered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    support_last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

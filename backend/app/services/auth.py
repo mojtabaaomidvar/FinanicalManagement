@@ -25,6 +25,7 @@ from app.schemas.auth import (
 )
 from app.services import otp as otp_service
 from app.services import password_reset, passwords, ratelimit, sessions
+from app.services.clock import utcnow
 
 _MIN_PASSWORD = 8
 _PRE_REG_MAX_PER_MINUTE = 60  # سطل سراسری (نه per-phone) — ضد «شمارش شماره‌ها»
@@ -147,6 +148,7 @@ def register(db: Session, req: RegisterRequest, *, ip: str = _UNKNOWN_IP) -> Aut
         existing.name = name
         existing.password_hash = hash_password(req.password)
         existing.status = "active"
+        existing.support_registered_at = utcnow()
         existing.relation = relation
         db.commit()
         family = db.get(Family, existing.family_id)
@@ -167,6 +169,7 @@ def register(db: Session, req: RegisterRequest, *, ip: str = _UNKNOWN_IP) -> Aut
         role="owner",
         phone=req.phone,
         password_hash=hash_password(req.password),
+        support_registered_at=utcnow(),
         relation="خودم",
     )
     db.add(owner)

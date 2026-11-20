@@ -2,8 +2,18 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { supportApi } from "./api";
 import { supportRequest } from "@/infrastructure/api/restClient";
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 describe("independent support API boundary", () => {
+  it("uses the dedicated support origin without attaching a household token", async () => {
+    vi.stubEnv("VITE_SUPPORT_HOST","supp.khaanehyar.ir");
+    vi.stubGlobal("location",{hostname:"supp.khaanehyar.ir",protocol:"https:"});
+    const fetcher = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({authenticated:false}),{status:200})));
+    vi.stubGlobal("fetch",fetcher);
+    await supportApi.session(); await supportApi.usage(30);
+    expect(fetcher.mock.calls[0][0]).toBe("/api/v1/support/session");
+    expect(fetcher.mock.calls[1][0]).toBe("/api/v1/support/usage?days=30");
+    expect(fetcher.mock.calls[1][1].headers).not.toHaveProperty("Authorization");
+  });
   it("uses only its cookie and no household bearer, with no browser response cache", async () => {
     const fetcher = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ authenticated: true }), { status: 200 })));
     vi.stubGlobal("fetch",fetcher);

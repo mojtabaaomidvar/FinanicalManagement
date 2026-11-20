@@ -56,7 +56,7 @@ export async function buildPortablePreview(root, portable, { catalog, visualCata
     absWorkingDir: root, entryPoints: [join(root, 'src/main.tsx')], outfile: 'portable-app.js', bundle: true, write: false, platform: 'browser', format: 'iife',
     minify: true, legalComments: 'none', sourcemap: false, target: ['chrome110', 'firefox110', 'safari16'], jsx: 'automatic',
     alias: { '@': join(root, 'src') }, loader: { '.woff2': 'dataurl', '.woff': 'dataurl', '.ttf': 'dataurl', '.svg': 'dataurl', '.png': 'dataurl', '.jpg': 'dataurl', '.webp': 'dataurl' },
-    define: { 'import.meta.env.MODE': '"copy-workbench"', 'import.meta.env.DEV': 'false', 'import.meta.env.PROD': 'true', 'import.meta.env.VITE_API_URL': '""', '__BUILD_TIME__': JSON.stringify(new Date().toISOString()), 'process.env.NODE_ENV': '"production"' },
+    define: { 'import.meta.env.MODE': '"copy-workbench"', 'import.meta.env.DEV': 'false', 'import.meta.env.PROD': 'true', 'import.meta.env.VITE_API_URL': '""', 'import.meta.env.VITE_SUPPORT_HOST': '""', 'import.meta.env.VITE_APP_URL': '""', '__BUILD_TIME__': JSON.stringify(new Date().toISOString()), 'process.env.NODE_ENV': '"production"' },
     plugins: [{ name: 'portable-public-source-metadata', setup(builder) {
       builder.onLoad({ filter: /\.[cm]?[jt]sx?$/ }, async args => {
         const file = slash(relative(root, args.path));
