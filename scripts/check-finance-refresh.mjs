@@ -76,7 +76,10 @@ async function openForm(page, type = 'expense') {
 async function chooseAccount(form, name = 'حساب تراکنش') {
   const select = form.getByRole('combobox', { name, exact: true });
   const id = await select.locator('option').nth(1).getAttribute('value');
-  assert.ok(id); await select.selectOption(id); return id;
+  assert.ok(id); await select.selectOption(id);
+  const card = form.getByRole('button', { name: 'بله، کارت کشیدم', exact: true });
+  if (await card.isVisible()) await card.click();
+  return id;
 }
 async function details(form) { if (await form.locator('details').getAttribute('open') === null) await form.locator('summary').click(); }
 async function screenshot(page, name) {
@@ -362,7 +365,7 @@ try {
       let destination;
       if (type === 'transfer') destination = await chooseAccount(form, 'حساب مقصد');
       else await form.getByRole('combobox', { name: 'دسته‌بندی تراکنش' }).selectOption(type === 'expense' ? 'food' : 'salary');
-      if (await form.locator('.tx-transfer-fee').isVisible()) await form.getByRole('button', { name: 'خیر', exact: true }).click();
+      if (await form.locator('.tx-transfer-fee').isVisible()) await form.getByRole('button', { name: type === 'expense' ? 'بله، کارت کشیدم' : 'خیر', exact: true }).click();
       await details(form); await form.getByRole('textbox', { name: 'توضیح تراکنش' }).fill('Saved ' + type);
       await form.locator('.tx-simple-save').click(); await form.waitFor({ state: 'hidden' });
       const stored = (await api(page, '/transactions')).body.find(row => row.note === 'Saved ' + type);

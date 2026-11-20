@@ -204,15 +204,16 @@ def _prepare(db: Session, family_id: uuid.UUID, req: TransactionWrite) -> dict:
     fee_method = req.transfer_fee_method
     fee_rial = None
     if fee_method is not None:
-        if req.type != "transfer" or fee_method not in TRANSFER_METHODS:
+        if req.type not in ("expense", "transfer") or fee_method not in TRANSFER_METHODS:
             raise AppError("INVALID_TRANSFER_FEE", "نوع انتقال را انتخاب کنید.", 422)
+        payment_accounts = [account_id, to_account_id] if req.type == "transfer" else [account_id]
         bank_accounts = list(db.scalars(select(Account).where(
-            Account.family_id == family_id, Account.id.in_([account_id, to_account_id]))))
-        if len(bank_accounts) != 2 or any(account.kind != "bank" for account in bank_accounts):
-            raise AppError("INVALID_TRANSFER_FEE", "کارمزد انتقال فقط برای انتقال بین دو حساب بانکی است.", 422)
+            Account.family_id == family_id, Account.id.in_(payment_accounts))))
+        if len(bank_accounts) != len(payment_accounts) or any(account.kind != "bank" for account in bank_accounts):
+            raise AppError("INVALID_TRANSFER_FEE", "کارمزد فقط برای پرداخت یا انتقال از حساب بانکی است.", 422)
         rial = req.amount * 10
         if rial != rial.to_integral_value():
-            raise AppError("INVALID_TRANSFER_FEE", "مبلغ انتقال باید عدد صحیح مثبت به ریال باشد.", 422)
+            raise AppError("INVALID_TRANSFER_FEE", "مبلغ پرداخت باید عدد صحیح مثبت به ریال باشد.", 422)
         fee_rial = calculate_transfer_fee_rial(fee_method, int(rial))
     return {
         "member_id": member_id,
@@ -318,8 +319,8 @@ def update(db: Session, actor: Member, tx_id: uuid.UUID, req: TransactionWrite) 
 
     _require_source_access(actor, row)
     if row.source_kind == "transfer_fee":
-        raise AppError("SOURCE_IMMUTABLE", "کارمزد همراه انتقال مدیریت می‌شود؛ انتقال اصلی را ویرایش یا حذف کنید.", 422)
-    if "transfer_fee_method" not in req.model_fields_set and req.type == "transfer":
+        raise AppError("SOURCE_IMMUTABLE", "کارمزد همراه پرداخت مدیریت می‌شود؛ پرداخت اصلی را ویرایش یا حذف کنید.", 422)
+    if "transfer_fee_method" not in req.model_fields_set and req.type in ("expense", "transfer"):
         req = req.model_copy(update={"transfer_fee_method": row.transfer_fee_method})
     values = _prepare(db, actor.family_id, req)
     if all(values[key] == getattr(row, key) for key in ("amount", "type", "account_id", "to_account_id", "transfer_fee_method")):
@@ -370,7 +371,7 @@ def delete_uncommitted(db: Session, actor: Member, tx_id: uuid.UUID) -> None:
         raise AppError("NOT_FOUND", "تراکنش یافت نشد.", 404)
     _require_source_access(actor, row)
     if row.source_kind == "transfer_fee":
-        raise AppError("SOURCE_IMMUTABLE", "کارمزد همراه انتقال مدیریت می‌شود؛ انتقال اصلی را ویرایش یا حذف کنید.", 422)
+        raise AppError("SOURCE_IMMUTABLE", "کارمزد همراه پرداخت مدیریت می‌شود؛ پرداخت اصلی را ویرایش یا حذف کنید.", 422)
     if (
         db.scalar(
             select(Transaction.id)

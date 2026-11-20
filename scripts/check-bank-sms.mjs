@@ -61,6 +61,15 @@ async function ready(page) {
   await sheet.getByRole('textbox', { name: 'مبلغ پیامک', exact: true }).waitFor();
   return sheet;
 }
+async function answerCardWhenUnanswered(sheet) {
+  const card = sheet.getByRole('button', { name: 'بله، کارت کشیدم', exact: true });
+  if (await card.isVisible() && await card.getAttribute('aria-pressed') !== 'true'
+      && await sheet.getByRole('button', { name: 'خیر، انتقال بانکی بود', exact: true }).getAttribute('aria-pressed') !== 'true') await card.click();
+}
+async function submitReview(sheet) {
+  await answerCardWhenUnanswered(sheet);
+  await sheet.getByRole('button', { name: 'ثبت', exact: true }).click();
+}
 async function importer(page) {
   await page.getByRole('button', { name: 'افزودن تراکنش', exact: true }).click();
   await page.getByRole('button', { name: /ثبت از پیامک بانکی/ }).click();
@@ -91,7 +100,7 @@ try {
     await sheet.getByRole('textbox', { name: 'مبلغ پیامک', exact: true }).fill('۳۵۰۰۰');
     const select = sheet.getByRole('combobox', { name: 'حساب پیامک', exact: true });
     await select.selectOption(await select.locator('option').nth(1).getAttribute('value'));
-    await sheet.getByRole('button', { name: 'ثبت', exact: true }).click();
+    await submitReview(sheet);
     await page.waitForFunction(id => !document.querySelector('[data-sms-id="' + id + '"]'), selectedId);
     assert.equal((await api(page, '/sms')).find(row => row.id === selectedId).status, 'recorded');
     assert.equal((await api(page, '/sms?status=pending')).length, pending.length - 1);
@@ -135,7 +144,7 @@ try {
     assert.equal(await sheet.getByRole('textbox', { name: 'لیبل پیامک', exact: true }).inputValue(), 'ادامهٔ بعدی');
     assert.equal(await sheet.getByRole('combobox', { name: /عضو/ }).count(), 0);
     await sheet.getByText('مدیر خانوادهٔ نمونه', { exact: true }).waitFor();
-    await sheet.getByRole('button', { name: 'ثبت', exact: true }).click(); await sheet.waitFor({ state: 'hidden' });
+    await submitReview(sheet); await sheet.waitFor({ state: 'hidden' });
     assert.equal(await page.locator('.sms-inbox-row').count(), 0);
     await page.context().close();
   });
@@ -155,7 +164,7 @@ try {
     assert.equal(await select.locator('option[value="' + wallet.id + '"]').count(), 1);
     await select.selectOption(wallet.id);
     const before = await api(page, '/transactions');
-    await sheet.getByRole('button', { name: 'ثبت', exact: true }).click(); await sheet.waitFor({ state: 'hidden' });
+    await submitReview(sheet); await sheet.waitFor({ state: 'hidden' });
     const after = await api(page, '/transactions');
     assert.equal(after.length, before.length + 1); assert.equal(after.at(-1).account_id, wallet.id);
     assert.equal(after.at(-1).member_id, member.id); assert.equal(after.at(-1).type, 'income');
@@ -208,7 +217,7 @@ try {
     await page.reload({ waitUntil: 'domcontentloaded' }); sheet = await ready(page);
     assert.equal(await sheet.getByRole('textbox', { name: 'مبلغ پیامک', exact: true }).inputValue(), '۲۵۰,۰۰۰');
     const before = await api(page, '/transactions');
-    await sheet.getByRole('button', { name: 'ثبت', exact: true }).click(); await sheet.waitFor({ state: 'hidden' });
+    await submitReview(sheet); await sheet.waitFor({ state: 'hidden' });
     const after = await api(page, '/transactions');
     assert.equal(after.length, before.length + 1); assert.equal(after.at(-1).amount, 25000);
     await page.context().close();
@@ -221,7 +230,7 @@ try {
     await sheet.getByText('واحد مبلغ پیامک مشخص نیست؛ مبلغ را در واحد انتخابی وارد کنید.', { exact: true }).waitFor();
     const before = await api(page, '/transactions');
     for (const invalid of ['۱۲÷۰', '۱۲+', '-100', '']) {
-      await input.fill(invalid); await sheet.getByRole('button', { name: 'ثبت', exact: true }).click();
+      await input.fill(invalid); await submitReview(sheet);
       await sheet.getByText('لطفاً مبلغ معتبر وارد کنید', { exact: true }).waitFor();
       assert.equal(await input.inputValue(), invalid);
     }
@@ -244,6 +253,7 @@ try {
       await route.continue();
     });
     try {
+      await answerCardWhenUnanswered(sheet);
       await sheet.getByRole('button', { name: 'ثبت', exact: true }).evaluate(button => { button.click(); button.click(); });
       await page.waitForTimeout(300); assert.equal(labels, 1); assert.equal(writes, 0);
       assert.equal(await sheet.getByRole('textbox', { name: 'مبلغ پیامک', exact: true }).isDisabled(), true);
@@ -262,7 +272,7 @@ try {
     const before = await api(page, '/transactions');
     await sheet.getByRole('textbox', { name: 'مبلغ پیامک', exact: true }).fill('۴۰۰۰۰');
     await page.route('**/api/v1/sms/*', route => route.request().method() === 'PATCH' ? fail(route, 'Ack failure') : route.continue());
-    await sheet.getByRole('button', { name: 'ثبت', exact: true }).click();
+    await submitReview(sheet);
     await sheet.getByText('تراکنش ثبت شد؛ تأیید پیامک ناموفق بود. دوباره تأیید کنید', { exact: true }).waitFor();
     const stored = await api(page, '/transactions'); assert.equal(stored.length, before.length + 1);
     const recovery = await receipts(page); assert.equal(recovery.length, 1); assert.equal(recovery[0][1], stored.at(-1).id);
@@ -280,7 +290,7 @@ try {
   await check('missing saved transaction blocks acknowledgement and another expense', async () => {
     const page = await session(); const sheet = await ready(page);
     await page.route('**/api/v1/sms/*', route => route.request().method() === 'PATCH' ? fail(route, 'Ack failure') : route.continue());
-    await sheet.getByRole('button', { name: 'ثبت', exact: true }).click();
+    await submitReview(sheet);
     await sheet.getByRole('button', { name: 'تأیید دوباره پیامک', exact: true }).waitFor();
     const stored = await api(page, '/transactions');
     await api(page, '/transactions/' + stored.at(-1).id, 'DELETE');
@@ -296,7 +306,7 @@ try {
     const page = await session(); const sheet = await ready(page);
     await sheet.getByRole('textbox', { name: 'مبلغ پیامک', exact: true }).fill('۵۰۰۰۰۰۰۰');
     const before = await api(page, '/transactions');
-    await sheet.getByRole('button', { name: 'ثبت', exact: true }).click();
+    await submitReview(sheet);
     const select = sheet.getByRole('combobox', { name: 'حساب پیامک', exact: true });
     assert.equal(await select.locator('option').count(), 1);
     await sheet.getByText('انتخاب حساب الزامی است', { exact: true }).waitFor();
@@ -342,7 +352,7 @@ try {
     await api(page, '/transactions', 'POST', { member_id: actor.id, type: 'expense', amount: available - 999999,
       category: 'food', account_id: accountId, date: transactions[0].date, repeat: 'none' });
     const before = await api(page, '/transactions');
-    await sheet.getByRole('button', { name: 'ثبت', exact: true }).click();
+    await submitReview(sheet);
     await sheet.getByText('موجودی این حساب برای مبلغ واردشده کافی نیست؛ حساب دیگری انتخاب کنید.', { exact: true }).waitFor();
     assert.deepEqual(await api(page, '/transactions'), before);
     assert.equal(await page.getByRole('alertdialog').count(), 0);
@@ -353,12 +363,12 @@ try {
     const page = await session(); const sheet = await ready(page); const before = await api(page, '/transactions');
     await sheet.getByRole('textbox', { name: 'مبلغ پیامک', exact: true }).fill('۷۰۰۰۰');
     await page.route('**/api/v1/transactions', route => route.request().method() === 'POST' ? fail(route, 'Financial write failure') : route.continue());
-    await sheet.getByRole('button', { name: 'ثبت', exact: true }).click();
+    await submitReview(sheet);
     await sheet.getByText('Financial write failure', { exact: true }).waitFor();
     assert.equal(await sheet.getByRole('textbox', { name: 'مبلغ پیامک', exact: true }).inputValue(), '۷۰,۰۰۰');
     assert.deepEqual(await receipts(page), []); assert.deepEqual(await api(page, '/transactions'), before);
     await page.unroute('**/api/v1/transactions');
-    await sheet.getByRole('button', { name: 'ثبت', exact: true }).click(); await sheet.waitFor({ state: 'hidden' });
+    await submitReview(sheet); await sheet.waitFor({ state: 'hidden' });
     const after = await api(page, '/transactions');
     assert.equal(after.length, before.length + 1); assert.equal(after.at(-1).amount, 70000);
     await page.context().close();

@@ -105,7 +105,11 @@ export function useTxFormModel(
       setCategoryError(null);
       reviewedBalance.current = null;
       setBalanceWarning(null);
-      writeForm(update);
+      writeForm(previous => {
+        const next = typeof update === "function" ? update(previous) : update;
+        return next.accountId !== previous.accountId || next.toAccountId !== previous.toAccountId || next.type !== previous.type
+          ? { ...next, feeChoice: "", feeMethod: "" } : next;
+      });
     }
   }
 
@@ -168,7 +172,7 @@ export function useTxFormModel(
 
   function openEdit(tx: Transaction) {
     if (saving.current) return;
-    if (tx.sourceKind === "transfer_fee") return notify("برای تغییر کارمزد، انتقال اصلی را ویرایش کنید.");
+    if (tx.sourceKind === "transfer_fee") return notify("برای تغییر کارمزد، پرداخت اصلی را ویرایش کنید.");
     generation.current += 1;
     savedTransaction.current = tx;
     setEditing(tx);
@@ -184,7 +188,7 @@ export function useTxFormModel(
       note: tx.note ?? "",
       accountId: tx.accountId ?? "",
       toAccountId: tx.toAccountId ?? "",
-      feeChoice: tx.transferFeeMethod ? "yes" : "no",
+      feeChoice: tx.transferFeeMethod ? "yes" : tx.type === "expense" ? "" : "no",
       feeMethod: tx.transferFeeMethod ?? "",
       label: subcategories.find((s) => s.id === tx.subcategoryId)?.name ?? "",
       repeat: tx.repeat,
@@ -246,8 +250,8 @@ export function useTxFormModel(
       note: source.note ?? "",
       accountId: source.accountId ?? "",
       toAccountId: source.toAccountId ?? "",
-      feeChoice: source.transferFeeMethod ? "yes" : "",
-      feeMethod: source.transferFeeMethod ?? "",
+      feeChoice: !stored && source.type === "expense" ? "" : source.transferFeeMethod ? "yes" : "",
+      feeMethod: !stored && source.type === "expense" ? "" : source.transferFeeMethod ?? "",
       label: subcategories.find((s) => s.id === source.subcategoryId)?.name ?? "",
       repeat: "none",
       repeatEnd: "",
@@ -405,15 +409,19 @@ export function useTxFormModel(
           if (!destination) return notify("حساب مقصد در دسترس نیست؛ حساب دیگری انتخاب کنید.");
           if (account.kind === "bank" && destination.kind === "bank") {
             if (!form.feeChoice) return notify("مشخص کنید این انتقال کارمزد داشته است یا خیر.");
-            if (form.feeChoice === "yes") {
-              if (!form.feeMethod) return notify("نوع انتقال را انتخاب کنید.");
-              transferFeeMethod = form.feeMethod;
-              const rial = Math.round(baseAmount * 10);
-              if (Math.abs(rial - baseAmount * 10) > 0.00001) return notify("مبلغ انتقال باید عدد صحیح مثبت به ریال باشد.");
-              transferFeeRial = await useCases.quoteTransferFee.execute(transferFeeMethod, rial);
-              if (!current()) return;
-            }
           }
+        }
+        if (form.type === "expense" && account.kind === "bank" && !form.feeChoice)
+          return notify("مشخص کنید این هزینه با کارت پرداخت شده یا انتقال بانکی بوده است.");
+        const bankFeePayment = account.kind === "bank" && (form.type === "expense"
+          || (isTransfer && accounts.find(item => item.id === form.toAccountId)?.kind === "bank"));
+        if (bankFeePayment && form.feeChoice === "yes") {
+          if (!form.feeMethod) return notify("نوع انتقال را انتخاب کنید.");
+          transferFeeMethod = form.feeMethod;
+          const rial = Math.round(baseAmount * 10);
+          if (Math.abs(rial - baseAmount * 10) > 0.00001) return notify("مبلغ پرداخت باید عدد صحیح مثبت به ریال باشد.");
+          transferFeeRial = await useCases.quoteTransferFee.execute(transferFeeMethod, rial);
+          if (!current()) return;
         }
         if (form.type === "income") {
           setBalanceWarning(null);

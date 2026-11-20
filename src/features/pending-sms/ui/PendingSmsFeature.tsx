@@ -17,14 +17,20 @@ import { parseScheduledAmount } from "@/domain/transaction/recurring.rules";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 import { formatAccountAmount } from "@/shared/lib/format";
 import { suggestSmsAccount } from "@/domain/sms/sms-parser-account-suggestion";
+import { BankPaymentFields } from "@/features/transaction-form/ui/BankPaymentFields";
+import { useTransferFeeQuote } from "@/features/transaction-form/model/useTransferFeeQuote";
 
 export function PendingSmsFeature({ model: m }: { model: ReturnType<typeof usePendingSmsModel> }) {
-  const { member, members, accounts, txs, subcategories, refreshData } = useApp();
+  const { member, members, accounts, txs, subcategories, refreshData, useCases } = useApp();
   const [showAll, setShowAll] = useState(false);
   const amount = parseScheduledAmount(m.amount, m.entryCurrency);
   const ownCount = accounts.filter(account => account.memberId === member?.id).length;
+  const bankExpense = m.type === "expense" && accounts.find(account => account.id === m.accountId)?.kind === "bank";
+  const quote = useTransferFeeQuote(useCases, `${member?.id}:${m.list[m.idx]?.id}:${m.type}:${m.accountId}`,
+    m.open && !m.savedId && bankExpense && m.feeChoice === "yes" ? m.feeMethod : "", amount);
   const choices = transactionAccountChoices(accounts, txs, member?.id ?? "", amount,
-    m.type === "expense" && !m.savedId, showAll || m.type === "income" || !!m.savedId);
+    m.type === "expense" && !m.savedId, showAll || m.type === "income" || !!m.savedId)
+    .filter(({ account, balance }) => m.savedId || m.type !== "expense" || account.kind !== "bank" || amount === null || balance >= amount + quote.rial / 10);
   useEffect(() => { setShowAll(false); }, [m.list[m.idx]?.id, m.type]);
   useEffect(() => {
     if (!m.savedId && m.accountId && !choices.some(row => row.account.id === m.accountId)) m.setAccountId("");
@@ -157,6 +163,8 @@ export function PendingSmsFeature({ model: m }: { model: ReturnType<typeof usePe
                 onClick={() => setShowAll(value => !value)}>{showAll ? "نمایش فهرست کوتاه" : "نمایش همهٔ حساب‌های من"}</button> : null}
               {!m.savedId && !choices.length ? <p className="field-error">حساب یا کیف‌پول با موجودی کافی برای این مبلغ ندارید؛ مبلغ یا فهرست کامل حساب‌ها را بررسی کنید.</p> : null}
             </Field>
+            {bankExpense && !m.savedId ? <BankPaymentFields mode="expense" choice={m.feeChoice} method={m.feeMethod}
+              onChoice={m.setFeeChoice} onMethod={m.setFeeMethod} loading={quote.loading} error={quote.error} /> : null}
             <Field label="تاریخ">
               <JalaliDateInput value={m.date} onChange={m.setDate} aria-label="تاریخ پیامک" />
             </Field>

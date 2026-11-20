@@ -56,7 +56,7 @@ try {
   await check('fee and SMS display copy is editable while parser vocabulary stays protected', async () => {
     const catalog = await (await fetch(base + '/__copy/catalog')).json();
     for (const text of ['این انتقال کارمزد هم داشت؟', 'نوع انتقال بانکی', 'انتخاب حساب پیشنهادی',
-      'موجودی حساب پیشنهادی برای این هزینه کافی نیست.', 'مبلغ انتقال باید عدد صحیح مثبت به ریال باشد.']) {
+      'موجودی حساب پیشنهادی برای این هزینه کافی نیست.', 'مبلغ پرداخت باید عدد صحیح مثبت به ریال باشد.']) {
       assert.ok(catalog.entries.some(entry => entry.text === text), 'Missing editable copy: ' + text);
     }
     assert.equal(catalog.entries.filter(entry => entry.file.endsWith('/sms-parser-account-suggestion.ts')).length, 0);

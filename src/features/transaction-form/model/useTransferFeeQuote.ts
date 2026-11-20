@@ -12,7 +12,7 @@ export function useTransferFeeQuote(useCases: UseCases | null, scope: string, me
     const timer = window.setTimeout(() => {
       const rial = Math.round(amount * 10);
       if (Math.abs(rial - amount * 10) > 0.00001) {
-        setResult({ key, useCases, error: "مبلغ انتقال باید عدد صحیح مثبت به ریال باشد." });
+        setResult({ key, useCases, error: "مبلغ پرداخت باید عدد صحیح مثبت به ریال باشد." });
         return;
       }
       void useCases.quoteTransferFee.execute(method, rial).then(value => {

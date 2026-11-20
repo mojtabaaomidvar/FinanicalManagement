@@ -36,7 +36,8 @@ def main():
     assert image=="khaneyar-api:"+tag
     paths=["app/main.py","app/core/config.py","app/api/v1/router.py","app/api/v1/routes/support.py",
         "app/api/v1/routes/usage.py","app/models/family.py","app/models/support.py","app/schemas/support.py",
-        "app/services/support.py","app/services/usage.py","app/services/auth.py","app/services/family.py","app/services/sessions.py"]
+        "app/services/support.py","app/services/usage.py","app/services/auth.py","app/services/family.py","app/services/sessions.py",
+        "app/services/transactions.py","app/services/transfer_fees.py"]
     expected={path:hashlib.sha256((source/"backend"/path).read_bytes()).hexdigest() for path in paths}
     code="import hashlib,json;from pathlib import Path;print(json.dumps({p:hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in "+repr(paths)+"}))"
     actual=json.loads(run(["docker","compose","exec","-T","api","python","-c",code]))
@@ -54,7 +55,7 @@ with engine.connect() as db:
  print(json.dumps({'revision':revision,'restricted_role':not any(role),'rls':rls,'count_fields':list(counts),'counts_valid':all(isinstance(n,int) and n>=0 for n in counts.values()),'origin':settings.support_origins_list==['https://supp.khaanehyar.ir'],'operator':bool(settings.support_username and settings.support_password_hash.startswith('$argon2id$'))}))
 """
     metadata=json.loads(run(["docker","compose","exec","-T","api","python","-c",probe]))
-    assert metadata["revision"]=="0028" and all(metadata[key] for key in ["restricted_role","rls","counts_valid","origin","operator"])
+    assert metadata["revision"]=="0029" and all(metadata[key] for key in ["restricted_role","rls","counts_valid","origin","operator"])
     assert set(metadata["count_fields"])=={"transactions","scheduled_plans","open_tasks","completed_tasks","shopping_lists","documents"}
     original=json.loads(Path("/var/backups/khaneyar/support-host/original.json").read_text())
     before=env_lines(Path(original["backup"])/"env")
@@ -91,7 +92,7 @@ with engine.connect() as db:
             urlopen("https://supp.khaanehyar.ir"+path,timeout=20)
             raise AssertionError("Unexpected public access.")
         except HTTPError as error: assert error.code==status
-    report={"tag":tag,"commit":manifest["commit"],"host":"supp.khaanehyar.ir","revision":"0028","api_files_match":len(paths),
+    report={"tag":tag,"commit":manifest["commit"],"host":"supp.khaanehyar.ir","revision":"0029","api_files_match":len(paths),
         "pwa_files_match":len(manifest["pwa_sha256"]),"restricted_role_and_rls":True,"anonymous_counts_available":True,
         "migration_records_preserved":True,"previous_settings_preserved":True,"existing_uploads_preserved":True,
         "https_and_redirect_verified":True,"financial_paths_blocked_on_support_host":True,"backup":str(backup)}

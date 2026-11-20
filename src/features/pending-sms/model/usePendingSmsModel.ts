@@ -1,7 +1,7 @@
 /* Review pending bank messages; retain successful writes before acknowledgement. */
 import { useEffect, useRef, useState } from "react";
 import type { BankSms } from "@/domain/sms/sms.types";
-import type { Transaction } from "@/domain/transaction/transaction.types";
+import type { Transaction, TransferFeeMethod } from "@/domain/transaction/transaction.types";
 import type { UseCases } from "@/application/useCases";
 import { smsDraftDefaults, smsSummary } from "@/domain/sms/sms.rules";
 import { formatAmount, liveFormatJalaliDate } from "@/shared/lib/format";
@@ -36,6 +36,8 @@ export function usePendingSmsModel(
   const [date, setDate] = useState("");
   const [memberId, setMemberId] = useState(currentMemberId);
   const [accountId, setAccountId] = useState("");
+  const [feeChoice, setFeeChoice] = useState<"" | "yes" | "no">("");
+  const [feeMethod, setFeeMethod] = useState<"" | TransferFeeMethod>("");
   const [label, setLabel] = useState("");
   const operation = useRef(false);
   const saved = useRef<string | null>(null);
@@ -74,6 +76,8 @@ export function usePendingSmsModel(
     setDate(original ? formatISO(isoToJalali(original.date)) : draft?.date ?? formatISO(d.jalaliDate));
     setMemberId(currentMemberId);
     setAccountId(original?.accountId ?? draft?.accountId ?? sms.accountId ?? "");
+    setFeeChoice(original?.transferFeeMethod ? "yes" : draft?.feeChoice ?? "");
+    setFeeMethod(original?.transferFeeMethod ?? draft?.feeMethod ?? "");
     setLabel(draft?.label ?? "");
     setError(null);
   }
@@ -178,8 +182,21 @@ export function usePendingSmsModel(
       const currentSms = pending.find(item => item.id === sms.id);
       if (currentSms?.memberId && currentSms.memberId !== currentMemberId) return setError("این پیامک متعلق به شما نیست.");
       const baseAmount = fromDisplay(amt, entryCurrency.current);
+      let transferFeeMethod: TransferFeeMethod | null = null;
+      let transferFeeRial = 0;
+      if (!originalId && type === "expense" && account?.kind === "bank") {
+        if (!feeChoice) return setError("مشخص کنید این هزینه با کارت پرداخت شده یا انتقال بانکی بوده است.");
+        if (feeChoice === "yes") {
+          if (!feeMethod) return setError("نوع انتقال را انتخاب کنید.");
+          const rial = Math.round(baseAmount * 10);
+          if (Math.abs(rial - baseAmount * 10) > 0.00001) return setError("مبلغ پرداخت باید عدد صحیح مثبت به ریال باشد.");
+          transferFeeMethod = feeMethod;
+          transferFeeRial = await useCases.quoteTransferFee.execute(feeMethod, rial);
+          if (!current()) return;
+        }
+      }
       if (!originalId && type === "expense" && account) {
-        if (expenseBalanceWarning(account, transactions, baseAmount)) {
+        if (expenseBalanceWarning(account, transactions, baseAmount + transferFeeRial / 10)) {
           setAccountId("");
           return setError("موجودی این حساب برای مبلغ واردشده کافی نیست؛ حساب دیگری انتخاب کنید.");
         }
@@ -187,7 +204,7 @@ export function usePendingSmsModel(
       const sub = !originalId && label.trim() ? await useCases.addSubcategory.execute(categoryId, label.trim()) : null;
       if (!current()) return;
       await useCases.recordSms.execute(sms, {
-        requireAvailableBalance: true, memberId: currentMemberId, type, amount: baseAmount, category: categoryId,
+        transferFeeMethod, requireAvailableBalance: true, memberId: currentMemberId, type, amount: baseAmount, category: categoryId,
         date: parsedDate ? jalaliToIso(parsedDate) : sms.date!, note: smsSummary(sms), accountId, subcategoryId: sub?.id ?? null,
       }, {
         transactionId: originalId ?? undefined,
@@ -245,22 +262,26 @@ export function usePendingSmsModel(
 
   function edit(patch: Partial<PendingSmsDraft>) {
     if (operation.current || saved.current) return;
-    const next: PendingSmsDraft = { type, categoryId, amount, currency: entryCurrency.current, date, accountId, label, ...patch };
+    const next: PendingSmsDraft = { type, categoryId, amount, currency: entryCurrency.current, date, accountId, label, feeChoice, feeMethod, ...patch };
+    if (next.accountId !== accountId || next.type !== type) { next.feeChoice = ""; next.feeMethod = ""; }
     const sms = list[idx];
     if (sms && !rememberPendingDraft({ familyId: sms.familyId, memberId: currentMemberId, smsId: sms.id }, next))
       notify("پیش‌نویس بررسی پیامک در این مرورگر ذخیره نشد؛ پیش از بستن فرم آن را ثبت کنید.");
     setType(next.type); setCategoryId(next.categoryId); setAmount(next.amount);
     setDate(next.date); setAccountId(next.accountId); setLabel(next.label); setError(null);
+    setFeeChoice(next.feeChoice ?? ""); setFeeMethod(next.feeMethod ?? "");
   }
   return {
     list, idx, open, busy, loading, loadError, error, savedId, amountNeedsReview,
-    type, categoryId, amount, date, memberId, accountId, label, entryCurrency: entryCurrency.current,
+    type, categoryId, amount, date, memberId, accountId, label, feeChoice, feeMethod, entryCurrency: entryCurrency.current,
     setCategoryId: (v: string) => edit({ categoryId: v, label: "" }),
     setAmount: (v: string) => {
       const numeric = toEn(v).replace(/[٬،,\s]/g, "");
       edit({ amount: /^\d+$/.test(numeric) ? formatAmount(Number(numeric)) : v });
     },
     setAccountId: (v: string) => edit({ accountId: v }),
+    setFeeChoice: (v: "yes" | "no") => edit({ feeChoice: v, feeMethod: v === "no" ? "" : feeMethod }),
+    setFeeMethod: (v: TransferFeeMethod | "") => edit({ feeMethod: v }),
     setLabel: (v: string) => edit({ label: v }),
     changeType: (t: "expense" | "income") => edit({ type: t, categoryId: categoriesFor(t)[0].id, label: "" }),
     setDate: (v: string) => edit({ date: liveFormatJalaliDate(v) }),

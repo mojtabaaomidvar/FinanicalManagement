@@ -34,4 +34,25 @@ describe("unfinished SMS drafts", () => {
     expect(rememberImportDraft(scope, "SMS", store)).toBe(false);
     expect(readPendingDraft(scope, store)).toBeNull();
   });
+  it("restores a banking payment choice for only its own pending message", () => {
+    const store = storage(), draft = { type: "expense" as const, amount: "۱۰۰۰۰۰۰", currency: "ریال",
+      categoryId: "food", date: "۱۴۰۵/۰۸/۲۹", accountId: "own-bank", label: "خرید",
+      feeChoice: "yes" as const, feeMethod: "paya" as const };
+    rememberPendingDraft(scope, draft, store);
+    expect(readPendingDraft(scope, store)).toEqual(draft);
+    expect(readPendingDraft({ ...scope, smsId: "another-message" }, store)).toBeNull();
+    expect(readPendingDraft({ ...scope, familyId: "another-family" }, store)).toBeNull();
+    clearPendingDraft(scope, store);
+    expect(readPendingDraft(scope, store)).toBeNull();
+  });
+  it("rejects corrupted or unsupported payment choices without changing a legacy draft", () => {
+    const store = storage(), legacy = { type: "expense" as const, amount: "۱۰۰۰", currency: "تومان",
+      categoryId: "food", date: "۱۴۰۵/۰۸/۲۹", accountId: "own-bank", label: "" };
+    rememberPendingDraft(scope, legacy, store);
+    expect(readPendingDraft(scope, store)).toEqual(legacy);
+    for (const payment of [{ feeChoice: ["yes"] }, { feeMethod: ["paya"] }, { feeMethod: "paya_group" }, { feeChoice: "unconfirmed" }]) {
+      rememberPendingDraft(scope, { ...legacy, ...payment } as typeof legacy, store);
+      expect(readPendingDraft(scope, store)).toBeNull();
+    }
+  });
 });

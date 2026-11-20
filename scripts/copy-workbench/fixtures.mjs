@@ -779,7 +779,7 @@ function mutateRow(session, key, itemId, method, body) {
       delete values.confirm_card_change; delete values.member_id; delete values.kind;
     }
     if (key === 'transactions') {
-      if (values.transfer_fee_method === undefined) values.transfer_fee_method = values.type === 'transfer' ? item.transfer_fee_method : null;
+      if (values.transfer_fee_method === undefined) values.transfer_fee_method = ['expense','transfer'].includes(values.type) ? item.transfer_fee_method : null;
       const invalid = checkPreviewPayment(session, values, item);
       if (invalid) return invalid;
     }
@@ -838,8 +838,8 @@ function checkPreviewPayment(session, values, replacing) {
   if (values.type === 'transfer' && (!account || values.to_account_id === account.id || !data.accounts.some(item => item.id === values.to_account_id))) return error('INVALID_TRANSFER', 'انتقال به حساب مبدأ و مقصد متفاوت نیاز دارد.', 422);
   const method = values.transfer_fee_method;
   const fee = method == null ? 0 : previewTransferFee(method, Math.round(Number(values.amount) * 10));
-  if (method != null && (values.type !== 'transfer' || account?.kind !== 'bank'
-    || data.accounts.find(item => item.id === values.to_account_id)?.kind !== 'bank'
+  if (method != null && (!['expense','transfer'].includes(values.type) || account?.kind !== 'bank'
+    || (values.type === 'transfer' && data.accounts.find(item => item.id === values.to_account_id)?.kind !== 'bank')
     || method === 'paya_group' || fee == null || Math.abs(Number(values.amount) * 10 - Math.round(Number(values.amount) * 10)) > 0.00001)) return error('INVALID_TRANSFER_FEE', 'نوع انتقال را انتخاب کنید.', 422);
   if (account && (values.require_available_balance || method != null) && values.type !== 'income') {
     const balance = data.transactions.filter(item => item.id !== replacing?.id && (!replacing || item.transfer_fee_for_id !== replacing.id)).reduce((sum, item) => sum

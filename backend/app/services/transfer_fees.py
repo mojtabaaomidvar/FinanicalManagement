@@ -6,7 +6,7 @@ TRANSFER_METHODS = {"internal", "card_to_card", "paya", "satna", "pol"}
 
 def calculate_transfer_fee_rial(method: str, amount_rial: int, payment_count: int = 1) -> int:
     if isinstance(amount_rial, bool) or not isinstance(amount_rial, int) or amount_rial <= 0:
-        raise AppError("INVALID_TRANSFER_FEE", "مبلغ انتقال باید عدد صحیح مثبت به ریال باشد.", 422)
+        raise AppError("INVALID_TRANSFER_FEE", "مبلغ پرداخت باید عدد صحیح مثبت به ریال باشد.", 422)
     if method == "internal":
         return 0
     if method == "card_to_card":

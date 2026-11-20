@@ -3,10 +3,11 @@ import { useApp } from "@/app/providers/AppProvider";
 import type { TxFormModel } from "../model/useTxFormModel";
 import { transactionAccountChoices } from "../model/transactionAccounts";
 import { useTransferFeeQuote } from "../model/useTransferFeeQuote";
+import { BankPaymentFields } from "./BankPaymentFields";
 import { SmsImportFeature } from "@/features/sms-import";
 import { Modal, Select, TextInput, JalaliDateInput, expressionInputCaret, normalizeExpressionInput } from "@/shared/ui";
 import { categoriesFor, CUSTOM_CATEGORY_ICON } from "@/domain/category/category.catalog";
-import { TX_REPEATS, type TxRepeat, type TransferFeeMethod } from "@/domain/transaction/transaction.types";
+import { TX_REPEATS, type TxRepeat } from "@/domain/transaction/transaction.types";
 import { parseScheduledAmount } from "@/domain/transaction/recurring.rules";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 import { formatAccountAmount } from "@/shared/lib/format";
@@ -59,8 +60,9 @@ export function TransactionFormFeature({ form: m, onImported }: {
   const sourceAccount = accounts.find(account => account.id === m.form.accountId);
   const destinationAccount = accounts.find(account => account.id === m.form.toAccountId);
   const bankTransfer = isTransfer && sourceAccount?.kind === "bank" && destinationAccount?.kind === "bank";
-  const quote = useTransferFeeQuote(useCases, `${ownerId}:${m.open}`,
-    m.open && isTransfer && destinationAccount?.kind === "bank" && sourceAccount?.kind !== "wallet" && m.form.feeChoice === "yes" ? m.form.feeMethod : "", amount);
+  const bankExpense = m.form.type === "expense" && sourceAccount?.kind === "bank";
+  const quote = useTransferFeeQuote(useCases, `${ownerId}:${m.open}:${m.form.type}:${m.form.accountId}:${m.form.toAccountId}`,
+    m.open && (bankTransfer || bankExpense) && m.form.feeChoice === "yes" ? m.form.feeMethod : "", amount);
   const choices = transactionAccountChoices(accounts, txs, ownerId, amount, m.form.type !== "income", showAll || m.form.type === "income",
     m.editing?.id).filter(({ account, balance }) => m.form.type === "income" || account.kind !== "bank" || amount === null || balance >= amount + quote.rial / 10);
   const destinations = transactionAccountChoices(accounts, txs, null, null, false, showAll)
@@ -169,24 +171,10 @@ export function TransactionFormFeature({ form: m, onImported }: {
             {showAll ? "فهرست کوتاه حساب‌ها" : "نمایش همهٔ حساب‌های من"}
           </button> : null}
         </div>
-        {bankTransfer ? <div className="tx-transfer-fee">
-          <p>این انتقال کارمزد هم داشت؟</p>
-          <div className="quick-chips" role="group" aria-label="کارمزد انتقال">
-            <button type="button" className={`chip ${m.form.feeChoice === "yes" ? "active" : ""}`} aria-pressed={m.form.feeChoice === "yes"}
-              onClick={() => m.setForm(previous => ({ ...previous, feeChoice: "yes" }))}>بله</button>
-            <button type="button" className={`chip ${m.form.feeChoice === "no" ? "active" : ""}`} aria-pressed={m.form.feeChoice === "no"}
-              onClick={() => m.setForm(previous => ({ ...previous, feeChoice: "no", feeMethod: "" }))}>خیر</button>
-          </div>
-          {m.form.feeChoice === "yes" ? <label>نوع انتقال
-            <Select aria-label="نوع انتقال بانکی" value={m.form.feeMethod}
-              onChange={value => m.setForm(previous => ({ ...previous, feeMethod: value as TransferFeeMethod | "" }))}
-              options={[{ value: "", label: "نوع انتقال را انتخاب کنید…" },
-                { value: "internal", label: "داخلی (حساب به حساب)" }, { value: "card_to_card", label: "کارت‌به‌کارت" },
-                { value: "paya", label: "پایا" }, { value: "satna", label: "ساتنا" }, { value: "pol", label: "پل" }]} />
-          </label> : null}
-          {quote.loading ? <p className="tx-simple-hint" role="status">در حال بررسی حساب…</p> : null}
-          {quote.error ? <p className="field-error" role="alert">{quote.error}</p> : null}
-        </div> : null}
+        {bankTransfer || bankExpense ? <BankPaymentFields mode={bankExpense ? "expense" : "transfer"}
+          choice={m.form.feeChoice} method={m.form.feeMethod} loading={quote.loading} error={quote.error}
+          onChoice={feeChoice => m.setForm(previous => ({ ...previous, feeChoice, feeMethod: feeChoice === "no" ? "" : previous.feeMethod }))}
+          onMethod={feeMethod => m.setForm(previous => ({ ...previous, feeMethod }))} /> : null}
         {!isTransfer ? <div className="tx-simple-category">
           <label>دسته‌بندی<Select aria-label="دسته‌بندی تراکنش" value={m.form.categoryId} disabled={m.serviceExpense}
             onChange={categoryId => m.setForm(previous => ({ ...previous, categoryId, label: "" }))}
