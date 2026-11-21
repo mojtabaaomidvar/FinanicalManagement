@@ -15,6 +15,7 @@ import { formatAmount, nowTime } from "@/shared/lib/format";
 import { toDisplay } from "@/shared/lib/currency";
 import { MAX_AMOUNT } from "@/domain/transaction/transaction.rules";
 import { jalaliToIso, today } from "@/shared/lib/jalali";
+import { canViewFamilyWallets, walletItemsForViewer } from "./walletVisibility";
 
 export const WALLET_PRESETS = [
   "کیف پول نقدی",
@@ -92,9 +93,14 @@ export function useAccountsModel() {
   }, [identity]);
 
   /* موجودی هر حساب = موجودی اولیه + اثر تراکنش‌ها */
+  const familyWallets = canViewFamilyWallets(member);
+  const visibleAccounts = useMemo(
+    () => walletItemsForViewer(accounts, member),
+    [accounts, member?.id, member?.familyId, member?.role],
+  );
   const balances = useMemo(
-    () => accountBalances(txs, accounts),
-    [txs, accounts],
+    () => accountBalances(txs, visibleAccounts),
+    [txs, visibleAccounts],
   );
   const balanceOf = useMemo(() => {
     const m = new Map<string, number>();
@@ -111,7 +117,17 @@ export function useAccountsModel() {
   /* ارزش امروز دارایی‌های بازاری (طلا/ارز/رمزارز/سهم).
      سرور همیشه تومان برمی‌گرداند، یعنی همان واحد پایه‌ی balance‌ها، پس
      جمعشان مستقیم درست است و toDisplay یک‌بار روی حاصل اعمال می‌شود. */
-  const holdings = useHoldings();
+  const allHoldings = useHoldings();
+  const visibleHoldings = useMemo(
+    () => walletItemsForViewer(allHoldings.items, member),
+    [allHoldings.items, member?.id, member?.familyId, member?.role],
+  );
+  const holdings = {
+    ...allHoldings,
+    items: visibleHoldings,
+    total: visibleHoldings.reduce((total, item) => total + (item.priced ? item.value : 0), 0),
+    unpriced: visibleHoldings.filter(item => !item.priced).length,
+  };
 
   /* ⚠️ ناسازگاری عمدی — عدد و نمودار از دو منبع متفاوت‌اند:
 
@@ -444,7 +460,8 @@ export function useAccountsModel() {
 
   return {
     /* داده */
-    accounts,
+    accounts: visibleAccounts,
+    canViewFamilyWallets: familyWallets,
     members,
     member,
     cur,

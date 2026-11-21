@@ -432,7 +432,7 @@ export function AccountsFeature({ m }: { m: AccountsModel }) {
         )}
       </Card>
 
-      <HoldingsCard m={m} />
+      <HoldingsCard key={`${m.member?.familyId}:${m.member?.id}:${m.member?.role}`} m={m} />
 
       <AccountFormFeature m={m} />
     </>

@@ -30,9 +30,10 @@ const RANGE_OPTIONS: { value: WealthRange; label: string }[] = [
 ];
 
 export function AccountsPage() {
-  const { accounts, txs } = useApp();
+  const { txs } = useApp();
   const { show } = useToast();
   const m = useAccountsModel();
+  const accounts = m.accounts;
 
   const [range, setRange] = useState<WealthRange | "custom">("1m");
   /* بازه دلخواه — رشته‌های جلالی نمایشی */
@@ -44,7 +45,7 @@ export function AccountsPage() {
   const [draftTo, setDraftTo] = useState(customTo);
   const [customOpen, setCustomOpen] = useState(false);
 
-  /* مبنای نمودار دارایی = جمع موجودی اولیه همه حساب‌ها */
+  /* نمودار و فهرست حساب‌ها از همان محدودهٔ مجاز بیننده استفاده می‌کنند. */
   const initialTotal = useMemo(
     () => accounts.reduce((s, a) => s + (a.initialBalance ?? 0), 0),
     [accounts],
@@ -86,7 +87,7 @@ export function AccountsPage() {
       <header className="app-header">
         <div className="header-title">
           <h1>کیف پول‌ها</h1>
-          <p>حساب‌های بانکی و کیف‌پول‌های خانواده</p>
+          <p>{m.canViewFamilyWallets ? "حساب‌های بانکی و کیف‌پول‌های خانواده" : "حساب‌های بانکی و کیف‌پول‌های من"}</p>
         </div>
       </header>
 
@@ -94,7 +95,7 @@ export function AccountsPage() {
         {/* کارت دارایی کل — فشرده: مبلغ در همان ردیف عنوان، بازه زیر نمودار */}
         <div className="balance-card wealth-card">
           <div className="wealth-top">
-            <p className="balance-label">دارایی کل خانواده</p>
+            <p className="balance-label">{m.canViewFamilyWallets ? "دارایی کل خانواده" : "دارایی کل من"}</p>
             <b
               className={`wealth-total ${m.totalWealth < 0 ? "neg" : ""}`}
               dir="ltr"
