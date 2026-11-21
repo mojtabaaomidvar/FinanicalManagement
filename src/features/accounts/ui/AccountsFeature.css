@@ -1,0 +1,189 @@
+.accounts-page-header {
+  align-items: center;
+  gap: 12px;
+}
+
+.accounts-page-header .header-title {
+  min-width: 0;
+}
+
+.accounts-add-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  flex-shrink: 0;
+  padding: 8px 12px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.accounts-add-button svg,
+.account-reveal-button svg,
+.account-delete-button svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.accounts-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.accounts-feature .account-card.flat {
+  margin-bottom: 0;
+  padding: 12px 0;
+}
+
+.accounts-feature .account-head {
+  gap: 10px;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.accounts-feature .account-icon {
+  width: 36px;
+  height: 36px;
+}
+
+.accounts-feature .account-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.accounts-feature .account-title h4,
+.accounts-feature .account-title p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.account-card-number {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
+.accounts-feature .account-balance {
+  max-width: 44%;
+}
+
+.accounts-feature .account-balance b,
+.accounts-feature .wallet-balance b {
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.accounts-feature .wallet-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.accounts-feature .wallet-head {
+  min-width: 0;
+}
+
+.accounts-feature .wallet-head > div {
+  min-width: 0;
+}
+
+.accounts-feature .wallet-head b {
+  max-width: none;
+}
+
+.accounts-feature .wallet-balance {
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 0;
+  max-width: 190px;
+}
+
+.accounts-feature .wallet-card > .account-negative-notice {
+  grid-column: 1 / -1;
+}
+
+.account-kind-choice {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.account-kind-choice .seg-btn {
+  min-height: 44px;
+  padding: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.account-kind-choice:disabled .seg-btn {
+  cursor: default;
+}
+
+.account-card-input {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.account-card-input .text-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.account-form-sheet .text-input {
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.account-reveal-button,
+.account-delete-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 8px 10px;
+  color: var(--text-2);
+  background: var(--card);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.account-edit-tools {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.account-delete-button {
+  color: var(--danger);
+}
+
+.account-reveal-button:focus-visible,
+.account-delete-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.accounts-feature {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+

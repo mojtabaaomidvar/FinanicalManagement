@@ -3,6 +3,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import { fileURLToPath, URL } from "node:url";
+import { readFileSync } from "node:fs";
 import { copySourcePlugin } from "./scripts/copy-workbench/instrument.mjs";
 import { supportBrandingPlugin } from "./scripts/support-branding-plugin";
 
@@ -10,6 +11,7 @@ import { supportBrandingPlugin } from "./scripts/support-branding-plugin";
    خودبه‌خود یکتاست و لازم نیست یادتان باشد عدد نسخه را دستی جلو ببرید.
    زمان به UTC ذخیره می‌شود و موقع نمایش به وقت محلی کاربر درمی‌آید. */
 const BUILD_TIME = new Date().toISOString();
+const APP_VERSION: string = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")).version;
 
 export default defineConfig(({ mode }) => {
   const isLocalSandbox = mode === "local-sandbox" || mode === "copy-workbench";
@@ -24,6 +26,16 @@ export default defineConfig(({ mode }) => {
     } : {}),
   },
   plugins: [
+    {
+      name: "app-version-metadata",
+      generateBundle() {
+        this.emitFile({
+          type: "asset",
+          fileName: "version.json",
+          source: JSON.stringify({ version: APP_VERSION, buildTime: BUILD_TIME }, null, 2) + "\n",
+        });
+      },
+    },
     ...(mode === "copy-workbench" ? [copySourcePlugin()] : []),
     react(),
     ...(isLocalSandbox

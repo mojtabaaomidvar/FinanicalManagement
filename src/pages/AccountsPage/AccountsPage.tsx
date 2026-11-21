@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
 import { Field, JalaliDateInput, Modal, FitText } from "@/shared/ui";
-import { AccountsFeature, useAccountsModel } from "@/features/accounts";
+import { AccountsFeature, AccountAddButton, useAccountsModel } from "@/features/accounts";
 import {
   wealthSeries,
   wealthSeriesBetween,
@@ -84,11 +84,12 @@ export function AccountsPage() {
 
   return (
     <section className="page active">
-      <header className="app-header">
+      <header className="app-header accounts-page-header">
         <div className="header-title">
           <h1>کیف پول‌ها</h1>
           <p>{m.canViewFamilyWallets ? "حساب‌های بانکی و کیف‌پول‌های خانواده" : "حساب‌های بانکی و کیف‌پول‌های من"}</p>
         </div>
+        <AccountAddButton m={m} />
       </header>
 
       <div className="content">
@@ -180,7 +181,7 @@ export function AccountsPage() {
         </div>
 
         {/* لیست حساب‌ها و کیف‌پول‌ها + فرم افزودن/ویرایش — کامپوننت مشترک */}
-        <AccountsFeature m={m} />
+        <AccountsFeature m={m} showAddAction={false} />
       </div>
 
       {/* بازه دلخواه نمودار دارایی — از طریق سه‌نقطه */}

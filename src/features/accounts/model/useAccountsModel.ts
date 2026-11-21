@@ -208,6 +208,7 @@ export function useAccountsModel() {
 
   function openEdit(acc: Account) {
     if (writing.current || smsWriting.current || !canEdit(acc)) return;
+    setRevealed(new Set());
     setNotice(null);
     setReviewedBalance(null);
     /* موجودی فعلی (نه اولیه) — چیزی که کاربر روی کارت می‌بیند.
@@ -436,6 +437,7 @@ export function useAccountsModel() {
       if (!current()) return;
       deleted = true;
       setDeleting(null); setDeleteConfirmation("");
+      finishClose();
       show("حذف شد");
       await refreshData();
     } catch (e) {

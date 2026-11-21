@@ -18,10 +18,10 @@ import {
 } from "@/domain/holding/holding.rules";
 import type { Holding, HoldingKind } from "@/domain/holding/holding.types";
 import type { AccountsModel } from "../model/useAccountsModel";
-import { WALLET_PRESETS } from "../model/useAccountsModel";
 import { AccountFormFeature } from "./AccountFormFeature";
 import { bankDisplayLabel } from "@/shared/lib/banks";
 import { NegativeBalanceNotice } from "./NegativeBalanceNotice";
+import "./AccountsFeature.css";
 
 /** جلوی باز شدن فرم ویرایش را می‌گیرد — برای دکمه‌های داخل کارت کلیک‌پذیر */
 function stop(e: MouseEvent) {
@@ -44,8 +44,7 @@ function ClickableCard({
   if (!m.canEdit(acc)) {
     return <div className={className}>{children}</div>;
   }
-  /* div با role=button (نه <button>) چون داخلش دکمه‌ی حذف و
-     نمایش شماره کارت هست و دکمه تودرتو HTML نامعتبر است */
+  /* کارت فقط فرم ویرایش را باز می‌کند؛ عملیات حساب داخل فرم هستند. */
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     if (e.target !== e.currentTarget) return;
     if (e.key === "Enter" || e.key === " ") {
@@ -68,63 +67,13 @@ function ClickableCard({
   );
 }
 
-/** ردیف شماره کارت — نمایش/پنهان (دکمه‌ی کپی حذف شد) */
-function CardNumberRow({
-  hiddenText,
-  shownText,
-  revealed,
-  onToggle,
-}: {
-  hiddenText: string;
-  shownText: string;
-  revealed: boolean;
-  onToggle: () => void;
-}) {
+export function AccountAddButton({ m }: { m: AccountsModel }) {
   return (
-    <div className="account-row">
-      <span className="account-row-label">شماره کارت</span>
-      <div className="account-row-value">
-        <b dir="ltr" className={revealed ? "" : "masked"}>
-          {revealed ? shownText : hiddenText}
-        </b>
-      </div>
-      <div className="account-row-actions">
-        <button
-          className="icon-btn small"
-          aria-label={revealed ? "پنهان‌کردن" : "نمایش"}
-          onClick={(e) => {
-            stop(e);
-            onToggle();
-          }}
-        >
-          <svg>
-            <use href={revealed ? "#i-eye-off" : "#i-eye"} />
-          </svg>
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/** فقط حذف — ویرایش با کلیک روی خود کارت انجام می‌شود */
-function RowActions({ acc, m }: { acc: Account; m: AccountsModel }) {
-  if (!m.canEdit(acc)) return null;
-  return (
-    <div className="account-actions">
-      <button
-        className="icon-btn small danger"
-        disabled={m.locked}
-        aria-label={`حذف ${acc.title}`}
-        onClick={(e) => {
-          stop(e);
-          m.remove(acc);
-        }}
-      >
-        <svg>
-          <use href="#i-trash" />
-        </svg>
-      </button>
-    </div>
+    <button type="button" className="btn-primary accounts-add-button" disabled={m.locked}
+      aria-label="افزودن حساب یا کیف پول" onClick={() => m.openNew("bank")}>
+      <Icon name="i-plus" />
+      <span>افزودن</span>
+    </button>
   );
 }
 
@@ -294,9 +243,9 @@ function HoldingsCard({ m }: { m: AccountsModel }) {
   );
 }
 
-export function AccountsFeature({ m }: { m: AccountsModel }) {
+export function AccountsFeature({ m, showAddAction = true }: { m: AccountsModel; showAddAction?: boolean }) {
   return (
-    <>
+    <div className="accounts-feature">
       <Modal open={!!m.deleting} onClose={m.closeDelete} title="بررسی حذف حساب" sheetClassName="account-delete-sheet">
         <p>{m.deleting?.title}</p>
         {m.deleteHasHistory ? <p role="status">این حساب سابقهٔ تراکنش دارد و حذف نمی‌شود؛ سابقهٔ مالی حفظ می‌شود.</p> : <>
@@ -310,19 +259,12 @@ export function AccountsFeature({ m }: { m: AccountsModel }) {
             onClick={() => void m.confirmDelete()}>{m.busy ? "در حال حذف…" : "حذف حساب"}</button> : null}
         </div>
       </Modal>
+      {showAddAction ? <div className="accounts-toolbar"><AccountAddButton m={m} /></div> : null}
       {/* حساب‌های بانکی */}
-      <Card
-        title="حساب‌های بانکی"
-        action={
-          <button className="link-btn" disabled={m.locked} onClick={() => m.openNew("bank")}>
-            افزودن
-          </button>
-        }
-      >
+      <Card title="حساب‌های بانکی">
         {m.banks.length ? (
           m.banks.map(({ account: acc, balance }) => {
             const owner = m.members.find((x) => x.id === acc.memberId);
-            const isRevealed = m.revealed.has(acc.id);
             return (
               <ClickableCard
                 key={acc.id}
@@ -342,6 +284,7 @@ export function AccountsFeature({ m }: { m: AccountsModel }) {
                       {acc.bank ? bankDisplayLabel(acc.bank) : "بانک نامشخص"}
                       {owner ? ` · ${owner.name}` : ""}
                     </p>
+                    {acc.cardNumber ? <span className="account-card-number" dir="ltr">{maskCardNumber(acc.cardNumber)}</span> : null}
                   </div>
                   <div className={`account-balance${balance < 0 ? " is-negative" : ""}`}>
                     <b dir="ltr">{formatAccountAmount(balance, m.cur)}</b>
@@ -351,16 +294,6 @@ export function AccountsFeature({ m }: { m: AccountsModel }) {
 
                 {balance < 0 ? <NegativeBalanceNotice /> : null}
 
-                {acc.cardNumber ? (
-                  <CardNumberRow
-                    hiddenText={maskCardNumber(acc.cardNumber)}
-                    shownText={m.cardText(acc)}
-                    revealed={isRevealed}
-                    onToggle={() => m.toggleReveal(acc.id)}
-                  />
-                ) : null}
-
-                <RowActions acc={acc} m={m} />
               </ClickableCard>
             );
           })
@@ -370,14 +303,7 @@ export function AccountsFeature({ m }: { m: AccountsModel }) {
       </Card>
 
       {/* کیف‌پول‌ها */}
-      <Card
-        title="کیف‌پول‌ها"
-        action={
-          <button className="link-btn" disabled={m.locked} onClick={() => m.openNew("wallet")}>
-            افزودن
-          </button>
-        }
-      >
+      <Card title="کیف‌پول‌ها">
         {m.wallets.length ? (
           <div className="wallet-flat">
             {m.wallets.map(({ account: acc, balance }) => {
@@ -405,7 +331,6 @@ export function AccountsFeature({ m }: { m: AccountsModel }) {
                     <span>{m.cur}</span>
                   </div>
                   {balance < 0 ? <NegativeBalanceNotice /> : null}
-                  <RowActions acc={acc} m={m} />
                 </ClickableCard>
               );
             })}
@@ -415,19 +340,6 @@ export function AccountsFeature({ m }: { m: AccountsModel }) {
             <p>
               برای پول نقد، پس‌انداز یا هزینه‌ی سفر و پروژه یک کیف‌پول بسازید
             </p>
-            <div className="quick-chips">
-              {WALLET_PRESETS.map((w) => (
-                <button
-                  key={w}
-                  type="button"
-                  className="chip"
-                  disabled={m.locked}
-                  onClick={() => m.openNew("wallet", w)}
-                >
-                  + {w}
-                </button>
-              ))}
-            </div>
           </div>
         )}
       </Card>
@@ -435,6 +347,6 @@ export function AccountsFeature({ m }: { m: AccountsModel }) {
       <HoldingsCard key={`${m.member?.familyId}:${m.member?.id}:${m.member?.role}`} m={m} />
 
       <AccountFormFeature m={m} />
-    </>
+    </div>
   );
 }

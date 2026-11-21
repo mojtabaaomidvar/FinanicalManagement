@@ -5,6 +5,7 @@ import { useId, useLayoutEffect, useRef, type ChangeEvent, type KeyboardEvent } 
 
 import {
   Field,
+  Icon,
   Modal,
   Segmented,
   Select,
@@ -15,22 +16,15 @@ import {
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 import { formatAccountAmount } from "@/shared/lib/format";
 import { BANK_OPTIONS, bankDisplayLabel } from "@/shared/lib/banks";
-import { isSmsReaderAvailable } from "@/shared/native/smsReader";
 import type { AccountKind } from "@/domain/account/account.types";
 import type { AccountsModel } from "../model/useAccountsModel";
 import { WALLET_PRESETS } from "../model/useAccountsModel";
 
 export function AccountFormFeature({ m }: { m: AccountsModel }) {
-  /* آیا خواندن خودکار پیامک روی این دستگاه ممکن است؟ روی وب/iOS نه — و متن
-     زیر کلید هم باید همین را بگوید (§۴)، وگرنه چیزی وعده داده می‌شود که
-     خانه‌یار نمی‌تواند انجام دهد. عمداً داخل بدنه‌ی کامپوننت صدا زده می‌شود
-     نه در سطح ماژول: اگر چانک قبل از آماده‌شدن پلِ کپاسیتور اجرا شود،
-     getPlatform هنوز «web» می‌گوید و جوابِ غلط تا پایان عمرِ صفحه می‌ماند
-     (همین قاعده در useNativeSmsReader هم رعایت شده). */
-  const smsNative = isSmsReaderAvailable();
   const editing = m.editing;
   const kind = m.form.kind;
   const isWallet = kind === "wallet";
+  const cardVisible = !editing || m.revealed.has(editing.id);
   const balanceId = useId();
   const amountRef = useRef<HTMLInputElement>(null);
   const selection = useRef<{ start: number; end: number } | null>(null);
@@ -74,24 +68,21 @@ export function AccountFormFeature({ m }: { m: AccountsModel }) {
       : "حساب بانکی جدید";
 
   return (
-    <Modal open={m.open} onClose={m.close} title={title} sheetClassName="account-form-sheet">
+    <Modal open={m.open && !m.deleting} onClose={m.close} title={title} sheetClassName="account-form-sheet">
       <fieldset className="account-fields form-grid" disabled={m.locked} aria-busy={m.locked} style={{ marginTop: 8 }}>
-        {/* نوع حساب فقط هنگام ساخت انتخاب می‌شود — تغییرش بعداً معنا ندارد
-            (کیف‌پول شماره کارت ندارد و حساب بانکی بدون کارت نمی‌ماند) */}
-        {editing ? null : (
-          <div className="form-row full">
-            <Field label="نوع">
-              <Segmented
-                value={kind}
-                onChange={(v) => m.patch({ kind: v as AccountKind })}
-                options={[
-                  { value: "bank", label: "حساب بانکی" },
-                  { value: "wallet", label: "کیف‌پول" },
-                ]}
-              />
-            </Field>
-          </div>
-        )}
+        {/* هر دو فرم ساختار یکسان دارند؛ نوع حساب موجود ثابت می‌ماند. */}
+        <fieldset className="account-kind-choice form-row full" disabled={editing !== null}>
+          <Field label="نوع حساب">
+            <Segmented
+              value={kind}
+              onChange={(v) => m.patch({ kind: v as AccountKind })}
+              options={[
+                { value: "bank", label: "حساب و کارت بانکی" },
+                { value: "wallet", label: "کیف پول نقدی" },
+              ]}
+            />
+          </Field>
+        </fieldset>
 
         {!editing && !isWallet && m.canAddForChild && m.children.length ? <div className="form-row full">
           <Field label="صاحب حساب"><Select value={m.form.memberId} onChange={memberId => m.patch({ memberId })}
@@ -113,7 +104,7 @@ export function AccountFormFeature({ m }: { m: AccountsModel }) {
               aria-label={isWallet ? "نام کیف‌پول" : "عنوان کارت/حساب"}
             />
           </Field>
-          {isWallet && !editing ? (
+          {isWallet ? (
             <div className="quick-chips">
               {WALLET_PRESETS.map((w) => (
                 <button
@@ -131,19 +122,29 @@ export function AccountFormFeature({ m }: { m: AccountsModel }) {
 
         {!isWallet ? (
           <>
-            <div className="form-row">
+            <div className="form-row full">
               <Field label="شماره کارت">
-                <TextInput
-                  value={m.form.cardNo}
-                  onChange={m.setCardNo}
-                  placeholder="۶۲۱۹ ۸۶۱۰ …"
-                  dir="ltr"
-                  inputMode="numeric"
-                  aria-label="شماره کارت"
-                />
+                <div className="account-card-input">
+                  <TextInput
+                    value={m.form.cardNo}
+                    onChange={m.setCardNo}
+                    type={cardVisible ? "text" : "password"}
+                    autoComplete="off"
+                    placeholder="۶۲۱۹ ۸۶۱۰ …"
+                    dir="ltr"
+                    inputMode="numeric"
+                    aria-label="شماره کارت"
+                  />
+                  {editing ? <button type="button" className="account-reveal-button"
+                    aria-label={cardVisible ? "پنهان‌کردن شماره کارت" : "نمایش شماره کارت"}
+                    aria-pressed={cardVisible} onClick={() => m.toggleReveal(editing.id)}>
+                    <Icon name={cardVisible ? "i-eye-off" : "i-eye"} />
+                    <span>{cardVisible ? "پنهان‌کردن" : "نمایش"}</span>
+                  </button> : null}
+                </div>
               </Field>
             </div>
-            <div className="form-row">
+            <div className="form-row full">
               <Field label="بانک">
                 <Select
                   value={m.form.bank}
@@ -236,36 +237,17 @@ export function AccountFormFeature({ m }: { m: AccountsModel }) {
           </div>
         ) : null}
 
-        {/* کلید تشخیص از پیامک — فقط برای حساب بانکیِ موجود.
-            کیف‌پول معنا ندارد (§۵) و حساب تازه هنوز شناسه ندارد، پس رضایت
-            کاربر نباید عارضه‌ی جانبیِ ساختن حساب شود. */}
-        {editing !== null && !isWallet ? (
-          <div className="sms-opt" style={{ gridColumn: "1 / -1" }}>
-            <span className="sms-opt-body">
-              <b>تشخیص تراکنش از پیامک</b>
-              <span>
-                {smsNative
-                  ? "پیامک‌های همین حساب خوانده می‌شود و خانه‌یار تراکنش را پیشنهاد می‌دهد."
-                  : "خواندن خودکار پیامک فقط در اپ اندروید ممکن است؛ در نسخهٔ وب متن پیامک را خودتان جای‌گذاری می‌کنید و خانه‌یار تراکنش را پیشنهاد می‌دهد."}{" "}
-                هیچ تراکنشی بدون تأیید شما ثبت نمی‌شود. تغییر این کلید بی‌درنگ
-                ذخیره می‌شود و «انصراف» آن را برنمی‌گرداند.
-              </span>
-            </span>
-            <label className="switch">
-              <input
-                type="checkbox"
-                checked={m.smsOn}
-                disabled={m.locked}
-                aria-label="تشخیص تراکنش از پیامک"
-                onChange={(e) => m.toggleSms(e.target.checked)}
-              />
-              <span className="slider" />
-            </label>
-          </div>
-        ) : null}
       </fieldset>
 
       {m.notice !== null ? <p className="field-error account-save-notice" role="status">{m.notice}</p> : null}
+
+      {editing ? <div className="account-edit-tools">
+        <button type="button" className="account-delete-button" disabled={m.locked}
+          aria-label={`حذف ${editing.title}`} onClick={() => m.remove(editing)}>
+          <Icon name="i-trash" />
+          <span>{isWallet ? "حذف کیف پول" : "حذف حساب"}</span>
+        </button>
+      </div> : null}
 
       <div className="modal-actions">
         <button className="btn-secondary" disabled={m.locked} onClick={m.close}>

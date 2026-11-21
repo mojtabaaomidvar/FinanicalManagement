@@ -436,13 +436,15 @@ try {
     const page = await session('accounts'), accounts = (await api(page, '/accounts')).body;
     const own = (await api(page, '/accounts', 'POST', { member_id: accounts[0].member_id, title: 'Unused wallet', kind: 'wallet', initial_balance: 0 })).body;
     await reload(page);
-    await page.getByRole('button', { name: 'حذف Unused wallet', exact: true }).click();
+    await page.getByRole('button', { name: 'ویرایش Unused wallet', exact: true }).click();
+    await page.locator('.account-form-sheet').getByRole('button', { name: 'حذف Unused wallet', exact: true }).click();
     const sheet = page.locator('.account-delete-sheet');
     assert.equal(await sheet.getByRole('button', { name: 'حذف حساب', exact: true }).isDisabled(), true);
     await sheet.getByRole('textbox', { name: 'نام حساب برای تأیید حذف' }).fill('Unused wallet');
     await sheet.getByRole('button', { name: 'حذف حساب', exact: true }).click(); await sheet.waitFor({ state: 'hidden' });
     assert.ok(!(await api(page, '/accounts')).body.some(row => row.id === own.id));
-    await page.getByRole('button', { name: 'حذف ' + accounts[0].title, exact: true }).click();
+    await page.getByRole('button', { name: 'ویرایش ' + accounts[0].title, exact: true }).click();
+    await page.locator('.account-form-sheet').getByRole('button', { name: 'حذف ' + accounts[0].title, exact: true }).click();
     await sheet.getByText(/این حساب سابقهٔ تراکنش دارد/).waitFor();
     assert.equal(await sheet.getByRole('button', { name: 'حذف حساب', exact: true }).count(), 0);
     await page.context().close();
