@@ -5,18 +5,21 @@ import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
    در تنظیمات تعیین شده بیشتر شود. اگر شد، به‌جای رد کردن خشک، همان‌جا
    پیشنهاد می‌دهیم سقف ماهانه را روی مجموع تازهٔ دسته‌ها بگذاریم. */
 
-import { useId, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
-import { Card, Modal, FitText, expressionInputCaret, normalizeExpressionInput } from "@/shared/ui";
+import { Card, Modal, FitText, Icon, Select, TextInput, expressionInputCaret, normalizeExpressionInput } from "@/shared/ui";
 import {
   CATEGORIES,
   CUSTOM_CATEGORY_ICON,
+  categoryById,
   type Category,
 } from "@/domain/category/category.catalog";
-import { budgetStatus, monthCategorySpend, parseCategoryBudgetAmount, spendCapacity } from "@/domain/budget/budget.rules";
+import { budgetStatus, monthCategorySpend, parseCategoryBudgetAmount, parseMonthlyBudgetAmount, spendCapacity } from "@/domain/budget/budget.rules";
 import { daysLeftInMonth, formatMonth, today } from "@/shared/lib/jalali";
 import { toFa } from "@/shared/lib/digits";
+import { isAppError } from "@/shared/lib/appError";
+import "./BudgetsPage.css";
 import { formatAmount } from "@/shared/lib/format";
 import { toDisplay } from "@/shared/lib/currency";
 
@@ -28,11 +31,18 @@ export function BudgetsPage() {
     member,
     txs,
     budgets,
+    budgetDataStatus,
+    offlineSession,
+    shoppingSync,
     customCategories,
     refreshData,
   } = useApp();
   const { show } = useToast();
   const canManage = member?.role === "owner" || member?.role === "admin";
+  const restricted = offlineSession || shoppingSync.offline || (typeof navigator !== "undefined" && navigator.onLine === false);
+  const identity = `${family?.id ?? ""}:${member?.id ?? ""}:${member?.role ?? ""}:${currency}:${restricted}`;
+  const identityRef = useRef(identity); identityRef.current = identity;
+  const mounted = useRef(true);
 
   const [jy, jm, jd] = today();
   const [editing, setEditing] = useState<Category | null>(null);
@@ -40,12 +50,36 @@ export function BudgetsPage() {
   const [busy, setBusy] = useState(false);
   const writing = useRef(false);
   const [notice, setNotice] = useState("");
+  const [snapshot, setSnapshot] = useState<{ amount: number; cap: number; total: number } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [capOpen, setCapOpen] = useState(false);
+  const [capStr, setCapStr] = useState("");
+  const [capSnapshot, setCapSnapshot] = useState<{ budget: number; total: number } | null>(null);
+  const [capNotice, setCapNotice] = useState("");
   const amountId = useId();
   const amountRef = useRef<HTMLInputElement>(null);
   const selection = useRef<{ start: number; end: number } | null>(null);
   /* مجموعی که با مبلغ تازه به‌دست می‌آید و از سقف ماهانه رد شده — تا وقتی
      پر است، به‌جای ذخیره، پیشنهاد بالا بردن سقف نشان داده می‌شود */
   const [overflow, setOverflow] = useState<number | null>(null);
+
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  useEffect(() => {
+    writing.current = false; setBusy(false); setEditing(null); setSnapshot(null);
+    setOverflow(null); setNotice(""); setCapOpen(false); setCapNotice(""); setDeleteConfirm(false);
+    setAmountStr(""); setCapStr(""); setCapSnapshot(null);
+    setQuery(""); setFilter("all");
+  }, [identity]);
+  useEffect(() => {
+    // Reopening this page must include a write that finished after the previous page unmounted.
+    if (!restricted && budgetDataStatus === "ready") void refreshData().catch(() => undefined);
+  }, [identity, refreshData]);
+  function currentRequest() {
+    const scope = identityRef.current;
+    return () => mounted.current && identityRef.current === scope;
+  }
 
   useLayoutEffect(() => {
     const next = selection.current;
@@ -93,8 +127,13 @@ export function BudgetsPage() {
         icon: CUSTOM_CATEGORY_ICON,
         type: "expense" as const,
       }));
-    return [...CATEGORIES.filter((c) => c.type === "expense"), ...customs];
-  }, [customCategories]);
+    const current = [...CATEGORIES.filter((c) => c.type === "expense"), ...customs];
+    const known = new Set(current.map(cat => cat.id));
+    const legacy = budgets.filter(item => !known.has(item.category)).map(item => ({
+      ...categoryById(item.category), id: item.category,
+    }));
+    return [...current, ...legacy];
+  }, [customCategories, budgets]);
 
   /** مصرف ماه جاری هر دسته — با عوض‌شدن ماه از صفر شروع می‌شود */
   const spend = useMemo(() => monthCategorySpend(txs, jy, jm), [txs, jy, jm]);
@@ -111,13 +150,23 @@ export function BudgetsPage() {
 
   /* از سقف رد شده‌ایم؟ (مثلاً سقف را در تنظیمات پایین آورده‌اند) */
   const overCap = monthlyCap > 0 && totals.budgetSum > monthlyCap;
+  const rows = expenseCats.filter(cat => {
+    const budget = budgetMap.get(cat.id)?.amount ?? 0;
+    const spent = spend.get(cat.id) ?? 0;
+    if (filter === "budgeted" && budget <= 0) return false;
+    if (filter === "none" && budget > 0) return false;
+    if (filter === "over" && (budget <= 0 || spent <= budget)) return false;
+    return cat.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
+  }).sort((a, b) => Number(budgetMap.has(b.id)) - Number(budgetMap.has(a.id)));
 
   function openEdit(cat: Category) {
-    if (!canManage || writing.current) return;
+    if (!canManage || writing.current || budgetDataStatus !== "ready") return;
     const b = budgetMap.get(cat.id);
     setAmountStr(b ? formatAmount(toDisplay(b.amount, currency)) : "");
     setOverflow(null);
     setNotice("");
+    setDeleteConfirm(false);
+    setSnapshot({ amount: b?.amount ?? 0, cap: monthlyCap, total: totals.budgetSum });
     setEditing(cat);
   }
 
@@ -125,6 +174,7 @@ export function BudgetsPage() {
     setEditing(null);
     setOverflow(null);
     setNotice("");
+    setSnapshot(null); setDeleteConfirm(false);
   }
 
   function closeEdit() {
@@ -132,7 +182,7 @@ export function BudgetsPage() {
   }
 
   function beginWrite() {
-    if (writing.current || !canManage || !useCases) return false;
+    if (writing.current || !canManage || !useCases || budgetDataStatus !== "ready") return false;
     writing.current = true;
     setBusy(true);
     setNotice("");
@@ -144,36 +194,49 @@ export function BudgetsPage() {
     setBusy(false);
   }
 
+  async function refreshSnapshot(current: () => boolean) {
+    const [nextBudgets, nextFamily] = await Promise.all([useCases!.listCategoryBudgets.execute(), useCases!.getFamily.execute()]);
+    if (!current()) return;
+    const nextTotal = nextBudgets.reduce((sum, item) => sum + item.amount, 0);
+    setSnapshot({ amount: nextBudgets.find(item => item.category === editing?.id)?.amount ?? 0,
+      cap: nextFamily.budget ?? 0, total: nextTotal });
+    setCapSnapshot({ budget: nextFamily.budget ?? 0, total: nextTotal });
+    setOverflow(null); setDeleteConfirm(false);
+    await refreshData();
+  }
+
   /** ذخیره واقعی بودجهٔ دسته — بعد از عبور از بررسی سقف */
   async function persist(amount: number, raisedCap?: number) {
-    if (!editing || !beginWrite()) return;
+    if (!editing || !snapshot || !beginWrite()) return;
     const category = editing.id;
-    let capSaved = false, budgetSaved = false;
+    const current = currentRequest();
+    let budgetSaved = false;
     try {
-      if (raisedCap !== undefined) {
-        await useCases!.setMonthlyBudget.execute(raisedCap);
-        capSaved = true;
-      }
       await useCases!.setCategoryBudget.execute({
         category,
         amount,
+        ...(raisedCap === undefined ? {} : { monthlyCap: raisedCap }),
+        expectedAmount: snapshot.amount, expectedMonthlyCap: snapshot.cap, expectedBudgetTotal: snapshot.total,
       });
+      if (!current()) return;
       budgetSaved = true;
       show("بودجه ذخیره شد");
       resetEdit();
     } catch (e) {
-      if (capSaved) setOverflow(null);
-      const message = capSaved
-        ? "سقف ماهانه تغییر کرد، اما بودجهٔ دسته ذخیره نشد؛ دوباره تلاش کنید"
-        : (e as Error).message || "خطا در ذخیرهٔ بودجه";
+      if (!current()) return;
+      if (isAppError(e) && (e.code === "CONFLICT" || e.status === 409)) {
+        try { await refreshSnapshot(current); } catch { /* The original failure remains visible. */ }
+      }
+      if (!current()) return;
+      const message = (e as Error).message || "خطا در ذخیرهٔ بودجه";
       setNotice(message);
       show(message);
     } finally {
-      if (capSaved || budgetSaved) {
+      if (current() && budgetSaved) {
         try { await refreshData(); }
-        catch { show("تغییر بودجه ذخیره شد؛ اطلاعات صفحه تازه نشد. صفحه را بازخوانی کنید"); }
+        catch { if (current()) show("تغییر بودجه ذخیره شد؛ اطلاعات صفحه تازه نشد. صفحه را بازخوانی کنید"); }
       }
-      endWrite();
+      if (current()) endWrite();
     }
   }
 
@@ -188,9 +251,9 @@ export function BudgetsPage() {
     }
 
     /* مجموع تازه = مجموع فعلی، منهای بودجهٔ قبلی همین دسته، به‌علاوهٔ مبلغ تازه */
-    const previous = budgetMap.get(editing.id)?.amount ?? 0;
-    const projected = totals.budgetSum - previous + amount;
-    if (monthlyCap > 0 && projected > monthlyCap) {
+    if (!snapshot) return;
+    const projected = snapshot.total - snapshot.amount + amount;
+    if (snapshot.cap > 0 && projected > snapshot.cap && projected > snapshot.total) {
       setOverflow(projected);
       return;
     }
@@ -212,56 +275,111 @@ export function BudgetsPage() {
   async function syncCapToSum() {
     if (!beginWrite()) return;
     let capSaved = false;
+    const current = currentRequest();
     try {
-      await useCases!.setMonthlyBudget.execute(totals.budgetSum);
+      await useCases!.setMonthlyBudget.execute(totals.budgetSum, { budget: monthlyCap, total: totals.budgetSum });
+      if (!current()) return;
       capSaved = true;
       show("سقف بودجه ماهانه با مجموع دسته‌ها هماهنگ شد");
     } catch (e) {
-      show((e as Error).message || "خطا در تغییر سقف ماهانه");
+      if (current()) { await refreshData().catch(() => undefined); if (current()) show((e as Error).message || "خطا در تغییر سقف ماهانه"); }
     } finally {
-      if (capSaved) {
+      if (current() && capSaved) {
         try { await refreshData(); }
-        catch { show("تغییر بودجه ذخیره شد؛ اطلاعات صفحه تازه نشد. صفحه را بازخوانی کنید"); }
+        catch { if (current()) show("تغییر بودجه ذخیره شد؛ اطلاعات صفحه تازه نشد. صفحه را بازخوانی کنید"); }
       }
-      endWrite();
+      if (current()) endWrite();
     }
   }
 
   async function removeBudget() {
-    if (!editing || !beginWrite()) return;
+    if (!editing || !snapshot || !deleteConfirm || !beginWrite()) return;
+    const current = currentRequest();
     let removed = false;
     try {
-      await useCases!.deleteCategoryBudget.execute(editing.id);
+      await useCases!.deleteCategoryBudget.execute(editing.id, snapshot.amount);
+      if (!current()) return;
       removed = true;
       show("بودجه حذف شد");
       resetEdit();
     } catch (e) {
+      if (!current()) return;
+      if (isAppError(e) && (e.code === "CONFLICT" || e.status === 409)) {
+        try { await refreshSnapshot(current); } catch { /* Keep the proposed amount intact. */ }
+      }
+      if (!current()) return;
       const message = (e as Error).message || "خطا در حذف بودجه";
       setNotice(message);
       show(message);
     } finally {
-      if (removed) {
+      if (current() && removed) {
         try { await refreshData(); }
-        catch { show("بودجه حذف شد؛ اطلاعات صفحه تازه نشد. صفحه را بازخوانی کنید"); }
+        catch { if (current()) show("بودجه حذف شد؛ اطلاعات صفحه تازه نشد. صفحه را بازخوانی کنید"); }
       }
-      endWrite();
+      if (current()) endWrite();
     }
   }
 
+  function openCap() {
+    if (!canManage || writing.current || budgetDataStatus !== "ready") return;
+    setCapStr(formatAmount(toDisplay(monthlyCap, currency)));
+    setCapSnapshot({ budget: monthlyCap, total: totals.budgetSum });
+    setCapNotice(""); setCapOpen(true);
+  }
+
+  async function saveCap() {
+    const amount = parseMonthlyBudgetAmount(capStr, currency);
+    if (amount === null) { setCapNotice("مبلغ سقف ماهانه را معتبر وارد کنید"); return; }
+    if (!capSnapshot || !beginWrite()) return;
+    const current = currentRequest();
+    let saved = false;
+    try {
+      await useCases!.setMonthlyBudget.execute(amount, capSnapshot);
+      if (!current()) return;
+      saved = true;
+      setCapOpen(false); show("سقف ماهانه ذخیره شد");
+      await refreshData();
+    } catch (e) {
+      if (!current()) return;
+      if (saved) { show("سقف ماهانه ذخیره شد؛ اطلاعات صفحه تازه نشد. دوباره دریافت کنید"); return; }
+      if (isAppError(e) && (e.code === "CONFLICT" || e.status === 409)) {
+        try { await refreshSnapshot(current); } catch { /* Preserve the draft. */ }
+      }
+      if (current()) setCapNotice((e as Error).message || "خطا در ذخیرهٔ سقف ماهانه");
+    } finally { if (current()) endWrite(); }
+  }
+
   return (
-    <section className="page active">
-      <header className="app-header">
+    <section className="page active budgets-page">
+      <header className="app-header budgets-header">
         <div className="header-title">
           <h1>بودجه‌بندی</h1>
-          <p>دسته بندی ماهیانه بودجه</p>
+          <p>بودجهٔ ماهانهٔ خانواده</p>
         </div>
+        {canManage ? <button type="button" className="btn-primary budget-add-button"
+          disabled={busy || budgetDataStatus !== "ready"}
+          onClick={() => { const cat = expenseCats.find(item => !budgetMap.has(item.id)) ?? expenseCats[0]; if (cat) openEdit(cat); }}>
+          <Icon name="i-plus" /><span>بودجه جدید</span>
+        </button> : null}
       </header>
 
       <div className="content">
+        {budgetDataStatus !== "ready" ? <Card>
+          {budgetDataStatus === "loading" ? <p className="budget-data-message" role="status">در حال دریافت بودجه‌ها…</p> : <div className="budget-data-message" role="alert">
+            <p>اطلاعات بودجه‌ها دریافت نشد؛ مقادیر خالی به معنی نبود بودجه نیست.</p>
+            <button type="button" className="btn-secondary" onClick={() => void refreshData().catch(() => undefined)}>تلاش دوباره</button>
+          </div>}
+        </Card> : <>
         {/* خلاصه ماه جاری */}
         <Card>
           <div className="budget-summary">
-            <p className="budget-month">{monthLabel}</p>
+            <div className="budget-summary-head"><p className="budget-month">{monthLabel}</p>
+              {canManage ? <button type="button" className="link-btn budget-cap-edit" disabled={busy} onClick={openCap}>تنظیم سقف</button> : null}
+            </div>
+            <div className="budget-monthly-cap"><span>سقف ماهانهٔ خانواده</span>
+              <b dir="ltr">{monthlyCap > 0 ? formatAmount(toDisplay(monthlyCap, currency)) : "—"}</b>
+              {monthlyCap > 0 ? <span>{currencyDisplayLabel(currency)}</span> : null}
+            </div>
             <div className="budget-summary-nums">
               <div>
                 <span>بودجهٔ دسته‌ها</span>
@@ -344,13 +462,22 @@ export function BudgetsPage() {
           )
         ) : (
           <p className="budget-cap">
-            هنوز سقف بودجه ماهانه‌ای تعیین نکرده‌اید — از تنظیمات، «بودجه
-            ماهانه» را مشخص کنید تا مجموع دسته‌ها با آن سنجیده شود.
+            سقف ماهانهٔ خانواده هنوز تعیین نشده است؛ تعیین سقف، بودجهٔ دسته‌ها را خودکار تغییر نمی‌دهد.
           </p>
         )}
 
+        <div className="budget-list-toolbar">
+          <TextInput value={query} onChange={setQuery} placeholder="جست‌وجوی دسته…" aria-label="جست‌وجوی دستهٔ بودجه" />
+          <Select value={filter} onChange={setFilter} aria-label="فیلتر بودجه‌ها" options={[
+            { value: "all", label: "همهٔ دسته‌ها" },
+            { value: "budgeted", label: "بودجه‌دار" },
+            { value: "none", label: "بدون بودجه" },
+            { value: "over", label: "بیش از بودجه" },
+          ]} />
+        </div>
         <Card title="دسته‌های هزینه">
-          {expenseCats.map((cat) => {
+          {rows.length === 0 ? <p className="budget-empty" role="status">دسته‌ای با این جست‌وجو و فیلتر پیدا نشد.</p> : null}
+          {rows.map((cat) => {
             const b = budgetMap.get(cat.id);
             const spent = spend.get(cat.id) ?? 0;
             const st = budgetStatus(b?.amount ?? 0, spent);
@@ -419,15 +546,21 @@ export function BudgetsPage() {
             </p>
           ) : null}
         </Card>
+        </>}
       </div>
 
       <Modal
         open={!!editing}
         onClose={closeEdit}
         title={`بودجه ${editing?.name ?? ""}`}
+        sheetClassName="budget-editor-sheet"
       >
         <fieldset className="budget-fields" disabled={busy}>
         <div className="form-grid" style={{ marginTop: 8 }}>
+          <div className="form-row full"><label>دستهٔ هزینه</label>
+            <Select value={editing?.id ?? ""} onChange={id => { const cat = expenseCats.find(item => item.id === id); if (cat) openEdit(cat); }}
+              aria-label="دستهٔ بودجه" options={expenseCats.map(cat => ({ value: cat.id, label: cat.name }))} />
+          </div>
           <div className="form-row full">
             <div className="form-row">
               <label htmlFor={amountId}>مبلغ بودجه ماهانه</label>
@@ -447,6 +580,7 @@ export function BudgetsPage() {
             </p>
           </div>
         </div>
+        {snapshot && snapshot.amount > 0 ? <p className="budget-stored-amount">بودجهٔ ثبت‌شده: {formatAmount(toDisplay(snapshot.amount, currency))} {currencyDisplayLabel(currency)}</p> : null}
         {notice ? <p className="budget-save-notice" role="alert">{notice}</p> : null}
 
         {/* رد شدن از سقف ماهانه — پیشنهاد بالا بردن سقف به‌جای رد کردن */}
@@ -456,7 +590,7 @@ export function BudgetsPage() {
               با این مبلغ، مجموع بودجه‌بندی دسته‌ها به{" "}
               {formatAmount(toDisplay(overflow, currency))} {currencyDisplayLabel(currency)} می‌رسد و
               از سقف بودجه ماهانه‌تان (
-              {formatAmount(toDisplay(monthlyCap, currency))} {currencyDisplayLabel(currency)}) بیشتر
+              {formatAmount(toDisplay(snapshot?.cap ?? monthlyCap, currency))} {currencyDisplayLabel(currency)}) بیشتر
               می‌شود. اگر می‌خواهید، سقف را روی همین مجموع می‌گذاریم.
             </p>
             <button
@@ -470,12 +604,18 @@ export function BudgetsPage() {
           </div>
         ) : null}
 
+        {deleteConfirm ? <div className="budget-delete-confirm" role="alert">
+          <p>این بودجه حذف شود؟ هزینه‌های ثبت‌شده حفظ می‌شوند و در بخش هزینه‌های بدون بودجه نمایش داده می‌شوند.</p>
+          <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setDeleteConfirm(false)}>بازگشت به ویرایش</button>
+            <button type="button" className="btn-primary danger" onClick={() => void removeBudget()}>تأیید حذف بودجه</button></div>
+        </div> : null}
+
         <div className="modal-actions">
           {budgetMap.get(editing?.id ?? "") ? (
             <button
               className="btn-secondary danger-text"
               disabled={busy}
-              onClick={() => void removeBudget()}
+              onClick={() => setDeleteConfirm(true)}
             >
               حذف
             </button>
@@ -485,12 +625,25 @@ export function BudgetsPage() {
           </button>
           <button
             className="btn-primary"
-            disabled={busy}
+            disabled={busy || deleteConfirm || budgetDataStatus !== "ready"}
             onClick={() => void save()}
           >
             {busy ? "در حال ذخیره…" : "ذخیره"}
           </button>
         </div>
+        </fieldset>
+      </Modal>
+      <Modal open={capOpen} onClose={() => { if (!writing.current) setCapOpen(false); }} title="سقف بودجهٔ ماهانه" sheetClassName="budget-cap-sheet">
+        <fieldset className="budget-fields" disabled={busy}>
+          <div className="form-row"><label>سقف ماهانهٔ خانواده</label>
+            <div className="amt-field"><TextInput value={capStr} onChange={value => { setCapStr(normalizeExpressionInput(value)); setCapNotice(""); }}
+              dir="ltr" inputMode="numeric" aria-label="سقف بودجهٔ ماهانه" /><span className="cur-suffix">{currencyDisplayLabel(currency)}</span></div>
+          </div>
+          <p className="modal-sub">این سقف برای هر ماه شمسی تکرار می‌شود. صفر یعنی سقف ماهانه تعیین نشده است.</p>
+          <p className="budget-stored-amount">مجموع بودجهٔ دسته‌ها: {formatAmount(toDisplay(capSnapshot?.total ?? totals.budgetSum, currency))} {currencyDisplayLabel(currency)}</p>
+          {capNotice ? <p className="budget-save-notice" role="alert">{capNotice}</p> : null}
+          <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setCapOpen(false)}>انصراف</button>
+            <button type="button" className="btn-primary" disabled={budgetDataStatus !== "ready"} onClick={() => void saveCap()}>{busy ? "در حال ذخیره…" : "ذخیره سقف"}</button></div>
         </fieldset>
       </Modal>
     </section>

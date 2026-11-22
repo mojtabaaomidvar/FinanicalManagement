@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
@@ -132,8 +134,9 @@ def set_category_budget(
 )
 def delete_category_budget(
     category: str,
+    expected_amount: Decimal | None = None,
     member: Member = Depends(get_tenant_member),
     db: Session = Depends(get_db),
 ) -> Response:
-    category_service.delete_category_budget(db, member, category)
+    category_service.delete_category_budget(db, member, category, expected_amount)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

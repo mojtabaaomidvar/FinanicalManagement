@@ -6,6 +6,7 @@
 import type {
   CategoryBudget,
   CategoryBudgetRepository,
+  CategoryBudgetWriteOptions,
 } from "@/domain/category/category-budget.types";
 import type { RestClient } from "@/infrastructure/api/restClient";
 import { mapCategoryBudget, type CategoryBudgetRow } from "./mappers";
@@ -19,17 +20,19 @@ export class SupabaseCategoryBudgetRepository implements CategoryBudgetRepositor
     return (rows ?? []).map(mapCategoryBudget);
   }
 
-  async set(category: string, amount: number): Promise<CategoryBudget> {
+  async set(category: string, amount: number, options?: CategoryBudgetWriteOptions): Promise<CategoryBudget> {
     const row = await this.client.post<CategoryBudgetRow>("/category-budgets", {
       category,
       amount,
+      ...(options ? { monthly_cap: options.monthlyCap, expected_amount: options.expectedAmount,
+        expected_monthly_cap: options.expectedMonthlyCap, expected_budget_total: options.expectedBudgetTotal } : {}),
     });
     return mapCategoryBudget(row);
   }
 
-  async remove(category: string): Promise<void> {
+  async remove(category: string, expectedAmount?: number): Promise<void> {
     await this.client.del<void>(
-      `/category-budgets/${encodeURIComponent(category)}`,
+      `/category-budgets/${encodeURIComponent(category)}${expectedAmount === undefined ? "" : `?expected_amount=${expectedAmount}`}`,
     );
   }
 }

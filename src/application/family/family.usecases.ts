@@ -120,8 +120,10 @@ export class AddMemberByManagerUseCase {
 /** سقف بودجه ماهانه خانواده — از v5.8 فقط بودجه (واحد پول و تم شخصی شدند) */
 export class SetMonthlyBudgetUseCase {
   constructor(private readonly repo: FamilyRepository) {}
-  execute(budget: number): Promise<void> {
-    return this.repo.setMonthlyBudget(Math.max(0, Math.round(budget)));
+  execute(budget: number, snapshot?: { budget: number; total: number }): Promise<void> {
+    if (!Number.isFinite(budget)) throw new AppError("INVALID_TX", "سقف بودجه معتبر نیست");
+    const value = Math.max(0, Math.round(budget));
+    return snapshot ? this.repo.setMonthlyBudget(value, snapshot) : this.repo.setMonthlyBudget(value);
   }
 }
 

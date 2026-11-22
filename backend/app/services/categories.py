@@ -19,6 +19,7 @@ set/delete_category_budget قدیمی با «همان» کدهای خطا:
 from __future__ import annotations
 
 import uuid
+from decimal import Decimal
 
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, select
@@ -27,12 +28,13 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
 from app.models.category import CategoryBudget, CustomCategory, Subcategory
-from app.models.family import Member
+from app.models.family import Family, Member
 from app.models.transaction import Transaction
 from app.schemas.data import CategoryBudgetSet, CustomCategoryCreate, SubcategoryCreate
 from app.services.common import is_admin
 
 _MAX_BUDGET = 999999999999  # ۱۲ نُه — هم‌سان با set_category_budget قدیمی
+_MAX_MONTHLY_BUDGET = Decimal("9999999999999.99")
 
 
 def list_subcategories(db: Session, family_id: uuid.UUID) -> list[Subcategory]:
@@ -141,6 +143,7 @@ def delete_custom_category(
 ) -> None:
     """حذف دستهٔ سفارشی. اگر در تراکنشی به‌کار رفته باشد → CATEGORY_IN_USE؛
     وگرنه زیردسته‌ها و بودجه‌های وابسته (کلید = id::text) هم پاک می‌شوند."""
+    db.execute(select(Family).where(Family.id == family_id).with_for_update()).scalar_one()
     row = db.execute(
         select(CustomCategory).where(
             CustomCategory.id == category_id, CustomCategory.family_id == family_id
@@ -184,6 +187,55 @@ def set_category_budget(
         raise AppError("INVALID_CATEGORY", "دسته نامعتبر است.", 422)
     if req.amount is None or req.amount <= 0 or req.amount > _MAX_BUDGET:
         raise AppError("INVALID_AMOUNT", "مبلغ بودجه نامعتبر است.", 422)
+    if req.monthly_cap is not None and (
+        req.monthly_cap < 0 or req.monthly_cap > _MAX_MONTHLY_BUDGET
+    ):
+        raise AppError("INVALID_AMOUNT", "سقف بودجه نامعتبر است.", 422)
+    family = db.execute(
+        select(Family)
+        .where(Family.id == actor.family_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    ).scalar_one()
+    rows = list(
+        db.execute(
+            select(CategoryBudget)
+            .where(CategoryBudget.family_id == actor.family_id)
+            .execution_options(populate_existing=True)
+        ).scalars()
+    )
+    previous = next((row.amount for row in rows if row.category == category), Decimal(0))
+    total = sum((row.amount for row in rows), Decimal(0))
+    cap = family.budget or Decimal(0)
+    already_applied = previous == req.amount and (req.monthly_cap is None or req.monthly_cap == cap)
+    if not already_applied and (
+        (req.expected_amount is not None and req.expected_amount != previous)
+        or (req.expected_monthly_cap is not None and req.expected_monthly_cap != cap)
+        or (req.expected_budget_total is not None and req.expected_budget_total != total)
+    ):
+        raise AppError(
+            "CONFLICT", "بودجه تغییر کرده است؛ مقادیر جدید را بررسی و دوباره ذخیره کنید.", 409
+        )
+    projected = total - previous + req.amount
+    target_cap = cap if req.monthly_cap is None else req.monthly_cap
+    checked_write = any(
+        value is not None
+        for value in (
+            req.monthly_cap,
+            req.expected_amount,
+            req.expected_monthly_cap,
+            req.expected_budget_total,
+        )
+    )
+    if (
+        checked_write
+        and target_cap > 0
+        and projected > target_cap
+        and (projected > total or req.monthly_cap is not None)
+    ):
+        raise AppError("BUDGET_CAP_EXCEEDED", "مجموع بودجهٔ دسته‌ها از سقف ماهانه بیشتر می‌شود.", 409)
+    if req.monthly_cap is not None:
+        family.budget = req.monthly_cap
     db.execute(
         pg_insert(CategoryBudget)
         .values(family_id=actor.family_id, category=category, amount=req.amount)
@@ -201,7 +253,12 @@ def set_category_budget(
     ).scalar_one()
 
 
-def delete_category_budget(db: Session, actor: Member, category: str | None) -> None:
+def delete_category_budget(
+    db: Session,
+    actor: Member,
+    category: str | None,
+    expected_amount: Decimal | None = None,
+) -> None:
     """حذف سقف بودجهٔ یک دسته — فقط مدیر. کلید «رشتهٔ دسته» است و مثل آینهٔ
     set (upsert) بی‌اثرپذیر (idempotent) است؛ نبود بودجه خطا نمی‌دهد."""
     if not is_admin(actor):
@@ -209,6 +266,16 @@ def delete_category_budget(db: Session, actor: Member, category: str | None) -> 
     cat = (category or "").strip()
     if not cat:
         raise AppError("INVALID_CATEGORY", "دسته نامعتبر است.", 422)
+    db.execute(select(Family).where(Family.id == actor.family_id).with_for_update()).scalar_one()
+    current = db.execute(
+        select(CategoryBudget)
+        .where(CategoryBudget.family_id == actor.family_id, CategoryBudget.category == cat)
+        .execution_options(populate_existing=True)
+    ).scalar_one_or_none()
+    if current is not None and expected_amount is not None and current.amount != expected_amount:
+        raise AppError(
+            "CONFLICT", "بودجه تغییر کرده است؛ پیش از حذف، مقدار جدید را بررسی کنید.", 409
+        )
     db.execute(
         sa_delete(CategoryBudget).where(
             CategoryBudget.family_id == actor.family_id,

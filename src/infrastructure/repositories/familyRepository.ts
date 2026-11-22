@@ -71,9 +71,10 @@ export class SupabaseFamilyRepository implements FamilyRepository {
     };
   }
 
-  async setMonthlyBudget(budget: number): Promise<void> {
+  async setMonthlyBudget(budget: number, snapshot?: { budget: number; total: number }): Promise<void> {
     /* واحد پول و تم از v5.8 شخصی شدند؛ اینجا فقط سقف بودجهٔ خانواده به‌روز می‌شود. */
-    await this.client.patch<void>("/family/settings", { budget });
+    await this.client.patch<void>("/family/settings", { budget,
+      ...(snapshot ? { expected_budget: snapshot.budget, expected_budget_total: snapshot.total } : {}) });
   }
 
   async removeMember(memberId: string): Promise<void> {

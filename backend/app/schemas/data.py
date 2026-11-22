@@ -479,6 +479,10 @@ class CustomCategoryCreate(BaseModel):
 class CategoryBudgetSet(BaseModel):
     category: str | None = None
     amount: Decimal | None = None
+    monthly_cap: Decimal | None = None
+    expected_amount: Decimal | None = None
+    expected_monthly_cap: Decimal | None = None
+    expected_budget_total: Decimal | None = None
 
 
 class SmsItem(BaseModel):
@@ -584,6 +588,9 @@ class EventCreate(BaseModel):
 class FamilySettingsUpdate(BaseModel):
     """فقط budget اعمال می‌شود؛ currency/dark برای سازگاری امضا پذیرفته و
     عمداً نادیده گرفته می‌شوند (واحد پول/تم اکنون شخصی‌اند)."""
+
+    expected_budget: Decimal | None = None
+    expected_budget_total: Decimal | None = None
 
     budget: Decimal | None = None
     currency: str | None = None

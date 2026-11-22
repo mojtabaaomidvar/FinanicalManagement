@@ -6,14 +6,23 @@ import { toEn } from "@/shared/lib/digits";
 import { fromDisplay } from "@/shared/lib/currency";
 
 export const MAX_CATEGORY_BUDGET = 999_999_999_999;
+export const MAX_MONTHLY_BUDGET = 9_999_999_999_999;
 
 /** Parse the whole-unit budget contract without discarding unsupported input. */
 export function parseCategoryBudgetAmount(raw: string, currency: string): number | null {
+  return parseBudgetAmount(raw, currency, MAX_CATEGORY_BUDGET, false);
+}
+
+export function parseMonthlyBudgetAmount(raw: string, currency: string): number | null {
+  return parseBudgetAmount(raw, currency, MAX_MONTHLY_BUDGET, true);
+}
+
+function parseBudgetAmount(raw: string, currency: string, limit: number, allowZero: boolean): number | null {
   const normalized = toEn(raw).replace(/[,٬،]/g, "").trim();
   if (!/^\d+$/.test(normalized)) return null;
   const base = fromDisplay(Number(normalized), currency);
   const amount = Math.round(base);
-  return Number.isFinite(base) && base <= MAX_CATEGORY_BUDGET && amount > 0 ? amount : null;
+  return Number.isFinite(base) && base <= limit && (amount > 0 || (allowZero && base === 0)) ? amount : null;
 }
 
 export type BudgetLevel = "ok" | "warn" | "over";

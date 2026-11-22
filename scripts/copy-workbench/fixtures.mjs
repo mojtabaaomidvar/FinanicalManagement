@@ -452,7 +452,17 @@ export function handlePreviewRequest(session, request) {
   if (path === '/members/me' && method === 'PATCH') { Object.assign(data.actor, clone(body)); return response(data.actor); }
   if (path === '/members/me/theme') { data.actor.theme = body.theme; return response(null, 204); }
   if (path === '/members/me/currency') { data.actor.currency = body.currency; return response(data.actor); }
-  if (path === '/family/settings') { data.family.budget = Number(body.budget || 0); return response(null, 204); }
+  if (path === '/family/settings') {
+    if (!managersOnly(session)) return error('FORBIDDEN', 'فقط مدیر خانواده مجاز است.', 403);
+    const value = Math.max(0, Number(body.budget || 0));
+    const total = data.categoryBudgets.reduce((sum, row) => sum + Number(row.amount), 0);
+    if (value !== Number(data.family.budget) && (
+      (body.expected_budget != null && Number(body.expected_budget) !== Number(data.family.budget)) ||
+      (body.expected_budget_total != null && Number(body.expected_budget_total) !== total))) {
+      return error('CONFLICT', 'بودجه تغییر کرده است؛ سقف و مجموع دسته‌ها را دوباره بررسی کنید.', 409);
+    }
+    data.family.budget = value; return response(null, 204);
+  }
   if (/^\/members\/[^/]+\/relation$/.test(path)) {
     const member = data.members.find(item => item.id === path.split('/')[2]);
     if (!member) return error('NOT_FOUND', 'عضو نمونه یافت نشد.', 404);
@@ -687,10 +697,33 @@ export function handlePreviewRequest(session, request) {
   }
   const segments = path.split('/').filter(Boolean), collection = collectionKeys[segments[0]];
   if (path === '/category-budgets' && method === 'POST') {
+    if (!managersOnly(session)) return error('FORBIDDEN', 'فقط مدیر خانواده مجاز است.', 403);
     const existing = data.categoryBudgets.find(item => item.category === body.category);
-    if (existing) { existing.amount = Number(body.amount); return response(existing); }
+    const amount = Number(body.amount), previous = Number(existing?.amount ?? 0), cap = Number(data.family.budget);
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 999999999999) return error('INVALID_AMOUNT', 'مبلغ بودجه نامعتبر است.', 422);
+    const total = data.categoryBudgets.reduce((sum, item) => sum + Number(item.amount), 0);
+    const target = body.monthly_cap == null ? cap : Number(body.monthly_cap);
+    const same = amount === previous && (body.monthly_cap == null || target === cap);
+    if (!same && ((body.expected_amount != null && Number(body.expected_amount) !== previous) ||
+      (body.expected_monthly_cap != null && Number(body.expected_monthly_cap) !== cap) ||
+      (body.expected_budget_total != null && Number(body.expected_budget_total) !== total))) {
+      return error('CONFLICT', 'بودجه تغییر کرده است؛ مقادیر جدید را بررسی و دوباره ذخیره کنید.', 409);
+    }
+    const checked = [body.monthly_cap, body.expected_amount, body.expected_monthly_cap, body.expected_budget_total].some(value => value != null);
+    const projected = total - previous + amount;
+    if (checked && target > 0 && projected > target && (projected > total || body.monthly_cap != null)) {
+      return error('BUDGET_CAP_EXCEEDED', 'مجموع بودجهٔ دسته‌ها از سقف ماهانه بیشتر می‌شود.', 409);
+    }
+    if (body.monthly_cap != null) data.family.budget = target;
+    if (existing) { existing.amount = amount; return response(existing); }
+    const created = { id: randomUUID(), family_id: data.family.id, category: body.category, amount, created_at: new Date().toISOString() };
+    data.categoryBudgets.push(created); return response(created);
   }
   if (segments[0] === 'category-budgets' && segments.length === 2 && method === 'DELETE') {
+    if (!managersOnly(session)) return error('FORBIDDEN', 'فقط مدیر خانواده مجاز است.', 403);
+    const current = data.categoryBudgets.find(item => item.category === segments[1]);
+    const expected = url.searchParams.get('expected_amount');
+    if (current && expected !== null && Number(current.amount) !== Number(expected)) return error('CONFLICT', 'بودجه تغییر کرده است؛ پیش از حذف، مقدار جدید را بررسی کنید.', 409);
     data.categoryBudgets = data.categoryBudgets.filter(item => item.category !== segments[1]); return response(null, 204);
   }
   if (collection && segments.length === 1) {

@@ -15,7 +15,7 @@ const R = 26;
 const CIRC = 2 * Math.PI * R;
 
 export function BudgetCirclesWidget({ onManage }: { onManage: () => void }) {
-  const { cur, txs, budgets, customCategories } = useApp();
+  const { cur, txs, budgets, customCategories, budgetDataStatus } = useApp();
   const [jy, jm] = today();
 
   const resolve = useMemo(
@@ -49,6 +49,9 @@ export function BudgetCirclesWidget({ onManage }: { onManage: () => void }) {
         </button>
       </div>
 
+      {budgetDataStatus !== "ready" ? <p className="budget-circles-hint" role="status">
+        {budgetDataStatus === "loading" ? "در حال دریافت بودجه‌ها…" : "اطلاعات بودجه‌ها در دسترس نیست؛ صفحهٔ بودجه را برای تلاش دوباره باز کنید."}
+      </p> : <>
       <div className="budget-circles">
         {items.map((it) => (
           <button
@@ -96,6 +99,7 @@ export function BudgetCirclesWidget({ onManage }: { onManage: () => void }) {
           برای هر دسته هزینه یک سقف ماهانه تعیین کنید تا مصرفش را همین‌جا ببینید
         </p>
       ) : null}
+      </>}
     </section>
   );
 }

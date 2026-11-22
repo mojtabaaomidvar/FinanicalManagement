@@ -8,6 +8,11 @@ import type {
 } from "./family.types";
 import type { HomePreferences, HomePreferencesSnapshot } from "@/domain/home/homePreferences.types";
 
+export interface MonthlyBudgetSnapshot {
+  budget: number;
+  total: number;
+}
+
 export interface FamilyRepository {
   getFamily(): Promise<Family>;
   getMembers(): Promise<Member[]>;
@@ -17,7 +22,7 @@ export interface FamilyRepository {
   /** سقف بودجه ماهانه خانواده — فقط مدیر خانواده.
       از v5.8 واحد پول و تم اینجا نیستند؛ هر دو شخصی شده‌اند
       (setCurrency و setTheme). */
-  setMonthlyBudget(budget: number): Promise<void>;
+  setMonthlyBudget(budget: number, snapshot?: MonthlyBudgetSnapshot): Promise<void>;
   removeMember(memberId: string): Promise<void>;
   /** ویرایش پروفایل خود کاربر */
   updateOwnProfile(input: ProfileInput): Promise<Member>;

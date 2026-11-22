@@ -20,6 +20,7 @@ from app.core.security import hash_password
 from app.db.rls import bind_family_to_session
 from app.models.auth import FamilyInvite
 from app.models.auth import Session as SessionModel
+from app.models.category import CategoryBudget
 from app.models.family import Family, Member
 from app.models.join_request import JoinRequest
 from app.schemas.auth import (
@@ -440,10 +441,30 @@ def update_family_settings(db: Session, owner: Member, req: FamilySettingsUpdate
     """
     if not is_admin(owner):
         raise AppError("FORBIDDEN", "فقط مدیر خانواده مجاز است.", 403)
-    family = family_of(db, owner.family_id)
+    family = db.execute(
+        select(Family)
+        .where(Family.id == owner.family_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    ).scalar_one()
     val = req.budget if req.budget is not None else Decimal(0)
     if val < 0:
         val = Decimal(0)
+    if val > Decimal("9999999999999.99"):
+        raise AppError("INVALID_AMOUNT", "سقف بودجه از محدودهٔ مجاز بیشتر است.", 422)
+    if val != (family.budget or Decimal(0)):
+        total = db.execute(
+            select(func.coalesce(func.sum(CategoryBudget.amount), 0)).where(
+                CategoryBudget.family_id == owner.family_id
+            )
+        ).scalar_one()
+        if (
+            req.expected_budget is not None
+            and req.expected_budget != (family.budget or Decimal(0))
+        ) or (req.expected_budget_total is not None and req.expected_budget_total != total):
+            raise AppError(
+                "CONFLICT", "بودجه تغییر کرده است؛ سقف و مجموع دسته‌ها را دوباره بررسی کنید.", 409
+            )
     family.budget = val
     db.commit()
 

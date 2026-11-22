@@ -72,6 +72,7 @@ interface AppState {
   taskNotificationPrefs: OfflineTaskNotificationPrefs;
   refreshTasks: () => Promise<ShoppingSyncStatus>;
   budgets: CategoryBudget[];
+  budgetDataStatus: "loading" | "ready" | "error";
   /** واحد پول نمایشی کاربر فعلی (v5.8) — شخصی است، نه خانوادگی.
       تنها منبع مجاز برای toDisplay/fromDisplay در سراسر UI. */
   cur: string;
@@ -115,6 +116,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [taskNotificationPrefs, setTaskNotificationPrefs] = useState(defaultTaskPrefs);
   const [budgets, setBudgets] = useState<CategoryBudget[]>([]);
+  const [budgetDataStatus, setBudgetDataStatus] = useState<"loading" | "ready" | "error">("loading");
   const [useCases, setUseCases] = useState<UseCases | null>(null);
   const [offlineEngine, setOfflineEngine] = useState<ShoppingOfflineEngine | null>(null);
   const [shoppingSync, setShoppingSync] = useState<ShoppingSyncStatus>(emptySync);
@@ -216,6 +218,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const requestScope = `${actor.phase}:${actor.memberId ?? ""}:${actor.familyId ?? ""}`;
       setHomeSnapshot({ scope: requestScope, loading: true, incomplete: false });
       setBillDataStatus("loading");
+      setBudgetDataStatus("loading");
       let incomplete = !offlineEngine;
       setEvents((rows) => rows.filter((row) => row.kind !== "activity"));
       const stillCurrent = () => mounted.current && dataGeneration.current === request && navigator.onLine !== false
@@ -263,8 +266,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             if (!stillCurrent()) return [];
             return useCases.listEvents.execute();
           }),
-          /* RPC جدید — تا زمان اجرای schema.sql روی سرور ممکن است نباشد */
-          useCases.listCategoryBudgets.execute().catch(() => []),
+          /* A failed budget read must not look like an empty allocation. */
+          useCases.listCategoryBudgets.execute().catch(() => { incomplete = true; return null; }),
           /* Keep other modules available while exposing a distinct bill read
              failure. Previously fetched bills must not become a false empty list. */
           useCases.listBills.execute().catch(() => { incomplete = true; return null; }),
@@ -280,7 +283,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setSubcategories(subRows);
         setCustomCategories(customCatRows);
         setEvents(eventRows);
-        setBudgets(budgetRows);
+        if (budgetRows !== null) setBudgets(budgetRows);
+        setBudgetDataStatus(budgetRows === null ? "error" : "ready");
         if (billRows !== null) setBills(billRows);
         setBillDataStatus(billRows === null ? "error" : "ready");
         setShoppingLists(shoppingRows);
@@ -290,7 +294,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (stillCurrent() && current && !current.offline) { setMember(current.member); setOfflineSession(false); }
       } catch (error) {
         incomplete = true;
-        if (stillCurrent()) setBillDataStatus("error");
+        if (stillCurrent()) { setBillDataStatus("error"); setBudgetDataStatus("error"); }
         throw error;
       } finally {
         if (stillCurrent()) setHomeSnapshot({ scope: requestScope, loading: false, incomplete });
@@ -353,6 +357,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       customCategories,
       events,
       budgets,
+      budgetDataStatus: homeRestricted ? "error" : homeSnapshot?.scope === homeScope ? budgetDataStatus : "loading",
       bills,
       billDataStatus: homeRestricted ? "error" : homeSnapshot?.scope === homeScope ? billDataStatus : "loading",
       shoppingLists,
@@ -395,6 +400,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setCustomCategories([]);
         setEvents([]);
         setBudgets([]);
+        setBudgetDataStatus("loading");
         setBills([]);
         setBillDataStatus("loading");
         setShoppingLists([]); setInventory([]); setTasks([]); setTaskNotificationPrefs(defaultTaskPrefs); setShoppingSync(emptySync); setOfflineSession(false);
@@ -414,6 +420,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       budgets,
       bills,
       billDataStatus,
+      budgetDataStatus,
       homeRestricted,
       homeScope,
       homeSnapshot,

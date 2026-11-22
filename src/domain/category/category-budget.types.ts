@@ -11,9 +11,16 @@ export interface CategoryBudget {
   createdAt: string;
 }
 
+export interface CategoryBudgetWriteOptions {
+  monthlyCap?: number;
+  expectedAmount?: number;
+  expectedMonthlyCap?: number;
+  expectedBudgetTotal?: number;
+}
+
 export interface CategoryBudgetRepository {
   list(): Promise<CategoryBudget[]>;
   /** درج/به‌روزرسانی بودجه یک دسته (upsert) */
-  set(category: string, amount: number): Promise<CategoryBudget>;
-  remove(category: string): Promise<void>;
+  set(category: string, amount: number, options?: CategoryBudgetWriteOptions): Promise<CategoryBudget>;
+  remove(category: string, expectedAmount?: number): Promise<void>;
 }

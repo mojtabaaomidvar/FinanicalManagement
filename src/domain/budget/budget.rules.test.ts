@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { budgetStatus, monthCategorySpend, spendCapacity, parseCategoryBudgetAmount, MAX_CATEGORY_BUDGET } from "./budget.rules";
+import { budgetStatus, monthCategorySpend, spendCapacity, parseCategoryBudgetAmount, parseMonthlyBudgetAmount, MAX_CATEGORY_BUDGET, MAX_MONTHLY_BUDGET } from "./budget.rules";
 import type { Transaction } from "../transaction/transaction.types";
+
+describe("monthly budget amount", () => {
+  it("accepts explicit zero while keeping blank and invalid input distinct", () => {
+    expect(parseMonthlyBudgetAmount("۰", "تومان")).toBe(0);
+    for (const raw of ["", "-1", "1.5", "4+", "متن"]) expect(parseMonthlyBudgetAmount(raw, "تومان")).toBeNull();
+  });
+  it("uses the family column limit and the existing rial conversion", () => {
+    expect(parseMonthlyBudgetAmount(String(MAX_MONTHLY_BUDGET), "تومان")).toBe(MAX_MONTHLY_BUDGET);
+    expect(parseMonthlyBudgetAmount(String(MAX_MONTHLY_BUDGET + 1), "تومان")).toBeNull();
+    expect(parseMonthlyBudgetAmount("۲۰,۰۰۰,۰۰۰", "ریال")).toBe(2_000_000);
+    expect(parseMonthlyBudgetAmount("1", "ریال")).toBeNull();
+  });
+});
 
 function tx(partial: Partial<Transaction>): Transaction {
   return {
