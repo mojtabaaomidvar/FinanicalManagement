@@ -1,6 +1,11 @@
 import { supportRequest } from "@/infrastructure/api/restClient";
 
-export type SupportPage = "overview" | "users" | "technical" | "usage";
+export type SupportPage = "overview" | "users" | "technical" | "usage" | "catalog";
+export interface CatalogProposal {
+  id: string; title: string; category: string; unit: string | null;
+  status: "pending" | "approved" | "rejected"; submitted_at: string; reviewed_at: string | null;
+}
+export interface CatalogProposals { items: CatalogProposal[]; total: number; offset: number; limit: number }
 export type RegistrationState = "registered" | "introduced" | "managed";
 export type MembershipState = "pending" | "active" | "rejected" | "expired" | "suspended" | "removed";
 export interface SupportUser {
@@ -41,4 +46,7 @@ export const supportApi = {
     supportRequest<SupportUsers>("/users?" + new URLSearchParams({ ...query, offset: String(query.offset), limit: "25" })),
   technical: () => supportRequest<SupportTechnical>("/technical"),
   usage: (days: number) => supportRequest<SupportUsage>(`/usage?days=${days}`),
+  catalog: (status: string, offset: number) => supportRequest<CatalogProposals>(
+    "/catalog?" + new URLSearchParams({ status, offset: String(offset), limit: "25" })),
+  reviewCatalog: (id: string, status: "approved" | "rejected") => supportRequest<CatalogProposal>("/catalog/review", { id, status }),
 };

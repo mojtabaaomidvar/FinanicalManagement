@@ -37,6 +37,34 @@ test('support preview exposes empty, failed and delayed display states', () => {
   assert.equal(request(session, '/auth/join', 'POST', {}).body.support_code.length, 36);
 });
 
+test('catalog preview reviews anonymous proposals without publishing or modifying household data', () => {
+  const session = create('auth-login', 'support'), before = structuredClone(session.data);
+  assert.equal(request(session, '/support/catalog').status, 401);
+  assert.equal(request(session, '/support/catalog/review', 'POST', {}).status, 401);
+  request(session, '/support/login', 'POST', { username: 'support', password: 'fixture' });
+  const list = request(session, '/support/catalog').body;
+  assert.equal(list.total, 1);
+  assert.deepEqual(Object.keys(list.items[0]).sort(), ['category','id','reviewed_at','status','submitted_at','title','unit']);
+  const body = { id: list.items[0].id, status: 'approved' };
+  assert.equal(request(session, '/support/catalog/review', 'POST', body).body.status, 'approved');
+  assert.equal(request(session, '/support/catalog/review', 'POST', body).status, 200);
+  assert.equal(request(session, '/support/catalog/review', 'POST', { ...body, status: 'rejected' }).status, 409);
+  assert.equal(request(session, '/support/catalog').body.total, 0);
+  assert.equal(request(session, '/support/catalog?status=approved').body.total, 2);
+  assert.deepEqual({ ...session.data, requests: [] }, before);
+});
+
+test('catalog preview includes empty, loading, read/write errors and review conflict states', () => {
+  assert.deepEqual(request(create('empty-owner', 'support'), '/support/catalog').body.items, []);
+  assert.equal(request(create('loading', 'support'), '/support/catalog').delayMs, 20000);
+  assert.equal(request(create('errors', 'support'), '/support/catalog').status, 503);
+  const full = create('full-owner', 'support');
+  const proposal = request(full, '/support/catalog').body.items[0];
+  for (const [scenario, code] of [['save-errors',503], ['conflict',409]]) {
+    assert.equal(request(create(scenario, 'support'), '/support/catalog/review', 'POST', { id:proposal.id, status:'rejected' }).status, code);
+  }
+});
+
 test('SMS import remains pending and each actor can only read or change own messages', () => {
   for (const role of ['full-owner', 'full-admin', 'full-member']) {
     const session = create(role, 'sms');
@@ -219,7 +247,8 @@ test('sample data activates pending, overdue, completed, unknown-date and paid s
   assert.deepEqual(new Set(data.bills.map(bill => bill.state)), new Set(['unpaid', 'paid', 'cancelled']));
   assert.deepEqual(new Set(data.activities.map(item => item.status)), new Set(['planned', 'done', 'cancelled']));
   assert.deepEqual(new Set(data.vehicleServices.map(item => item.cost_status)), new Set(['recorded', 'none', 'unavailable']));
-  assert.ok(data.inventory.some(item => item.quantity < item.threshold));
+  assert.ok(data.inventory.some(item => item.quantity === 0));
+  assert.ok(data.inventory.every(item => !('threshold' in item)));
   assert.ok(data.lists.some(list => !list.items.length));
   assert.ok(data.lists[0].items.some(item => item.price === null));
 });

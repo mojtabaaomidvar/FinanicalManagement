@@ -3,9 +3,7 @@
 تصمیم‌های معماری در `alembic/versions/0011_shopping.py` مستند است. آن‌چه
 هنگامِ خواندنِ این فایل باید در ذهن باشد:
 
-**۱) `threshold == 0` یعنی «آستانه ندارد».** نه کم شمرده می‌شود نه اعلان
-می‌دهد. پس `is_low` هرگز برای قلمی که کاربر آستانه‌اش را نگذاشته true
-نمی‌شود — وگرنه همهٔ اقلامِ تمام‌شده‌ای که اصلاً مهم نیستند زنگ می‌زدند.
+**۱) دسته مستقل از مقدار است.** انبار آستانه و اعلان کمبود ندارد.
 
 **۲) مرتب‌سازی در پایتون است، نه `ORDER BY`.** همان دلیلِ `services/events.py`:
 SQLAlchemy در محیطِ وارسیِ من نصب نیست، پس یک `ORDER BY` با `CASE`
@@ -34,6 +32,7 @@ from app.models.family import Member
 from app.models.shopping import InventoryItem
 from app.schemas.data import InventoryOut, InventoryWrite
 from app.services.clock import utcnow
+from app.services import inventory_catalog
 from app.services.common import to_uuid
 
 _MAX_TITLE = 120
@@ -45,18 +44,13 @@ _MAX_QTY = Decimal("99999999")
 _CENT = Decimal("0.01")
 
 
-def is_low(row: InventoryItem) -> bool:
-    """آیا این قلم زیرِ آستانه است؟ آستانهٔ صفر یعنی «بی‌آستانه»."""
-    return row.threshold > 0 and row.quantity <= row.threshold
-
-
 def _out(row: InventoryItem) -> InventoryOut:
     return InventoryOut(
         id=str(row.id),
         title=row.title,
         unit=row.unit,
         quantity=row.quantity,
-        threshold=row.threshold,
+        category=row.category,
         note=row.note,
         created_by=str(row.created_by) if row.created_by else None,
         created_at=row.created_at,
@@ -101,6 +95,8 @@ def clean_number(
         num = Decimal(value).quantize(_CENT, rounding=ROUND_HALF_UP)
     except (InvalidOperation, ValueError, TypeError):
         raise AppError("INVALID_INPUT", f"{label} نامعتبر است.", 422) from None
+    if not num.is_finite():
+        raise AppError("INVALID_INPUT", f"{label} نامعتبر است.", 422)
     if num < minimum:
         # پیام به مرز بسته است، نه ثابت: برای `minimum=0` حرفِ درست «منفی
         # نباشد» است و برای تعدادِ قلم («حداقل ۰٫۰۱») «بزرگ‌تر از صفر».
@@ -112,12 +108,14 @@ def clean_number(
     return num
 
 
-def _prepare(req: InventoryWrite) -> dict:
+def _prepare(req: InventoryWrite, *, existing_category: str | None = None) -> dict:
+    title = clean_title(req.title)
     return {
-        "title": clean_title(req.title),
+        "title": title,
         "unit": clean_opt_text(req.unit, _MAX_UNIT, "واحد"),
         "quantity": clean_number(req.quantity, "موجودی"),
-        "threshold": clean_number(req.threshold, "آستانهٔ کمبود"),
+        "category": inventory_catalog.clean_category(
+            req.category if "category" in req.model_fields_set else existing_category, title),
         "note": clean_opt_text(req.note, _MAX_NOTE, "یادداشت"),
     }
 
@@ -134,6 +132,8 @@ def _get(db: Session, actor: Member, item_id: uuid.UUID) -> InventoryItem:
             InventoryItem.id == item_id,
             InventoryItem.family_id == actor.family_id,
         )
+        .with_for_update()
+        .execution_options(populate_existing=True)
     ).scalar_one_or_none()
     if row is None:
         raise AppError("NOT_FOUND", "قلم انبار یافت نشد.", 404)
@@ -162,7 +162,7 @@ def _assert_unique(
 
 # ── خواندن ───────────────────────────────────────────────────
 def list_for_family(db: Session, actor: Member) -> list[InventoryOut]:
-    """کم‌شده‌ها اول، بعد بقیه — هر گروه بر پایهٔ نام.
+    """اقلام بر پایهٔ نام، مستقل از مقدار موجودی.
 
     ترتیب در سرور تعیین می‌شود نه در UI، تا صفحهٔ انبار و زیرنویسِ کاشیِ
     هاب یک فهرستِ یکسان ببینند (همان قاعدهٔ `services/bills.py`).
@@ -172,7 +172,7 @@ def list_for_family(db: Session, actor: Member) -> list[InventoryOut]:
             select(InventoryItem).where(InventoryItem.family_id == actor.family_id)
         ).scalars()
     )
-    rows.sort(key=lambda r: (0 if is_low(r) else 1, r.title))
+    rows.sort(key=lambda r: r.title)
     return [_out(r) for r in rows]
 
 
@@ -182,6 +182,7 @@ def create(db: Session, actor: Member, req: InventoryWrite) -> InventoryOut:
     _assert_unique(db, actor.family_id, values["title"])
     row = InventoryItem(family_id=actor.family_id, created_by=actor.id, **values)
     db.add(row)
+    inventory_catalog.propose(db, title=row.title, category=row.category, unit=row.unit)
     db.commit()
     db.refresh(row)
     return _out(row)
@@ -191,11 +192,12 @@ def update(
     db: Session, actor: Member, item_id: uuid.UUID, req: InventoryWrite
 ) -> InventoryOut:
     row = _get(db, actor, item_id)
-    values = _prepare(req)
+    values = _prepare(req, existing_category=row.category)
     _assert_unique(db, actor.family_id, values["title"], exclude=row.id)
     for key, value in values.items():
         setattr(row, key, value)
     row.updated_at = utcnow()
+    inventory_catalog.propose(db, title=row.title, category=row.category, unit=row.unit)
     db.commit()
     db.refresh(row)
     return _out(row)
@@ -215,6 +217,8 @@ def adjust(
         step = Decimal(delta).quantize(_CENT, rounding=ROUND_HALF_UP)
     except (InvalidOperation, ValueError, TypeError):
         raise AppError("INVALID_INPUT", "مقدار نامعتبر است.", 422) from None
+    if not step.is_finite():
+        raise AppError("INVALID_INPUT", "مقدار نامعتبر است.", 422)
     if step == 0:
         return _out(row)
     if abs(step) > _MAX_QTY:
@@ -230,6 +234,19 @@ def adjust(
     db.commit()
     db.refresh(row)
     return _out(row)
+
+
+def lock_items_uncommitted(db: Session, family_id: uuid.UUID, item_ids: set[uuid.UUID]) -> None:
+    """Checkout locks shared stock in one order before applying any increments."""
+    if not item_ids:
+        return
+    list(db.scalars(
+        select(InventoryItem)
+        .where(InventoryItem.family_id == family_id, InventoryItem.id.in_(item_ids))
+        .order_by(InventoryItem.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    ))
 
 
 def bump_uncommitted(
@@ -248,6 +265,8 @@ def bump_uncommitted(
         select(InventoryItem).where(
             InventoryItem.id == item_id, InventoryItem.family_id == family_id
         )
+        .with_for_update()
+        .execution_options(populate_existing=True)
     ).scalar_one_or_none()
     if row is None:
         return

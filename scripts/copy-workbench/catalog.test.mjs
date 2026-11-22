@@ -40,6 +40,34 @@ test('display maps preserve stored preset values through English empty and repea
   });
 });
 
+test('all inventory section and subgroup labels stay editable without changing category keys', async () => {
+  const file = 'src/domain/inventory/inventory.labels.ts';
+  const source = (await readFile(new URL('../../src/domain/inventory/inventory.labels.ts', import.meta.url), 'utf8'))
+    .replace(/export const /g, 'const ') + '\nglobalThis.groups = INVENTORY_GROUP_LABELS; globalThis.sections = INVENTORY_SECTION_LABELS;';
+  const evaluate = source => {
+    const context = { exports:{} };
+    runInNewContext(ts.transpileModule(source, { compilerOptions: { target:ts.ScriptTarget.ES2022, module:ts.ModuleKind.CommonJS } }).outputText, context);
+    return { groups:context.groups, sections:context.sections };
+  };
+  const original = evaluate(source);
+  await workspace({ [file]:source }, async root => {
+    let catalog = await collectCatalog(root);
+    const ids = catalog.entries.map(entry => entry.id);
+    assert.equal(ids.length, 39);
+    for (const empty of [false, true, false]) {
+      const edits = await prepareChanges(root, catalog, { revision:catalog.revision, changes:catalog.entries.map((entry, index) =>
+        ({ id:entry.id, expectedText:entry.text, text:empty ? '' : `Category label ${index}` })) });
+      const changed = evaluate(edits[0].updated);
+      assert.deepEqual(Object.keys(changed.groups), Object.keys(original.groups));
+      assert.deepEqual(Object.keys(changed.sections), Object.keys(original.sections));
+      assert.ok(Object.values(changed.groups).every(label => empty ? label === '' : label.startsWith('Category label ')));
+      await writeFile(join(root, file), edits[0].updated, 'utf8');
+      catalog = await collectCatalog(root);
+      assert.deepEqual(catalog.entries.map(entry => entry.id), ids);
+    }
+  });
+});
+
 test('finds JSX body, visible attributes, error messages and labels while protecting data/conditions/comments', async () => {
   const source = [
     '// فقط توضیح خصوصی',

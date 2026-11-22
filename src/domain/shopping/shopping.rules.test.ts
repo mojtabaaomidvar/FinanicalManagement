@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   checkedOf,
   formatQty,
-  isLow,
   liveFormatQty,
   parseQty,
   queuedInventoryIds,
@@ -12,25 +11,9 @@ import {
   totalPending,
 } from "./shopping.rules";
 import type {
-  InventoryItem,
   ShoppingItem,
   ShoppingList,
 } from "./shopping.types";
-
-function stock(partial: Partial<InventoryItem>): InventoryItem {
-  return {
-    id: Math.random().toString(36).slice(2),
-    title: "شیر",
-    unit: null,
-    quantity: 0,
-    threshold: 0,
-    note: null,
-    createdBy: null,
-    createdAt: "2026-10-12T10:00:00Z",
-    updatedAt: "2026-10-12T10:00:00Z",
-    ...partial,
-  };
-}
 
 function item(partial: Partial<ShoppingItem>): ShoppingItem {
   return {
@@ -61,29 +44,6 @@ function list(items: ShoppingItem[], id = "l1"): ShoppingList {
     items,
   };
 }
-
-/* آستانهٔ صفر «بی‌آستانه» است، نه «همیشه کم». این تلهٔ اصلیِ ماژول است:
-   اگر صفر را مثلِ بقیهٔ اعداد حساب کنیم، هر قلمِ تازه‌ای که کاربر آستانه‌اش
-   را نگذاشته بی‌درنگ اعلان می‌دهد و مرکزِ اعلان بی‌مصرف می‌شود. همین قاعده
-   در backend/app/services/inventory.py::is_low هم هست. */
-describe("isLow — معنیِ آستانهٔ صفر", () => {
-  it("آستانهٔ صفر و موجودیِ صفر → کم نیست", () => {
-    expect(isLow(stock({ quantity: 0, threshold: 0 }))).toBe(false);
-  });
-
-  it("موجودی برابرِ آستانه → کم است (مرزِ شامل)", () => {
-    expect(isLow(stock({ quantity: 2, threshold: 2 }))).toBe(true);
-  });
-
-  it("یک واحد بالاتر از آستانه → کم نیست", () => {
-    expect(isLow(stock({ quantity: 3, threshold: 2 }))).toBe(false);
-  });
-
-  it("کسری هم درست مقایسه می‌شود", () => {
-    expect(isLow(stock({ quantity: 1.5, threshold: 2 }))).toBe(true);
-    expect(isLow(stock({ quantity: 2.5, threshold: 2 }))).toBe(false);
-  });
-});
 
 describe("sumPrice — قیمتِ نگفته صفر است، نه حذف", () => {
   it("فهرستِ خالی → صفر", () => {

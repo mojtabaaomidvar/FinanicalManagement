@@ -24,7 +24,6 @@ const HOME_PREFS: NotificationPrefs = {
     ...DEFAULT_NOTIFICATION_PREFS.domains,
     recurring: false,
     membership: false,
-    inventory: false,
     documents: false,
   },
   leadDays: {

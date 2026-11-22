@@ -99,8 +99,8 @@ const payloadKeys: Record<OfflineMutationKind, readonly string[]> = {
   "item.create": ["list_id", "title", "qty", "unit", "note", "inventory_item_id"],
   "item.update": ["title", "qty", "unit", "note", "inventory_item_id"],
   "item.check": ["checked"], "item.delete": [],
-  "inventory.create": ["title", "unit", "quantity", "threshold", "note"],
-  "inventory.update": ["title", "unit", "quantity", "threshold", "note"],
+  "inventory.create": ["title", "unit", "quantity", "category", "note"],
+  "inventory.update": ["title", "unit", "quantity", "category", "note"],
   "inventory.adjust": ["delta"], "inventory.delete": [],
   "task.create": ["title", "description", "assignee_id", "due_date"],
   "task.update": ["title", "description", "assignee_id", "due_date"],
@@ -118,19 +118,23 @@ function checkedPayload<K extends OfflineMutationKind>(kind: K, input: OfflinePa
     if (typeof result.title !== "string" || !result.title.trim()) throw new Error("نام را وارد کنید.");
     result.title = result.title.trim();
   }
-  for (const field of ["qty", "quantity", "threshold", "delta"]) {
+  for (const field of ["qty", "quantity", "delta"]) {
     const value = result[field];
     if (value !== undefined && value !== null && (typeof value !== "number" || !Number.isFinite(value))) {
       throw new Error("مقدار باید عدد معتبر باشد.");
     }
     if (typeof value === "number" && ((field === "qty" && value <= 0) ||
-      ((field === "quantity" || field === "threshold") && value < 0))) {
+      (field === "quantity" && value < 0))) {
       throw new Error("مقدار واردشده معتبر نیست.");
     }
   }
   if (kind === "item.check" && typeof result.checked !== "boolean") throw new Error("وضعیت قلم معتبر نیست.");
   if (kind === "inventory.adjust" && (typeof result.delta !== "number" || result.delta === 0)) {
     throw new Error("مقدار تغییر موجودی معتبر نیست.");
+  }
+  if ((kind === "inventory.create" || kind === "inventory.update") && result.category != null &&
+    (typeof result.category !== "string" || !result.category || result.category.length > 40)) {
+    throw new Error("دستهٔ قلم معتبر نیست؛ دوباره انتخاب کنید.");
   }
   if (kind === "task.complete") {
     if (typeof result.completed !== "boolean") throw new Error("وضعیت انجام‌شدن معتبر نیست.");

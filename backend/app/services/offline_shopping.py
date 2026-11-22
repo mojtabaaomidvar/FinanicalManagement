@@ -32,7 +32,7 @@ from app.schemas.offline_shopping import (
     OfflineTaskNotificationPrefs,
 )
 from app.schemas.tasks import TaskWrite
-from app.services import inventory, shopping, tasks
+from app.services import inventory, inventory_catalog, shopping, tasks
 from app.services.clock import utcnow
 from app.services.notifications import _clean_lead
 
@@ -91,7 +91,7 @@ def snapshot(db: Session, actor: Member) -> OfflineSnapshot:
             .execution_options(populate_existing=True)
         )
     )
-    stock.sort(key=lambda row: (0 if inventory.is_low(row) else 1, row.title, str(row.id)))
+    stock.sort(key=lambda row: (row.title, str(row.id)))
     return OfflineSnapshot(
         lists=[
             OfflineListOut(
@@ -109,7 +109,7 @@ def snapshot(db: Session, actor: Member) -> OfflineSnapshot:
                 title=row.title,
                 unit=row.unit,
                 quantity=row.quantity,
-                threshold=row.threshold,
+                category=row.category,
                 note=row.note,
                 revision=row.revision,
                 created_at=row.created_at,
@@ -206,6 +206,7 @@ def _create(db: Session, actor: Member, req: OfflineMutation, data: dict):
         row = InventoryItem(
             id=req.entity_id, family_id=actor.family_id, created_by=actor.id, **values
         )
+        inventory_catalog.propose(db, title=row.title, category=row.category, unit=row.unit)
     db.add(row)
     return row
 
@@ -233,11 +234,13 @@ def _update(db: Session, actor: Member, req: OfflineMutation, data: dict):
         row.quantity = inventory.clean_number(max(Decimal(0), row.quantity + delta), "موجودی")
         row.updated_at = utcnow()
     else:
-        values = inventory._prepare(InventoryWrite(**data))
+        values = inventory._prepare(InventoryWrite(**data), existing_category=row.category)
         inventory._assert_unique(db, actor.family_id, values["title"], exclude=row.id)
         for key, value in values.items():
             setattr(row, key, value)
         row.updated_at = utcnow()
+    if entity_type == "inventory" and action == "update":
+        inventory_catalog.propose(db, title=row.title, category=row.category, unit=row.unit)
     # Even a no-op has one acknowledged revision step, so dependent queued
     # writes can predict their own revisions without rebasing external changes.
     field = "checked" if action == "check" else "quantity" if action == "adjust" else "title"

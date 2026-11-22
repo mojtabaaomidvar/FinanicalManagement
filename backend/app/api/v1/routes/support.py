@@ -12,6 +12,8 @@ from app.core.errors import AppError
 from app.schemas.support import (SupportLogin, SupportOverview, SupportSessionOut,
                                  SupportTechnical, SupportUsers, SupportUsage)
 from app.services import support, usage
+from app.services import inventory_catalog
+from app.schemas.inventory_catalog import CatalogProposals, CatalogProposalOut, CatalogReview
 
 router = APIRouter(prefix="/support", tags=["support"])
 
@@ -78,3 +80,19 @@ def usage_report(days: int = Query(default=7, ge=7, le=30), db: Session = Depend
     if days not in (7, 30):
         raise AppError("INVALID_INPUT", "بازهٔ آمار معتبر نیست.", 422)
     return usage.report(db, days)
+
+
+@router.get("/catalog", response_model=CatalogProposals)
+def catalog_proposals(status: Literal["all", "pending", "approved", "rejected"] = "pending",
+                      offset: int = Query(default=0, ge=0, le=1000000),
+                      limit: int = Query(default=25, ge=1, le=50),
+                      db: Session = Depends(read_only_db)) -> CatalogProposals:
+    return inventory_catalog.list_proposals(db, status, offset, limit)
+
+
+@router.post("/catalog/review", response_model=CatalogProposalOut)
+def review_catalog(request: Request, body: CatalogReview,
+                   _operator: None = Depends(require_operator),
+                   db: Session = Depends(get_db)) -> CatalogProposalOut:
+    support.require_origin(request)  # Cookie-authenticated writes require CSRF origin validation.
+    return inventory_catalog.review(db, body.id, body.status)

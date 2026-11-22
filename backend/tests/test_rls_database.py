@@ -262,7 +262,7 @@ def _populate(client: Any, who: Actor) -> None:
     stock = client.post(
         f"{API}/inventory",
         headers=who.h,
-        json={"title": "برنجِ سنجشِ RLS", "quantity": "1", "threshold": "2"},
+        json={"title": "برنجِ سنجشِ RLS", "quantity": "1", "category": "grains"},
     )
     assert stock.status_code == 201, stock.text
 

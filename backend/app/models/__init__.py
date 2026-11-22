@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from app.db.base import Base
+from app.models.inventory_catalog import InventoryCatalogProposal
 from app.models.account import Account, CardBin
 from app.models.activity_participant import ActivityParticipant
 from app.models.auth import (
@@ -65,6 +66,7 @@ __all__ = [
     "ShoppingList",
     "ShoppingItem",
     "InventoryItem",
+    "InventoryCatalogProposal",
     "ShoppingSyncReceipt",
     "Task",
     "HouseholdDocument",

@@ -70,8 +70,8 @@ export interface InventoryItem {
   title: string;
   unit: string | null;
   quantity: number;
-  /** آستانهٔ کمبود. **صفر یعنی «آستانه ندارد»** — هرگز کم شمرده نمی‌شود. */
-  threshold: number;
+  /** Stable catalog subgroup; older cached rows may not have a category yet. */
+  category?: string | null;
   note: string | null;
   createdBy: string | null;
   createdAt: string;
@@ -82,7 +82,7 @@ export interface InventoryInput {
   title: string;
   unit?: string | null;
   quantity?: number | null;
-  threshold?: number | null;
+  category?: string | null;
   note?: string | null;
 }
 

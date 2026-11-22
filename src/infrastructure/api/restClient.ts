@@ -294,7 +294,8 @@ export interface ReqOpts {
 
 /** Independent operator cookie, with no access to the household TokenProvider. */
 export async function supportRequest<T>(path: string, body?: unknown): Promise<T> {
-  if (!/^\/(session|login|logout|overview|users|technical|usage)(\?|$)/.test(path)) {
+  if (!/^\/(session|login|logout|overview|users|technical|usage|catalog)(\?|$)/.test(path)
+    && path !== "/catalog/review") {
     throw new AppError("SERVER", "مسیر پشتیبانی معتبر نیست.");
   }
   const url = (isSupportHost() ? "/api/v1" : API_URL) + "/support" + path;

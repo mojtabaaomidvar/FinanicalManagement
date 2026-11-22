@@ -15,7 +15,7 @@ export function offlineLists(snapshot: OfflineSnapshot): ShoppingList[] {
 
 export function offlineInventory(snapshot: OfflineSnapshot): InventoryItem[] {
   return snapshot.inventory.map((item) => ({
-    id: item.id, title: item.title, quantity: item.quantity, threshold: item.threshold,
+    id: item.id, title: item.title, quantity: item.quantity, category: item.category ?? null,
     unit: item.unit, note: item.note, createdAt: item.created_at, updatedAt: item.updated_at,
     createdBy: null,
   }));

@@ -136,5 +136,5 @@ export class OfflineInventoryRepository implements InventoryRepository {
 
 function inventoryPayload(input: InventoryInput) {
   return { title: input.title, unit: input.unit ?? null, quantity: input.quantity ?? 0,
-    threshold: input.threshold ?? 0, note: input.note ?? null };
+    category: input.category ?? null, note: input.note ?? null };
 }

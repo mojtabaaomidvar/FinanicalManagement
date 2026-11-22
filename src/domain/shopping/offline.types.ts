@@ -25,7 +25,8 @@ export interface OfflineInventoryItem {
   title: string;
   unit: string | null;
   quantity: number;
-  threshold: number;
+  /** Optional only for snapshots encrypted before categories were introduced. */
+  category?: string | null;
   note: string | null;
   revision: number;
   created_at: string;
@@ -84,7 +85,7 @@ interface InventoryFields {
   title: string;
   unit?: string | null;
   quantity?: number | null;
-  threshold?: number | null;
+  category?: string | null;
   note?: string | null;
 }
 

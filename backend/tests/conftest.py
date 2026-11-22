@@ -151,6 +151,7 @@ def database() -> Iterator[Any]:
             role = connection.dialect.identifier_preparer.quote(TEST_URL.username)
             connection.exec_driver_sql("GRANT USAGE, CREATE ON SCHEMA public TO " + role)
             connection.exec_driver_sql("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO " + role)
+            connection.exec_driver_sql("GRANT TRUNCATE ON ALL TABLES IN SCHEMA public TO " + role)
             connection.exec_driver_sql("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO " + role)
             connection.exec_driver_sql("GRANT EXECUTE ON FUNCTION public.support_record_counts() TO " + role)
         yield migration_engine

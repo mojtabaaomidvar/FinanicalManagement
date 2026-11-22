@@ -363,3 +363,9 @@ def test_member_can_manage_own_notification_settings(
 
     ok = client.post(DISMISS, headers=member.h, json={"key": KEY})
     assert ok.status_code == 204, ok.text
+def test_retired_inventory_notification_preferences_are_rejected(client, home_a):
+    before = client.get(PREFS, headers=home_a.h).json()
+    for body in ({"domains": {"inventory": False}}, {"lead_days": {"inventory": 2}}):
+        response = client.patch(PREFS, headers=home_a.h, json=body)
+        assert response.status_code == 422, response.text
+        assert client.get(PREFS, headers=home_a.h).json() == before

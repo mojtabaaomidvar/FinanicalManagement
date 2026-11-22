@@ -28,7 +28,6 @@ import type {
   InventoryItem,
   ShoppingList,
 } from "@/domain/shopping/shopping.types";
-import { lowItems, queuedInventoryIds } from "@/domain/shopping/shopping.rules";
 import type {
   AppNotification,
   NotificationDomain,
@@ -193,41 +192,6 @@ function membershipNotes(input: DeriveInput): AppNotification[] {
       dateIso: null,
       dismissible: false,
       ref: { kind: "membership", requestId: req.id },
-    });
-  }
-  return out;
-}
-
-/* ── اقلامِ زیرِ آستانهٔ انبار (`InventoryBelowThreshold`ِ §۴.۹ → دامنهٔ
-   خرید، §۷.۱) ──
-
-   سه تصمیمِ این دامنه:
-
-   **۱) پیش‌هنگام ندارد و شدتش همیشه `pending` است.** این یک *حالت* است نه
-   رخدادِ تقویمی: «برنج تمام شده» تاریخِ آینده‌ای ندارد که بتوان «۳ روز
-   قبلش» را حساب کرد. `pending` هم دقیقاً درست است — منتظرِ کنشِ شماست.
-
-   **۲) قلمی که از قبل در لیستِ خرید است اعلان نمی‌گیرد.** این همان چیزی
-   است که دامنه را **خودپاک‌کن** می‌کند، مثلِ بقیه: «به لیست اضافه کن» را
-   زدی، اعلان رفت. بی این شرط، اعلان تا پر‌شدنِ انبار می‌ماند و کاربر را
-   وادار می‌کرد همان کاری را که کرده دوباره بکند — و دقیقاً به همین دلیل
-   `dismissible` هم لازم نیست.
-
-   **۳) گاردِ نقش ندارد.** انبارِ خانه دادهٔ HOUSEHOLD_SHAREDِ §۵.۲ است؛ هر
-   کسی که سرِ راهش از فروشگاه می‌گذرد باید بداند شیر تمام شده، نه فقط مدیر.
-   همان استدلالِ قبض. */
-function inventoryNotes(input: DeriveInput): AppNotification[] {
-  const queued = queuedInventoryIds(input.shoppingLists);
-  const out: AppNotification[] = [];
-  for (const item of lowItems(input.inventory)) {
-    if (queued.has(item.id)) continue;
-    out.push({
-      id: `inventory:${item.id}`,
-      domain: "inventory",
-      severity: "pending",
-      dateIso: null,
-      dismissible: false,
-      ref: { kind: "inventory", itemId: item.id },
     });
   }
   return out;
@@ -400,7 +364,6 @@ const BUILDERS: Record<
   bills: billNotes,
   event: eventNotes,
   membership: membershipNotes,
-  inventory: inventoryNotes,
   tasks: taskNotes,
   documents: documentNotes,
   equipment: equipmentNotes,

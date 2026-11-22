@@ -1,0 +1,66 @@
+/* نردبان مشترک تایپ و لمس؛ رنگ و شعاع از سیستم موجود برنامه می‌آیند. */
+.inventory-page, .inv-form-fields { --fs-2: 13px; --fs-3: 14px; --fs-4: 16px; --fs-7: 26px; --sp-8: 44px; }
+
+/* موجودی: مقدار واقعی و تمام‌شده‌ها، بدون مفهوم کمبود. */
+.inv-summary { display: flex; gap: var(--sp-6); margin-block-end: var(--sp-4); }
+.inv-summary > div { display: flex; flex-direction: column; gap: var(--sp-1); }
+.inv-summary b { font-size: var(--fs-7); font-weight: 700; }
+.inv-summary span { color: var(--text-2); font-size: var(--fs-2); }
+.inv-filters { display: grid; gap: var(--sp-3); margin-block-end: var(--sp-4); }
+.inventory-page .inv-item { flex-direction: column; align-items: stretch; gap: var(--sp-2); padding: var(--sp-3); }
+.inventory-page .inv-body { border: 0; background: transparent; text-align: start; color: var(--text); font: inherit; }
+.inventory-page .inv-body b { white-space: normal; overflow-wrap: anywhere; font-size: var(--fs-4); }
+.inventory-page .inv-body p { overflow-wrap: anywhere; }
+.inventory-page .inv-side { flex-wrap: wrap; gap: var(--sp-2); }
+.inventory-page .inv-step button { min-inline-size: var(--sp-8); min-block-size: var(--sp-8); }
+.inventory-page .inv-send { min-block-size: var(--sp-8); font-size: var(--fs-2); }
+.inventory-page .inv-del { inline-size: var(--sp-8); block-size: var(--sp-8); margin-inline-start: auto; }
+.inv-adjust-open { min-block-size: var(--sp-8); padding: 0 var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-pill); color: var(--text-2); background: var(--card); font: inherit; font-size: var(--fs-2); cursor: pointer; }
+.inv-adjust-open:disabled { opacity: .5; }
+.inventory-page .inv-queued { flex-basis: 100%; overflow-wrap: anywhere; font-size: var(--fs-2); }
+.inv-empty-label, .inv-row-category { display: inline-block; color: var(--text-2); font-size: var(--fs-2); line-height: 1.9; }
+.inv-empty-label { margin-block-start: var(--sp-2); }
+.inventory-page .inv-item.is-empty { border-inline-start-color: var(--text-3); }
+.inv-form-fields { border: 0; margin: 0; padding: 0; min-inline-size: 0; }
+
+/* فرم: نام و دسته کنار هم؛ پیشنهادها ظرف کوچکی زیر خود نام دارند. */
+.inv-catalog { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: var(--sp-2); margin-block-end: var(--sp-4); min-inline-size: 0; }
+.inv-name-field, .inv-category-field { display: grid; gap: var(--sp-2); align-content: start; min-inline-size: 0; }
+.inv-catalog label { font-size: var(--fs-3); font-weight: 600; line-height: 1.45; }
+.inv-catalog-input-wrap { position: relative; }
+.inv-catalog .text-input { inline-size: 100%; min-inline-size: 0; min-block-size: var(--sp-8); margin: 0; padding: var(--sp-2); border-color: var(--text-2); font-size: var(--fs-4); line-height: 1.45; text-align: start; }
+.inv-catalog select { text-overflow: ellipsis; }
+.inv-catalog .text-input::placeholder { color: var(--text-2); font-size: var(--fs-2); }
+.inv-catalog :is(button, input, select):focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
+.inv-lookup { position: absolute; z-index: 2; inset-block-start: calc(100% + var(--sp-1)); inset-inline: 0; border: 1px solid var(--border-strong); border-radius: var(--r-lg); background: var(--card); }
+.inv-lookup-tools { display: flex; align-items: center; gap: var(--sp-1); padding-inline-start: var(--sp-2); }
+.inv-lookup-tools p { flex: 1; color: var(--text-2); font-size: var(--fs-2); line-height: 1.9; margin: 0; padding-block: var(--sp-1); }
+.inv-lookup-close { display: grid; place-items: center; flex: none; inline-size: var(--sp-8); min-block-size: var(--sp-8); color: var(--text-2); }
+.inv-catalog-list { display: flex; flex-wrap: wrap; align-content: start; gap: var(--sp-1); list-style: none; margin: 0; padding: var(--sp-2); max-block-size: calc(var(--sp-8) * 4); overflow-y: auto; overscroll-behavior-y: contain; }
+.inv-catalog-list li { min-inline-size: 0; max-inline-size: 100%; }
+.inv-catalog-list button { min-inline-size: var(--sp-8); min-block-size: var(--sp-8); max-inline-size: 100%; padding: var(--sp-1) var(--sp-2); border: 1px solid var(--border-strong); border-radius: var(--r-md); color: var(--text); background: var(--card-2); font: inherit; font-size: var(--fs-2); line-height: 1.75; text-align: start; overflow-wrap: anywhere; }
+.inv-catalog-list button:is([aria-selected="true"], :hover) { border-color: var(--accent-strong); background: var(--accent-soft); }
+.inv-catalog-more { min-block-size: var(--sp-8); inline-size: 100%; font-size: var(--fs-2); line-height: 1.75; }
+
+/* دسته‌های صفحهٔ اصلی: یک دسته باز؛ زیرگروه‌ها فقط با انتخاب ظاهر می‌شوند. */
+.inv-categories { display: grid; gap: var(--sp-2); margin-block: var(--sp-4); }
+.inv-categories-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.inv-categories h2 { font-size: var(--fs-4); font-weight: 700; line-height: 1.45; }
+.inv-categories-heading button { min-block-size: var(--sp-8); font-size: var(--fs-2); }
+.inv-category-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
+.inv-category-tiles button, .inv-category-subgroups button { display: flex; align-items: center; gap: var(--sp-2); min-inline-size: 0; min-block-size: var(--sp-8); padding: var(--sp-2); border: 1px solid var(--border-strong); border-radius: var(--r-md); background: var(--card); color: var(--text); font: inherit; font-size: var(--fs-2); line-height: 1.75; text-align: start; overflow-wrap: anywhere; }
+.inv-category-tiles button { justify-content: space-between; }
+.inv-category-tiles bdi, .inv-category-subgroups bdi { flex: none; color: var(--text-2); }
+.inv-category-tiles [aria-expanded="true"], .inv-categories [aria-pressed="true"] { border-color: var(--accent-strong); background: var(--accent-soft); }
+.inv-category-subgroups { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+
+/* سایر کنترل‌ها همان رفتار قبلی را با اندازهٔ لمس استاندارد حفظ می‌کنند. */
+.inv-number-fields { display: grid; gap: var(--sp-3); }
+.inv-unit-options { margin-block-start: var(--sp-2); }
+.inv-unit-options .chip { min-block-size: var(--sp-8); }
+.inv-result { padding: var(--sp-3); background: var(--accent-soft); color: var(--accent-strong); border-radius: var(--r-md); font-size: var(--fs-4); }
+.inventory-page button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (min-width: 700px) {
+  .inventory-page .inv-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .inv-category-tiles { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}

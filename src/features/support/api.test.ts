@@ -32,6 +32,20 @@ describe("independent support API boundary", () => {
     await expect(supportRequest("/accounts")).rejects.toThrow();
     expect(fetcher).not.toHaveBeenCalled();
   });
+  it("only sends proposal review metadata with the independent cookie", async () => {
+    const fetcher = vi.fn().mockImplementation(() => Promise.resolve(new Response("{}", { status: 200 })));
+    vi.stubGlobal("fetch", fetcher);
+    await supportApi.catalog("approved", 25);
+    await supportApi.reviewCatalog("proposal-marker", "approved");
+    const url = new URL(fetcher.mock.calls[0][0], "http://test.local");
+    expect(url.pathname).toMatch(/\/support\/catalog$/);
+    expect(url.searchParams.get("offset")).toBe("25");
+    expect(fetcher.mock.calls[1][0]).toMatch(/\/support\/catalog\/review$/);
+    expect(JSON.parse(fetcher.mock.calls[1][1].body)).toEqual({ id: "proposal-marker", status: "approved" });
+    expect(fetcher.mock.calls[1][1].headers).not.toHaveProperty("Authorization");
+    expect(fetcher.mock.calls[1][1].credentials).toBe("include");
+    await expect(supportRequest("/catalog/delete")).rejects.toThrow();
+  });
   it("encodes code filters and preserves the independent authorization error code", async () => {
     const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error:"SUPPORT_UNAUTHORIZED",message:"expired" }),{status:401}));
     vi.stubGlobal("fetch",fetcher);

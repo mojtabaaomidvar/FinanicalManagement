@@ -27,7 +27,6 @@ export type NotificationDomain =
   | "bills"
   | "event"
   | "membership"
-  | "inventory"
   | "tasks"
   | "documents"
   | "equipment"
@@ -44,10 +43,6 @@ export type NotificationRef =
   | { kind: "bills"; billId: string; dueIso: string }
   | { kind: "event"; eventId: string; dateIso: string }
   | { kind: "membership"; requestId: string }
-  /** §۴.۹ `InventoryBelowThreshold` → دامنهٔ خرید (§۷.۱).
-   *  تاریخ ندارد چون **حالت** است نه رخدادِ تقویمی: «برنج تمام شده» از
-   *  لحظه‌ای که موجودی زیرِ آستانه برود درست است تا وقتی پر شود. */
-  | { kind: "inventory"; itemId: string }
   | { kind: "tasks"; taskId: string }
   | { kind: "documents"; documentId: string }
   | { kind: "equipment"; equipmentId: string; reason: "service" | "warranty" }
@@ -95,7 +90,6 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
     bills: true,
     event: true,
     membership: true,
-    inventory: true,
     tasks: true,
     documents: true,
     equipment: true,
@@ -108,10 +102,6 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
     bills: 1,
     event: 1,
     membership: 0,
-    /* انبار هم صفر است و دلیلش همان درخواستِ عضویت: تاریخِ آینده‌ای وجود
-       ندارد که بتوان «۳ روز قبلش» را حساب کرد. موجودی یا زیرِ آستانه هست
-       یا نیست. */
-    inventory: 0,
     tasks: 1,
     documents: 1,
     equipment: 1,
@@ -133,7 +123,6 @@ export const DOMAIN_LABELS: Record<NotificationDomain, string> = {
   bills: "قبض‌های پرداخت‌نشده",
   event: "رویدادها و تولدها",
   membership: "درخواست‌های عضویت",
-  inventory: "اقلامی که دارد تمام می‌شود",
   tasks: "کارهای خانه",
   documents: "اعتبار اسناد خانه",
   equipment: "سرویس و گارانتی وسایل خانه",

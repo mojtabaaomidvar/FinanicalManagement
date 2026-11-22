@@ -572,6 +572,9 @@ def complete_trip(
         tx_id = tx.id
 
     stamp = utcnow()
+    inventory_service.lock_items_uncommitted(
+        db, actor.family_id, {item.inventory_item_id for item in items if item.inventory_item_id is not None},
+    )
     for item in items:
         item.bought_at = stamp
         item.bought_by_member_id = actor.id

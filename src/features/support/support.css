@@ -92,6 +92,18 @@
   .support-sidebar nav { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
 .support-stage { white-space:normal; min-width:225px; max-width:290px; }
+/* صف کالا: نوشته و دسته محورند؛ اقدام بررسی در کنار هر پیشنهاد قرار می‌گیرد. */
+.support-catalog { --fs-2:13px; --fs-3:14px; --fs-4:16px; --sp-8:44px; }
+.support-catalog-heading { display:flex; flex-wrap:wrap; align-items:start; justify-content:space-between; gap:var(--sp-4); margin-block-end:var(--sp-4); }
+.support-catalog p { max-inline-size:44em; line-height:1.9; font-size:var(--fs-3); }
+.support-catalog-heading > div { flex:1; min-inline-size:0; }
+.support-catalog-heading label { min-inline-size:var(--sp-8); }
+.support-catalog-list { list-style:none; padding:0; margin:var(--sp-4) 0; display:grid; gap:var(--sp-3); }
+.support-catalog-list li { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:var(--sp-3); padding-block:var(--sp-3); border-block-start:1px solid var(--support-line); }
+.support-catalog-list h3 { font-size:var(--fs-4); line-height:1.45; margin:0; overflow-wrap:anywhere; }
+.support-catalog-actions { display:flex; flex-wrap:wrap; gap:var(--sp-2); }
+.support-catalog button { min-block-size:var(--sp-8); font-size:var(--fs-3); line-height:1.75; padding:var(--sp-2) var(--sp-3); border-radius:var(--r-md); }
+.support-catalog .support-badge { font-size:var(--fs-2); line-height:1.75; }
 .support-stage strong,.support-stage small { display:block; }
 .support-stage small { margin-top:8px; font-size:14px; line-height:1.5; color:var(--support-muted); }
 .support-popular { list-style:none; padding:0; margin:22px 0; display:grid; gap:18px; }
@@ -104,6 +116,7 @@
 .support-record-metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
 .support-table-caption { padding-inline:26px; white-space:normal; }
 @media (max-width:650px) {
+  .support-catalog-heading > div { flex-basis:100%; }
   .support-record-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .support-record-metrics .support-metric { flex-direction:column; align-items:flex-start; gap:14px; min-height:120px; }
   .support-user-list .support-section-heading { flex-wrap:wrap; }

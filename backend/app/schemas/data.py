@@ -780,7 +780,7 @@ class InventoryWrite(BaseModel):
     title: str | None = None
     unit: str | None = None
     quantity: Decimal | None = None
-    threshold: Decimal | None = None
+    category: str | None = None
     note: str | None = None
 
 
@@ -799,7 +799,7 @@ class InventoryOut(BaseModel):
     title: str
     unit: str | None
     quantity: Decimal
-    threshold: Decimal
+    category: str | None
     note: str | None
     created_by: str | None
     created_at: datetime

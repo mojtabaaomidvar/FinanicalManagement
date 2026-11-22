@@ -12,7 +12,7 @@ import { txsInJalaliMonth } from "@/domain/transaction/transaction.rules";
 import { accountBalances, monthTotals, totalCashBalance } from "@/domain/report/report.rules";
 import { monthCategorySpend } from "@/domain/budget/budget.rules";
 import { findDollar } from "@/domain/market/market.rules";
-import { lowItems, totalPending } from "@/domain/shopping/shopping.rules";
+import { totalPending } from "@/domain/shopping/shopping.rules";
 import { useMarket } from "@/features/market";
 import { cmp, isoToJalali, jalaliToIso } from "@/shared/lib/jalali";
 import { deriveHomeOverview } from "@/domain/home/homeOverview.rules";
@@ -122,7 +122,6 @@ export function HubPage({
       /* §۱.۸ — اقلامِ نخریده در همهٔ لیست‌ها، و اقلامِ زیرِ آستانهٔ انبار */
       shoppingPending: totalPending(shoppingLists),
       shoppingLists: shoppingLists.length,
-      lowStock: lowItems(inventory).length,
       stockCount: inventory.length,
     };
   }, [txs, accounts, budgets, bills, events, shoppingLists, inventory, todayIso, member?.id]);
@@ -165,11 +164,9 @@ export function HubPage({
       : stats.shoppingLists
         ? "لیست‌ها خالی‌اند"
         : "اولین لیست را بساز",
-    inventory: stats.lowStock
-      ? `${toFa(stats.lowStock)} قلم دارد تمام می‌شود`
-      : stats.stockCount
-        ? `${toFa(stats.stockCount)} قلم · همه به‌اندازه`
-        : "انبار خانه را بچین",
+    inventory: stats.stockCount
+      ? `${toFa(stats.stockCount)} قلم در انبار`
+      : "انبار خانه را بچین",
     reports: "نمودار و گزارش ماهانه",
     chores: tasks.some((task) => !task.completed)
       ? `${toFa(tasks.filter((task) => !task.completed).length)} کار مانده`

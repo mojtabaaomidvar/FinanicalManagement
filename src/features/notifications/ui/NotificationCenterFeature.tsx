@@ -24,8 +24,6 @@ import type { Transaction } from "@/domain/transaction/transaction.types";
 import type { FamilyEvent } from "@/domain/event/event.types";
 import type { Bill } from "@/domain/bill/bill.types";
 import { BILL_KINDS } from "@/domain/bill/bill.types";
-import type { InventoryItem } from "@/domain/shopping/shopping.types";
-import { formatQty } from "@/domain/shopping/shopping.rules";
 import { formatLong, isoToJalali } from "@/shared/lib/jalali";
 import { formatAmount } from "@/shared/lib/format";
 import { toDisplay } from "@/shared/lib/currency";
@@ -40,7 +38,6 @@ const DOMAIN_ICON: Partial<Record<NotificationDomain, string>> = {
   bills: "i-bill",
   event: "i-gift",
   membership: "i-users",
-  inventory: "i-cart",
   tasks: "i-check",
   documents: "i-briefcase",
   equipment: "i-grid4",
@@ -55,7 +52,6 @@ export function NotificationCenterFeature({
   joinRequests,
   onOpenJoinRequests,
   onOpenBills,
-  onOpenInventory,
   onOpenTasks,
   onOpenDocuments,
   onOpenEquipment,
@@ -82,7 +78,7 @@ export function NotificationCenterFeature({
   sms?: { count: number; loading: boolean; error: string | null };
   onOpenSms?: () => void;
 }) {
-  const { txs, events, cur, customCategories, bills, inventory, tasks, member } = useApp();
+  const { txs, events, cur, customCategories, bills, tasks, member } = useApp();
 
   const resolve = useMemo(
     () => buildCategoryResolver(customCategories),
@@ -114,12 +110,6 @@ export function NotificationCenterFeature({
     for (const r of joinRequests) map.set(r.id, r);
     return map;
   }, [joinRequests]);
-
-  const stockById = useMemo(() => {
-    const map = new Map<string, InventoryItem>();
-    for (const i of inventory) map.set(i.id, i);
-    return map;
-  }, [inventory]);
 
   function label(n: AppNotification): { title: string; sub: string } | null {
     if (n.ref.kind === "activities") {
@@ -226,17 +216,6 @@ export function NotificationCenterFeature({
         )} ${currencyDisplayLabel(cur)}`,
       };
     }
-    if (n.ref.kind === "inventory") {
-      const item = stockById.get(n.ref.itemId);
-      if (!item) return null;
-      const unit = item.unit ? ` ${item.unit}` : "";
-      return {
-        title: `${item.title} دارد تمام می‌شود`,
-        sub: `مانده ${formatQty(item.quantity)}${unit} · آستانه ${formatQty(
-          item.threshold,
-        )}${unit}`,
-      };
-    }
     const req = requestById.get(n.ref.requestId);
     if (!req) return null;
     /* نام می‌تواند null باشد (ردیفِ عضو حذف شده و JOIN خالی برگشته) —
@@ -306,13 +285,6 @@ export function NotificationCenterFeature({
       m.setOpen(false);
       onOpenBills();
       return;
-    }
-    if (n.ref.kind === "inventory") {
-      /* به صفحهٔ انبار می‌رود، نه مستقیم به لیستِ خرید: کنشِ درست
-         «به لیست اضافه کن» است و دکمه‌اش همان‌جاست — و اگر چند لیست باشد،
-         انتخابِ لیست هم همان‌جا پرسیده می‌شود. */
-      m.setOpen(false);
-      onOpenInventory();
     }
   }
 

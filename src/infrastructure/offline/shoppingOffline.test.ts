@@ -37,7 +37,7 @@ class PersistentMemory implements SecureStorage {
 
 const initialSnapshot = (): OfflineSnapshot => ({
   inventory: [{
-    id: inventoryId, title: "شیر", unit: "عدد", quantity: 2, threshold: 1,
+    id: inventoryId, title: "شیر", unit: "عدد", quantity: 2, category: "refrigerated",
     note: null, revision: 1, created_at: "2026-11-12T10:00:00Z", updated_at: "2026-11-12T10:00:00Z",
   }],
   lists: [{
@@ -155,6 +155,42 @@ async function setup(storage = new PersistentMemory(), server = new Server()) {
 }
 
 describe("encrypted outbox orchestration", () => {
+  it("persists custom category across projection and encrypted reload", async () => {
+    const { engine, storage, server } = await setup();
+    server.online = false;
+    const id = crypto.randomUUID();
+    await engine.mutate("inventory.create", id, { title: "قلم شخصی", category: "cleaning", quantity: 3 });
+    await engine.mutate("inventory.update", id, { title: "قلم شخصی", category: "repairs", quantity: 4 });
+    const reloaded = new ShoppingOfflineEngine(storage, server);
+    engines.push(reloaded);
+    const state = await reloaded.readState();
+    expect(state.view.inventory.find(row => row.id === id)).toMatchObject({ title: "قلم شخصی", category: "repairs", quantity: 4 });
+    expect(state.pending.map(row => row.operation.payload)).toEqual([
+      { title: "قلم شخصی", category: "cleaning", quantity: 3 },
+      { title: "قلم شخصی", category: "repairs", quantity: 4 },
+    ]);
+    expect(JSON.stringify(state.view)).not.toContain("threshold");
+  });
+
+  it("keeps the exact historical queued payload while removing retired cached stock fields", async () => {
+    const { engine, storage, server } = await setup();
+    server.online = false;
+    await engine.mutate("inventory.adjust", inventoryId, { delta: 1 });
+    const key = `shopping-offline:${familyId}:${memberId}`;
+    const raw = await storage.get<any>(key);
+    raw.snapshot.inventory[0].threshold = 10;
+    raw.pending[0].operation = { ...raw.pending[0].operation, kind: "inventory.update",
+      payload: { title: "شیر", quantity: 4, threshold: 10 } };
+    await storage.set(key, raw);
+    const historical = structuredClone(raw.pending[0].operation);
+    await engine.initialize(scope());
+    const state = await engine.readState();
+    expect(state.pending[0].operation).toEqual(historical);
+    expect(state.view.inventory[0]).toMatchObject({ quantity: 4, category: "refrigerated" });
+    expect(state.snapshot.inventory[0]).not.toHaveProperty("threshold");
+    expect(state.view.inventory[0]).not.toHaveProperty("threshold");
+  });
+
   it("keeps sequential edits across reload and syncs each exactly once", async () => {
     const { engine, storage, server } = await setup();
     server.online = false;

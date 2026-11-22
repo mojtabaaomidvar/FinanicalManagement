@@ -4,10 +4,11 @@ import { supportApi, type MembershipState, type RegistrationState, type SupportO
   type SupportPage, type SupportTechnical, type SupportUsers } from "./api";
 import type { SupportUsage as UsageData } from "./api";
 import { SupportUsage } from "./SupportUsage";
+import { SupportCatalog } from "./SupportCatalog";
 import { supportPageTitle } from "./branding";
 import "./support.css";
 
-const pageLabels: Record<SupportPage, string> = { overview: "نمای کلی", users: "پیگیری کاربران", usage: "آمار استفاده", technical: "وضعیت فنی" };
+const pageLabels: Record<SupportPage, string> = { overview: "نمای کلی", users: "پیگیری کاربران", usage: "آمار استفاده", technical: "وضعیت فنی", catalog: "بررسی کالاهای تازه" };
 const stageLabels: Record<SupportUsers["items"][number]["stage"], string> = {
   registration_required: "تکمیل ثبت‌نام", managed_profile: "پروفایل مدیریت‌شده", approval_pending: "تأیید عضویت", ready: "آمادهٔ ورود", inactive: "عضویت غیرفعال",
 };
@@ -88,6 +89,7 @@ export function SupportPanel() {
 
   useEffect(() => {
     if (phase !== "ready") { setData(null); return; }
+    if (page === "catalog") { setData(null); setLoading(false); setError(""); return; }
     let current = true;
     setLoading(true); setError(""); setData(null);
     const pending = page === "overview" ? supportApi.overview(days)
@@ -146,6 +148,9 @@ export function SupportPanel() {
   </main>;
 
   let content: ReactNode = null;
+  if (page === "catalog") content = <SupportCatalog refresh={refresh} onSessionExpired={() => {
+    setPhase("login"); setSessionError("نشست پشتیبانی پایان یافته است. دوباره وارد شوید.");
+  }} />;
   if (data?.page === page && page === "overview") {
     const overview = data.value as SupportOverview;
     const max = Math.max(1, ...overview.daily.map(d => d.registrations));
@@ -205,7 +210,7 @@ export function SupportPanel() {
   return <main className="support-shell" dir="rtl"><aside className="support-sidebar">{brand}
     <nav aria-label="بخش‌های پشتیبانی">{(Object.keys(pageLabels) as SupportPage[]).map(key => <button key={key}
       aria-current={page === key ? "page" : undefined} onClick={() => setPage(key)}>{pageLabels[key]}</button>)}</nav>
-    <div className="support-sidebar-footer"><span>دسترسی فقط برای مشاهده</span><button disabled={busy} onClick={() => void logout()}>
+    <div className="support-sidebar-footer"><span>مشاهدهٔ وضعیت و بررسی پیشنهاد کالا</span><button disabled={busy} onClick={() => void logout()}>
       {busy ? "در حال خروج…" : "خروج از پنل"}</button></div></aside>
     <div className="support-main"><header className="support-header"><h1>{pageLabels[page]}</h1>
       <button className="support-refresh" disabled={loading || busy} onClick={() => setRefresh(n => n+1)}>به‌روزرسانی</button></header>

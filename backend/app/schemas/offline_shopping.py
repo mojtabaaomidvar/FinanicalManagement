@@ -42,13 +42,13 @@ class OfflineInventoryOut(BaseModel):
     title: str
     unit: str | None
     quantity: Decimal
-    threshold: Decimal
+    category: str | None
     note: str | None
     revision: int
     created_at: datetime
     updated_at: datetime
 
-    @field_serializer("quantity", "threshold")
+    @field_serializer("quantity")
     def serialize_qty(self, value: Decimal) -> float:
         return float(value)
 
@@ -97,9 +97,18 @@ class _ItemCheck(_Payload):
 class _InventoryWrite(_Payload):
     title: str = Field(min_length=1, max_length=120)
     quantity: Decimal = Field(default=Decimal(0), ge=0, le=99999999)
-    threshold: Decimal = Field(default=Decimal(0), ge=0, le=99999999)
+    category: str | None = Field(default=None, max_length=40)
     unit: str | None = Field(default=None, max_length=20)
     note: str | None = Field(default=None, max_length=500)
+
+    @model_validator(mode="before")
+    @classmethod
+    def accept_retired_outbox_field(cls, value):
+        # Old encrypted commands must retain their exact payload/hash for replay.
+        # Ignore only the retired field at validation; never rewrite the request.
+        if isinstance(value, dict) and "threshold" in value:
+            value = {key: item for key, item in value.items() if key != "threshold"}
+        return value
 
 
 class _InventoryAdjust(_Payload):
@@ -157,7 +166,10 @@ class OfflineMutation(BaseModel):
         return self
 
     def data(self) -> dict[str, Any]:
-        return _PAYLOADS[self.kind].model_validate(self.payload).model_dump()
+        data = _PAYLOADS[self.kind].model_validate(self.payload).model_dump()
+        if self.kind in ("inventory.create", "inventory.update") and "category" not in self.payload:
+            data.pop("category", None)  # Old queued edits must not erase a saved custom category.
+        return data
 
 
 class OfflineMutationResult(BaseModel):

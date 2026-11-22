@@ -117,9 +117,9 @@ function makeData(scenario, now) {
     row(304, { member_id: actorId, type: 'transfer', amount: 300_000, category: 'transfer', date: date(-2), time: '15:00', note: 'نمونه: جابه‌جایی بین حساب‌ها', account_id: id(201), to_account_id: id(202), subcategory_id: null, repeat: 'none', repeat_end: null, handled_occurrences: [], photos: [] }),
     row(305, { member_id: id(1), type: 'expense', amount: 80_000, category: 'bills', date: date(-35), time: '09:10', note: 'نمونه: پرداخت تکرارشونده', account_id: id(201), to_account_id: null, subcategory_id: null, repeat: 'monthly', repeat_end: date(90), handled_occurrences: [], photos: [] }),
   ];
-  const inventory = [row(501, { title: 'نمونه: برنج', unit: 'کیلوگرم', quantity: 0.5, threshold: 2, note: 'نمونه: کمبود موجودی' }),
-    row(502, { title: 'نمونه: روغن', unit: 'بطری', quantity: 3, threshold: 1, note: null }),
-    row(503, { title: 'نمونه: شیر', unit: 'بسته', quantity: 0, threshold: 2, note: null })];
+  const inventory = [row(501, { title: 'نمونه: برنج', unit: 'کیلوگرم', quantity: 0.5, category: 'grains', note: 'نمونه: موجودی خانه' }),
+    row(502, { title: 'نمونه: روغن', unit: 'بطری', quantity: 3, category: 'oils_sauces', note: null }),
+    row(503, { title: 'نمونه: شیر', unit: 'بسته', quantity: 0, category: 'refrigerated', note: null })];
   const lists = [row(510, { title: 'نمونه: خرید این هفته', items: [
     row(511, { list_id: id(510), title: 'نمونه: برنج', qty: 2, unit: 'کیلوگرم', price: 280_000, checked: false, bought_at: null, bought_by_member_id: null, transaction_id: null, inventory_item_id: id(501), note: 'نمونه: قلم دارای قیمت' }),
     row(512, { list_id: id(510), title: 'نمونه: شیر', qty: 2, unit: 'بسته', price: null, checked: false, bought_at: null, bought_by_member_id: null, transaction_id: null, inventory_item_id: id(503), note: null }),
@@ -209,7 +209,7 @@ function offlineSnapshot(data) {
     items: list.items.map(item => ({ id: item.id, list_id: item.list_id, title: item.title, qty: item.qty, unit: item.unit,
       checked: item.checked, inventory_item_id: item.inventory_item_id, note: item.note, revision: item.revision, created_at: item.created_at })) })),
     inventory: data.inventory.map(item => ({ id: item.id, title: item.title, unit: item.unit, quantity: item.quantity,
-      threshold: item.threshold, note: item.note, revision: item.revision, created_at: item.created_at, updated_at: item.updated_at })),
+      category: item.category ?? null, note: item.note, revision: item.revision, created_at: item.created_at, updated_at: item.updated_at })),
     tasks: clone(data.tasks), task_notification_prefs: { enabled: data.prefs.enabled, tasks_enabled: data.prefs.domains.tasks !== false, lead_days: data.prefs.lead_days.tasks ?? 0 } };
 }
 const response = (body, status = 200, extra = {}) => ({ status, body: clone(body), headers: { 'Cache-Control': 'no-store' }, ...extra });
@@ -264,7 +264,7 @@ function normalizeCreate(session, key, body) {
     tasks: { title: 'نمونه: کار جدید', description: null, assignee_id: null, due_date: null, completed: false, completed_at: null, completed_by: null, completion_photo_url: null },
     bills: { kind: 'other', title: 'نمونه: قبض جدید', amount: 0, due_date: data.today, state: 'unpaid', bill_no: null, payment_no: null, note: null, paid_at: null, paid_by_member_id: null, transaction_id: null },
     events: { member_id: data.actor.id, for_member_id: null, title: 'نمونه: مناسبت جدید', date: data.today, note: null, kind: 'event', reminder_enabled: true },
-    inventory: { title: 'نمونه: قلم جدید', unit: null, quantity: 0, threshold: 0, note: null },
+    inventory: { title: 'نمونه: قلم جدید', unit: null, quantity: 0, category: null, note: null },
     documents: { title: 'نمونه: سند جدید', category: null, visibility: 'private', expiry_date: null, reminder_enabled: true, owner_id: data.actor.id,
       mime_type: 'application/pdf', file_name: 'sample-document.pdf', file_size: samplePdf.length, can_change_visibility: true },
     equipment: { title: 'نمونه: وسیلهٔ جدید', brand: null, model: null, purchase_date: null, warranty_until: null, warranty_document_id: null,
@@ -337,9 +337,28 @@ export function handlePreviewRequest(session, request) {
     }
     if (path === '/support/logout' && method === 'POST') { session.supportAuthenticated = false; return response(null, 204); }
     if (!session.supportAuthenticated) return error('SUPPORT_UNAUTHORIZED', 'برای مشاهدهٔ پنل، وارد حساب پشتیبانی شوید.', 401);
+    const proposals = session.catalogProposals ??= mode === 'empty' ? [] : [
+      { id: id(9900), title: 'نمونه: شویندهٔ تازه', category: 'cleaning', unit: 'بطری', status: 'pending', submitted_at: data.timestamp, reviewed_at: null },
+      { id: id(9901), title: 'نمونه: یدکی خانه', category: 'repairs', unit: 'عدد', status: 'approved', submitted_at: data.timestamp, reviewed_at: data.timestamp },
+    ];
+    if (path === '/support/catalog/review' && method === 'POST') {
+      if (mode === 'save-errors' || mode === 'errors') return error('SERVER', 'بررسی پیشنهاد انجام نشد؛ دوباره تلاش کنید.', 503);
+      if (mode === 'conflict') return error('SYNC_CONFLICT', 'این پیشنهاد قبلاً بررسی شده است؛ فهرست را تازه کنید.', 409);
+      const proposal = proposals.find(item => item.id === body.id);
+      if (!proposal) return error('NOT_FOUND', 'پیشنهاد کالا پیدا نشد؛ فهرست را تازه کنید.', 404);
+      if (!['approved', 'rejected'].includes(body.status)) return error('INVALID_INPUT', 'وضعیت بررسی معتبر نیست.', 422);
+      if (proposal.status !== 'pending' && proposal.status !== body.status) return error('SYNC_CONFLICT', 'این پیشنهاد قبلاً بررسی شده است؛ فهرست را تازه کنید.', 409);
+      proposal.status = body.status; proposal.reviewed_at = data.timestamp; return response(proposal);
+    }
     if (method !== 'GET') return error('METHOD_NOT_ALLOWED', 'این عملیات در پیش‌نمایش پشتیبانی نمی‌شود.', 405);
     if (mode === 'errors') return error('SERVER', 'دریافت اطلاعات پنل انجام نشد.', 503);
     const delayMs = mode === 'loading' ? 20_000 : 0;
+    if (path === '/support/catalog') {
+      const status = query.get('status') || 'pending';
+      const filtered = proposals.filter(item => status === 'all' || status === item.status);
+      const offset = Number(query.get('offset') || 0), limit = Number(query.get('limit') || 25);
+      return response({ items: filtered.slice(offset, offset + limit), total: filtered.length, offset, limit }, 200, { delayMs });
+    }
     // Independent fictional metadata, never a serialized member/family object.
     const users = mode === 'empty' ? [] : Array.from({ length: 31 }, (_, index) => ({
       support_code: id(9600 + index), created_at: data.timestamp,
@@ -549,9 +568,37 @@ export function handlePreviewRequest(session, request) {
   }
   if (/^\/shopping\/lists\/[^/]+\/complete$/.test(path)) {
     const list = data.lists.find(item => item.id === path.split('/')[3]); if (!list) return error('NOT_FOUND', 'فهرست نمونه یافت نشد.', 404);
-    const items = list.items.filter(item => !item.checked), total = items.reduce((sum, item) => sum + (item.price || 0) * item.qty, 0);
-    for (const item of items) Object.assign(item, { checked: true, bought_at: data.timestamp, bought_by_member_id: data.actor.id });
-    return response({ list, total, item_count: items.length, transaction_id: null });
+    const receipts = session.tripReceipts ??= new Map(), key = body.operation_id && data.actor.id + ':' + body.operation_id;
+    const fingerprint = JSON.stringify({ path, body }), receipt = key && receipts.get(key);
+    if (receipt) return receipt.fingerprint === fingerprint ? response({ ...clone(receipt.result), list })
+      : error('OPERATION_REUSED', 'شناسهٔ این تغییر قبلاً با اطلاعات دیگری استفاده شده است.', 409);
+    const items = list.items.filter(item => item.checked && !item.bought_at);
+    if (!items.length) return error('NOTHING_CHECKED', 'هیچ قلمی تیک نخورده است.', 409);
+    if (body.item_ids && (body.item_ids.length !== items.length || items.some(item => !body.item_ids.includes(item.id))))
+      return error('SHOPPING_CHANGED', 'اقلام سبد تغییر کرده‌اند؛ لیست را تازه کنید و خرید را دوباره بررسی کنید.', 409);
+    const record = body.create_transaction !== false;
+    const total = record && body.amount != null ? Number(body.amount) : items.reduce((sum, item) => sum + Number(item.price || 0), 0);
+    if (body.amount != null && (!Number.isFinite(Number(body.amount)) || Number(body.amount) <= 0
+      || Math.abs(Number(body.amount) * 10 - Math.round(Number(body.amount) * 10)) > 0.00001))
+      return error('INVALID_AMOUNT', 'مبلغ فاکتور باید عدد صحیح مثبت به ریال باشد.', 422);
+    if (body.transfer_fee_method != null && (!record || total <= 0)) return error('INVALID_TRANSFER_FEE', 'برای ثبت کارمزد، هزینهٔ خرید باید ثبت شود.', 422);
+    const values = { member_id: data.actor.id, type: 'expense', category: 'shopping', amount: total,
+      date: body.date || data.today, account_id: body.account_id ?? null, note: list.title,
+      transfer_fee_method: body.transfer_fee_method ?? null, require_available_balance: body.require_available_balance ?? false };
+    if (record && total > 0) { const invalid = checkPreviewPayment(session, values); if (invalid) return invalid; }
+    let transaction = null;
+    if (record && total > 0) {
+      transaction = normalizeCreate(session, 'transactions', values); data.transactions.push(transaction);
+      syncPreviewTransferFee(session, transaction);
+    }
+    for (const item of items) {
+      const stock = data.inventory.find(row => row.id === item.inventory_item_id);
+      if (stock) stock.quantity = Number(stock.quantity) + Number(item.qty);
+    }
+    list.items = list.items.filter(item => !items.includes(item));
+    const result = { list, total, item_count: items.length, transaction_id: transaction?.id ?? null };
+    if (key) receipts.set(key, { fingerprint, result: clone(result) });
+    return response(result);
   }
   if (/^\/shopping\/lists\/[^/]+\/ensure-missing$/.test(path)) {
     const list = data.lists.find(item => item.id === path.split('/')[3]); if (!list) return error('NOT_FOUND', 'فهرست نمونه یافت نشد.', 404);

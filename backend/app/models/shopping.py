@@ -61,15 +61,12 @@ class ShoppingList(Base):
 class InventoryItem(Base):
     """قلمِ انبارِ خانه — «چه داریم»، در برابرِ لیست که «چه بخریم» است.
 
-    `threshold == 0` یعنی «آستانه ندارد»: نه کم شمرده می‌شود نه اعلان
-    می‌دهد. پیش‌فرضِ عمدی، تا قلمی که کاربر آستانه‌اش را نگذاشته
-    خودسرانه زنگ نزند.
+    دستهٔ پایدار مستقل از نام و مقدار موجودی ذخیره می‌شود.
     """
 
     __tablename__ = "inventory_items"
     __table_args__ = (
         CheckConstraint("quantity >= 0", name="quantity_not_negative"),
-        CheckConstraint("threshold >= 0", name="threshold_not_negative"),
         # دو ردیفِ «شیر» با دو عدد، انبار را بی‌معنا می‌کند.
         UniqueConstraint("family_id", "title", name="uq_inventory_family_title"),
     )
@@ -89,9 +86,7 @@ class InventoryItem(Base):
     quantity: Mapped[Decimal] = mapped_column(
         Numeric(10, 2), nullable=False, server_default=text("0")
     )
-    threshold: Mapped[Decimal] = mapped_column(
-        Numeric(10, 2), nullable=False, server_default=text("0")
-    )
+    category: Mapped[str | None] = mapped_column(Text)
     note: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

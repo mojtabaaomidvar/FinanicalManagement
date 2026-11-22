@@ -29,7 +29,7 @@ from app.schemas.data import NotificationPrefsOut, NotificationPrefsUpdate
 # همان دامنه‌های فعالِ §۷.۱. فهرستِ بسته است تا کلیدِ بی‌معنی در JSONB نرود؛
 # با هر ماژولِ تازه یک عضو این‌جا اضافه می‌شود (و در notification.types.ts).
 _DOMAINS = (
-    "recurring", "bills", "event", "membership", "inventory", "tasks", "documents", "equipment",
+    "recurring", "bills", "event", "membership", "tasks", "documents", "equipment",
     "vehicles", "goals", "activities",
 )
 

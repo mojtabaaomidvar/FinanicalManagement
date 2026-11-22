@@ -22,7 +22,7 @@ export function sanitizeSnapshot(source: OfflineSnapshot): OfflineSnapshot {
     })),
     inventory: source.inventory.map((item) => ({
       id: item.id, title: item.title, unit: item.unit, quantity: item.quantity,
-      threshold: item.threshold, note: item.note, revision: item.revision,
+      category: item.category ?? null, note: item.note, revision: item.revision,
       created_at: item.created_at, updated_at: item.updated_at,
     })),
     tasks: (source.tasks ?? []).map((task) => ({
@@ -124,7 +124,7 @@ export function projectSnapshot(
       case "inventory.create":
         view.inventory.push({
           id, title: op.payload.title, unit: op.payload.unit ?? null,
-          quantity: op.payload.quantity ?? 0, threshold: op.payload.threshold ?? 0,
+          quantity: op.payload.quantity ?? 0, category: op.payload.category ?? null,
           note: op.payload.note ?? null, revision: 1,
           created_at: entry.createdAt, updated_at: entry.createdAt,
         });
@@ -139,7 +139,7 @@ export function projectSnapshot(
           item.title = op.payload.title;
           if (op.payload.unit !== undefined) item.unit = op.payload.unit;
           if (op.payload.quantity !== undefined) item.quantity = op.payload.quantity ?? 0;
-          if (op.payload.threshold !== undefined) item.threshold = op.payload.threshold ?? 0;
+          if (op.payload.category !== undefined) item.category = op.payload.category;
           if (op.payload.note !== undefined) item.note = op.payload.note;
         }
         item.revision += 1;
@@ -194,9 +194,7 @@ export function projectSnapshot(
     }
   }
   view.inventory.sort((a: OfflineInventoryItem, b: OfflineInventoryItem) => {
-    const lowA = a.threshold > 0 && a.quantity <= a.threshold;
-    const lowB = b.threshold > 0 && b.quantity <= b.threshold;
-    return Number(lowB) - Number(lowA) || a.title.localeCompare(b.title, "fa");
+    return a.title.localeCompare(b.title, "fa");
   });
   return view;
 }

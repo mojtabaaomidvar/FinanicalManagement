@@ -308,7 +308,7 @@ def test_offline_task_notification_prefs_persist_per_member_without_other_settin
             headers=member.h,
             json={
                 "enabled": False,
-                "domains": {"tasks": False, "event": False, "inventory": False},
+                "domains": {"tasks": False, "event": False, "recurring": False},
                 "lead_days": {"tasks": 5, "event": 14, "bills": 2},
             },
         ),

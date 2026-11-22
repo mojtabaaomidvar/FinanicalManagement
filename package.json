@@ -1,7 +1,7 @@
 {
   "name": "mali-man",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.6.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -39,7 +39,9 @@
     "prototype:home:check": "node scripts/check-home-prototype.mjs",
     "prototype:home:drag-check": "node scripts/check-home-prototype-drag.mjs",
     "cap:sync": "npm run build && cap sync android",
-    "cap:android": "cap open android"
+    "cap:android": "cap open android",
+    "copy:studio:inventory-check": "node scripts/check-inventory-refresh.mjs",
+    "copy:studio:inventory-categories-check": "node scripts/check-inventory-categories.mjs"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.1",

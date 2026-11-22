@@ -4,7 +4,7 @@
    که در JSX بنویسی آزمون‌پذیر نیست و خرابی‌اش بی‌صدا است. مثلِ «کم‌بودِ
    انبار» که اگر غلط باشد، اعلانِ §۷ هم غلط می‌شود بی‌آنکه چیزی خطا بدهد. */
 
-import type { InventoryItem, ShoppingItem, ShoppingList } from "./shopping.types";
+import type { ShoppingItem, ShoppingList } from "./shopping.types";
 import { normalizeNumeric, toFa } from "@/shared/lib/digits";
 
 /** دو رقمِ اعشار — هم‌سان با ستون‌های `Numeric(10, 2)`ِ خرید و انبار. */
@@ -80,21 +80,6 @@ export function liveFormatQty(raw: string): string {
   const intPart = head.replace(/^0+(?=\d)/, "") || "0";
   if (!rest.length) return toFa(s.includes(".") ? `${intPart}٫` : intPart);
   return toFa(`${intPart}٫${rest.join("").slice(0, QTY_DECIMALS)}`);
-}
-
-/** آیا این قلم زیرِ آستانه است؟
- *
- *  **آستانهٔ صفر یعنی «بی‌آستانه»** و هرگز کم شمرده نمی‌شود. قلمی که کاربر
- *  آستانه‌اش را تعیین نکرده نباید خودسرانه زنگ بزند — همین قاعده در
- *  `backend/app/services/inventory.py::is_low` هم هست و دو طرف باید
- *  یکی بمانند. */
-export function isLow(item: InventoryItem): boolean {
-  return item.threshold > 0 && item.quantity <= item.threshold;
-}
-
-/** اقلامِ کم‌شده — ورودیِ اعلانِ `InventoryBelowThreshold` (§۴.۹ و §۷.۱). */
-export function lowItems(items: InventoryItem[]): InventoryItem[] {
-  return items.filter(isLow);
 }
 
 /** اقلامِ تیک‌خوردهٔ یک لیست — همان‌هایی که «خرید انجام شد» می‌بندد. */

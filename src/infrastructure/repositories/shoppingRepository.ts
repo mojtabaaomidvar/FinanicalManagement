@@ -59,7 +59,7 @@ type InventoryRow = {
   title: string;
   unit: string | null;
   quantity: string | number;
-  threshold: string | number;
+  category?: string | null;
   note: string | null;
   created_by: string | null;
   created_at: string;
@@ -117,7 +117,7 @@ function mapInventory(r: InventoryRow): InventoryItem {
     title: r.title,
     unit: r.unit ?? null,
     quantity: num(r.quantity),
-    threshold: num(r.threshold),
+    category: r.category ?? null,
     note: r.note ?? null,
     createdBy: r.created_by ?? null,
     createdAt: r.created_at,
@@ -264,7 +264,7 @@ function body(input: InventoryInput): Record<string, unknown> {
     title: input.title,
     unit: input.unit ?? null,
     quantity: input.quantity ?? null,
-    threshold: input.threshold ?? null,
+    category: input.category ?? null,
     note: input.note ?? null,
   };
 }

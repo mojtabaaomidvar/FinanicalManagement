@@ -15,6 +15,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("archive", type=Path)
     parser.add_argument("--bash", default=shutil.which("bash"))
+    parser.add_argument("--installer", default="source/backend/deploy/install-release.sh")
     args = parser.parse_args()
     if not args.bash:
         parser.error("Specify a Bash executable with --bash.")
@@ -29,7 +30,7 @@ def main() -> None:
         tag = archive.extractfile("release-tag.txt").read()
         if not re.fullmatch(rb"[a-z0-9][a-z0-9._-]*\n", tag):
             raise RuntimeError("release-tag.txt must be one ASCII tag with an LF ending.")
-        installer = archive.extractfile("source/backend/deploy/install-release.sh").read()
+        installer = archive.extractfile(args.installer).read()
     root = Path(__file__).resolve().parents[1]
     artifact_dir = (root / ".local-test").resolve()
     if root not in artifact_dir.parents:

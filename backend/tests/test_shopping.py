@@ -73,7 +73,7 @@ def new_stock(
     *,
     title: str = "برنج",
     quantity: str = "1",
-    threshold: str = "2",
+    category: str | None = None,
     **extra: Any,
 ) -> dict:
     res = client.post(
@@ -82,7 +82,7 @@ def new_stock(
         json={
             "title": title,
             "quantity": quantity,
-            "threshold": threshold,
+            "category": category,
             **extra,
         },
     )
@@ -457,8 +457,8 @@ def test_completing_trip_raises_linked_inventory(
 
     و قلمِ بی‌پیوند نباید هیچ ردیفی را دست بزند.
     """
-    rice = new_stock(client, home_a, title="برنج", quantity="1", threshold="2")
-    sugar = new_stock(client, home_a, title="شکر", quantity="4", threshold="1")
+    rice = new_stock(client, home_a, title="برنج", quantity="1", category="grains")
+    sugar = new_stock(client, home_a, title="شکر", quantity="4", category="baking")
 
     lst = new_list(client, home_a)
     linked = new_item(
@@ -559,7 +559,7 @@ def test_deleting_list_keeps_the_recorded_expense(
 #  انبار — تغییرِ نسبی و معنیِ آستانهٔ صفر
 # ═══════════════════════════════════════════════════════════════════
 def test_adjust_is_relative_and_clamps_at_zero(client: Any, home_a: Actor) -> None:
-    row = new_stock(client, home_a, quantity="2", threshold="1")
+    row = new_stock(client, home_a, quantity="2")
 
     res = client.post(f"{STOCK}/{row['id']}/adjust", headers=home_a.h, json={"delta": 3})
     expect_status(res, 200)
@@ -579,25 +579,17 @@ def test_adjust_is_relative_and_clamps_at_zero(client: Any, home_a: Actor) -> No
     assert Decimal(res.json()["quantity"]) == Decimal("0"), res.text
 
 
-def test_inventory_order_puts_low_items_first(client: Any, home_a: Actor) -> None:
-    """ترتیب در سرور تعیین می‌شود تا صفحهٔ انبار و کاشیِ هاب یکی ببینند.
-
-    و **آستانهٔ صفر «کم» نیست**: قلمی که کاربر آستانه‌اش را نگذاشته نباید
-    بالای فهرست بیاید، حتی با موجودیِ صفر.
-    """
-    new_stock(client, home_a, title="الف", quantity="0", threshold="0")
-    new_stock(client, home_a, title="ب", quantity="10", threshold="2")
-    new_stock(client, home_a, title="پ", quantity="1", threshold="3")
-
-    titles = [row["title"] for row in stock_of(client, home_a)]
-    assert titles[0] == "پ", titles
-    assert set(titles[1:]) == {"الف", "ب"}, titles
+def test_inventory_order_by_title_without_shortage_state(client: Any, home_a: Actor) -> None:
+    new_stock(client, home_a, title="الف", quantity="0", category="cleaning")
+    new_stock(client, home_a, title="ب", quantity="10", category="cleaning")
+    new_stock(client, home_a, title="پ", quantity="1", category="cleaning")
+    assert [row["title"] for row in stock_of(client, home_a)] == ["الف", "ب", "پ"]
 
 
 def test_negative_inventory_values_are_rejected(client: Any, home_a: Actor) -> None:
     for body in (
         {"title": "x", "quantity": "-1"},
-        {"title": "y", "threshold": "-2"},
+        {"title": "y", "category": "unknown-category"},
     ):
         res = client.post(STOCK, headers=home_a.h, json=body)
         assert res.status_code == 422, res.text
