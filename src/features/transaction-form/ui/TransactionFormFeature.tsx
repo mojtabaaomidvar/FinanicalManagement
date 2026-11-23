@@ -142,6 +142,8 @@ export function TransactionFormFeature({ form: m, onImported }: {
       {m.occurrencePending && !m.occurrenceAcknowledged ? <div className="tx-save-status" role="status">
         <p>تراکنش این نوبت ثبت شده؛ فقط تأیید سررسید باقی مانده است.</p><p>{m.occurrenceError}</p>
       </div> : null}
+      {m.householdReviewNote ? <p className="tx-simple-hint" role="status">پیشنهاد دستیار سراسری وارد فرم شد؛ مبلغ، واحد، حساب و تاریخ را بررسی کن. تحلیل دوباره لازم نیست.</p> : null}
+      {m.assistantInitialText ? <blockquote dir="auto">{m.assistantInitialText}</blockquote> : null}
       <fieldset className="tx-simple-fields" disabled={locked}>
         <div className="tx-tabs" role="tablist" aria-label="نوع تراکنش">
           {TYPE_TABS.map(tab => <button key={tab.value} type="button" role="tab" aria-selected={m.form.type === tab.value}

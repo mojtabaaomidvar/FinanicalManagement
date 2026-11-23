@@ -5,6 +5,82 @@ import { SCENARIOS, ROUTES, createPreviewSession, handlePreviewRequest } from '.
 const create = (scenario = 'full-owner', route = 'hub') => createPreviewSession(scenario, route, { now: '2026-11-16T08:00:00.000Z' });
 const request = (session, path, method = 'GET', body) => handlePreviewRequest(session, { path, method, body });
 
+test('household report computes fixture stock and performs zero business writes', () => {
+  const session = create('assistant-bread-zero');
+  const paths = ['/transactions','/inventory','/shopping/lists','/tasks','/meals/dishes'];
+  const before = paths.map(path => structuredClone(request(session,path).body));
+  const body = { text:'نون نداریم برای صبحونه' };
+  assert.equal(request(session, '/assistant/capabilities').body.protocol_version, 2);
+  const result = request(session, '/assistant/report', 'POST', body);
+  assert.equal(result.status,200);
+  assert.deepEqual(result.body.proposals,[]);
+  assert.equal(result.body.facts.find(row => row.kind === 'stock').status,'missing');
+  assert.equal(result.body.facts.find(row => row.kind === 'dish' && row.title === 'تخم مرغ آب‌پز').status,'available');
+  assert.equal(result.body.facts.find(row => row.kind === 'dish' && row.title === 'نان و پنیر').status,'missing');
+  assert.deepEqual(paths.map(path => request(session,path).body),before);
+  assert.equal(request(session, '/assistant/report', 'POST', {...body,text:'x'.repeat(8001)}).status,422);
+  assert.equal(request(session, '/assistant/report', 'POST', {...body,scope:'auto'}).status,422);
+  assert.equal(request(create('auth-login'), '/assistant/capabilities').status,401);
+  assert.equal(request(create('loading'), '/assistant/report', 'POST', body).delayMs,20000);
+  assert.equal(request(create('errors'), '/assistant/report', 'POST', body).status,502);
+  assert.deepEqual(request(create('empty-owner'), '/assistant/report', 'POST', body).body.proposals,[]);
+});
+
+test('household fixtures distinguish unknown and conflicting stock rather than fixed extraction', () => {
+  for (const [scenario,status,conflict] of [['assistant-bread-unknown','unknown',false],['assistant-bread-conflict','available',true]]) {
+    const result = request(create(scenario),'/assistant/report','POST',{text:'نون نداریم برای صبحونه'}).body;
+    const fact = result.facts.find(row => row.kind === 'stock');
+    assert.equal(fact.status,status); assert.equal(fact.conflicts_with_request,conflict);
+    assert.ok(result.questions.length); assert.deepEqual(result.proposals,[]);
+  }
+});
+
+test('household fixture review needs confirmation and recovers one atomic execution receipt', () => {
+  const session = create('assistant-bread-zero');
+  const report = request(session,'/assistant/report','POST',{text:'نون نداریم برای صبحونه'}).body;
+  const action = report.actions.find(row => row.kind === 'shopping_item');
+  const fields = {report_token:report.report_token,action_id:action.id,list_id:session.data.lists[0].id,qty:1,unit:'عدد'};
+  const review = request(session,'/assistant/prepare-action','POST',fields).body;
+  assert.equal(session.data.lists[0].items.length,0);
+  assert.equal(request(session,'/assistant/execute','POST',{review_token:review.review_token,confirmed:false}).status,422);
+  const body = {review_token:review.review_token,confirmed:true};
+  const first = request(session,'/assistant/execute','POST',body).body;
+  const replay = request(session,'/assistant/execute','POST',body).body;
+  assert.equal(first.entity_id,replay.entity_id); assert.equal(replay.replayed,true);
+  assert.equal(session.data.lists[0].items.length,1); assert.equal(session.data.lists[0].items[0].price,null);
+  assert.equal(request(session,'/assistant/receipt/'+review.operation_id).body.entity_id,first.entity_id);
+  const changed = request(session,'/assistant/prepare-action','POST',{...fields,qty:2}).body;
+  assert.equal(request(session,'/assistant/execute','POST',{review_token:changed.review_token,confirmed:true}).status,409);
+});
+
+test('household duplicate fixture does not add a second open shopping item', () => {
+  const session = create('assistant-duplicate');
+  const report = request(session,'/assistant/report','POST',{text:'نون نداریم برای صبحونه'}).body;
+  const action = report.actions.find(row => row.kind === 'shopping_item');
+  assert.deepEqual(action.existing_in,[session.data.lists[0].id]);
+  const review = request(session,'/assistant/prepare-action','POST',{report_token:report.report_token,action_id:action.id,list_id:session.data.lists[0].id,qty:1}).body;
+  assert.equal(request(session,'/assistant/execute','POST',{review_token:review.review_token,confirmed:true}).body.status,'existing');
+  assert.equal(session.data.lists[0].items.length,1);
+});
+
+test('transaction assistant previews success, empty, error and waiting without financial writes', () => {
+  const body = { items: [{ raw_text: 'امروز ۲۵۰ هزار تومان برای خرید میوه خرج کردم.' }] };
+  const session = create(), before = structuredClone(session.data);
+  const result = request(session, '/sms/assistant/analyze', 'POST', body);
+  assert.equal(result.status, 200);
+  assert.equal(result.body.candidates[0].raw_text, body.items[0].raw_text);
+  assert.equal(result.body.candidates[0].amount, '250000');
+  assert.equal(result.body.candidates[0].amount_unit, 'toman');
+  assert.deepEqual({ ...session.data, requests: [] }, before);
+  assert.deepEqual(request(create('empty-owner'), '/sms/assistant/analyze', 'POST', body).body.candidates, []);
+  assert.equal(request(create('loading'), '/sms/assistant/analyze', 'POST', body).delayMs, 20000);
+  for (const mode of ['errors', 'save-errors']) {
+    assert.equal(request(create(mode), '/sms/assistant/analyze', 'POST', body).status, 502);
+  }
+  assert.equal(request(session, '/sms/assistant/analyze', 'POST', { items: [] }).status, 422);
+  assert.equal(request(session, '/sms/assistant/analyze', 'POST', { items: [{ raw_text: ' '.repeat(100) }] }).status, 422);
+});
+
 test('support preview uses independent metadata and a separate operator session', () => {
   const session = create('auth-login', 'support');
   const actorBefore = structuredClone(session.data.actor), moneyBefore = structuredClone(session.data.transactions);

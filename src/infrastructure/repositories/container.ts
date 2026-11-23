@@ -36,8 +36,10 @@ import { RestGoalRepository } from "./goalRepository";
 import { RestActivityRepository } from "./activityRepository";
 import { RestChildRepository } from "./childRepository";
 import { RestPetRepository } from "./petRepository";
+import { RestAssistantRepository } from "./assistantRepository";
 
 export interface Repositories {
+  assistant: RestAssistantRepository;
   auth: SupabaseAuthRepository;
   family: SupabaseFamilyRepository;
   transactions: SupabaseTransactionRepository;
@@ -93,6 +95,7 @@ export function getContainer(): Promise<Container> {
         shoppingOffline,
         offlineCache: new BrowserOfflineCache(() => shoppingOffline.clear()),
         repos: {
+          assistant: new RestAssistantRepository(client),
           auth: new SupabaseAuthRepository(client),
           family: new SupabaseFamilyRepository(client, session),
           transactions: new SupabaseTransactionRepository(client),

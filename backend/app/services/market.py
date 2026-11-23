@@ -363,6 +363,18 @@ _bourse_cache: _Entry | None = None
 _symbols_cache: _Entry | None = None  # list[StockOut] — فهرست کامل نمادها
 
 
+def cached_household_prices() -> list[dict]:
+    """A read-only projection for assistant context; never triggers an upstream request."""
+    with _lock:
+        if _prices_cache is None:
+            return []
+        gold, currency, crypto = _unpack_prices(_prices_cache.data)
+        return [{**item.model_dump(mode="json"),
+                 "cached_at": datetime.fromtimestamp(_prices_cache.at, timezone.utc).isoformat(),
+                 "stale": not _fresh(_prices_cache, 300)}
+                for item in [*gold, *currency, *crypto]]
+
+
 def _unpack_prices(data: object) -> tuple[list[MarketItemOut], list[MarketItemOut], list[MarketItemOut]]:
     """کش قیمت‌ها را باز می‌کند و شکل دوتایی قدیمی را هم تحمل می‌کند.
 

@@ -232,7 +232,7 @@ def _commit_entry(db: Session) -> None:
         raise
 
 
-def create_entry(db: Session, actor: Member, body: MealEntryWrite) -> MealEntryOut:
+def create_entry_row(db: Session, actor: Member, body: MealEntryWrite) -> MealEntry:
     _get_dish(db, actor, body.dish_id, lock=True)
     row = MealEntry(
         family_id=actor.family_id,
@@ -242,6 +242,11 @@ def create_entry(db: Session, actor: Member, body: MealEntryWrite) -> MealEntryO
         dish_id=body.dish_id,
     )
     db.add(row)
+    return row
+
+
+def create_entry(db: Session, actor: Member, body: MealEntryWrite) -> MealEntryOut:
+    row = create_entry_row(db, actor, body)
     _commit_entry(db)
     db.refresh(row)
     return _entry_out(row, actor)

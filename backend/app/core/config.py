@@ -78,6 +78,13 @@ class Settings(BaseSettings):
     sms_template: str = ""                 # نامِ قالبِ verify/lookup؛ پرشده = مسیرِ ترجیحی
     sms_timeout_seconds: float = 6.0       # هم‌سان با تایم‌اوتِ market
 
+    # ── دستیار پیامک — اتصال رسمی DeepSeek؛ کلید فقط روی سرور ──
+    deepseek_api_key: str = ""
+    ai_sms_gateway_url: str = ""
+    ai_sms_gateway_token: str = ""
+    ai_sms_model: str = "deepseek-flash"
+    ai_sms_timeout_seconds: float = 25.0
+
     # ── بازیابیِ رمز (§9.5) ────────────────────────────────
     # چرا جدا از otp_ttl_seconds؟ ۵ دقیقه برای «پیامک را ببین، به نرم‌افزار برگرد،
     # کد را بزن، رمزِ تازه را دو بار بنویس» تنگ است و کاربر را به تکرارِ درخواست

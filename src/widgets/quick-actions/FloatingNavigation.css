@@ -1,6 +1,11 @@
-.floating-navigation { position: fixed; bottom: max(14px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(340px, calc(100% - 40px)); display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 8px; border: 1px solid var(--tabbar-border); border-radius: 24px; background: var(--tabbar-glass); backdrop-filter: blur(22px) saturate(145%); -webkit-backdrop-filter: blur(22px) saturate(145%); box-shadow: 0 6px 28px rgba(13,27,42,.12); z-index: 45; }
-.floating-navigation button { display: grid; justify-items: center; align-content: center; gap: 4px; min-height: 56px; border: 0; border-radius: 18px; background: transparent; color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
-.floating-navigation svg { width: 22px; height: 22px; }
+/* سه مقصد داخل قاب؛ ابزار بنفش در سمت چپ، بیرون از قاب و با فاصلهٔ واقعی. */
+.floating-access { --fs-2: 13px; position: fixed; bottom: max(var(--sp-4), env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); inline-size: min(calc(var(--sp-6) * 18), calc(100% - var(--sp-4) * 2)); display: flex; align-items: center; gap: var(--sp-3); z-index: 45; pointer-events: none; }
+.floating-navigation { flex: 1; min-inline-size: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-1); padding: var(--sp-2); border: 1px solid var(--tabbar-border); border-radius: var(--sp-6); background: var(--tabbar-glass); backdrop-filter: blur(var(--sp-5)) saturate(145%); -webkit-backdrop-filter: blur(var(--sp-5)) saturate(145%); box-shadow: var(--shadow-md); pointer-events: auto; }
+.floating-navigation button { display: grid; justify-items: center; align-content: center; gap: var(--sp-1); min-block-size: calc(var(--sp-6) + var(--sp-4) * 2); min-inline-size: calc(var(--sp-6) + var(--sp-5)); padding: 0; border: 0; border-radius: var(--r-lg); background: transparent; color: var(--text); font: inherit; font-size: var(--fs-2); line-height: 1.9; letter-spacing: 0; cursor: pointer; }
+.floating-navigation svg { inline-size: var(--sp-6); block-size: var(--sp-6); }
+.floating-assistant { flex: 0 0 calc(var(--sp-4) * 4); min-block-size: calc(var(--sp-4) * 4); display: grid; align-content: center; justify-items: center; gap: var(--sp-1); padding: var(--sp-2); border: 0; border-radius: var(--sp-5); background: #6d28d9; color: white; box-shadow: 0 0 var(--sp-4) color-mix(in srgb, #a78bfa 30%, transparent); font: inherit; font-size: var(--fs-2); line-height: 1.9; letter-spacing: 0; cursor: pointer; pointer-events: auto; }
+.floating-assistant svg { inline-size: var(--sp-6); block-size: var(--sp-6); }
+body:has(.modal-overlay, .dp-overlay, dialog[open]) .floating-access { display: none; }
 .floating-navigation button[aria-current] { background: var(--accent-soft); color: var(--accent-strong); }
 .floating-navigation button:disabled { opacity: .5; cursor: default; }
 .floating-bell { position: relative; display: flex; }
@@ -14,4 +19,5 @@
 body:has(.modal-overlay, .dp-overlay, dialog[open]) .mobile-page-back { display: none; }
 .app-with-floating-navigation { padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
 .floating-navigation button:focus-visible, .mobile-page-back:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 3px; }
+.floating-assistant:focus-visible { outline: 2px solid #6d28d9; outline-offset: var(--sp-1); }
 @supports not (backdrop-filter: blur(1px)) { .floating-navigation { background: var(--card); } }

@@ -1,5 +1,6 @@
 /* فانری use-cases — دسترسی یکجا برای UI (بدون نشت infrastructure) */
 
+import { AssistantCapabilitiesUseCase, AnalyzeHouseholdUseCase, AssistantDraftUseCase, AssistantSaveStateUseCase, ContextualHouseholdUseCase } from "./assistant/assistant.usecases";
 import type { Container } from "@/infrastructure/repositories/container";
 import { ListGoalsUseCase, GetGoalUseCase, AddGoalUseCase, UpdateGoalUseCase, DeleteGoalUseCase } from "./goal/goal.usecases";
 import { ListActivitiesUseCase, GetActivityUseCase, AddActivityUseCase, UpdateActivityUseCase, DeleteActivityUseCase } from "./activity/activity.usecases";
@@ -172,6 +173,12 @@ import {
 } from "./shopping/shopping.usecases";
 
 export interface UseCases {
+  assistantCapabilities: AssistantCapabilitiesUseCase;
+  analyzeHousehold: AnalyzeHouseholdUseCase;
+  contextualHousehold: ContextualHouseholdUseCase;
+  assistantDraft: AssistantDraftUseCase;
+  assistantSaveState: AssistantSaveStateUseCase;
+
   listPets: ListPetsUseCase;
   getPet: GetPetUseCase;
   addPet: AddPetUseCase;
@@ -363,6 +370,12 @@ export interface UseCases {
 
 export function createUseCases(c: Container): UseCases {
   return {
+    assistantCapabilities: new AssistantCapabilitiesUseCase(c.repos.assistant),
+    analyzeHousehold: new AnalyzeHouseholdUseCase(c.repos.assistant),
+    contextualHousehold: new ContextualHouseholdUseCase(c.repos.assistant),
+    assistantDraft: new AssistantDraftUseCase(c.storage),
+    assistantSaveState: new AssistantSaveStateUseCase(c.shoppingOffline),
+
     listActivities: new ListActivitiesUseCase(c.repos.activities),
     listChildren: new ListChildrenUseCase(c.repos.children),
     listPets: new ListPetsUseCase(c.repos.pets),

@@ -37,6 +37,10 @@ export const SCENARIOS = [
   { id: 'offline', label: 'قطع اینترنت', role: 'owner', mode: 'offline', description: 'پس از ورود نمونه، وضعیت آفلاین و دسترسی محدود نمایش داده می‌شود.' },
   { id: 'reminders-off', label: 'اعلان‌های غیرفعال', role: 'owner', mode: 'reminders-off', description: 'پیام‌های راهنمای فعال‌کردن اعلان‌ها؛ موعدهای خانه همچنان موجودند.' },
   { id: 'sms-pending', label: 'پیامک بانکی در انتظار ثبت', role: 'owner', mode: 'sms-pending', description: 'پیام‌ها و فرم ثبت یا نادیده‌گرفتن پیامک بانکی نمونه.' },
+  { id: 'assistant-bread-zero', label: 'دستیار · نان صفر', role: 'owner', mode: 'assistant-bread-zero', description: 'مواد صبحانه و کسری نان از رکوردهای ساختگی محاسبه می‌شوند.' },
+  { id: 'assistant-bread-unknown', label: 'دستیار · نان ثبت نشده', role: 'owner', mode: 'assistant-bread-unknown', description: 'نبود ردیف نان، موجودی صفر فرض نمی‌شود.' },
+  { id: 'assistant-bread-conflict', label: 'دستیار · اختلاف موجودی', role: 'owner', mode: 'assistant-bread-conflict', description: 'رکورد نان مثبت است، ولی پیام کاربر نبود آن را می‌گوید.' },
+  { id: 'assistant-duplicate', label: 'دستیار · نان در خرید موجود', role: 'owner', mode: 'assistant-duplicate', description: 'قلم باز دوباره به همان لیست اضافه نمی‌شود.' },
   { id: 'auth-login', label: 'ورود', role: 'owner', mode: 'auth', route: 'auth', description: 'فرم ورود و بازیابی رمز؛ ورود خودکار انجام نمی‌شود.' },
   { id: 'auth-register', label: 'ثبت‌نام', role: 'owner', mode: 'register', route: 'auth', description: 'فرم ثبت‌نام، ایجاد خانواده و پیوستن با کد.' },
   { id: 'auth-otp', label: 'ورود با کد تأیید', role: 'owner', mode: 'otp', route: 'auth', description: 'کد تأیید نمونهٔ ۱۲۳۴۵۶ و پیام‌های تأیید شماره.' },
@@ -180,7 +184,16 @@ function makeData(scenario, now) {
     vehicleServices: [row(1902, { vehicle_id: id(1001), performed_on: date(-60), description: 'نمونه: سرویس با هزینهٔ ثبت‌شده', performed_odometer: 65_000, next_due_date: date(1), next_due_odometer: 74_000, transaction_id: id(302), cost_amount: 750_000, cost_status: 'recorded' }),
       row(1903, { vehicle_id: id(1001), performed_on: date(-120), description: 'نمونه: سابقه بدون هزینه', performed_odometer: 55_000, next_due_date: null, next_due_odometer: null, transaction_id: null, cost_amount: null, cost_status: 'none' }),
       row(1904, { vehicle_id: id(1001), performed_on: date(-150), description: 'نمونه: هزینهٔ در دسترس نیست', performed_odometer: 45_000, next_due_date: null, next_due_odometer: null, transaction_id: null, cost_amount: null, cost_status: 'unavailable' })],
-    petCare: new Map([[id(1401), [id(601), id(602)]], [id(1402), []]]), receipts: new Map(), requests: [] };
+    petCare: new Map([[id(1401), [id(601), id(602)]], [id(1402), []]]), receipts: new Map(), requests: [],
+    assistantReports: new Map(), assistantReviews: new Map(), assistantReceipts: new Map() };
+  if (scenario.mode.startsWith('assistant-')) {
+    data.inventory = [row(550, {title:'پنیر',quantity:100,unit:'گرم'}), row(551,{title:'تخم مرغ',quantity:2,unit:'عدد'})];
+    if (scenario.mode !== 'assistant-bread-unknown') data.inventory.push(row(552,{title:'نان',quantity:scenario.mode === 'assistant-bread-conflict' ? 2 : 0,unit:'عدد'}));
+    data.dishes = [row(1550,{title:'نان و پنیر',ingredients:[{title:'نان',qty:1,unit:'عدد'},{title:'پنیر',qty:20,unit:'گرم'}]}),
+      row(1551,{title:'تخم مرغ آب‌پز',ingredients:[{title:'تخم مرغ',qty:2,unit:'عدد'}]})];
+    data.mealEntries = [];
+    data.lists = [row(555,{title:'خرید صبحانه',items:scenario.mode === 'assistant-duplicate' ? [row(556,{list_id:id(555),title:'نان',qty:1,unit:'عدد',price:null,checked:false,bought_at:null})] : []})];
+  }
   if (scenario.mode === 'empty') {
     for (const key of ['accounts', 'transactions', 'lists', 'inventory', 'tasks', 'bills', 'documents', 'equipment', 'vehicles', 'goals', 'activities', 'events', 'children', 'pets', 'dishes', 'mealEntries', 'categoryBudgets', 'subcategories', 'customCategories', 'joinRequests', 'sms', 'senders', 'numbers', 'holdings', 'equipmentServices', 'vehicleServices']) data[key] = [];
     data.members = [actor]; data.family.budget = 0;
@@ -319,6 +332,137 @@ function offlineMutation(session, operation) {
   data.receipts.set(operation.operation_id, clone(result)); return response(result);
 }
 
+const fixtureTitle = value => String(value || '').replace(/^نمونه:\s*/, '').replace(/ي/g,'ی').replace(/ك/g,'ک').trim().replace(/^نون$/, 'نان');
+function fixtureIngredient(ingredient, inventory) {
+  const matches = inventory.filter(row => fixtureTitle(row.title) === fixtureTitle(ingredient.title));
+  const result = {...ingredient,status:'unknown',shortage:null,inventory_id:null};
+  if (matches.length !== 1) return result;
+  const stock = matches[0]; result.inventory_id = stock.id;
+  let have = Number(stock.quantity);
+  const units = {'گرم':['mass',1],'کیلوگرم':['mass',1000],'لیتر':['volume',1000],'میلی لیتر':['volume',1]};
+  if (stock.unit !== ingredient.unit) {
+    if (!units[stock.unit] || !units[ingredient.unit] || units[stock.unit][0] !== units[ingredient.unit][0]) return result;
+    have = have * units[stock.unit][1] / units[ingredient.unit][1];
+  } else if (!stock.unit) return result;
+  return {...result,status:have >= Number(ingredient.qty) ? 'available' : 'missing',shortage:String(Math.max(0,Number(ingredient.qty)-have))};
+}
+function fixtureAssistantReport(data, text) {
+  const food = /نان|نون|صبح|غذا|شیر/.test(text), task = /نظافت|تمیز|کارها|کار خانه/.test(text);
+  const financial = /خرج کردم|پرداخت کردم|دریافت کردم|واریز/.test(text) && /\d|[۰-۹]/.test(text);
+  const terms = /نان|نون/.test(text) ? ['نان'] : /شیر/.test(text) ? ['شیر'] : [];
+  const declared = /نداریم|تمام شده|تموم شده/.test(text);
+  const fields = (row, keys) => Object.fromEntries(keys.split(' ').map(key => [key,row[key] ?? null]));
+  const section = (name, rows) => ({section:name,status:rows.length ? 'ok' : 'empty',rows,reference_date:data.today,window_days:31});
+  const sections = food ? [section('inventory',data.inventory.map(row => fields(row,'id title quantity unit category revision'))),
+    section('meals',data.dishes.map(row => ({...fields(row,'id title ingredients revision'),planned:data.mealEntries.filter(entry => entry.dish_id === row.id).map(entry => fields(entry,'id date meal_type dish_id revision'))}))),
+    section('shopping',data.lists.map(row => ({id:row.id,title:row.title,items:row.items.filter(item => !item.bought_at).map(item => fields(item,'id title qty unit checked revision'))})))]
+    : task ? [section('tasks',data.tasks.map(row => fields(row,'id title description due_date completed assignee_id revision')))] : [];
+  const facts = [], actions = [], questions = [], proposals = [];
+  if (food) {
+    for (const title of terms) {
+      const rows = sections[0].rows.filter(row => fixtureTitle(row.title) === title);
+      const status = rows.length !== 1 ? 'unknown' : Number(rows[0].quantity) === 0 ? 'missing' : 'available';
+      facts.push({id:`stock-${facts.length}`,kind:'stock',section:'inventory',title,status,rows,conflicts_with_request:declared && status === 'available'});
+      if (declared && status === 'available') questions.push('گفتید نان نداریم، اما رکورد مثبت است؛ موجودی واقعی را روشن می‌کنید؟');
+      if (status === 'unknown') questions.push('موجودی نان ثبت نشده است؛ چه مقدار در خانه دارید؟');
+    }
+    for (const dish of sections[1].rows) {
+      const ingredients = dish.ingredients.map(ingredient => fixtureIngredient(ingredient,sections[0].rows));
+      const status = !ingredients.length || ingredients.some(item => item.status === 'unknown') ? 'unknown' : ingredients.some(item => item.status === 'missing') ? 'missing' : 'available';
+      const fact = {id:`dish-${facts.length}`,kind:'dish',section:'meals',title:dish.title,dish_id:dish.id,status,ingredients,planned:dish.planned}; facts.push(fact);
+      actions.push({id:randomUUID(),kind:'meal_entry',title:dish.title,dish_id:dish.id,status,source_fact:fact.id});
+      for (const ingredient of ingredients.filter(item => item.status === 'missing')) {
+        if (!actions.some(action => action.kind === 'shopping_item' && fixtureTitle(action.title) === fixtureTitle(ingredient.title))) actions.push({id:randomUUID(),kind:'shopping_item',title:ingredient.title,qty:ingredient.shortage,unit:ingredient.unit,source_fact:fact.id});
+      }
+    }
+    if (declared) for (const title of terms) if (!actions.some(action => action.kind === 'shopping_item' && fixtureTitle(action.title) === title)) actions.push({id:randomUUID(),kind:'shopping_item',title,qty:null,unit:null});
+    for (const action of actions.filter(action => action.kind === 'shopping_item')) action.existing_in = data.lists.filter(list => list.items.some(item => !item.bought_at && fixtureTitle(item.title) === fixtureTitle(action.title))).map(list => list.id);
+    if (!data.lists.length && actions.some(action => action.kind === 'shopping_item')) actions.unshift({id:randomUUID(),kind:'shopping_list',title:null});
+  }
+  for (const source of sections.filter(source => !['inventory','meals'].includes(source.section))) facts.push({id:`section-${facts.length}`,kind:'section',section:source.section,status:source.status,rows:source.rows});
+  if (task && /تمیز کنم|تمیز کن|نظافت.*کن/.test(text)) actions.push({id:randomUUID(),kind:'task',title:'نظافت آشپزخانه',description:null,due_date:null});
+  if (financial) {
+    const digits = text.replace(/[۰-۹]/g, digit => '۰۱۲۳۴۵۶۷۸۹'.indexOf(digit));
+    const match = digits.match(/(\d+(?:\.\d+)?)\s*(هزار|میلیون)?\s*(تومان|ریال)/);
+    if (match) proposals.push({id:randomUUID(),kind:'transaction',type:/دریافت|واریز/.test(text) ? 'income' : 'expense',amount:String(Number(match[1]) * (match[2] === 'هزار' ? 1000 : match[2] === 'میلیون' ? 1000000 : 1)),unit:match[3] === 'ریال' ? 'rial' : 'toman',source_text:text,warnings:['account','date'],account_id:null,date:null,category:null});
+  }
+  const options = [];
+  for (const action of actions.filter(action => action.kind === 'meal_entry')) {
+    const fact = facts.find(fact => fact.id === action.source_fact);
+    const shoppingIds = actions.filter(item => item.kind === 'shopping_item' && fact.ingredients.some(ingredient => fixtureTitle(ingredient.title) === fixtureTitle(item.title))).map(item => item.id);
+    options.push({title:fact.status === 'available' ? `برنامه‌ریزی ${action.title} با مواد ثبت‌شده` : fact.status === 'missing' ? `تهیهٔ مواد و برنامه‌ریزی ${action.title}` : `روشن‌کردن مواد لازمِ ${action.title}`,action_ids:[...shoppingIds,action.id]});
+  }
+  const shoppingIds = actions.filter(action => action.kind === 'shopping_item').map(action => action.id);
+  if (shoppingIds.length) options.push({title:'افزودن نیازها به خرید، بدون ثبت هزینه',action_ids:shoppingIds});
+  if (!sections.length && !actions.length && !proposals.length) questions.push('چه بخش یا کاری از خانه را بررسی کنیم؟');
+  const reportId = randomUUID(), reportToken = randomUUID();
+  const result = {protocol_version:2,report_id:reportId,report_token:reportToken,reference_date:data.today,sections,facts,actions:actions.slice(0,10),options,questions,proposals,unsupported:[],inferences:sections.length || actions.length || proposals.length ? 2 : 1};
+  data.assistantReports.set(reportToken,{actor:data.actor.id,result:clone(result)});
+  return result;
+}
+function fixtureAssistantAction(data, path, body, method) {
+  if (path === '/assistant/prepare-action' && method === 'POST') {
+    const report = data.assistantReports.get(body.report_token);
+    if (!report || report.actor !== data.actor.id) return error('AI_REVIEW_INVALID','پیشنهاد نمونه معتبر نیست.',422);
+    const candidate = report.result.actions.find(action => action.id === body.action_id);
+    if (!candidate) return error('AI_REVIEW_INVALID','تغییر نمونه معتبر نیست.',422);
+    let values = {}, summary = {}, expected = {};
+    if (candidate.kind === 'shopping_list') {
+      if (!body.title?.trim()) return error('AI_DETAILS_REQUIRED','نام لیست را مشخص کنید.',422);
+      values = {title:body.title.trim()}; summary = {...values};
+    } else if (candidate.kind === 'shopping_item') {
+      const list = data.lists.find(list => list.id === body.list_id);
+      if (!list || !(Number(body.qty) > 0)) return error('AI_DETAILS_REQUIRED','لیست مقصد و مقدار لازم است.',422);
+      values = {title:candidate.title,list_id:list.id,qty:Number(body.qty),unit:body.unit || null}; summary = {...values,destination_title:list.title}; expected.list_title = list.title;
+    } else if (candidate.kind === 'task') {
+      if (body.assignee_id && !data.members.some(member => member.id === body.assignee_id && member.membership_state === 'active')) return error('INVALID_MEMBER','مسئول معتبر نیست.',422);
+      values = {title:candidate.title,description:candidate.description ?? null,due_date:body.due_date ?? null,assignee_id:body.assignee_id ?? null}; summary = {...values};
+    } else {
+      const dish = data.dishes.find(dish => dish.id === candidate.dish_id);
+      if (!dish || !body.due_date || !['breakfast','lunch','dinner'].includes(body.meal_type)) return error('AI_DETAILS_REQUIRED','روز و وعده را مشخص کنید.',422);
+      if (data.mealEntries.some(entry => entry.date === body.due_date && entry.meal_type === body.meal_type)) return error('MEAL_SLOT_OCCUPIED','این وعده قبلاً انتخاب شده است.',409);
+      values = {dish_id:dish.id,date:body.due_date,meal_type:body.meal_type}; summary = {...values,title:dish.title}; expected.dish_revision = dish.revision;
+    }
+    const operation = `${report.result.report_id}/${candidate.id}`;
+    const operationId = [...data.assistantReviews.values()].find(review => review.operation === operation)?.operation_id ?? randomUUID();
+    const token = randomUUID(), review = {operation_id:operationId,kind:candidate.kind,summary,review_token:token,expires_in:900};
+    data.assistantReviews.set(token,{...review,operation,actor:data.actor.id,values,expected,expires:Date.now()+900000});
+    return response(review);
+  }
+  if (path.startsWith('/assistant/receipt/') && method === 'GET') {
+    const saved = data.assistantReceipts.get(path.split('/').at(-1));
+    return saved && saved.actor === data.actor.id ? response({...saved.result,replayed:true}) : error('NOT_FOUND','نتیجهٔ نمونه ثبت نشده است.',404);
+  }
+  if (path === '/assistant/execute' && method === 'POST') {
+    const review = data.assistantReviews.get(body.review_token);
+    if (!review || review.actor !== data.actor.id || body.confirmed !== true) return error('AI_REVIEW_INVALID','تأیید مشخص لازم است.',422);
+    const hash = JSON.stringify({kind:review.kind,values:review.values,expected:review.expected});
+    const saved = data.assistantReceipts.get(review.operation_id);
+    if (saved) return saved.hash === hash ? response({...saved.result,replayed:true}) : error('AI_REPLAY_CONFLICT','این تغییر قبلاً با اطلاعات دیگری ثبت شده است.',409);
+    if (review.expires < Date.now()) return error('AI_REVIEW_EXPIRED','زمان تأیید گذشته است؛ دوباره بررسی کنید.',409);
+    let row, status = 'saved'; const values = review.values;
+    if (review.kind === 'shopping_list') {
+      row = data.lists.find(list => list.title === values.title);
+      if (row) status = 'existing'; else { row = {id:randomUUID(),title:values.title,items:[],revision:1}; data.lists.push(row); }
+    } else if (review.kind === 'shopping_item') {
+      const list = data.lists.find(list => list.id === values.list_id);
+      if (!list || list.title !== review.expected.list_title) return error('AI_CONTEXT_CHANGED','مقصد تغییر کرده است.',409);
+      row = list.items.find(item => !item.bought_at && fixtureTitle(item.title) === fixtureTitle(values.title));
+      if (row) status = 'existing'; else { row = {id:randomUUID(),...values,price:null,checked:false,bought_at:null,revision:1}; list.items.push(row); }
+    } else if (review.kind === 'task') {
+      row = {id:randomUUID(),...values,completed:false,revision:1}; data.tasks.push(row);
+    } else {
+      const dish = data.dishes.find(dish => dish.id === values.dish_id);
+      if (!dish || dish.revision !== review.expected.dish_revision || data.mealEntries.some(entry => entry.date === values.date && entry.meal_type === values.meal_type)) return error('AI_CONTEXT_CHANGED','اطلاعات غذا یا وعده تغییر کرده است.',409);
+      row = {id:randomUUID(),...values,revision:1}; data.mealEntries.push(row);
+    }
+    const result = {operation_id:review.operation_id,kind:review.kind,status,entity_id:row.id,replayed:false};
+    data.assistantReceipts.set(review.operation_id,{actor:data.actor.id,hash,result:clone(result)});
+    return response(result);
+  }
+  return error('NOT_FOUND','مسیر نمونه وجود ندارد.',404);
+}
+
 /** Every unknown endpoint fails locally. Caller must never fall back to a real API. */
 export function handlePreviewRequest(session, request) {
   const url = new URL(request.path || '/', 'http://copy-preview.invalid');
@@ -327,6 +471,51 @@ export function handlePreviewRequest(session, request) {
   const method = String(request.method || 'GET').toUpperCase(), body = request.body && typeof request.body === 'object' ? request.body : {};
   const data = session.data, mode = session.scenario.mode;
   data.requests.push({ method, path }); if (data.requests.length > 200) data.requests.shift();
+  // Display fixtures, not inference: no provider call, persistence, or source-text mutation.
+  if (path === '/assistant/capabilities' && method === 'GET') {
+    if (session.guest) return error('UNAUTHORIZED', 'نشست نمونه لازم است.', 401);
+    return response(mode === 'errors' ? { status: 'unavailable', protocol_version: null, kinds: [] }
+      : { status: 'ready', protocol_version: 2, contextual:true,max_inferences:2,kinds: ['transaction', 'shopping_item', 'task'] });
+  }
+  if (path === '/assistant/report' && method === 'POST') {
+    if (session.guest) return error('UNAUTHORIZED','نشست نمونه لازم است.',401);
+    if (mode === 'errors') return error('AI_CONNECTION_FAILED','بررسی نمونه انجام نشد؛ متن باقی مانده است.',502);
+    if (typeof body.text !== 'string' || !body.text.trim() || body.text.length > 8000 || Object.keys(body).some(key => key !== 'text')) return error('INVALID_BODY','متن را بررسی کنید.',422);
+    return response(fixtureAssistantReport(data,body.text),200,{delayMs:mode === 'loading' ? 20000 : 0});
+  }
+  if (['/assistant/prepare-action','/assistant/execute'].includes(path) || path.startsWith('/assistant/receipt/')) {
+    if (session.guest) return error('UNAUTHORIZED','نشست نمونه لازم است.',401);
+    if (mode === 'save-errors' && path === '/assistant/execute') return error('SAVE_FAILED','ثبت نمونه انجام نشد.',422);
+    if (mode === 'conflict' && path === '/assistant/execute') return error('AI_CONTEXT_CHANGED','اطلاعات نمونه تغییر کرده است.',409);
+    return fixtureAssistantAction(data,path,body,method);
+  }
+  if (path === '/assistant/analyze' && method === 'POST') {
+    if (session.guest) return error('UNAUTHORIZED', 'نشست نمونه لازم است.', 401);
+    if (mode === 'errors' || mode === 'save-errors') return error('AI_CONNECTION_FAILED', 'تحلیل نمونه انجام نشد؛ متن باقی مانده است.', 502);
+    if (typeof body.text !== 'string' || !body.text.trim() || body.text.length > 8000
+      || !['auto','finance','shopping','tasks'].includes(body.scope)) return error('INVALID_BODY', 'متن و محدوده را بررسی کنید.', 422);
+    const contextual = fixtureAssistantReport(data,body.text);
+    const proposals = mode === 'empty' ? [] : [...contextual.proposals, ...contextual.actions.filter(action => ['shopping_item','task'].includes(action.kind)).map(action => ({...action,source_text:body.text,warnings:[],due_date:action.due_date ?? null}))]
+      .filter(item => body.scope === 'auto' || item.kind === ({finance:'transaction',shopping:'shopping_item',tasks:'task'})[body.scope]);
+    const unsupported = /[؟?]/.test(body.text) ? [{source_text:body.text, reason:'unsupported_question'}] : [];
+    return response({ protocol_version:1, reference_date:data.today, proposals, unsupported }, 200,
+      { delayMs:mode === 'loading' ? 20000 : 0 });
+  }
+  if (path === '/sms/assistant/analyze' && method === 'POST') {
+    if (mode === 'errors' || mode === 'save-errors') return error('AI_CONNECTION_FAILED', 'تحلیل نمونه انجام نشد؛ دوباره تلاش کنید.', 502);
+    const items = body.items;
+    if (!Array.isArray(items) || !items.length || items.length > 8
+      || items.some(item => typeof item?.raw_text !== 'string' || !item.raw_text.trim() || item.raw_text.length > 8000)) {
+      return error('INVALID_INPUT', 'متن نمونه معتبر نیست.', 422);
+    }
+    const candidates = mode === 'empty' ? [] : items.map((item, sourceIndex) => ({
+      event_id: randomUUID(), source_index: sourceIndex, candidate_index: 0, candidate_total: 1,
+      raw_text: item.raw_text, type: 'expense', amount: '250000', amount_unit: 'toman',
+      category: 'food', date: null, bank: null, account_id: null, account_title: null,
+      account_match: null, confidence: 0.9,
+    }));
+    return response({ candidates }, 200, { delayMs: mode === 'loading' ? 20_000 : 0 });
+  }
   if (method === 'OPTIONS') return response(null, 204);
   if (!['GET', 'HEAD', 'POST', 'PATCH', 'DELETE'].includes(method)) return error('METHOD_NOT_ALLOWED', 'این عملیات در پیش‌نمایش پشتیبانی نمی‌شود.', 405);
   if (path.startsWith('/support/')) {

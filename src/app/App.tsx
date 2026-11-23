@@ -62,6 +62,10 @@ import { useToast } from "./providers/ToastProvider";
 import { DevPanel, type DevOverride } from "./dev/DevPanel";
 import { useOnline } from "@/shared/lib/useOnline";
 import type { NotificationRef } from "@/domain/notification/notification.types";
+import { useHouseholdAssistant } from "@/features/household-assistant/model/useHouseholdAssistant";
+import { financialFormProposal } from "@/features/household-assistant/model/assistant";
+import { HouseholdAssistant } from "@/features/household-assistant/ui/HouseholdAssistant";
+import type { AssistantOutcome, AssistantSuggestion } from "@/domain/assistant/assistant.types";
 
 export function App() {
   return (
@@ -244,6 +248,7 @@ function AppBody() {
 
     return (
       <MainShell
+        key={`${member?.familyId ?? ""}:${member?.id ?? ""}`}
         route={route}
         setRoute={setRoute}
         bumpRefresh={bumpRefresh}
@@ -311,7 +316,7 @@ function MainShell({
   filterSignal: number;
   bumpFilterSignal: () => void;
 }) {
-  const { useCases, members, cur, subcategories, shoppingSync, offlineSession, refreshTasks } = useApp();
+  const { useCases, members, family, accounts, shoppingLists, cur, subcategories, shoppingSync, offlineSession, refreshTasks } = useApp();
   const online = useOnline();
   const restricted = !online || shoppingSync.offline || offlineSession;
   const previousUsageRoute = useRef<Route | null>(null);
@@ -346,6 +351,8 @@ function MainShell({
     cur,
     subcategories,
   );
+  const assistant = useHouseholdAssistant(useCases!, family?.id ?? "", currentMemberId, restricted);
+  const activeReview = useRef<string | null>(null);
 
   /* §۷ — اعلان‌ها. این‌جا زندگی می‌کند نه در HubPage، چون به `form` نیاز
      دارد (لمسِ سررسید فرمِ تراکنش را باز می‌کند) و به ناوبریِ زیرصفحهٔ
@@ -427,6 +434,19 @@ function MainShell({
 
   /* بازگشت دکمه/سوایپ در هر صفحه‌ای جز هاب = برگشت به هاب (نه خروج از اپ) */
   useBackGuard(route !== "hub", () => nav("hub"));
+
+  const finishReview = (id: string, outcome?: AssistantOutcome) => {
+    assistant.mark(id, outcome);
+    if (activeReview.current === id) activeReview.current = null;
+  };
+  const reviewProposal = (proposal: AssistantSuggestion): boolean => {
+    if (proposal.kind !== "transaction" || activeReview.current || form.open || form.busy || pendingSms.open || !assistant.result || restricted) return false;
+    const id = proposal.id;
+    if (!form.openFromHousehold(financialFormProposal(proposal), accounts, assistant.result.reference_date,
+      { onSaved: () => finishReview(id, "saved"), onClosed: () => finishReview(id) })) return false;
+    activeReview.current = id; assistant.close();
+    return true;
+  };
 
   /* جستجو از هدر خانه: انتقال به تراکنش‌ها با متن جستجو */
   const searchFromHome = useCallback(
@@ -559,7 +579,14 @@ function MainShell({
       </div>
       <FloatingNavigation home={route === "hub"} sections={route === "sections"} onHome={() => nav("hub")}
         onSections={() => nav("sections")} notifications={route === "notifications"} count={notif.count + pendingSms.list.length}
-        onNotifications={() => nav("notifications")} hidden={form.open || pendingSms.open} />
+        onNotifications={() => nav("notifications")} hidden={form.open || pendingSms.open || assistant.open}
+        onAssistant={() => { if (!activeReview.current && !form.open && !form.busy && !pendingSms.open) assistant.show(route); }} />
+      <HouseholdAssistant model={assistant} offline={restricted} lists={shoppingLists} members={members} onReview={reviewProposal}
+        onChanged={async () => { await bumpRefresh(); await notif.reload(); }}
+        onLegacyFinance={() => {
+          if (restricted) { show("ثبت تراکنش به اتصال اینترنت نیاز دارد."); return; }
+          if (!activeReview.current && form.openLegacyAssistant(assistant.text)) assistant.close();
+        }} onShopping={() => { assistant.close(); nav("shopping"); }} />
       {!restricted ? <TransactionFormFeature form={form} onImported={async () => {
         await bumpRefresh(); form.close(); nav("sms"); await pendingSms.load({ review: true });
       }} /> : null}

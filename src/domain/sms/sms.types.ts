@@ -45,3 +45,21 @@ export interface SmsBridge {
   token: string;
   memberId: string;
 }
+
+export interface SmsAssistantProposal {
+  eventId: string;
+  sourceIndex: number;
+  candidateIndex: number;
+  candidateTotal: number;
+  rawText: string;
+  type: SmsTxType;
+  amount: number | null;
+  amountUnit: "rial" | "toman" | null;
+  bank: string | null;
+  date: string | null;
+  category: string;
+  accountId: string | null;
+  accountTitle: string | null;
+  accountMatch: "card" | "card_tail" | "account_number" | "iban" | "sender" | "unique_bank" | null;
+  confidence: number;
+}

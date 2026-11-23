@@ -15,6 +15,7 @@ from app.api.v1.routes import usage
 
 from app.api.v1.routes import (
     accounts,
+    assistant,
     activities,
     auth,
     bills,
@@ -89,3 +90,5 @@ api_router.include_router(files.router)
 # ── webhook ماشین-به-ماشین (فاز ۸) — بیرون از وابستگی RLS: احراز با «توکن پل»
 #    در بدنه، نه نشست؛ زمینهٔ خانواده را «دستی» ست می‌کند (ingest_via_bridge). ──
 api_router.include_router(webhooks.router)
+
+api_router.include_router(assistant.router, tags=["assistant"])

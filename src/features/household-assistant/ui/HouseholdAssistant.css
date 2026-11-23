@@ -1,0 +1,50 @@
+/* دستیار واحد: همان نشانهٔ بنفشِ تأییدشده، با اندازه‌های نردبان و متن فارسی خوانا. */
+.household-assistant {
+  --assistant-purple: #6d28d9;
+  --assistant-glow: #a78bfa;
+  --fs-2: 13px;
+  --fs-3: 14px;
+  --fs-4: 16px;
+  display: grid;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--assistant-glow) 8%, var(--card));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--assistant-glow) 55%, transparent);
+  line-height: 1.9;
+  letter-spacing: 0;
+  font-size: var(--fs-3);
+  min-inline-size: 0;
+}
+.household-assistant-heading { display: flex; gap: var(--sp-2); align-items: center; color: var(--assistant-purple); font-size: var(--fs-4); font-weight: 700; }
+.household-assistant fieldset { display: grid; gap: var(--sp-3); margin: 0; padding: var(--sp-3); border: 1px solid var(--border); min-inline-size: 0; }
+.household-assistant input:not([type="radio"]), .household-assistant select { inline-size: 100%; box-sizing: border-box; min-inline-size: 0; font: inherit; padding: var(--sp-3); color: var(--text); background: var(--card); border: 1px solid var(--border); border-radius: var(--r-md); }
+.household-assistant input:focus-visible { outline: 2px solid var(--assistant-purple); outline-offset: 2px; }
+.assistant-option { display: flex; align-items: center; gap: var(--sp-2); min-block-size: 44px; }
+.assistant-source-rows { padding-inline-start: var(--sp-4); overflow-wrap: anywhere; }
+.assistant-source-rows dl { margin: 0; }
+.assistant-source-rows dl > div { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.assistant-source-rows dd { margin: 0; }
+.household-assistant svg { inline-size: var(--sp-6); block-size: var(--sp-6); flex-shrink: 0; }
+.household-assistant p { margin: 0; max-inline-size: 44em; }
+.household-assistant textarea, .household-assistant select { inline-size: 100%; min-inline-size: 0; box-sizing: border-box; padding: var(--sp-3); font: inherit; line-height: 1.9; color: var(--text); background: var(--card); border: 1px solid var(--border); border-radius: var(--r-sm); }
+.household-assistant textarea { resize: vertical; }
+.home-assistant-actions, .assistant-shortcuts { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
+.home-assistant-actions span, .assistant-review-note { color: var(--text-2); font-size: var(--fs-2); }
+.assistant-primary { display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2); min-block-size: calc(var(--sp-6) + var(--sp-5)); padding: var(--sp-2) var(--sp-4); background: #6d28d9; color: white; border: 0; border-radius: var(--r-sm); font: inherit; cursor: pointer; }
+.assistant-shortcuts button { min-block-size: calc(var(--sp-6) + var(--sp-5)); padding: var(--sp-2); background: transparent; border: 0; color: var(--text-2); font: inherit; cursor: pointer; }
+.household-assistant button:disabled { opacity: .55; cursor: default; }
+.household-assistant :is(button, textarea, select):focus-visible { outline: 2px solid var(--assistant-purple); outline-offset: 2px; }
+/* نتیجه‌ها پیشنهادند؛ هر قلم و بخش پشتیبانی‌نشده شاهد و دکمهٔ بررسی مستقل دارد. */
+.assistant-results { display: grid; gap: var(--sp-3); }
+.assistant-proposal, .assistant-unsupported { padding: var(--sp-3); border-block-start: 1px solid var(--border); display: grid; gap: var(--sp-2); overflow-wrap: anywhere; }
+.assistant-proposal blockquote, .assistant-unsupported blockquote { margin: 0; padding-inline-start: var(--sp-3); border-inline-start: 2px solid var(--border); color: var(--text-2); }
+.assistant-list-choice, .assistant-scope-label, .assistant-list-choice label { display: grid; gap: var(--sp-2); }
+.assistant-privacy { color: var(--text-2); font-size: var(--fs-2); }
+.assistant-privacy summary { min-block-size: calc(var(--sp-6) + var(--sp-5)); align-content: center; cursor: pointer; }
+.household-assistant-sheet { max-inline-size: 44em; }
+/* تنها هنگام تحلیل، نشانگر با opacity حرکت می‌کند؛ ترجیح کاهش حرکت محترم است. */
+.household-assistant.is-analyzing .household-assistant-heading svg { animation: household-pulse calc(var(--dur-med) * 6) ease-in-out infinite alternate; }
+@keyframes household-pulse { from { opacity: .4; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .household-assistant.is-analyzing .household-assistant-heading svg { animation: none; } }
+[data-theme="dark"] .household-assistant { --assistant-purple: #c4b5fd; }

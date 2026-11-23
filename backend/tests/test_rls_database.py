@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import uuid
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -53,6 +54,7 @@ from tests.conftest import (
 PROTECTED: tuple[str, ...] = (
     "activity_participants",
     "accounts",
+    "assistant_execution_receipts",
     "bills",
     "category_budgets",
     "custom_categories",
@@ -291,6 +293,18 @@ def _populate(client: Any, who: Actor) -> None:
     )
     assert receipt.status_code == 200, receipt.text
 
+    # The real confirmed-write endpoint creates an atomic, member-bound receipt.
+    # This fictional signed review avoids any provider inference in an RLS test.
+    from app.services.assistant_actions import sign_payload
+
+    token = sign_payload(SimpleNamespace(id=who.member_id, family_id=who.family_id), {
+        "type": "review", "operation_id": str(uuid.uuid4()), "kind": "shopping_list",
+        "values": {"title": "رسید سنجش RLS"}, "expected": {},
+    })
+    confirmed = client.post(f"{API}/assistant/execute", headers=who.h,
+                            json={"review_token": token, "confirmed": True})
+    assert confirmed.status_code == 200, confirmed.text
+
     # ── مرحلهٔ B: یک درخواستِ عضویتِ «در انتظار» ──
     # عمداً تأیید نمی‌شود: برای سنجشِ RLS فقط وجودِ **ردیف** لازم است، و
     # درخواستِ تأییدنشده عضوِ فعالِ اضافه‌ای هم نمی‌سازد که بقیهٔ شمارش‌ها
@@ -373,7 +387,8 @@ def test_protected_tables_have_a_fail_closed_family_policy(raw_sql: Any, table: 
 
     assert rows, f"جدول «{table}» هیچ پالیسی‌ای ندارد — با RLSِ روشن یعنی کلاً بسته، نه ایزوله."
 
-    name = f"{table}{POLICY_SUFFIX}"
+    name = ("assistant_execution_scope" if table == "assistant_execution_receipts"
+            else f"{table}{POLICY_SUFFIX}")
     match = [r for r in rows if r[0] == name]
     assert match, f"پالیسیِ «{name}» نیست. پالیسی‌های موجود: {[r[0] for r in rows]}"
 
@@ -394,6 +409,9 @@ def test_protected_tables_have_a_fail_closed_family_policy(raw_sql: Any, table: 
         assert low in with_check.casefold(), (
             f"محمولِ WITH CHECK در «{name}» تکهٔ «{part}» را ندارد: {with_check}"
         )
+    if table == "assistant_execution_receipts":
+        for part in ("member_id", "app.document_member_id"):
+            assert part in qual and part in with_check
 
 
 @pytest.mark.parametrize("table", sorted(EXEMPT))

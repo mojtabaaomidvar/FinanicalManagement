@@ -217,7 +217,7 @@ def list_for_family(db: Session, actor: Member) -> list[ShoppingListOut]:
 
 
 # ── لیست‌ها ──────────────────────────────────────────────────
-def create_list(db: Session, actor: Member, req: ShoppingListWrite) -> ShoppingListOut:
+def create_list_row(db: Session, actor: Member, req: ShoppingListWrite) -> ShoppingList:
     title = inventory_service.clean_title(req.title, "نام لیست")
     count = len(
         list(
@@ -232,6 +232,11 @@ def create_list(db: Session, actor: Member, req: ShoppingListWrite) -> ShoppingL
         raise AppError("LIMIT_REACHED", "تعداد لیست‌ها به سقف رسیده است.", 409)
     row = ShoppingList(family_id=actor.family_id, created_by=actor.id, title=title)
     db.add(row)
+    return row
+
+
+def create_list(db: Session, actor: Member, req: ShoppingListWrite) -> ShoppingListOut:
+    row = create_list_row(db, actor, req)
     db.commit()
     db.refresh(row)
     return _list_out(row, [])
@@ -330,9 +335,9 @@ def _assert_item_unique(
         )
 
 
-def add_item(
+def add_item_row(
     db: Session, actor: Member, list_id: uuid.UUID, req: ShoppingItemWrite
-) -> ShoppingItemOut:
+) -> ShoppingItem:
     parent = _get_list(db, actor, list_id)
     values = _prepare_item(db, actor, req)
     _assert_item_unique(db, actor, parent.id, values["title"])
@@ -345,6 +350,13 @@ def add_item(
         **values,
     )
     db.add(row)
+    return row
+
+
+def add_item(
+    db: Session, actor: Member, list_id: uuid.UUID, req: ShoppingItemWrite
+) -> ShoppingItemOut:
+    row = add_item_row(db, actor, list_id, req)
     db.commit()
     db.refresh(row)
     return _item_out(row)

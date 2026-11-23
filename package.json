@@ -1,7 +1,7 @@
 {
   "name": "mali-man",
   "private": true,
-  "version": "0.6.0",
+  "version": "0.7.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -41,7 +41,8 @@
     "cap:sync": "npm run build && cap sync android",
     "cap:android": "cap open android",
     "copy:studio:inventory-check": "node scripts/check-inventory-refresh.mjs",
-    "copy:studio:inventory-categories-check": "node scripts/check-inventory-categories.mjs"
+    "copy:studio:inventory-categories-check": "node scripts/check-inventory-categories.mjs",
+    "copy:studio:assistant-check": "node scripts/check-household-assistant.mjs"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.1",

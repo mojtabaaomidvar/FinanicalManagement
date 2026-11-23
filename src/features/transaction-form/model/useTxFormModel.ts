@@ -23,6 +23,9 @@ import { isoToJalali, today, formatISO } from "@/shared/lib/jalali";
 import { expenseBalanceWarning, type ExpenseBalanceWarning } from "./expenseBalance";
 import { occurrenceStatus, parseScheduledAmount, recurringTemplate } from "@/domain/transaction/recurring.rules";
 import { clearPendingOccurrence, readPendingOccurrence, rememberPendingOccurrence } from "./pendingOccurrence";
+import type { SmsAssistantProposal } from "@/domain/sms/sms.types";
+import type { Account } from "@/domain/account/account.types";
+import { assistantFormDraft, clearSavedAssistantDraft } from "./transactionAssistant";
 
 export interface TxFormState {
   type: "expense" | "income" | "transfer";
@@ -75,6 +78,10 @@ export function useTxFormModel(
     scope.current = { currentMemberId, useCases };
   }
   const savedTransaction = useRef<Transaction | null>(null);
+  const assistantSource = useRef<{ key: string; raw: string } | null>(null);
+  const householdReview = useRef<{ onSaved: () => void; onClosed: () => void } | null>(null);
+  const [assistantInitialText, setAssistantInitialText] = useState<string | undefined>();
+  const [householdReviewNote, setHouseholdReviewNote] = useState(false);
   const reviewedBalance = useRef<ExpenseBalanceWarning | null>(null);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const serviceExpense = editing?.sourceKind === "vehicle_service";
@@ -128,6 +135,9 @@ export function useTxFormModel(
     generation.current += 1;
     saving.current = false;
     savedTransaction.current = null;
+    assistantSource.current = null;
+    householdReview.current = null;
+    setAssistantInitialText(undefined); setHouseholdReviewNote(false);
     reviewedBalance.current = null;
     setBalanceWarning(null);
     setActivity(null); setOpen(false); setEditing(null); setOccurrence(null);
@@ -159,6 +169,9 @@ export function useTxFormModel(
     if (saving.current) return;
     generation.current += 1;
     savedTransaction.current = null;
+    assistantSource.current = null;
+    householdReview.current?.onClosed(); householdReview.current = null;
+    setAssistantInitialText(undefined); setHouseholdReviewNote(false);
     setEditing(null);
     setOccurrence(null);
     setOccurrenceError(null);
@@ -175,6 +188,9 @@ export function useTxFormModel(
     if (tx.sourceKind === "transfer_fee") return notify("برای تغییر کارمزد، پرداخت اصلی را ویرایش کنید.");
     generation.current += 1;
     savedTransaction.current = tx;
+    assistantSource.current = null;
+    householdReview.current?.onClosed(); householdReview.current = null;
+    setAssistantInitialText(undefined); setHouseholdReviewNote(false);
     setEditing(tx);
     setOccurrence(null);
     setOccurrenceError(null);
@@ -278,6 +294,39 @@ export function useTxFormModel(
       categoryId: type === "transfer" ? defaultCategoryOf("transfer").id : "",
       label: "" /* دسته عوض شد — لیبل قبلی نامعتبر می‌شود */,
     }));
+  }
+
+  function applyAssistantProposal(proposal: SmsAssistantProposal, accounts: Account[], source: { key: string; raw: string }): boolean {
+    if (!open || saving.current || editing || occurrence || form.type === "transfer") return false;
+    const previous = assistantSource.current && form.note === assistantSource.current.raw.slice(0, 200)
+      ? { ...form, note: "" } : form;
+    const draft = assistantFormDraft(proposal, previous, entryCurrency, accounts);
+    setForm(draft.form);
+    setEntryCurrency(draft.entryCurrency);
+    assistantSource.current = source;
+    return true;
+  }
+
+  /** Atomic fresh-form handoff: never patch an old React state or overwrite an open form. */
+  function openFromHousehold(proposal: SmsAssistantProposal, accounts: Account[], referenceDate: string,
+    callbacks: { onSaved: () => void; onClosed: () => void }): boolean {
+    if (open || saving.current) return false;
+    const draft = assistantFormDraft(proposal, defaults(), currency, accounts, referenceDate);
+    generation.current++; savedTransaction.current = null; assistantSource.current = null;
+    householdReview.current = callbacks;
+    setEditing(null); setOccurrence(null); setOccurrenceError(null); setActivity(null);
+    writeForm(draft.form); setEntryCurrency(draft.entryCurrency);
+    setPhotos([]); setReceiptError(null); setCategoryError(null); setBalanceWarning(null);
+    reviewedBalance.current = null;
+    setAssistantInitialText(undefined); setHouseholdReviewNote(true); setOpen(true);
+    return true;
+  }
+
+  function openLegacyAssistant(text: string): boolean {
+    if (open || saving.current) return false;
+    if (text.length > 4000) { notify("برای دستیار مالی فعلی، متن را به حداکثر ۴۰۰۰ نویسه کوتاه کن؛ متن اصلی حفظ شده است."); return false; }
+    openNew(); setAssistantInitialText(text);
+    return true;
   }
 
   /** تعویض ارز ورودی — مقدار تایپ‌شده (حتی عبارت ریاضی) به واحد جدید تبدیل می‌شود */
@@ -485,6 +534,12 @@ export function useTxFormModel(
       savedTransaction.current = stored;
       setEditing(stored);
       transactionSaved = true;
+      if (householdReview.current) {
+        householdReview.current.onSaved();
+        householdReview.current = null;
+      }
+      clearSavedAssistantDraft(assistantSource.current);
+      assistantSource.current = null;
 
       // Preserve the successful financial identity before acknowledging its due date.
       if (occurrence) {
@@ -657,9 +712,14 @@ export function useTxFormModel(
     openEdit,
     openForOccurrence,
     setType,
+    applyAssistantProposal,
+    openFromHousehold,
+    openLegacyAssistant,
+    assistantInitialText,
+    householdReviewNote,
     save,
     remove,
-    close: () => { if (!saving.current) { generation.current += 1; setOpen(false); } },
+    close: () => { if (!saving.current) { generation.current += 1; setOpen(false); householdReview.current?.onClosed(); householdReview.current = null; } },
     setAmount: (v: string) =>
       /* نویسهٔ نامعتبر حفظ می‌شود تا اعتبارسنجی آن را رد کند؛ حذفش مبلغ را تغییر می‌دهد. */
       setForm((f) => ({

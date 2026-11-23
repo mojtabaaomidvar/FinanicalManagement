@@ -26,7 +26,7 @@ def _error_headers(request: Request) -> dict[str, str]:
         for prefix in (
             "/api/v1/documents", "/api/v1/equipment", "/api/v1/vehicles", "/api/v1/goals",
             "/api/v1/activities", "/api/v1/events", "/api/v1/children", "/api/v1/pets",
-            "/api/v1/support", "/api/v1/members/me/support-code",
+            "/api/v1/support", "/api/v1/members/me/support-code", "/api/v1/assistant",
         )
     ):
         return {"Cache-Control": "no-store", "Pragma": "no-cache"}

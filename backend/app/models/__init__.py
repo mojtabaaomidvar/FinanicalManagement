@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from app.db.base import Base
+from app.models.assistant_execution import AssistantExecutionReceipt
 from app.models.inventory_catalog import InventoryCatalogProposal
 from app.models.account import Account, CardBin
 from app.models.activity_participant import ActivityParticipant
