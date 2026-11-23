@@ -11,7 +11,7 @@
   let unresolvedCopies = new Set(), lastUnresolved = '';
   const protectedValues = new Set();
   const allowedAttributes = ['placeholder', 'title', 'aria-label', 'alt', 'aria-description'];
-  const userTextFields = '.hub-id h1,.set-profile-name,.settings-member h5,.shop-body > b,.document-copy > b,.document-file-name,.calendar-entry-title,.goals-details > b,.goals-note-preview,.goals-note,.equipment-details > b,.vehicles-details > b,.activities-details > b,.children-details > b,.children-related-list b,.pets-details > b,.pets-care-list b,.meal-dish-details b,.tx-title,.tx-desc,.shop-name,.inventory-title,.task-title,.hold-title,.account-title,[data-home-ref-id] b';
+  const userTextFields = '.hub-id h1,.set-profile-name,.settings-member h5,.shop-body > b,.document-copy > b,.document-file-name,.calendar-entry-title,.goals-details > b,.goals-note-preview,.goals-note,.equipment-details > b,.vehicles-details > b,.activities-details > b,.children-details > b,.children-related-list b,.pets-details > b,.pets-care-list b,.meal-dish-details b,[data-meal-content],.tx-title,.tx-desc,.shop-name,.inventory-title,.task-title,.hold-title,.account-title,[data-home-ref-id] b';
   const blockedText = 'script,style,textarea,pre,code,[contenteditable="true"]';
   const escapeRegex = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const normalize = text => String(text ?? '').replace(/\s+/g, ' ').trim();

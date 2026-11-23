@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "sourceHash": "da49cd9a2241b402b5cf1ccbf9a5ac1a30bde5135ed96c712447706a645af36a",
+  "foodCount": 4583,
+  "variantCount": 5832,
+  "detailShards": 256,
+  "projection": "Titles, source categories and separate ingredient variants only; no quantities or preparation steps."
+}

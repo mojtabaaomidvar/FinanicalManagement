@@ -27,7 +27,8 @@ def calendar_day(value) -> CalendarDate:
 class Ingredient(BaseModel):
     model_config = ConfigDict(extra="forbid")
     title: str = Field(min_length=1, max_length=120)
-    qty: Decimal = Field(default=Decimal(1), gt=0, le=Decimal("99999999"))
+    # A named ingredient does not imply a known amount. Shopping has its own numeric schema.
+    qty: Decimal | None = Field(default=None, gt=0, le=Decimal("99999999"))
     unit: str | None = Field(default=None, max_length=20)
 
     @field_validator("qty", mode="before")

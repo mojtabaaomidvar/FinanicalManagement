@@ -57,6 +57,20 @@ describe("selected meal ingredient totals", () => {
 });
 
 describe("meal form validation", () => {
+  it("allows a name-only recipe ingredient but never silently imports an unknown amount to shopping", () => {
+    const unknown = { title: "برنج", qty: null, unit: null };
+    expect(cleanIngredient(unknown)).toEqual(unknown);
+    expect(dishError({ title: "عدس‌پلو", ingredients: [unknown] })).toBe("");
+    expect(importError([unknown])).toContain("خودتان وارد کنید");
+    const rows = weeklyIngredients([entry("one", "one"), entry("two", "two")], [
+      dish("one", [unknown]), dish("two", [{ ...unknown, qty: 2 }]),
+    ]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].qty).toBeNull();
+    expect(weeklyIngredients([entry("two", "two"), entry("one", "one")], [
+      dish("one", [unknown]), dish("two", [{ ...unknown, qty: 2 }]),
+    ])[0].qty).toBeNull();
+  });
   it.each([0, -1, NaN, Infinity, 0.004, 1e-8, MEAL_LIMITS.qty + 1])("rejects quantity %s before submitting a zero or invalid amount", (qty) => {
     expect(ingredientError(ingredient(qty))).not.toBe("");
   });

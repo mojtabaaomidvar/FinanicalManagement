@@ -34,6 +34,17 @@ function setup() {
 }
 
 describe("online meal transport and shopping imports", () => {
+  it("round-trips explicit unknown dish quantities without converting null into zero or changing old numeric rows", async () => {
+    const context = setup();
+    const input = { title: "عدس‌پلو", ingredients: [{ title: "عدس", qty: null, unit: null }, { title: "برنج", qty: 2, unit: "پیمانه" }] };
+    const row = { ...input, id: "dish", created_by: "member-a", revision: 1, created_at: "now", updated_at: "now", can_edit: true, can_delete: true };
+    context.fetchMock.mockImplementation(async () => new Response(JSON.stringify({ ...row, ingredients: [input.ingredients[0], { ...input.ingredients[1], qty: "2.00" }] }), { status: 201 }));
+    expect((await context.repo.addDish(input)).ingredients).toEqual(input.ingredients);
+    const request = context.fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(request[1].body as string)).toEqual(input);
+    context.fetchMock.mockImplementation(async () => new Response(JSON.stringify([row])));
+    expect((await context.repo.listDishes())[0].ingredients).toEqual(input.ingredients);
+  });
   it("uses the bearer captured when an ordinary meal request starts and maps decimal quantities", async () => {
     const context = setup();
     let resolveToken!: (token: string) => void;

@@ -31,6 +31,7 @@ async function fixture(t, { appliedNative = false } = {}) {
         <button id="same-text">Static help</button>
         <p id="hidden" ${visual(records.hidden)} ${text('hidden', 'Hidden help')}>Hidden help</p>
         <p id="user" class="task-title">Static help</p>
+        <div data-meal-content><b id="food-data">Static help</b></div>
         <span id="native" ${visual(appliedNative ? { ...records.native, icon: 'i-star' } : records.native)}><svg width="48" height="48" viewBox="${appliedNative ? '0 0 24 24' : '0 0 48 48'}">${appliedNative ? '<use href="#i-star"></use>' : '<circle cx="24" cy="24" r="20" stroke-width="2"></circle>'}</svg></span>
         <button id="row">Row <span id="forwarded-wrap"><svg id="forwarded" width="24" height="24" viewBox="0 0 24 24"><use href="#i-star"></use></svg></span><svg id="arrow" width="24" height="24" viewBox="0 0 24 24"><use href="#i-arrow-l"></use></svg></button>
       </main>
@@ -64,6 +65,7 @@ test('visual drafts hide and restore only their source elements and preserve nat
   assert.equal(await frame.locator('#native svg').getAttribute('viewBox'), '0 0 48 48');
   assert.equal(await frame.locator('#hidden').isVisible(), false);
   assert.equal(await frame.locator('#user').textContent(), 'Static help');
+  assert.equal(await frame.locator('#food-data').textContent(), 'Static help');
 });
 
 test('forwarded icon metadata selects and changes the matching glyph without its row or navigation arrow', async t => {

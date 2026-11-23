@@ -127,6 +127,30 @@ def test_week_includes_saturday_to_friday_in_meal_order(client, home_a):
     assert len(plan_of(client, home_a, "2026-11-21")["entries"]) == 1
 
 
+def test_name_only_ingredients_remain_null_across_save_edit_and_plan(client, home_a):
+    dish = create_dish(client, home_a, ingredients=[
+        {"title": " برنج ", "qty": None}, {"title": "عدس"},
+    ])
+    assert dish["ingredients"] == [
+        {"title": "برنج", "qty": None, "unit": None},
+        {"title": "عدس", "qty": None, "unit": None},
+    ]
+    changed = expect_status(edit_dish(client, home_a, dish, title="عدس‌پلو"), 200).json()
+    assert changed["ingredients"] == dish["ingredients"]
+    entry = create_entry(client, home_a, changed)
+    assert plan_of(client, home_a)["entries"][0]["dish_id"] == changed["id"]
+    assert dishes_of(client, home_a)[0]["ingredients"] == dish["ingredients"]
+    expect_status(delete(client, home_a, PLAN, entry), 204)
+
+
+@pytest.mark.parametrize("amounts", [[None, "2"], ["2", None], [None, None]])
+def test_duplicate_unknown_ingredient_never_becomes_a_known_total(client, home_a, amounts):
+    dish = create_dish(client, home_a, ingredients=[
+        {"title": "برنج", "qty": qty, "unit": "پیمانه"} for qty in amounts
+    ])
+    assert dish["ingredients"] == [{"title": "برنج", "qty": None, "unit": "پیمانه"}]
+
+
 def test_entry_change_keeps_slot_and_prevents_referenced_dish_deletion(client, home_a):
     first = create_dish(client, home_a)
     second = create_dish(client, home_a, title="املت")

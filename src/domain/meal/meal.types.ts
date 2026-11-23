@@ -2,7 +2,8 @@ export type MealType = "breakfast" | "lunch" | "dinner";
 
 export interface MealIngredient {
   title: string;
-  qty: number;
+  /** Null means no recipe amount was supplied; never a synthetic quantity of one. */
+  qty: number | null;
   unit: string | null;
 }
 

@@ -1,49 +1,179 @@
-.meals-summary { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding-block-end: var(--sp-3); }
-.meals-summary > svg { flex-shrink: 0; color: var(--accent-strong); }
-.meals-count { margin: 0; font-size: 1.25rem; font-weight: 700; line-height: 1.45; }
-.meals-tabs, .meals-week-nav { display: flex; flex-wrap: wrap; gap: 8px; }
-.meals-week-nav { justify-content: space-between; }
-.meals-tab { min-height: 44px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--card); color: var(--text-2); font: inherit; font-size: 0.9rem; cursor: pointer; }
-.meals-tab.active { color: var(--accent-strong); border-color: var(--accent-strong); font-weight: 700; }
-.meals-tab:disabled { opacity: 0.5; cursor: default; }
-.meals-week-label { margin: 0; color: var(--text-2); font-size: 0.9rem; line-height: 1.6; font-variant-numeric: tabular-nums; }
-.meals-days { display: grid; gap: var(--sp-3); }
-.meal-day-title { margin: 0 0 12px; font-size: 1rem; line-height: 1.45; font-weight: 700; }
-.meal-slot { display: flex; gap: 8px; align-items: center; min-height: 48px; }
+/* دفتر آشپزخانه: محتوا در مرکز، کاغذ آرام و تصویر خطیِ سفره. */
+.meals-content { max-inline-size: calc(var(--sp-10) * 10); margin-inline: auto; gap: var(--sp-5); }
+.meals-page, .meals-sheet { --accent-strong: var(--t-emerald-fg); font-kerning: normal; text-rendering: optimizeLegibility; letter-spacing: 0; }
+.meals-page p, .meals-sheet p, .meals-sheet li { line-height: 1.9; }
+.meal-kitchen-hero { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) calc(var(--sp-10) * 2); align-items: center; gap: var(--sp-4); padding: var(--sp-6); background: var(--card-2); border-radius: var(--r-xl); overflow: hidden; }
+.meal-hero-copy { display: grid; justify-items: start; gap: var(--sp-2); z-index: 1; }
+.meal-eyebrow { color: var(--accent-strong); font-size: var(--fs-2); font-weight: 600; }
+.meal-hero-copy h2 { font-size: var(--fs-7); line-height: 1.45; font-weight: 900; }
+.meal-hero-copy > p:not(.meal-eyebrow) { font-size: var(--fs-3); color: var(--text-2); max-inline-size: 44em; }
+.food-art { display: block; inline-size: 100%; block-size: auto; color: var(--accent-strong); }
+.meal-hero-art { transform: rotate(-8deg); }
+.meal-text-button, .meal-back { display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2); min-block-size: var(--sp-8); padding-inline: var(--sp-1); color: var(--accent-strong); font-size: var(--fs-3); font-weight: 600; text-align: start; }
+.meal-text-button svg { inline-size: var(--sp-4); block-size: var(--sp-4); flex-shrink: 0; }
+
+/* سه مسیرِ روشن: برنامه، کتابخانه و غذاهای شخصی؛ بدون نوار ابزار شلوغ. */
+.meals-tabs { display: flex; border-block-end: 1px solid var(--border-strong); gap: var(--sp-2); }
+.meals-tab { position: relative; flex: 1; min-block-size: var(--sp-8); padding: var(--sp-3) var(--sp-1); color: var(--text-2); font: inherit; font-size: var(--fs-3); font-weight: 500; line-height: 1.45; }
+.meals-tab.active { color: var(--accent-strong); font-weight: 700; }
+.meals-tab.active::after { content: ""; position: absolute; inset-inline: 0; inset-block-end: -1px; block-size: var(--sp-1); background: var(--accent-strong); border-radius: var(--r-pill); }
+.meals-page button:disabled, .meals-sheet button:disabled { opacity: .5; cursor: default; }
+
+/* تقویمِ کوتاهِ روزها؛ نشان‌های زیر هر روز تعداد وعده‌های پرشده را می‌رسانند. */
+.meals-week-nav { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.meal-week-step, .meal-current-week { display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1); min-block-size: var(--sp-8); font-size: var(--fs-3); color: var(--text-2); }
+.meal-week-step svg { inline-size: var(--sp-4); block-size: var(--sp-4); }
+.meal-current-week { font-weight: 700; color: var(--text); }
+.meals-week-label { color: var(--text-2); font-size: var(--fs-2); text-align: center; margin-block-start: calc(var(--sp-3) * -1); }
+.meal-day-selector { display: grid; grid-template-columns: repeat(7, minmax(var(--sp-8), 1fr)); gap: var(--sp-1); overflow-x: auto; padding-block: var(--sp-1); }
+.meal-day-button { display: grid; gap: var(--sp-2); align-content: center; justify-items: center; min-block-size: var(--sp-10); padding: var(--sp-3) var(--sp-1); border-radius: var(--r-lg); background: var(--card); color: var(--text-2); border: 1px solid var(--border); }
+.meal-day-button > span:first-child { font-size: var(--fs-2); white-space: nowrap; }
+.meal-day-button > b { font-size: var(--fs-6); line-height: 1.45; color: var(--text); }
+.meal-day-button.active { background: var(--accent-soft); border-color: var(--accent-strong); }
+.meal-day-button.active > b { color: var(--accent-strong); }
+.meal-day-dots { display: flex; justify-content: center; gap: var(--sp-1); }
+.meal-day-dots i { inline-size: var(--sp-1); block-size: var(--sp-1); border-radius: var(--r-pill); background: var(--border-strong); }
+.meal-day-dots i.filled { background: var(--accent-strong); }
+.meal-week-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.meal-week-toolbar p { font-size: var(--fs-2); color: var(--text-2); }
+
+/* منوی روز: تصویرِ غذا، نام وعده و مواد؛ جداسازی با خط، نه سه کارتِ یکسان. */
+.meals-days { display: grid; gap: var(--sp-4); }
+.meals-days > .card { padding: var(--sp-5); box-shadow: none; border: 1px solid var(--border); }
+.meal-menu-heading { display: flex; justify-content: space-between; align-items: end; gap: var(--sp-3); padding-block-end: var(--sp-4); }
+.meal-day-title { margin: 0; font-size: var(--fs-6); font-weight: 700; line-height: 1.45; }
+.meal-menu-heading > span { color: var(--text-2); font-size: var(--fs-2); text-align: end; }
+.meal-slot { display: flex; align-items: center; gap: var(--sp-3); min-block-size: calc(var(--sp-10) + var(--sp-4)); padding-block: var(--sp-4); }
 .meal-slot + .meal-slot { border-block-start: 1px solid var(--border); }
-.meal-slot-check { width: 36px; min-height: 44px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.meal-slot-check input, .meal-import-check input { width: 20px; height: 20px; accent-color: var(--accent-strong); }
-.meal-slot-spacer { width: 36px; flex-shrink: 0; }
-.meal-slot-type { flex-shrink: 0; width: 58px; color: var(--text-2); font-size: 0.9rem; }
-.meal-slot-dish { flex: 1; min-width: 0; min-height: 44px; padding: 8px 4px; border: 0; background: transparent; color: var(--accent-strong); text-align: start; font: inherit; font-size: 0.95rem; line-height: 1.45; overflow-wrap: anywhere; cursor: pointer; }
-.meal-slot-dish.assigned { color: var(--text); font-weight: 600; }
-.meal-slot-dish:disabled { cursor: default; opacity: 0.6; }
+.meal-slot-art { inline-size: var(--sp-10); flex-shrink: 0; opacity: .85; }
+.meal-slot-main { min-inline-size: 0; flex: 1; display: grid; gap: var(--sp-1); }
+.meal-slot-type { color: var(--text-2); font-size: var(--fs-2); font-weight: 500; }
+.meal-slot-dish { display: flex; align-items: center; justify-content: space-between; min-inline-size: 0; min-block-size: var(--sp-8); gap: var(--sp-2); padding: 0; text-align: start; color: var(--accent-strong); font: inherit; font-size: var(--fs-4); line-height: 1.45; }
+.meal-slot-dish > span { overflow-wrap: anywhere; }
+.meal-slot-dish svg { inline-size: var(--sp-4); block-size: var(--sp-4); flex-shrink: 0; }
+.meal-slot-dish.assigned { color: var(--text); font-weight: 700; font-size: var(--fs-5); }
+.meal-slot-ingredients { color: var(--text-2); font-size: var(--fs-2); overflow-wrap: anywhere; }
+.meal-slot-check { display: flex; align-items: center; justify-content: center; inline-size: var(--sp-8); min-block-size: var(--sp-8); flex-shrink: 0; }
+.meal-slot-check input, .meal-import-check input, .meal-name-check input, .meal-chooser-row input { inline-size: var(--sp-5); block-size: var(--sp-5); accent-color: var(--accent-strong); flex-shrink: 0; }
+.meal-shopping-panel { border-block-start: 1px solid var(--border); padding-block: var(--sp-3); }
+.meal-shopping-panel summary { min-block-size: var(--sp-8); padding-block: var(--sp-3); cursor: pointer; font-size: var(--fs-3); color: var(--text-2); }
+.meal-shopping-panel .btn-secondary { margin-block-start: var(--sp-3); }
+
+/* کتابخانه: جست‌وجوی واضح، دسته‌های خود داده و فهرستِ موادِ قابل مرور. */
+.meal-section-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.meal-section-heading h2 { font-size: var(--fs-6); line-height: 1.45; }
+.meal-section-heading p { color: var(--text-2); font-size: var(--fs-3); margin-block-start: var(--sp-2); }
+.meal-section-heading .btn-primary { inline-size: auto; white-space: nowrap; display: inline-flex; gap: var(--sp-2); align-items: center; min-block-size: var(--sp-8); }
+.meal-library { display: grid; gap: var(--sp-4); }
+.meal-search { position: relative; }
+.meal-search > svg { position: absolute; inset-inline-start: var(--sp-3); inset-block-start: 50%; transform: translateY(-50%); inline-size: var(--sp-5); block-size: var(--sp-5); color: var(--text-2); pointer-events: none; }
+.meal-search .text-input { inline-size: 100%; padding-inline-start: var(--sp-8); min-block-size: calc(var(--sp-8) + var(--sp-2)); font-size: var(--fs-4); background: var(--card); }
+.meal-category-strip { display: flex; overflow-x: auto; gap: var(--sp-2); padding-block: var(--sp-1); scrollbar-width: thin; }
+.meal-category { min-block-size: var(--sp-8); flex-shrink: 0; padding: var(--sp-2) var(--sp-4); border: 1px solid var(--border-strong); border-radius: var(--r-pill); background: var(--card); font-size: var(--fs-3); color: var(--text-2); }
+.meal-category.active { color: var(--accent-strong); background: var(--accent-soft); border-color: var(--accent-strong); font-weight: 700; }
+.meal-library-tools { display: flex; align-items: end; justify-content: space-between; gap: var(--sp-3); }
+.meal-type-filter { flex: 1; min-inline-size: 0; display: grid; gap: var(--sp-2); color: var(--text-2); font-size: var(--fs-2); }
+.meal-type-filter select { inline-size: 100%; min-block-size: var(--sp-8); font-size: var(--fs-3); text-overflow: ellipsis; }
+.meal-result-count { white-space: nowrap; color: var(--text-2); font-size: var(--fs-2); padding-block-end: var(--sp-3); }
+.meal-library-grid { list-style: none; display: grid; gap: 0 var(--sp-5); }
+.meal-library-grid > li { min-inline-size: 0; border-block-end: 1px solid var(--border); }
+.meal-food-tile { inline-size: 100%; display: flex; align-items: start; gap: var(--sp-3); padding-block: var(--sp-5); text-align: start; }
+.meal-food-mark { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; inline-size: var(--sp-8); block-size: var(--sp-8); color: var(--accent-strong); background: var(--accent-soft); border-radius: var(--r-lg); }
+.meal-food-copy { display: grid; gap: var(--sp-1); min-inline-size: 0; flex: 1; }
+.meal-food-copy b, .meal-dish-details b { font-size: var(--fs-4); font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; }
+.meal-food-labels { color: var(--accent-strong); font-size: var(--fs-2); line-height: 1.9; }
+.meal-food-preview { color: var(--text-2); font-size: var(--fs-2); line-height: 1.9; overflow-wrap: anywhere; }
+.meal-food-tile > svg { inline-size: var(--sp-4); block-size: var(--sp-4); flex-shrink: 0; margin-block-start: var(--sp-2); color: var(--text-2); }
+.meal-pagination { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding-block: var(--sp-3); }
+.meal-pagination .btn-secondary { inline-size: auto; font-size: var(--fs-3); }
+.meal-pagination > span { color: var(--text-2); font-size: var(--fs-2); }
+.meal-empty { display: grid; justify-items: start; gap: var(--sp-3); padding: var(--sp-6); border-radius: var(--r-xl); background: var(--card-2); }
+.meal-empty > .food-art { inline-size: calc(var(--sp-9) * 2); }
+.meal-empty h3 { font-size: var(--fs-5); line-height: 1.45; }
+.meal-empty p { font-size: var(--fs-3); color: var(--text-2); }
+
+/* فهرست خانوادگی؛ نام‌های کاربر از نوشته‌های ثابت رابط جدا می‌مانند. */
 .meals-catalog { display: grid; }
-.meal-dish-row { display: flex; align-items: center; gap: 12px; padding-block: 14px; }
+.meal-dish-row { display: flex; align-items: center; gap: var(--sp-3); padding-block: var(--sp-4); }
 .meal-dish-row + .meal-dish-row { border-block-start: 1px solid var(--border); }
-.meal-dish-details { display: grid; flex: 1; min-width: 0; min-height: 44px; gap: 6px; padding: 0; background: transparent; border: 0; text-align: start; color: var(--text); font: inherit; cursor: pointer; }
-.meal-dish-details b { font-size: 1rem; line-height: 1.45; overflow-wrap: anywhere; }
-.meal-dish-details span { font-size: 0.85rem; line-height: 1.45; color: var(--text-2); }
-.meal-form-heading { margin: 24px 0 12px; font-size: 1rem; line-height: 1.45; }
-.meal-ingredients { display: grid; gap: 16px; margin-block-end: 16px; }
-.meal-ingredient { padding-block-end: 12px; border-block-end: 1px solid var(--border); min-width: 0; }
-.meal-ingredient-heading { display: flex; justify-content: space-between; align-items: center; margin-block-end: 8px; }
-.meal-ingredient-heading b { font-size: 0.9rem; color: var(--text-2); }
-.meal-ingredient-values { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.meal-ingredient-values > * { min-width: 0; }
-.meals-sheet .text-input { width: 100%; min-height: 44px; }
-.meals-sheet .form-error { margin-block: 12px; color: var(--danger); font-size: 0.95rem; line-height: 1.6; }
-.meals-sheet > form > .btn-primary, .meals-sheet > form > .btn-secondary { width: 100%; }
-.meal-form-submit, .meal-remove-slot { margin-block-start: 14px; }
-.meal-remove-slot { color: var(--danger); }
-.meal-delete-button { background: var(--danger); }
-.meal-import-check { display: flex; min-height: 44px; align-items: center; gap: 12px; margin-block-end: 8px; }
-.meal-import-check b { min-width: 0; overflow-wrap: anywhere; font-size: 1rem; line-height: 1.45; }
-.meal-import-check input { flex-shrink: 0; }
-.meal-unit-warning { margin: 0 0 12px; font-size: 0.9rem; line-height: 1.6; color: var(--t-amber-fg); }
-.meals-import-result { font-size: 1rem; line-height: 1.6; }
-.meal-result-list { padding-inline-start: 24px; line-height: 1.7; overflow-wrap: anywhere; }
-.meals-page :is(button, input, select):focus-visible, .meals-sheet :is(button, input, select):focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 3px; }
-.meals-sheet { font-kerning: normal; text-rendering: optimizeLegibility; }
-@media (min-width: 720px) { .meals-days { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 380px) { .meals-tab { padding-inline: 9px; font-size: 0.85rem; } .meal-slot { gap: 4px; } .meal-slot-check, .meal-slot-spacer { width: 28px; } .meal-slot-type { width: 52px; } }
+.meal-dish-details { display: grid; gap: var(--sp-2); flex: 1; min-inline-size: 0; min-block-size: var(--sp-8); text-align: start; }
+.meal-dish-details > span { font-size: var(--fs-2); line-height: 1.9; color: var(--text-2); overflow-wrap: anywhere; }
+
+/* شیتِ غذا: مواد ابتدا خواندنی‌اند؛ فقط انتخاب‌های لازم فرم می‌شوند. */
+.meals-sheet { max-inline-size: calc(var(--sp-10) * 7); inline-size: 100%; padding: var(--sp-5); }
+.meal-dialog { outline: none; }
+.meal-dialog-title { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-block-end: var(--sp-4); }
+.meal-dialog-title h2 { font-size: var(--fs-5); line-height: 1.45; }
+.meal-close { min-inline-size: var(--sp-8); min-block-size: var(--sp-8); display: inline-flex; align-items: center; justify-content: center; font-size: var(--fs-7); color: var(--text-2); border-radius: var(--r-md); }
+.meal-close:hover { background: var(--card-2); }
+.meal-back { padding-inline: 0; justify-content: start; margin-block-end: var(--sp-3); }
+.meal-detail-heading { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-4); background: var(--card-2); border-radius: var(--r-lg); margin-block-end: var(--sp-5); }
+.meal-detail-heading > div { min-inline-size: 0; flex: 1; }
+.meal-detail-heading h2 { font-size: var(--fs-6); line-height: 1.45; margin-block: var(--sp-2); overflow-wrap: anywhere; }
+.meal-detail-heading p:not(.meal-eyebrow) { color: var(--text-2); font-size: var(--fs-2); }
+.meal-detail-heading .food-art { inline-size: var(--sp-10); flex-shrink: 0; }
+.meal-ingredients-title { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); margin-block: var(--sp-4) var(--sp-2); }
+.meal-form-heading { font-size: var(--fs-4); line-height: 1.45; font-weight: 600; }
+.meal-name-ingredients, .meal-readonly-ingredients { list-style: none; padding: 0; margin-block-end: var(--sp-5); }
+.meal-name-ingredient { border-block-end: 1px solid var(--border); padding-block: var(--sp-2); }
+.meal-name-check { display: flex; align-items: center; gap: var(--sp-3); min-block-size: var(--sp-8); font-size: var(--fs-4); }
+.meal-name-check > span { flex: 1; overflow-wrap: anywhere; }
+.meal-name-check small { color: var(--text-2); font-size: var(--fs-2); }
+.meal-name-ingredient > .text-input { margin-block: var(--sp-2); }
+.meal-equipment { background: var(--card-2); border-radius: var(--r-lg); padding: var(--sp-4); margin-block-end: var(--sp-5); }
+.meal-equipment h3 { font-size: var(--fs-3); }
+.meal-equipment p { font-size: var(--fs-3); }
+.meal-ingredients { display: grid; gap: var(--sp-3); margin-block-end: var(--sp-4); }
+.meal-ingredient { padding-block-end: var(--sp-3); border-block-end: 1px solid var(--border); min-inline-size: 0; }
+.meal-ingredient-heading { display: flex; gap: var(--sp-2); align-items: center; }
+.meal-ingredient-heading > .form-row { flex: 1; min-inline-size: 0; }
+.meal-ingredient-values { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+.meal-ingredient-values > * { min-inline-size: 0; }
+.meals-sheet .text-input { inline-size: 100%; min-block-size: var(--sp-8); font-size: var(--fs-4); }
+.meals-sheet .form-note, .meals-page .form-note { color: var(--text-2); font-size: var(--fs-2); line-height: 1.9; }
+.meals-sheet .form-error { margin-block: var(--sp-3); color: var(--danger); font-size: var(--fs-3); line-height: 1.9; }
+.meals-sheet form > .btn-primary, .meals-sheet form > .btn-secondary { inline-size: 100%; }
+.meal-form-submit, .meal-remove-slot { margin-block-start: var(--sp-4); }
+.meal-remove-slot { color: var(--danger); inline-size: 100%; }
+.meal-delete-button { background: var(--danger); inline-size: 100%; }
+.meal-slot-caption { color: var(--text-2); font-size: var(--fs-3); margin-block-end: var(--sp-3); }
+.meal-chooser-tabs { display: flex; gap: var(--sp-2); margin-block-end: var(--sp-4); }
+.meal-family-chooser { border: none; margin-block-start: var(--sp-4); }
+.meal-family-chooser legend { font-size: var(--fs-3); font-weight: 600; margin-block-end: var(--sp-2); }
+.meal-chooser-row { display: flex; gap: var(--sp-3); align-items: center; padding: var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-lg); margin-block-end: var(--sp-2); min-block-size: var(--sp-9); cursor: pointer; }
+.meal-chooser-row.active { background: var(--accent-soft); border-color: var(--accent-strong); }
+.meal-chooser-row > span { display: grid; gap: var(--sp-1); min-inline-size: 0; }
+.meal-chooser-row b { font-size: var(--fs-4); line-height: 1.45; overflow-wrap: anywhere; }
+.meal-chooser-row small { color: var(--text-2); font-size: var(--fs-2); line-height: 1.9; overflow-wrap: anywhere; }
+.meal-readonly-ingredients li { padding-block: var(--sp-2); border-block-end: 1px solid var(--border); }
+.meal-import-check { display: flex; align-items: center; gap: var(--sp-3); min-block-size: var(--sp-8); }
+.meal-unit-warning { color: var(--t-amber-fg); font-size: var(--fs-2); }
+.meals-import-result { font-size: var(--fs-5); line-height: 1.9; }
+.meal-result-list { padding-inline-start: var(--sp-5); margin-block: var(--sp-3); font-size: var(--fs-3); }
+.meals-page :is(button,input,select,summary):focus-visible, .meals-sheet :is(button,input,select):focus-visible { outline: 2px solid var(--accent-strong); outline-offset: var(--sp-1); }
+
+/* پهنای دسکتاپ از همان منطق محتوا پیروی می‌کند؛ روی گوشی منو یک روز است. */
+@media (min-width: 720px) {
+  .meal-kitchen-hero { grid-template-columns: minmax(0, 1fr) calc(var(--sp-10) * 3); padding: var(--sp-7); }
+  .meal-library-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .meals-days.full-week { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .meal-type-filter { max-inline-size: calc(var(--sp-10) * 5); }
+  .meal-day-selector { gap: var(--sp-2); }
+}
+@media (max-width: 719px) {
+  .meal-kitchen-hero { grid-template-columns: minmax(0, 1fr) var(--sp-10); padding: var(--sp-4); gap: var(--sp-2); }
+  .meal-hero-art { inline-size: calc(var(--sp-10) + var(--sp-6)); max-inline-size: none; transform: rotate(-8deg) translateX(var(--sp-3)); }
+  .meal-hero-copy .meal-text-button { font-size: var(--fs-2); }
+  .meal-slot-art { inline-size: var(--sp-9); }
+  .meal-day-button > span:first-child { font-size: var(--fs-1); }
+  .meal-section-heading { flex-wrap: wrap; }
+}
+@media (max-width: 380px) {
+  .meals-tabs { gap: var(--sp-1); }
+  .meals-tab { font-size: var(--fs-2); }
+  .meal-menu-heading { align-items: start; }
+  .meal-menu-heading > span { max-inline-size: calc(var(--sp-9) * 2); }
+  .meal-slot { gap: var(--sp-2); }
+  .meals-days > .card { padding: var(--sp-4); }
+  .meal-detail-heading .food-art { inline-size: var(--sp-9); }
+}

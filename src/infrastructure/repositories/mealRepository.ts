@@ -6,7 +6,7 @@ import type { ShoppingOfflineEngine } from "@/infrastructure/offline/shoppingOff
 import type { TokenProvider } from "./sessionRepository";
 import { AppError } from "@/shared/lib/appError";
 
-type IngredientRow = Omit<MealIngredient, "qty"> & { qty: string | number };
+type IngredientRow = Omit<MealIngredient, "qty"> & { qty: string | number | null };
 type DishRow = {
   id: string; title: string; ingredients: IngredientRow[]; created_by: string | null;
   revision: number; created_at: string; updated_at: string; can_edit: boolean; can_delete: boolean;
@@ -28,7 +28,7 @@ const sameScope = (left: OfflineScope | null, right: OfflineScope | null) => Boo
   && left.familyId === right.familyId && left.memberId === right.memberId);
 
 function mapIngredient(row: IngredientRow): MealIngredient {
-  return { title: row.title, qty: Number(row.qty), unit: row.unit ?? null };
+  return { title: row.title, qty: row.qty === null ? null : Number(row.qty), unit: row.unit ?? null };
 }
 function mapDish(row: DishRow): MealDish {
   return { id: row.id, title: row.title, ingredients: row.ingredients.map(mapIngredient), createdBy: row.created_by,

@@ -6,14 +6,14 @@ export const MEAL_LIMITS = { dishes: 200, ingredients: 50, importItems: 250, tit
 const cleanText = (text: string) => text.trim().replace(/\s+/g, " ");
 
 export function cleanIngredient(ingredient: MealIngredient): MealIngredient {
-  return { title: cleanText(ingredient.title), qty: roundQty(ingredient.qty), unit: ingredient.unit ? cleanText(ingredient.unit) || null : null };
+  return { title: cleanText(ingredient.title), qty: ingredient.qty === null ? null : roundQty(ingredient.qty), unit: ingredient.unit ? cleanText(ingredient.unit) || null : null };
 }
 
 export function ingredientError(ingredient: MealIngredient): string {
   if (!ingredient.title.trim()) return "نام مادهٔ لازم را بنویسید.";
   if (ingredient.title.trim().length > MEAL_LIMITS.title) return "نام مادهٔ لازم باید حداکثر ۱۲۰ نویسه باشد.";
   if ((ingredient.unit?.trim().length ?? 0) > MEAL_LIMITS.unit) return "واحد باید حداکثر ۲۰ نویسه باشد.";
-  if (!Number.isFinite(ingredient.qty) || roundQty(ingredient.qty) <= 0 || ingredient.qty > MEAL_LIMITS.qty) return "مقدار هر ماده باید بیشتر از صفر و حداکثر ۹۹٬۹۹۹٬۹۹۹ باشد.";
+  if (ingredient.qty !== null && (!Number.isFinite(ingredient.qty) || roundQty(ingredient.qty) <= 0 || ingredient.qty > MEAL_LIMITS.qty)) return "مقدار هر ماده باید بیشتر از صفر و حداکثر ۹۹٬۹۹۹٬۹۹۹ باشد.";
   return "";
 }
 
@@ -42,7 +42,7 @@ export function weeklyIngredients(entries: MealEntry[], dishes: MealDish[]): Wee
       const row = cleanIngredient(raw);
       const key = JSON.stringify([row.title, row.unit]);
       const existing = combined.get(key);
-      combined.set(key, { ...row, qty: roundQty((existing?.qty ?? 0) + row.qty) });
+      combined.set(key, { ...row, qty: row.qty === null || existing?.qty === null ? null : roundQty((existing?.qty ?? 0) + row.qty) });
     }
   }
   const units = new Map<string, Set<string | null>>();
@@ -59,12 +59,13 @@ export function importError(items: MealIngredient[]): string {
   const units = new Map<string, string | null>();
   const quantities = new Map<string, number>();
   for (const raw of items) {
+    if (raw.qty === null) return "برای افزودن به خرید، مقدار مواد انتخاب‌شده را خودتان وارد کنید.";
     const error = ingredientError(raw);
     if (error) return error;
     const row = cleanIngredient(raw);
     if (units.has(row.title) && units.get(row.title) !== row.unit) return `برای «${row.title}» فقط یک واحد انتخاب کنید یا واحدها را دستی یکسان کنید.`;
     units.set(row.title, row.unit);
-    const qty = roundQty((quantities.get(row.title) ?? 0) + row.qty);
+    const qty = roundQty((quantities.get(row.title) ?? 0) + row.qty!);
     const combinedError = ingredientError({ ...row, qty });
     if (combinedError) return combinedError;
     quantities.set(row.title, qty);

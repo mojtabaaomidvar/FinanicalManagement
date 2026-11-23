@@ -115,14 +115,20 @@ def _ingredients(items: list[Ingredient]) -> list[dict]:
     for item in items:
         title = clean_title(item.title, "نام مادهٔ لازم")
         unit = clean_opt_text(item.unit, 20, "واحد")
-        qty = clean_number(item.qty, "مقدار", minimum=Decimal("0.01"))
+        qty = (
+            None if item.qty is None
+            else clean_number(item.qty, "مقدار", minimum=Decimal("0.01"))
+        )
         existing = grouped.get(title)
         if existing:
             if existing.unit != unit:
                 raise AppError(
                     "UNIT_CONFLICT", f"واحدهای «{title}» متفاوت است؛ یک واحد مشخص کنید.", 422
                 )
-            qty = clean_number(existing.qty + qty, "مقدار", minimum=Decimal("0.01"))
+            qty = (
+                None if existing.qty is None or qty is None
+                else clean_number(existing.qty + qty, "مقدار", minimum=Decimal("0.01"))
+            )
         grouped[title] = Ingredient(title=title, qty=qty, unit=unit)
     # JSONB never receives raw Decimal objects.
     return [item.model_dump(mode="json") for item in grouped.values()]
