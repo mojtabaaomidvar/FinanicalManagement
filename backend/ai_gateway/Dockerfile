@@ -6,6 +6,7 @@ RUN pip install -r requirements.txt && useradd -m -u 10001 gateway
 COPY app/__init__.py ./app/__init__.py
 COPY app/core/__init__.py app/core/errors.py app/core/logging.py ./app/core/
 COPY app/services/__init__.py app/services/sms_ai_protocol.py app/services/sms_ai_provider.py ./app/services/
+COPY app/services/household_ai_protocol.py ./app/services/
 COPY ai_gateway/__init__.py ai_gateway/app.py ai_gateway/check.py ./ai_gateway/
 USER gateway
 EXPOSE 8000

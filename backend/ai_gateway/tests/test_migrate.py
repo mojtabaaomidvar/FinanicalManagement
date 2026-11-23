@@ -70,9 +70,18 @@ def migration(tmp_path, monkeypatch):
             assert (gateway / ".env").read_bytes() == state["env"]
             assert (gateway / "app.py").read_text() == "# old live code"
             assert not any("up" in item for item in commands)
-            if state["failure"] == command[1]:
+            if state["failure"] == "build" and command[1] == "build":
                 raise install.InstallError("Synthetic candidate failure")
         if command[1] == "run":
+            if "--network" in command:
+                assert command[command.index("--network") + 1] == "none"
+                assert "--env-file" not in command and "--analyze" not in command
+                assert "--read-only" in command and "--publish" not in command
+                if state["failure"] == "imports":
+                    raise install.InstallError("Synthetic missing image module")
+                return "GATEWAY IMPORT READY\n"
+            if state["failure"] == "run":
+                raise install.InstallError("Synthetic candidate failure")
             private = command[command.index("--env-file") + 1]
             content = install.Path(private).read_bytes()
             assert KEY.encode() in content
@@ -117,11 +126,12 @@ def test_success_backs_up_old_key_and_switches_only_after_preflight(migration, c
     assert "GATEWAY READY" in output and KEY not in output
     assert "sk-or-v1-synthetic-key" not in output
     assert all(KEY not in str(command) and "t" * 43 not in str(command) for command in commands)
-    assert len([c for c in commands if c[1] == "run"]) == 1
+    runs = [c for c in commands if c[1] == "run"]
+    assert len(runs) == 2 and "--network" in runs[0] and "--analyze" in runs[1]
     assert not list(backups.glob("deepseek-stage-*"))
 
 
-@pytest.mark.parametrize("failure", ["build", "run"])
+@pytest.mark.parametrize("failure", ["build", "imports", "run"])
 def test_preflight_failure_never_replaces_live_files_or_service(migration, failure):
     gateway, nginx, state, commands, _backups = migration
     state["failure"] = failure
@@ -131,6 +141,20 @@ def test_preflight_failure_never_replaces_live_files_or_service(migration, failu
     assert (gateway / "app.py").read_text() == "# old live code"
     assert nginx.read_text() == NGINX
     assert not any("up" in command for command in commands)
+
+
+def test_missing_image_module_never_starts_a_billed_probe(migration, capsys):
+    gateway, nginx, state, commands, _backups = migration
+    state["failure"] = "imports"
+    with pytest.raises(install.InstallError, match="no inference attempted"):
+        install.main()
+    assert not any("--analyze" in command for command in commands)
+    assert not any("up" in command for command in commands)
+    assert (gateway / ".env").read_bytes() == ENV
+    assert (gateway / "app.py").read_text() == "# old live code"
+    assert nginx.read_text() == NGINX
+    output = capsys.readouterr().out
+    assert "offline" in output and "billable" not in output and KEY not in output
 
 
 def test_failed_https_restores_old_code_key_and_immutable_image(migration, capsys):
@@ -331,7 +355,7 @@ def test_upgrade_refuses_non_deepseek_settings_before_staging(migration, monkeyp
     assert not any("build" in command for command in commands)
 
 
-@pytest.mark.parametrize("failure", ["build", "run"])
+@pytest.mark.parametrize("failure", ["build", "imports", "run"])
 def test_household_candidate_failure_keeps_live_credentials_and_code(
     migration, monkeypatch, failure,
 ):
@@ -341,10 +365,13 @@ def test_household_candidate_failure_keeps_live_credentials_and_code(
     (gateway / ".env").write_bytes(deployed)
     state.update(env=deployed, household=True, failure=failure)
     monkeypatch.setattr(install.sys, "argv", [*install.sys.argv[:2], "--upgrade-assistant"])
-    with pytest.raises(install.InstallError, match="Synthetic candidate"):
+    message = "no inference attempted" if failure == "imports" else "Synthetic candidate"
+    with pytest.raises(install.InstallError, match=message):
         install.main()
     assert (gateway / ".env").read_bytes() == deployed
     assert (gateway / "app.py").read_text() == "# old live code"
     assert (gateway / "compose.yml").read_text() == "services: {}"
     assert nginx.read_text() == NGINX
     assert not any("up" in command for command in commands)
+    if failure == "imports":
+        assert not any("--analyze" in command for command in commands)

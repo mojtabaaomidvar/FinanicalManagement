@@ -29,7 +29,7 @@ def load_manifest(root: Path) -> dict:
     if (value.get("tag"), value.get("software_version"), value.get("deployment_scope"),
         value.get("database_baseline_revision"), value.get("database_revision"),
         value.get("database_migration_required")) != (
-            "v0.7.0", "0.7.0", "api-pwa-and-ai-gateway", BASELINE, REVISION, True):
+            "v0.7.1", "0.7.1", "api-pwa-and-ai-gateway", BASELINE, REVISION, True):
         raise SystemExit("Unexpected assistant release contract; no files were replaced.")
     return value
 

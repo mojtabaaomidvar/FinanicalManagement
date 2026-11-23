@@ -442,6 +442,24 @@ def updated_env(saved: bytes, config: dict[str, str], image: str) -> bytes:
     return ("\n".join(lines) + "\n").encode()
 
 
+def verify_image_imports(image: str) -> None:
+    """Load real image modules offline before any credentials or inference are used."""
+    print("Checking gateway image modules offline (no inference).", flush=True)
+    try:
+        diagnostic = capture([
+            "docker", "run", "--rm", "--network", "none", "--read-only",
+            "--cap-drop=ALL", "--security-opt=no-new-privileges:true",
+            "--memory=256m", "--cpus=1", "--entrypoint", "python", image, "-c",
+            "import ai_gateway.app; import ai_gateway.check; print('GATEWAY IMPORT READY')",
+        ], timeout=30)
+    except InstallError:
+        raise InstallError(
+            "Gateway image import check failed; live gateway unchanged and no inference attempted."
+        ) from None
+    if "GATEWAY IMPORT READY" not in diagnostic.splitlines():
+        raise InstallError("Gateway image import result was not verified; live gateway unchanged.")
+
+
 def migrate(files: dict[str, bytes], gateway: Path, config: dict[str, str], saved_env: bytes,
             before: bytes, proposed: str, *, household: bool = False) -> None:
     names = [*files, "backend/ai_gateway/.env", ".gateway-installer"]
@@ -479,6 +497,7 @@ def migrate(files: dict[str, bytes], gateway: Path, config: dict[str, str], save
         print("Building isolated DeepSeek candidate; current gateway remains running.", flush=True)
         capture(["docker", "build", "-t", candidate, "-f",
                  str(stage / "backend/ai_gateway/Dockerfile"), str(stage / "backend")], timeout=600)
+        verify_image_imports(candidate)
         print("Checking candidate key/model and one synthetic analysis (billable).", flush=True)
         diagnostic = capture([
             "docker", "run", "--rm", "--env-file", str(private), "--read-only",
