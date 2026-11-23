@@ -1,6 +1,7 @@
 """Read-only production preflight exercised through a real restricted DB role."""
 # ruff: noqa: F811
 import importlib.util
+import json
 from pathlib import Path
 
 import pytest
@@ -80,3 +81,40 @@ def test_checker_rejects_missing_gateway_connection(
     monkeypatch.delenv('AI_SMS_GATEWAY_TOKEN', raising=False)
     with pytest.raises(SystemExit, match='private gateway connection'):
         checker.database_state()
+
+
+@pytest.mark.parametrize("incoming", [False, True])
+def test_patch_checker_accepts_only_verified_source_with_existing_receipt_schema(
+    checker, baseline_database, migrator, monkeypatch, capsys, incoming,
+):
+    migrator.migrate(baseline_database, TEST_URL.username)
+    capsys.readouterr()  # Fixture provisioning output is not the checker's result.
+    contract = {"incoming": {"new": "hash"}, "baseline": {"parent": "hash"}}
+    expected = contract["incoming" if incoming else "baseline"]
+    monkeypatch.setattr(checker, "matches", lambda _root, hashes: hashes == expected)
+    monkeypatch.setattr(checker.sys, "argv", ["checker.py", "container", json.dumps(contract)])
+    checker.main()
+    assert capsys.readouterr().out.strip() == ("ALREADY" if incoming else "PATCH_BASELINE")
+
+
+def test_patch_checker_refuses_unmigrated_schema_even_with_matching_parent(
+    checker, monkeypatch,
+):
+    monkeypatch.setattr(checker, "matches", lambda _root, hashes: hashes == {"parent": "hash"})
+    monkeypatch.setattr(checker.sys, "argv", ["checker.py", "container", json.dumps({
+        "incoming": {"new": "hash"}, "baseline": {"parent": "hash"},
+    })])
+    with pytest.raises(SystemExit, match="receipt schema"):
+        checker.main()
+
+
+def test_patch_checker_refuses_unknown_api_on_receipt_schema(
+    checker, baseline_database, migrator, monkeypatch,
+):
+    migrator.migrate(baseline_database, TEST_URL.username)
+    monkeypatch.setattr(checker, "matches", lambda *_args: False)
+    monkeypatch.setattr(checker.sys, "argv", ["checker.py", "container", json.dumps({
+        "incoming": {"new": "hash"}, "baseline": {"parent": "hash"},
+    })])
+    with pytest.raises(SystemExit, match="verified 0.7.1"):
+        checker.main()

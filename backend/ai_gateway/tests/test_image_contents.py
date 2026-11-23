@@ -59,6 +59,7 @@ def forbidden(*args, **kwargs):
 socket.create_connection = forbidden
 import ai_gateway.app
 import ai_gateway.check
+ai_gateway.check.verify_offline_transport()
 from ai_gateway.app import GatewaySettings, create_app
 from fastapi.testclient import TestClient
 app = create_app(GatewaySettings(

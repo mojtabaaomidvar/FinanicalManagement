@@ -25,7 +25,7 @@ def provider(monkeypatch):
         return {key: [{**row, "source_text": normalize_financial_text(row["source_text"])}
                       for row in rows] for key, rows in output.items()}
 
-    monkeypatch.setattr(assistant, "request_deepseek", complete)
+    monkeypatch.setattr(assistant, "request_deepseek_json", complete)
     return calls, output
 
 

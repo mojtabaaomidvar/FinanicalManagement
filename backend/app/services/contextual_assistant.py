@@ -27,14 +27,14 @@ from app.services.household_context import (
     stock_fingerprint,
 )
 from app.services.member_age import today_tehran
-from app.services.sms_ai_provider import request_deepseek
+from app.services.sms_ai_provider import request_deepseek_json
 
 
 def _infer(body, schema, path):
     if settings.ai_sms_gateway_url.strip():
         payload = legacy._gateway_request(path, body.model_dump())
     elif settings.deepseek_api_key.strip():
-        payload = request_deepseek(
+        payload = request_deepseek_json(
             build_context_messages(body), api_key=settings.deepseek_api_key,
             model=settings.ai_sms_model, timeout=settings.ai_sms_timeout_seconds,
         )

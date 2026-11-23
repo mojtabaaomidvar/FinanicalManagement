@@ -28,7 +28,7 @@ def test_capabilities_are_nonbilled_and_decimal_protocol_is_exact(monkeypatch):
         return {"proposals": [{"kind": "transaction", "source_text": "1250.25 تومان دادم",
                                "type": "expense", "amount": Decimal("1250.25")}],
                 "unsupported": []}
-    monkeypatch.setattr(gateway, "request_deepseek", complete)
+    monkeypatch.setattr(gateway, "request_deepseek_json", complete)
     with TestClient(make_app()) as client:
         assert client.get(CAPABILITIES, headers=AUTH).json()["protocol_version"] == 2
         assert calls == []
@@ -46,7 +46,7 @@ def test_capabilities_are_nonbilled_and_decimal_protocol_is_exact(monkeypatch):
 ])
 def test_household_gateway_is_not_an_open_chat_proxy(monkeypatch, extra):
     monkeypatch.setattr(
-        gateway, "request_deepseek", lambda *_args, **_kwargs: pytest.fail("must not bill"),
+        gateway, "request_deepseek_json", lambda *_args, **_kwargs: pytest.fail("must not bill"),
     )
     with TestClient(make_app()) as client:
         response = client.post(PATH, headers=AUTH, json={"text": "private", **extra})
@@ -69,7 +69,8 @@ def test_shared_capacity_cannot_be_bypassed_using_new_endpoint(monkeypatch):
 
 def test_household_streamed_body_limit_and_output_schema(monkeypatch):
     monkeypatch.setattr(
-        gateway, "request_deepseek", lambda *_args, **_kwargs: {"proposals": [], "sql": "private"},
+        gateway, "request_deepseek_json",
+        lambda *_args, **_kwargs: {"proposals": [], "sql": "private"},
     )
     with TestClient(make_app()) as client:
         response = client.post(PATH, headers=AUTH, content=(b"x" * 10000 for _ in range(28)))
@@ -86,7 +87,7 @@ def test_household_streamed_body_limit_and_output_schema(monkeypatch):
 ])
 def test_contextual_routes_validate_and_use_one_official_inference(monkeypatch, path, body, result):
     calls = []
-    monkeypatch.setattr(gateway, "request_deepseek",
+    monkeypatch.setattr(gateway, "request_deepseek_json",
                         lambda messages, **options: calls.append((messages, options)) or result)
     with TestClient(make_app()) as client:
         response = client.post(path, headers=AUTH, json=body)
@@ -104,7 +105,7 @@ def test_contextual_routes_validate_and_use_one_official_inference(monkeypatch, 
 ])
 def test_contextual_schema_failure_does_not_retry_or_echo_data(monkeypatch, path, body):
     calls = []
-    monkeypatch.setattr(gateway, "request_deepseek",
+    monkeypatch.setattr(gateway, "request_deepseek_json",
                         lambda *_args, **_options: calls.append(1) or {"sql": "private"})
     with TestClient(make_app()) as client:
         response = client.post(path, headers=AUTH, json=body)

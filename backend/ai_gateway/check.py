@@ -18,6 +18,53 @@ SYNTHETIC_ITEMS = [{
 }]
 
 
+def verify_offline_transport() -> None:
+    """Use the real image parser and route schemas, with only outbound HTTP replaced."""
+    from unittest.mock import patch
+
+    from fastapi.testclient import TestClient
+
+    from ai_gateway.app import create_app
+
+    token = "offline-contract-check-" + "t" * 32
+    config = GatewaySettings(deepseek_api_key="sk-fictional-offline-check",
+                             ai_gateway_token=token)
+    cases = [
+        ("/v1/sms/analyze", {"items": SYNTHETIC_ITEMS}, {"transactions": []}),
+        ("/v1/assistant/analyze", {"text": "نون نداریم"}, {"proposals": []}),
+        ("/v1/assistant/plan", {"text": "نون نداریم", "reference_date": "2026-11-23"},
+         {"sections": ["inventory", "shopping"], "terms": ["نان"], "proposals": []}),
+        ("/v1/assistant/report", {"text": "نون نداریم", "context_json": "{}"},
+         {"finding_ids": [], "options": [], "questions": []}),
+    ]
+    calls = []
+    output = {}
+
+    def respond(url, **options):
+        if url != "https://api.deepseek.com/chat/completions":
+            raise RuntimeError("Gateway offline contract check rejected a provider URL.")
+        if options["json"]["model"] != "deepseek-flash":
+            raise RuntimeError("Gateway offline contract check rejected a model.")
+        calls.append(url)
+        return httpx.Response(200, request=httpx.Request("POST", url), json={
+            "choices": [{"finish_reason": "stop", "message": {
+                "content": json.dumps(output, ensure_ascii=False),
+            }}],
+        })
+
+    with patch("app.services.sms_ai_provider.httpx.post", side_effect=respond):
+        with TestClient(create_app(config)) as client:
+            for path, body, output in cases:
+                response = client.post(path, headers={"Authorization": "Bearer " + token},
+                                       json=body)
+                if response.status_code != 200 or any(
+                    response.json().get(key) != value for key, value in output.items()
+                ):
+                    raise RuntimeError("Gateway offline transport/schema check failed.")
+    if len(calls) != len(cases):
+        raise RuntimeError("Gateway offline contract check detected an inference retry.")
+
+
 def valid_analysis(result: dict) -> bool:
     transactions = result.get("transactions")
     if not isinstance(transactions, list) or len(transactions) != 1:
@@ -40,6 +87,10 @@ def valid_analysis(result: dict) -> bool:
 
 
 def main() -> int:
+    if sys.argv[1:] == ["--offline"]:
+        verify_offline_transport()
+        print("GATEWAY OFFLINE TRANSPORT READY; no network, key or billed inference used.")
+        return 0
     if sys.argv[1:] not in ([], ["--analyze"]):
         print("Use only the optional --analyze flag; model selection is not supported.")
         return 1

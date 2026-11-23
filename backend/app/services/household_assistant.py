@@ -28,7 +28,7 @@ from app.services.household_ai_protocol import (
 )
 from app.services.jalali import to_jalali
 from app.services.member_age import today_tehran
-from app.services.sms_ai_provider import request_deepseek
+from app.services.sms_ai_provider import ERRORS, provider_error, request_deepseek_json
 from app.services.sms_parser import extract_date, normalize_sms
 
 # @copy-text assistant.invalid_result
@@ -67,7 +67,16 @@ def _gateway_request(path: str, body: dict | None = None) -> dict:
         if response.status_code == 404:
             raise AppError("AI_ASSISTANT_UPGRADE_REQUIRED", UPGRADE_REQUIRED, 503)
         if response.status_code in {401, 403}:
-            raise AppError("AI_GATEWAY_AUTH_FAILED", CONNECTION_FAILED, 503)
+            raise AppError("AI_GATEWAY_AUTH_FAILED",
+                           provider_error("AI_GATEWAY_AUTH_FAILED").message, 503)
+        if response.is_error:
+            try:
+                failure = response.json()
+            except ValueError:
+                failure = None
+            code = failure.get("error") if isinstance(failure, dict) else None
+            if isinstance(code, str) and code in ERRORS:
+                raise provider_error(code)
         if response.is_error or response.is_redirect:
             raise AppError("AI_GATEWAY_UNAVAILABLE", CONNECTION_FAILED, 503)
         return json.loads(response.text, parse_float=Decimal)
@@ -163,7 +172,7 @@ def analyze(db, actor, text: str, scope: str) -> dict:
         payload = _gateway_request("/v1/assistant/analyze", body.model_dump())
     elif settings.deepseek_api_key.strip():
         try:
-            payload = request_deepseek(
+            payload = request_deepseek_json(
                 build_household_messages(body), api_key=settings.deepseek_api_key,
                 model=settings.ai_sms_model, timeout=settings.ai_sms_timeout_seconds,
             )

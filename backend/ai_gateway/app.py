@@ -30,7 +30,7 @@ from app.services.household_ai_protocol import (
     build_household_messages,
 )
 from app.services.sms_ai_protocol import GatewayAnalyzeIn, build_messages
-from app.services.sms_ai_provider import provider_error, request_deepseek
+from app.services.sms_ai_provider import provider_error, request_deepseek, request_deepseek_json
 
 MAX_REQUEST_BYTES = 256 * 1024
 PRIVATE_PATH = "/v1/sms/analyze"
@@ -184,7 +184,7 @@ def create_app(config: GatewaySettings | None = None) -> FastAPI:
     def household_analyze(body: GatewayHouseholdIn):
         limits.enter()
         try:
-            result = request_deepseek(
+            result = request_deepseek_json(
                 build_household_messages(body), api_key=config.deepseek_api_key,
                 model=config.ai_sms_model, timeout=config.ai_sms_timeout_seconds,
             )
@@ -201,7 +201,7 @@ def create_app(config: GatewaySettings | None = None) -> FastAPI:
     def contextual(body, schema):
         limits.enter()
         try:
-            result = request_deepseek(
+            result = request_deepseek_json(
                 build_context_messages(body), api_key=config.deepseek_api_key,
                 model=config.ai_sms_model, timeout=config.ai_sms_timeout_seconds,
             )

@@ -29,7 +29,7 @@ def load_manifest(root: Path) -> dict:
     if (value.get("tag"), value.get("software_version"), value.get("deployment_scope"),
         value.get("database_baseline_revision"), value.get("database_revision"),
         value.get("database_migration_required")) != (
-            "v0.7.1", "0.7.1", "api-pwa-and-ai-gateway", BASELINE, REVISION, True):
+            "v0.7.2", "0.7.2", "api-pwa-and-ai-gateway", REVISION, REVISION, False):
         raise SystemExit("Unexpected assistant release contract; no files were replaced.")
     return value
 
@@ -138,12 +138,13 @@ def main() -> None:
         print("VERIFIED")
         return
     state = database_state()
-    if state == "BASELINE" and incoming:
-        print("READY")  # Resume after a transactionally rolled-back migration.
-    elif (state == "BASELINE" and baseline) or (state == "ALREADY" and incoming):
-        print(state)
+    if state == "ALREADY" and incoming:
+        print("ALREADY")
+    elif state == "ALREADY" and baseline:
+        print("PATCH_BASELINE")
     else:
-        raise SystemExit("API source and schema do not match a known release; upgrade stopped.")
+        raise SystemExit(
+            "Patch requires the verified 0.7.1 API and receipt schema; upgrade stopped.")
 
 
 if __name__ == "__main__":

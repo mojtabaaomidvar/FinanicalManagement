@@ -75,7 +75,7 @@ def reject_nonfinite(_value: str) -> None:
     raise ValueError("Non-finite JSON numbers are not accepted")
 
 
-def request_deepseek(
+def request_deepseek_json(
     messages: list[dict[str, str]], *, api_key: str, model: str, timeout: float
 ) -> dict:
     if not api_key.strip():
@@ -111,11 +111,8 @@ def request_deepseek(
         result = json.loads(
             content, parse_float=Decimal, parse_int=Decimal, parse_constant=reject_nonfinite,
         )
-        if (
-            not isinstance(result, dict) or not isinstance(result.get("transactions"), list)
-            or len(result["transactions"]) > 80
-        ):
-            raise ValueError("Assistant response did not match the SMS result contract")
+        if not isinstance(result, dict):
+            raise ValueError("Assistant response was not a JSON object")
         return result
     except httpx.HTTPStatusError as exc:
         status = exc.response.status_code
@@ -137,3 +134,14 @@ def request_deepseek(
     except (ValueError, KeyError, IndexError, TypeError, AttributeError):
         logger.warning("SMS assistant provider request failed reason=invalid_response")
         raise provider_error("AI_INVALID_RESULT") from None
+
+
+def request_deepseek(
+    messages: list[dict[str, str]], *, api_key: str, model: str, timeout: float,
+) -> dict:
+    """Retain the released SMS contract; household routes validate their own schema."""
+    result = request_deepseek_json(messages, api_key=api_key, model=model, timeout=timeout)
+    if not isinstance(result.get("transactions"), list) or len(result["transactions"]) > 80:
+        logger.warning("SMS assistant provider request failed reason=invalid_response")
+        raise provider_error("AI_INVALID_RESULT")
+    return result

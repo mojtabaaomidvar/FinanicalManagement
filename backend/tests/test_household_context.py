@@ -64,7 +64,7 @@ def contextual_provider(monkeypatch):
                              for action in context["actions"]
                              if action["kind"] == "shopping_item"]}]}
 
-    monkeypatch.setattr(contextual_assistant, "request_deepseek", complete)
+    monkeypatch.setattr(contextual_assistant, "request_deepseek_json", complete)
     return calls, plan
 
 
