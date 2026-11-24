@@ -51,12 +51,12 @@ The isolated launcher is outside the source worktree:
 
 ```powershell
 # From the source worktree, without using the ordinary dev server:
-$env:KHANEYAR_MEALS_PREVIEW_PORT = '12265'
+$env:KHANEYAR_MEALS_PREVIEW_PORT = '12266'
 node ../launch-preview.mjs
 ```
 
 It uses `createWorkbench` with this source tree and patches the preview bridge's
-port guard **in memory only**. The origin is `http://127.0.0.1:12265`; the current
+port guard **in memory only**. The corrected origin is `http://127.0.0.1:12266`; the current
 review link, including its in-memory session, is written to `../preview-url.txt`.
 Open that link rather than reusing a session from an older launcher run. The copy
 editor for this isolated version is available at the origin's root URL.
@@ -143,3 +143,47 @@ a claim that the editor's startup-performance issue has been fixed.
 
 Publication, merging into another active worktree, production installation and a
 release version all require separate user approval after review of the running UI.
+
+## Mobile-width review correction
+
+The user found the meals surface too wide for the mobile application and explicitly
+selected a consistent mobile column, including when opened on a larger display.
+The earlier meals-only 960 px content and 672 px sheet overrides were inconsistent
+with the rest of the application. A browser at an 800 px viewport reproduced the
+content/header mismatch. The earlier no-horizontal-overflow checks did not catch
+that the column itself was much wider than the rest of the app.
+
+The correction removes those overrides rather than adding a new width system:
+`.meals-content` inherits the shared `.content` 520 px maximum, and `.meals-sheet`
+inherits the shared `.modal-sheet` 552 px maximum. Both shrink to the actual viewport
+on a phone. Library and full-week views stay single-column, and the hero/illustrations
+retain the compact composition even on larger displays. No copy, functionality,
+API, stored data or application-wide layout rules are changed.
+
+The browser regression script now asserts standard column/sheet widths and one-column
+library/week layout, not just document overflow. It also walks day, full-week, library
+and detail views at 320, 360, 390, 430, 768 and 1440 px. The earlier preview on port
+12265 remains independent; no existing
+fixture session or persistent manual-sandbox data is discarded by preparing the
+corrected review on port 12266.
+
+Correction validation completed:
+
+- Chrome and Firefox both passed the updated responsive matrix and the existing
+  meals browser suite, with no page errors. On phone viewports content and sheets
+  measured the actual viewport width; on larger viewports content stayed at 520 px
+  and sheets at 552 px. Library and full-week layouts remained single-column.
+- Inspected saved compact-phone, desktop, library, full-week and detail screenshots.
+  The in-app Review tab renders the corrected planner; at an 800 px viewport it
+  measures a 520 px content column and 552 px header without document overflow.
+- Build/TypeScript passed, including copy coverage for all 4,721 editable UI texts.
+  Related meals domain/library/repository tests passed: 32 tests in four files.
+- The initial expanded browser attempts timed out during animation/action checks.
+  The final responsive cases use independent fixture pages and reduced motion to
+  avoid measuring transient entrance transforms; the existing functionality suite
+  continues to run with default motion. Both final browser runs passed.
+
+Reports and responsive screenshots are under `../browser-report/chrome/` and
+`../browser-report/firefox/`. Read `../preview-url.txt` for the corrected running
+review session. The correction is local only; no push, merge, release or production
+installation has been performed.

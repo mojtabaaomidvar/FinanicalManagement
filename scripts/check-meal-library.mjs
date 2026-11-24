@@ -21,14 +21,14 @@ const shardFiles = (await readdir(dataDirectory)).filter(name => name.startsWith
 const details = (await Promise.all(shardFiles.map(async file => JSON.parse(await readFile(new URL(file, dataDirectory), 'utf8'))))).flat();
 assert.equal(index.foodCount, 4583); assert.equal(index.variantCount, 5832);
 const browser = browserName === 'firefox' ? await firefox.launch() : await chromium.launch({ channel: browserName });
-const errors = [], checks = [];
+const errors = [], checks = [], layouts = [];
 let activePage;
-async function open(width = 360, scenarioId = 'full-owner', setup) {
+async function open(width = 360, scenarioId = 'full-owner', setup, pageOptions = {}) {
   const response = await fetch(base + '/__copy/preview', { method: 'POST',
     headers: { Origin: base, 'Content-Type': 'application/json', 'X-Copy-Workbench-Token': csrfToken },
     body: JSON.stringify({ scenarioId, route: 'meals' }) });
   assert.equal(response.status, 200);
-  const page = await browser.newPage({ viewport: { width, height: 900 }, serviceWorkers: 'block' });
+  const page = await browser.newPage({ viewport: { width, height: 900 }, serviceWorkers: 'block', ...pageOptions });
   activePage = page;
   page.setDefaultTimeout(30000);
   page.on('pageerror', error => errors.push(error.message));
@@ -42,11 +42,45 @@ async function open(width = 360, scenarioId = 'full-owner', setup) {
 async function shot(page, name) {
   await page.evaluate(() => document.fonts.ready);
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), name + ' overflows');
-  await page.screenshot({ path: out + '/' + name + '.png', fullPage: false });
+  const layout = await page.evaluate(() => {
+    const width = selector => document.querySelector(selector)?.getBoundingClientRect().width ?? 0;
+    const columns = selector => {
+      const node = document.querySelector(selector);
+      return node ? getComputedStyle(node).gridTemplateColumns.split(' ').length : 1;
+    };
+    return { content: width('.meals-content'), sheet: width('.meals-sheet'),
+      libraryColumns: columns('.meal-library-grid'), weekColumns: columns('.meals-days.full-week') };
+  });
+  assert(layout.content <= 520 + 1, name + ' must retain the standard mobile app column');
+  assert(layout.sheet <= 552 + 1, name + ' must retain the standard app sheet width');
+  assert.equal(layout.libraryColumns, 1, name + ' library must remain single-column');
+  assert.equal(layout.weekColumns, 1, name + ' full week must remain single-column');
+  layouts.push({ name, viewport: page.viewportSize().width, ...layout });
+  await page.screenshot({ path: out + '/' + name + '.png', fullPage: false, animations: 'disabled' });
 }
 const tab = (page, name) => page.locator('.meals-tabs').getByRole('button', { name, exact: true }).click();
 const close = page => page.getByRole('button', { name: 'بستن پنجرهٔ غذا', exact: true }).click();
 try {
+  for (const width of [320, 360, 390, 430, 768, 1440]) {
+    // Isolate viewport cases; reduced motion keeps size assertions independent
+    // from transient route/sheet entrance transforms.
+    const responsive = await open(width, 'full-owner', undefined, { reducedMotion: 'reduce' });
+    await shot(responsive, 'responsive-day-' + width);
+    await responsive.getByRole('button', { name: 'نمای کامل هفته', exact: true }).click();
+    await expect(responsive.locator('.meal-slot')).toHaveCount(21);
+    await shot(responsive, 'responsive-week-' + width);
+    await responsive.locator('.meal-day-button').first().click();
+    await tab(responsive, 'کتابخانهٔ غذاها');
+    await expect(responsive.locator('.meal-food-tile')).toHaveCount(24);
+    await shot(responsive, 'responsive-library-' + width);
+    await responsive.locator('.meal-food-tile').first().click();
+    await expect(responsive.locator('.meal-name-ingredient')).not.toHaveCount(0);
+    await shot(responsive, 'responsive-detail-' + width);
+    await close(responsive);
+    await expect(responsive.getByRole('dialog')).toHaveCount(0);
+    await responsive.close();
+  }
+  checks.push('Standard app column and sheet widths at 320/360/390/430/768/1440 px; single-column library/full-week; no page overflow');
   const page = await open();
   await expect(page.locator('.meal-day-button').first().locator('span').first()).toHaveText('شنبه');
   await expect(page.locator('.meal-slot')).toHaveCount(3);
@@ -256,13 +290,13 @@ try {
   await member.close();
   checks.push('Library and detail loading states, detail failure/retry, complete Tab/Shift+Tab trap and Escape, read-only member dish controls, preserved hidden numeric amounts on save');
   assert.deepEqual(errors, []);
-  await writeFile(out + '/result.json', JSON.stringify({ passed: true, sourceMeals: index.meals.length, sourceCategories: index.categories.length, checks, errors }, null, 2));
+  await writeFile(out + '/result.json', JSON.stringify({ passed: true, sourceMeals: index.meals.length, sourceCategories: index.categories.length, checks, layouts, errors }, null, 2));
   console.log(JSON.stringify({ passed: true, out, checks, errors }, null, 2));
 } catch (error) {
   if (activePage && !activePage.isClosed()) {
     await activePage.screenshot({ path: out + '/failure.png', timeout: 5000 }).catch(() => {});
     console.error((await activePage.locator('body').innerText({ timeout: 5000 }).catch(() => '')).slice(0, 2200));
   }
-  await writeFile(out + '/result.json', JSON.stringify({ passed: false, checks, errors, failure: error.message }, null, 2));
+  await writeFile(out + '/result.json', JSON.stringify({ passed: false, checks, layouts, errors, failure: error.message }, null, 2));
   throw error;
 } finally { await browser.close(); }

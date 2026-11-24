@@ -28,6 +28,12 @@ dependencies, new UI library, decorative blue/purple accents, or noisy animation
 Use the project's spacing, type, radius, and motion tokens; add missing type tokens
 centrally only if required rather than scattering new numerical scales.
 
+Review correction (explicitly approved after the initial running build): keep a
+consistent mobile-app column even on a larger display. Inherit the existing shared
+content and sheet width limits rather than making meals wider than other screens.
+Library and full-week views remain single-column, and culinary artwork uses the
+compact composition. Test actual column/sheet dimensions as well as page overflow.
+
 Three navigation sections:
 
 1. «برنامهٔ هفته»: selected-day menu by default; optional full-week view; existing
