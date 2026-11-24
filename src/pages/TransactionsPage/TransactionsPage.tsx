@@ -1,3 +1,4 @@
+import { AppPage } from "@/shared/ui/AppPage";
 /* صفحه تراکنش‌ها */
 
 import { useEffect } from "react";
@@ -25,10 +26,10 @@ export function TransactionsPage({
   useEffect(() => {
     if (initialSearch) onSearchConsumed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [initialSearch]);
 
   return (
-    <section className="page active">
+    <AppPage className="page active">
       <header className="app-header">
         <div className="header-title">
           <h1>تراکنش‌ها</h1>
@@ -59,6 +60,6 @@ export function TransactionsPage({
         initialSearch={initialSearch}
         filterSignal={filterSignal}
       />
-    </section>
+    </AppPage>
   );
 }

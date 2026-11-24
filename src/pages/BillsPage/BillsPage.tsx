@@ -1,3 +1,4 @@
+import { AppPage } from "@/shared/ui/AppPage";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* §۱.۹ — صفحهٔ قبوض و شارژ.
 
@@ -403,7 +404,7 @@ export function BillsPage() {
   }
 
   return (
-    <section className="page active bill-page">
+    <AppPage className="page active bill-page">
       <header className="app-header">
         <div className="header-title">
           <h1>قبوض و شارژ</h1>
@@ -645,7 +646,7 @@ export function BillsPage() {
           </div>
         </div> : null}
       </Modal>
-    </section>
+    </AppPage>
   );
 }
 

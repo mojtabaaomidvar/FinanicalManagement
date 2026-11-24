@@ -1,3 +1,4 @@
+import { AppPage } from "@/shared/ui/AppPage";
 /* صفحه حساب‌ها — دارایی کل + نمودار روند + لیست حساب‌ها/کیف‌پول‌ها
    لیست و فرم از features/accounts می‌آید؛ همان کامپوننت در تنظیمات هم
    رندر می‌شود، پس نمایش دو محل هرگز از هم جدا نمی‌افتد. */
@@ -83,7 +84,7 @@ export function AccountsPage() {
   }
 
   return (
-    <section className="page active">
+    <AppPage className="page active">
       <header className="app-header accounts-page-header">
         <div className="header-title">
           <h1>کیف پول‌ها</h1>
@@ -227,7 +228,7 @@ export function AccountsPage() {
           </button>
         </div>
       </Modal>
-    </section>
+    </AppPage>
   );
 }
 

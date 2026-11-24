@@ -39,6 +39,7 @@ export function TransactionListFeature({
     [customCategories],
   );
   const m = useTxListModel(txs, members, resolve, initialSearch, cur, subcategories);
+  useEffect(() => { if (initialSearch) m.setSearch(initialSearch); }, [initialSearch]);
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterDraft, setFilterDraft] = useState<TxAdvFilter>(m.adv);
   const rangeId = useId();

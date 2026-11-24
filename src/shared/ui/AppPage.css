@@ -1,0 +1,65 @@
+body:has(.application-shell) { overflow: hidden; }
+.application-shell {
+  position: fixed;
+  inset-inline: 0;
+  top: var(--app-viewport-top, 0px);
+  height: var(--app-viewport-height, 100dvh);
+  overflow: hidden;
+}
+.page-visit { height: 100%; min-height: 0; }
+.page-visit[hidden] { display: none !important; }
+.settings-pages, .settings-visit { height: 100%; min-height: 0; }
+.settings-visit[hidden] { display: none !important; }
+.page-visit .shared-app-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding-block-end: 0;
+  animation: none;
+}
+.shared-app-page > .shared-page-header {
+  position: relative;
+  top: auto;
+  flex: none;
+  width: 100%;
+  max-width: calc(var(--sp-6) * 23);
+  margin-inline: auto;
+  padding: calc(env(safe-area-inset-top) + var(--sp-3)) max(var(--sp-4), env(safe-area-inset-right)) var(--sp-3) max(var(--sp-4), env(safe-area-inset-left));
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  background: var(--header-blur);
+  border-bottom: 1px solid var(--border);
+}
+.shared-page-header > :not(.shared-page-back) { min-width: 0; }
+.shared-page-header .header-title, .shared-page-header .hub-id { flex: 1; }
+.shared-page-header .settings-inline-back, .shared-page-header .page-inline-back { display: none; }
+.shared-page-back { flex: none; width: calc(var(--sp-6) + var(--sp-5)); height: calc(var(--sp-6) + var(--sp-5)); }
+.shared-page-back svg { width: var(--sp-6); height: var(--sp-6); }
+.page-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-block-end: calc(var(--sp-6) * 5 + env(safe-area-inset-bottom));
+  scroll-padding-block: var(--sp-4);
+}
+.page-scroll > .content { min-height: 0; }
+.shared-app-page.hub-page { padding-inline: 0; }
+.shared-app-page.hub-page > .page-scroll { padding-inline: var(--sp-4); }
+.application-shell .page-anim { animation: none; }
+.application-shell.keyboard-open .floating-access { display: none; }
+.application-shell.keyboard-open .page-scroll { padding-block-end: calc(var(--sp-4) + env(safe-area-inset-bottom)); }
+body:has(.application-shell) :is(.modal-overlay, .dp-overlay) {
+  top: var(--app-viewport-top, 0px);
+  bottom: auto;
+  height: var(--app-viewport-height, 100dvh);
+}
+body:has(.application-shell) .modal-sheet { max-height: calc(var(--app-viewport-height, 100dvh) - env(safe-area-inset-top) - var(--sp-4)); }
+body:has(.application-shell) .dp-box { max-height: calc(var(--app-viewport-height, 100dvh) - env(safe-area-inset-top) - var(--sp-4)); overflow-y: auto; }
+body:has(.modal-overlay, .dp-overlay, dialog[open]) .application-shell .page-scroll { overflow-y: hidden; }
+@supports not (backdrop-filter: blur(1px)) {
+  .shared-app-page > .shared-page-header { background: var(--bg); }
+}

@@ -44,7 +44,7 @@ export function HouseholdAssistant({ model, offline, lists, members, onShopping,
   }, [model.open, inputId]);
   useEffect(() => { setSelected(""); setOption(null); setRefreshError(false); }, [model.result?.report_id]);
   const ready = model.capabilities?.status === "ready" && model.capabilities.protocol_version === 2;
-  const locked = model.actionBusy || !!model.pendingAction;
+  const locked = model.restoring || model.actionBusy || !!model.pendingAction;
   const close = () => { restoreFocus.current = true; model.close(); };
   async function refresh(receipt?: ActionReceipt) {
     if (!receipt) return;
@@ -56,7 +56,7 @@ export function HouseholdAssistant({ model, offline, lists, members, onShopping,
     || action.kind === "shopping_list" && !lists.length) ?? [];
   return <Modal open={model.open} onClose={close} title="دستیار خانه‌یار" dragToClose sheetClassName="household-assistant-sheet">
     <section ref={dialogRef} role="dialog" aria-modal="true" aria-label="دستیار خانه‌یار"
-      className={`household-assistant ${model.busy ? "is-analyzing" : ""}`} aria-busy={model.busy || model.actionBusy}
+       className={`household-assistant ${model.busy ? "is-analyzing" : ""}`} aria-busy={model.restoring || model.busy || model.actionBusy}
       onKeyDown={event => {
         if (event.key !== "Tab") return;
         const controls = [...(dialogRef.current?.querySelectorAll<HTMLElement>("button:not(:disabled), textarea:not(:disabled), input:not(:disabled), select:not(:disabled), summary") ?? [])]
@@ -77,12 +77,13 @@ export function HouseholdAssistant({ model, offline, lists, members, onShopping,
       {model.busy ? <p role="status">شناخت درخواست، بررسی بخش‌های مرتبط و آماده‌سازی گزارش؛ هنوز هیچ تغییری ثبت نشده است.</p> : null}
       {model.actionBusy ? <p role="status">در حال بررسی تغییر یا دریافت نتیجهٔ ثبت…</p> : null}
       {model.checking ? <p role="status">در حال بررسی اتصال دستیار…</p> : null}
+      {model.restoring ? <p role="status">در حال بررسی اطلاعات بازیابی عملیات قبلی…</p> : null}
       {offline ? <p role="status">گزارش و متن باقی می‌مانند، اما بررسی و اجرای تازه به اینترنت نیاز دارد. پس از اتصال، خودکار ارسال یا اجرا نمی‌کنیم.</p> : null}
       {!ready && !offline && !model.checking ? <div className="assistant-unavailable" role="status">
         <p>{model.capabilities?.status === "upgrade_required" ? "برای بررسی اطلاعات خانه، درگاه دستیار باید به نسخهٔ جدید ارتقا پیدا کند." : "دستیار فعلاً در دسترس نیست؛ اتصال یا تنظیمات سرویس باید بررسی شود."}</p>
         <button type="button" className="btn-ghost" onClick={() => void model.checkCapabilities()}>بررسی دوبارهٔ اتصال</button>
       </div> : null}
-      {model.storageError ? <p role="status" className="field-error">پیش‌نویس یا نتیجه در این مرورگر ماندگار نشد؛ متن را کپی کن. اجرای تازه به ذخیرهٔ امنِ اطلاعات بازیابی نیاز دارد.</p> : null}
+      {model.storageError ? <p role="status" className="field-error">ذخیره یا دریافت اطلاعات بازیابی در این مرورگر ناموفق بود. اجرای تازه به ذخیرهٔ امنِ اطلاعات بازیابی نیاز دارد.</p> : null}
       {model.error !== null ? <p role="alert" className="field-error">{model.error}</p> : null}
       <details className="assistant-privacy"><summary>حریم خصوصی دستیار</summary>
         <p>فقط متن درخواست و دادهٔ محدود، مرتبط و مجازِ خانه از سرور خانه‌یار به DeepSeek ارسال می‌شوند؛ نه تمام اطلاعات خانه. شماره‌های حساسِ قابل‌شناسایی پنهان می‌شوند. عکس، PDF، محتوای فایل، رمز و اطلاعات حساب عضو دیگر ارسال نمی‌شوند. اطلاعات شخصی غیرضروری را ننویس.</p>

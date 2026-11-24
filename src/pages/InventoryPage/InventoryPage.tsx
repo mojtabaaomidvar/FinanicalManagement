@@ -1,3 +1,4 @@
+import { AppPage } from "@/shared/ui/AppPage";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
@@ -155,7 +156,7 @@ export function InventoryPage() {
       queued={queued.get(item.id) ?? []} onOpen={() => openEdit(item)} onStep={delta => void step(item, delta)}
       onAdjust={() => openAdjustment(item)} onSend={() => sendToList(item)} onDelete={() => void remove(item)} />)}</div>;
   }
-  return <section className="page active inventory-page">
+  return <AppPage className="page active inventory-page">
     <header className="app-header"><div className="header-title"><h1>انبار خانه</h1><p>موجودی، مصرف و خرید دوباره</p></div></header>
     <div className="content">
       <ShoppingSyncStatus />
@@ -253,7 +254,7 @@ export function InventoryPage() {
         <button type="submit" className="btn-primary" disabled={busy || !sending}>{busy ? "در حال افزودن…" : "افزودن به لیست"}</button>
       </form>
     </Modal>
-  </section>;
+  </AppPage>;
 }
 
 function InvRow({ item, busy, queued, onOpen, onStep, onAdjust, onSend, onDelete }: {

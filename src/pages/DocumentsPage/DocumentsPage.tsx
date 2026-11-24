@@ -1,3 +1,4 @@
+import { AppPage } from "@/shared/ui/AppPage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
@@ -266,7 +267,7 @@ export function DocumentsPage({ onChanged }: { onChanged?: () => Promise<void> |
   const expiringCount = filterDocuments(documents, "expiring", "", todayIso).length;
 
   return (
-    <section className="page active documents-page" aria-busy={busy || loading}>
+    <AppPage className="page active documents-page" aria-busy={busy || loading}>
       <header className="app-header"><div className="header-title">
         <h1>اسناد خانه</h1><p>مدارک خصوصی شما و اسناد مشترک خانواده</p>
       </div></header>
@@ -382,6 +383,6 @@ export function DocumentsPage({ onChanged }: { onChanged?: () => Promise<void> |
           <button type="button" className="btn-ghost" onClick={closePreview}>بستن فایل</button>
         </> : null}
       </Modal>
-    </section>
+    </AppPage>
   );
 }

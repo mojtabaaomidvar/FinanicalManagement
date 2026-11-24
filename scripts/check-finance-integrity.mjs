@@ -156,10 +156,11 @@ try {
     assert.equal(await page.locator('.tx-item').count(), 2);
     await capture(page, 'transfer-fee-filter');
     await navigate(page, 'dashboard');
-    await page.locator('.tx-item').filter({ hasText: 'Nested purchase' }).waitFor();
-    assert.equal(await page.locator('.tx-item').filter({ hasText: 'کارمزد انتقال' }).count(), 2);
+    const dashboard = page.locator('.page-visit:not([hidden])');
+    await dashboard.locator('.tx-item').filter({ hasText: 'Nested purchase' }).waitFor();
+    assert.equal(await dashboard.locator('.tx-item').filter({ hasText: 'کارمزد انتقال' }).count(), 2);
     // These are the parents' nested details, not three independent generated expenses.
-    assert.equal(await page.locator('.tx-item h4').filter({ hasText: 'کارمزد انتقال' }).count(), 0);
+    assert.equal(await dashboard.locator('.tx-item h4').filter({ hasText: 'کارمزد انتقال' }).count(), 0);
     await page.context().close();
   });
   await check('SMS online choice survives reopening its draft and atomic recording without a fee', async () => {

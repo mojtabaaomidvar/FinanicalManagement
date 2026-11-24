@@ -4,17 +4,23 @@
    شود (open=false)، ورودی تاریخچه‌اش پس گرفته می‌شود. */
 
 import { useEffect, useRef } from "react";
-import { popGuard, pushGuard } from "./backGuard";
+import { nextGuardOrder, popGuard, pushOrderedGuard } from "./backGuard";
+import { usePageActivity } from "./pageActivity";
 
 export function useBackGuard(open: boolean, onClose: () => void) {
+  const active = usePageActivity();
+  const orderRef = useRef<number | null>(null);
+  if (!open) orderRef.current = null;
+  else orderRef.current ??= nextGuardOrder();
   /* onClose تازه بدون وابسته‌کردن افکت به آن — وگرنه هر رندر لایه را
      برداشته و دوباره push می‌کند (همان الگوی Modal برای Escape). */
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
 
   useEffect(() => {
-    if (!open) return;
-    const id = pushGuard(() => closeRef.current());
+    if (!open || !active) return;
+    const id = pushOrderedGuard(() => closeRef.current(), orderRef.current!);
     return () => popGuard(id);
-  }, [open]);
+  }, [open, active]);
+  return orderRef.current;
 }

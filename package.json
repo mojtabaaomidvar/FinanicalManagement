@@ -1,7 +1,7 @@
 {
   "name": "mali-man",
   "private": true,
-  "version": "0.9.0",
+  "version": "0.10.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -43,7 +43,8 @@
     "copy:studio:inventory-check": "node scripts/check-inventory-refresh.mjs",
     "copy:studio:inventory-categories-check": "node scripts/check-inventory-categories.mjs",
     "copy:studio:assistant-check": "node scripts/check-household-assistant.mjs",
-    "copy:studio:finance-integrity-check": "node scripts/check-finance-integrity.mjs"
+    "copy:studio:finance-integrity-check": "node scripts/check-finance-integrity.mjs",
+    "copy:studio:navigation-check": "node scripts/check-navigation-shell.mjs"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.1",

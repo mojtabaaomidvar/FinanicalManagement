@@ -5,6 +5,7 @@ import { formatAccountAmount } from "@/shared/lib/format";
 import { toFa } from "@/shared/lib/digits";
 import { Icon } from "@/shared/ui";
 import { HomeBillboardArt, type BillboardSection } from "./HomeBillboardArt";
+import { usePageActivity } from "@/shared/lib/pageActivity";
 import "./HomeBillboard.css";
 
 const sections: { id: BillboardSection; label: string; icon: string }[] = [
@@ -22,6 +23,7 @@ export function HomeBillboard({ wallets, budget, dues, currency, loading, incomp
   onTransaction: (type: TxType) => void; onAccounts: () => void; onBudgets: () => void;
   onDues: () => void; onRetry: () => void;
 }) {
+  const active = usePageActivity();
   const deck = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   const gesture = useRef<{ id: number; x: number; y: number; started: number; dx: number; horizontal: boolean } | null>(null);
@@ -61,10 +63,10 @@ export function HomeBillboard({ wallets, budget, dues, currency, loading, incomp
       document.removeEventListener("visibilitychange", visibility); clearTimeout(timer.current); };
   }, []);
   useEffect(() => {
-    if (reduced || touching || hovered || focused || hidden || covered || motion.phase !== "idle") return;
+    if (!active || reduced || touching || hovered || focused || hidden || covered || motion.phase !== "idle") return;
     const autoplay = setTimeout(() => settle(1, true), 6000);
     return () => clearTimeout(autoplay);
-  }, [reduced, touching, hovered, focused, hidden, covered, motion.index, motion.phase, settle]);
+  }, [active, reduced, touching, hovered, focused, hidden, covered, motion.index, motion.phase, settle]);
   function handleKey(event: KeyboardEvent<HTMLDivElement>) {
     if (event.target !== event.currentTarget || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     event.preventDefault();

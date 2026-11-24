@@ -1,3 +1,4 @@
+import { AppPage } from "@/shared/ui/AppPage";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* خانه: بیلبورد → دسترسی شخصی → موعدهای واقعی؛ بخش‌ها در صفحهٔ جدا.
    دادهٔ آنلاین از snapshot مجاز همان نشست می‌آید؛ دادهٔ آفلاین محدود است. */
@@ -190,7 +191,7 @@ export function HubPage({
   const initial = (member?.name ?? "؟").trim().charAt(0);
 
   return (
-    <section className={`page active hub-page${view === "sections" ? " home-sections-page" : ""}`}>
+    <AppPage className={`page active hub-page${view === "sections" ? " home-sections-page" : ""}`}>
       <header className="hub-head">
         <div className="hub-id">
           <h1>{view === "sections" ? "بخش‌های خانه" : family?.name ?? "خانه‌ی من"}</h1>
@@ -241,7 +242,7 @@ export function HubPage({
           <Tile key={m.id} m={m} soon />
         ))}
       </div></> : null}
-    </section>
+    </AppPage>
   );
 }
 

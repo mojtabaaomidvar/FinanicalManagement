@@ -1,3 +1,5 @@
+import { AppPage } from "@/shared/ui/AppPage";
+import { PageActivityContext, usePageActivity } from "@/shared/lib/pageActivity";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* صفحه «تنظیمات / بیشتر» — الگوی گروه‌بندی‌شده (Grouped Settings)
    ═══════════════════════════════════════════════════════════════
@@ -78,17 +80,14 @@ const THEME_ICON: Partial<Record<ThemeMode, string>> = {
   dark: "moon",
 };
 
-/* `initialSection` برای ورودِ مستقیم از بیرون — مثلاً لمسِ اعلانِ
-   «درخواست عضویت» در مرکزِ اعلان که باید *همان* زیرصفحه را باز کند، نه
-   فهرستِ تنظیمات را. فقط مقدارِ اولیهٔ state است و همین کافی است، چون
-   MainShell با `key={route}` این درخت را در هر جابه‌جاییِ مسیر از نو
-   می‌سازد؛ پس هر بار که از جای دیگری به تنظیمات می‌آییم تازه خوانده
-   می‌شود. */
+/* مقصد خارجی یک‌بار مصرف می‌شود؛ بازگشت عادی زیرصفحه و پیش‌نویسش را حفظ می‌کند. */
 export function SettingsPage({
   initialSection,
+  onInitialSectionConsumed,
   onNotificationPrefsChanged,
 }: {
   initialSection?: SettingsSection | null;
+  onInitialSectionConsumed?: () => void;
   /* §۷ — پس از تغییرِ ترجیحاتِ اعلان صدا زده می‌شود تا زنگِ هاب دوباره
      بخواند. MainShell زنگ را نگه می‌دارد و با جابه‌جاییِ مسیر remount
      نمی‌شود، پس بی این فراخوان نشانِ قرمز کهنه می‌ماند. */
@@ -117,6 +116,9 @@ export function SettingsPage({
   const [section, setSection] = useState<SettingsSection | null>(
     initialSection ?? null,
   );
+  useEffect(() => {
+    if (initialSection) { setSection(initialSection); onInitialSectionConsumed?.(); }
+  }, [initialSection, onInitialSectionConsumed]);
   useEffect(() => {
     if (import.meta.env.MODE !== "copy-workbench") return;
     const navigate = (event: Event) => {
@@ -293,8 +295,13 @@ export function SettingsPage({
 
   /* بازگشت دکمه/سوایپ در زیرصفحهٔ باز = برگشت به فهرست تنظیمات */
   useBackGuard(section !== null, back);
+  const active = usePageActivity();
+  const [visitedSections, setVisitedSections] = useState<(SettingsSection | null)[]>([null]);
+  const sections = visitedSections.includes(section) ? visitedSections : [...visitedSections, section];
+  if (sections !== visitedSections) setVisitedSections(sections);
 
   /* ─────────────── زیرصفحه‌ها ─────────────── */
+  function renderSection(section: SettingsSection | null) {
   if (section === "profile") {
     return (
       <SettingsSubPage title={/* @copy-text src/pages/SettingsPage/SettingsPage.tsx:83:jsx-attribute */ "پروفایل"} onBack={back}>
@@ -570,7 +577,7 @@ export function SettingsPage({
       : { type: "value", value: "خاموش" };
 
   return (
-    <section className="page active">
+    <AppPage className="page active">
       <header className="app-header set-hero">
         <div className="header-title">
           <h1>تنظیمات</h1>
@@ -893,8 +900,14 @@ export function SettingsPage({
           </p>
         )}
       </Modal>
-    </section>
+    </AppPage>
   );
+  }
+  return <div className="settings-pages">{sections.map(selected => <PageActivityContext.Provider key={selected ?? "main"} value={active && selected === section}>
+    <div className="settings-visit" hidden={selected !== section} {...(selected !== section ? { inert: "" } : {})}>
+      {renderSection(selected)}
+    </div>
+  </PageActivityContext.Provider>)}</div>;
 }
 
 /* ── بازنشسته (به‌خواست کاربر): «کارت نسخه و به‌روزرسانی» که پیش‌تر در یک

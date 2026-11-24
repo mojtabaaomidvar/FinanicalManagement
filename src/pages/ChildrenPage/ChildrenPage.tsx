@@ -1,3 +1,4 @@
+import { AppPage } from "@/shared/ui/AppPage";
 import { useChildrenModel } from "@/features/children/model/useChildrenModel";
 import { childAgeLabel, childStatusLabel } from "@/features/children/model/childPresentation";
 import { formatLong, isoToJalali } from "@/shared/lib/jalali";
@@ -13,8 +14,8 @@ export function ChildrenPage({ onChanged, navigate }: {
 }) {
   const model = useChildrenModel(onChanged);
   const { detailValue, activeDialog, form, busy } = model;
-  const visit = (page: "tasks" | "activities" | "calendar") => { model.closeDetail(); navigate(page); };
-  return <section className="page active children-page" aria-busy={model.loading || model.detailLoading || busy}>
+  const visit = (page: "tasks" | "activities" | "calendar") => navigate(page);
+  return <AppPage className="page active children-page" aria-busy={model.loading || model.detailLoading || busy}>
     <header className="app-header"><div className="header-title"><h1>فرزندان و برنامه‌های آن‌ها</h1><p>مشخصات، کارهای محول‌شده و برنامه‌های خانوادگی</p></div></header>
     <div className="content">
       {!model.available ? <Card><p className="modal-sub" role="status">مشاهده و مدیریت فرزندان به اتصال اینترنت و ورود معتبر نیاز دارد.</p></Card> : <>
@@ -60,5 +61,5 @@ export function ChildrenPage({ onChanged, navigate }: {
         <button type="button" className="btn-secondary" disabled={busy} onClick={model.closeForm}>انصراف</button>
       </form>
     </Modal>
-  </section>;
+  </AppPage>;
 }

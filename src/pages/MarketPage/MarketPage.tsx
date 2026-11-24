@@ -1,3 +1,4 @@
+import { AppPage } from "@/shared/ui/AppPage";
 /* صفحه بازار — شبکه‌ی چهار کاشی (بورس، طلا، ارز، رمزارز) + زیرصفحه‌ی هر دسته.
 
    چیدمان: صفحه‌ی اصلی فقط چهار کاشی است؛ لمس هر کاشی زیرصفحه‌ی کامل همان
@@ -286,7 +287,7 @@ export function MarketPage() {
 
   return (
     <>
-      <section className="page active">
+      <AppPage className="page active">
         <header className="app-header">
           <div className="header-title">
             <h1>ارز و بورس</h1>
@@ -320,7 +321,7 @@ export function MarketPage() {
             </div>
           ) : null}
         </div>
-      </section>
+      </AppPage>
       {sheet}
     </>
   );

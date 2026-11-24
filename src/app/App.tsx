@@ -2,8 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "./providers/AppProvider";
-import { useBackGuard } from "@/shared/lib/useBackGuard";
 import { requestBack } from "@/shared/lib/backGuard";
+import { useNavigation } from "./useNavigation";
+import { useMobileViewport } from "./useMobileViewport";
+import { PageActivityContext } from "@/shared/lib/pageActivity";
+import { PageNavigationContext } from "@/shared/ui/AppPage";
 import { FloatingNavigation } from "@/widgets/quick-actions/FloatingNavigation";
 import { useNativeSmsReader } from "./useNativeSmsReader";
 import { useTheme } from "./providers/useTheme";
@@ -75,7 +78,8 @@ export function App() {
 
 function AppBody() {
   const { phase, useCases, member, refreshData } = useApp();
-  const [route, setRoute] = useState<Route>("hub");
+  const navigation = useNavigation(member ? `${member.familyId}:${member.id}` : "anonymous");
+  const { route, navigate: setRoute } = navigation;
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   /* قیف آغازین — پیش از فرم ورود. فلگ «دستگاهی» است نه per-member،
      چون در این مرحله هنوز عضوی وجود ندارد. */
@@ -97,12 +101,13 @@ function AppBody() {
     window.addEventListener("copy-workbench:navigate", navigate);
     window.dispatchEvent(new Event("copy-workbench:ready"));
     return () => { window.removeEventListener("copy-workbench:navigate", navigate); };
-  }, []);
+  }, [setRoute]);
   const [refreshKey, setRefreshKey] = useState(0);
   /* جستجوی ارسالی از هدر خانه → صفحه تراکنش‌ها */
   const [txSearch, setTxSearch] = useState("");
   /* سیگنال باز شدن فیلتر پیشرفته در صفحه تراکنش‌ها */
   const [filterSignal, setFilterSignal] = useState(0);
+  useEffect(() => { setTxSearch(""); setFilterSignal(0); }, [member?.familyId, member?.id]);
   const { show } = useToast();
   const { updateReady, applyUpdate } = usePwaUpdateState();
   /* «خانه‌یار را به صفحه‌ی اصلی اضافه کن» — فقط گوشی، فقط مرورگر.
@@ -249,6 +254,9 @@ function AppBody() {
         key={`${member?.familyId ?? ""}:${member?.id ?? ""}`}
         route={route}
         setRoute={setRoute}
+        replaceRoute={navigation.replace}
+        onBack={navigation.back}
+        canBack={navigation.depth > 0 || route !== "hub"}
         bumpRefresh={bumpRefresh}
         refreshKey={refreshKey}
         currentMemberId={member?.id ?? ""}
@@ -260,7 +268,7 @@ function AppBody() {
     );
   }
 
-  const showPageBack = phase !== "ready" || route !== "hub" || Boolean(devOverride) || (install.visible && !inviteToken);
+  const showPageBack = phase !== "ready" || Boolean(devOverride) || (install.visible && !inviteToken);
 
   return (
     <>
@@ -296,6 +304,9 @@ function AppBody() {
 function MainShell({
   route,
   setRoute,
+  replaceRoute,
+  onBack,
+  canBack,
   bumpRefresh,
   refreshKey,
   currentMemberId,
@@ -306,6 +317,9 @@ function MainShell({
 }: {
   route: Route;
   setRoute: (r: Route) => void;
+  replaceRoute: (r: Route) => void;
+  onBack: () => void;
+  canBack: boolean;
   bumpRefresh: () => Promise<void>;
   refreshKey: number;
   currentMemberId: string;
@@ -317,6 +331,12 @@ function MainShell({
   const { useCases, members, family, shoppingLists, cur, subcategories, shoppingSync, offlineSession, refreshTasks } = useApp();
   const online = useOnline();
   const restricted = !online || shoppingSync.offline || offlineSession;
+  const keyboard = useMobileViewport();
+  const [visited, setVisited] = useState<Route[]>([route]);
+  const allowedRoutes = restricted ? MAIN_ROUTES.filter(r => ["hub", "sections", "notifications", "shopping", "inventory", "tasks"].includes(r)) : MAIN_ROUTES;
+  const accessibleVisits = visited.filter(r => allowedRoutes.includes(r));
+  if (allowedRoutes.includes(route) && !accessibleVisits.includes(route)) accessibleVisits.push(route);
+  if (accessibleVisits.length !== visited.length || accessibleVisits.some((r, i) => r !== visited[i])) setVisited(accessibleVisits);
   const previousUsageRoute = useRef<Route | null>(null);
   useEffect(() => {
     if (previousUsageRoute.current === route) return;
@@ -358,9 +378,7 @@ function MainShell({
   const pendingSms = usePendingSmsModel(useCases!, currentMemberId, show, cur, !restricted);
   useEffect(() => { if (!restricted) void pendingSms.load(); }, [refreshKey, useCases, currentMemberId, restricted]);
 
-  /* مقصدِ اعلانِ «درخواست عضویت» — باید *همان* زیرصفحه باز شود، نه فهرستِ
-     تنظیمات. با key={route} در پایین، SettingsPage در هر ورود از نو ساخته
-     می‌شود و initialSection تازه خوانده می‌شود. */
+  /* سیگنال‌های یک‌بارمصرف برای مقصد اعلان در صفحه‌های نگه‌داری‌شده. */
   const [settingsSection, setSettingsSection] =
     useState<SettingsSection | null>(null);
   const [equipmentId, setEquipmentId] = useState<string | undefined>();
@@ -385,7 +403,6 @@ function MainShell({
       setGoalId(undefined);
       setActivityId(undefined);
       setCalendarDate(undefined);
-      window.scrollTo({ top: 0 });
     },
     [setRoute, restricted, show],
   );
@@ -397,17 +414,16 @@ function MainShell({
       setGoalId(undefined);
       setActivityId(undefined);
       setCalendarDate(undefined);
-      if (!["hub", "sections", "notifications", "shopping", "inventory", "tasks"].includes(route)) setRoute("hub");
+      if (!["hub", "sections", "notifications", "shopping", "inventory", "tasks"].includes(route)) replaceRoute("hub");
       form.close();
     }
-  }, [restricted, route, setRoute]);
+  }, [restricted, route, replaceRoute]);
 
   /* ورودِ مستقیم به یک زیرصفحهٔ تنظیمات (از مرکزِ اعلان) */
   const navSettingsSection = useCallback(
     (s: SettingsSection) => {
       setSettingsSection(s);
       setRoute("settings");
-      window.scrollTo({ top: 0 });
     },
     [setRoute],
   );
@@ -429,9 +445,6 @@ function MainShell({
     }
   };
 
-  /* بازگشت دکمه/سوایپ در هر صفحه‌ای جز هاب = برگشت به هاب (نه خروج از اپ) */
-  useBackGuard(route !== "hub", () => nav("hub"));
-
 
   /* جستجو از هدر خانه: انتقال به تراکنش‌ها با متن جستجو */
   const searchFromHome = useCallback(
@@ -448,8 +461,11 @@ function MainShell({
   }, [nav, bumpFilterSignal]);
 
   return (
-    <>
-      <div key={route} className="page-anim app-with-floating-navigation">
+    <PageNavigationContext.Provider value={{ back: onBack, canBack }}>
+    <div className={`application-shell${keyboard ? " keyboard-open" : ""}`}>
+      {accessibleVisits.map(pageRoute => <PageActivityContext.Provider key={pageRoute} value={pageRoute === route}>
+      <div className="page-visit" data-route={pageRoute} hidden={pageRoute !== route} {...(pageRoute !== route ? { inert: "" } : {})}>
+      {(() => { const route = pageRoute; return <>
         {route === "hub" || route === "sections" ? (
           <HubPage
             view={route === "sections" ? "sections" : "dashboard"}
@@ -485,6 +501,7 @@ function MainShell({
         {route === "budgets" ? <BudgetsPage /> : null}
         {route === "bills" ? <BillsPage /> : null}
         {route === "calendar" ? <CalendarPage initialDate={calendarDate} summary={notif}
+          onInitialDateConsumed={() => setCalendarDate(undefined)}
           onOpenItem={openRecord} onRefresh={bumpRefresh} /> : null}
         {route === "shopping" ? <ShoppingPage /> : null}
         {route === "inventory" ? <InventoryPage /> : null}
@@ -492,8 +509,11 @@ function MainShell({
         {route === "documents" ? <DocumentsPage onChanged={notif.reload} /> : null}
         {route === "meals" ? <MealsPage /> : null}
         {route === "equipment" ? <EquipmentPage initialEquipmentId={equipmentId}
+          onInitialEquipmentConsumed={() => setEquipmentId(undefined)}
+          onOpenDocuments={() => nav("documents")}
           onOpenTasks={() => nav("tasks")} onChanged={notif.reload} /> : null}
         {route === "vehicles" ? <VehiclesPage initialVehicleId={vehicleId}
+          onInitialVehicleConsumed={() => setVehicleId(undefined)}
           onOpenTasks={() => nav("tasks")} onOpenDocuments={() => nav("documents")}
           onOpenFinance={async (id) => {
             const captured = financeIdentity.current;
@@ -523,6 +543,7 @@ function MainShell({
         {route === "settings" ? (
           <SettingsPage
             initialSection={settingsSection}
+            onInitialSectionConsumed={() => setSettingsSection(null)}
             onNotificationPrefsChanged={() => void Promise.all([notif.reload(), refreshTasks()])}
           />
         ) : null}
@@ -561,7 +582,9 @@ function MainShell({
       {route === "sms" ? <SmsPage model={pendingSms} onImported={async () => {
         await bumpRefresh(); await pendingSms.load({ review: true });
       }} /> : null}
-      </div>
+       </>; })()}
+       </div>
+       </PageActivityContext.Provider>)}
       <FloatingNavigation home={route === "hub"} sections={route === "sections"} onHome={() => nav("hub")}
         onSections={() => nav("sections")} notifications={route === "notifications"} count={notif.count + pendingSms.list.length}
         onNotifications={() => nav("notifications")} hidden={form.open || pendingSms.open || assistant.open}
@@ -574,6 +597,7 @@ function MainShell({
       }} /> : null}
       {!restricted ? <PendingSmsFeature model={pendingSms} /> : null}
 
-    </>
+    </div>
+    </PageNavigationContext.Provider>
   );
 }

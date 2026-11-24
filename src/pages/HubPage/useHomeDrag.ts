@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { flushSync } from "react-dom";
+import { usePageActivity } from "@/shared/lib/pageActivity";
 import type { HomeGroupId, HomePreferences } from "@/domain/home/homePreferences.types";
 import { homeModuleGroup, moveHomeModule, normalizeHomePreferences, reorderHomeItem } from "@/domain/home/homePreferences.rules";
 
@@ -18,6 +19,7 @@ export function useHomeDrag({ root, preferences, onChange, disabled, lifecycleKe
   root: RefObject<HTMLDivElement>; preferences: HomePreferences;
   onChange: (next: HomePreferences) => void; disabled: boolean; lifecycleKey: string;
 }) {
+  const active = usePageActivity();
   const [preview, setPreview] = useState<HomePreferences | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const latest = useRef({ preferences, onChange, disabled });
@@ -31,7 +33,8 @@ export function useHomeDrag({ root, preferences, onChange, disabled, lifecycleKe
 
   useEffect(() => {
     const container = root.current;
-    if (!container) return;
+    if (!container || !active) return;
+    const scroller = container.closest<HTMLElement>(".page-scroll");
     let line: HTMLDivElement | undefined;
     let disposed = false;
     function info(handle: HTMLButtonElement): Item | undefined {
@@ -173,9 +176,10 @@ export function useHomeDrag({ root, preferences, onChange, disabled, lifecycleKe
     function frame() {
       const item = drag.current;
       if (!item || item.mode !== "pointer") return;
-      const edge = 58, within = item.x >= 0 && item.x <= innerWidth && item.y >= 0 && item.y <= innerHeight;
-      const delta = within ? item.y < edge ? -Math.ceil((edge - item.y) / 4) : item.y > innerHeight - edge ? Math.ceil((item.y - innerHeight + edge) / 4) : 0 : 0;
-      if (delta) { window.scrollBy({ top: delta, behavior: "instant" }); update(); }
+      const bounds = scroller?.getBoundingClientRect() ?? { top: 0, bottom: innerHeight };
+      const edge = 58, within = item.x >= 0 && item.x <= innerWidth && item.y >= bounds.top && item.y <= bounds.bottom;
+      const delta = within ? item.y < bounds.top + edge ? -Math.ceil((bounds.top + edge - item.y) / 4) : item.y > bounds.bottom - edge ? Math.ceil((item.y - bounds.bottom + edge) / 4) : 0 : 0;
+      if (delta) { (scroller ?? window).scrollBy({ top: delta, behavior: "instant" }); update(); }
       item.raf = requestAnimationFrame(frame);
     }
     function startPointer() {
@@ -298,7 +302,7 @@ export function useHomeDrag({ root, preferences, onChange, disabled, lifecycleKe
       document.removeEventListener("lostpointercapture", cancel); document.removeEventListener("keydown", key, true);
       document.removeEventListener("click", click, true); window.removeEventListener("blur", blur);
     };
-  }, [root]);
+  }, [root, active]);
 
   useEffect(() => { finishRef.current(false, false); setPreview(null); }, [disabled, lifecycleKey]);
   useEffect(() => { if (drag.current || candidate.current) finishRef.current(false, false); }, [preferences]);

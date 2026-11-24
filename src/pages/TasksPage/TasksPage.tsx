@@ -1,3 +1,4 @@
+import { AppPage } from "@/shared/ui/AppPage";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
@@ -227,7 +228,7 @@ export function TasksPage() {
   };
 
   return (
-    <section className="page active" aria-busy={busy || loading}>
+    <AppPage className="page active" aria-busy={busy || loading}>
       <header className="app-header">
         <div className="header-title">
           <h1>کارهای خانه</h1>
@@ -413,6 +414,6 @@ export function TasksPage() {
           </button>
         </div>
       </Modal>
-    </section>
+    </AppPage>
   );
 }

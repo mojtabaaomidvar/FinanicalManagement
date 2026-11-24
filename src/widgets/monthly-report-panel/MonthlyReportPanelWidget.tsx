@@ -1,7 +1,7 @@
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* ویجت پنل گزارش ماهانه — ستونی روزانه، خطی ۶ ماهه، دسته‌بندی */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { BarChart, Card, LineChart, themeColors } from "@/shared/ui";
 import { txsInJalaliMonth } from "@/domain/transaction/transaction.rules";
@@ -34,10 +34,6 @@ export function MonthlyReportPanelWidget() {
       total: monthTotals(mtx).expense,
     };
   }, [txs, jy, jm, resolve]);
-
-  useEffect(() => {
-    window.scrollTo({ top: 0 });
-  }, []);
 
   const C = themeColors();
 

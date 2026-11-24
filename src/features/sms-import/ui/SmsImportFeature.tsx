@@ -76,7 +76,7 @@ export function SmsImportFeature({
           را با خط خالی از هم جدا کنید.
         </p>
 
-        <p className="section-hint">متن ناتمام برای خودتان نگه داشته می‌شود. پیامک‌های افزوده‌شده در بخش «پیامک‌های بانکی» قابل ادامه‌اند.</p>
+        <p className="section-hint">با بستن این پنجره متن پاک می‌شود. پیامک‌های افزوده‌شده در بخش «پیامک‌های بانکی» باقی می‌مانند.</p>
         <div className="form-row">
           <label htmlFor="sms-import-text">متن پیامک‌ها</label>
           <textarea

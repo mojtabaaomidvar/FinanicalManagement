@@ -1,3 +1,4 @@
+import { AppPage } from "@/shared/ui/AppPage";
 import { useActivitiesModel } from "@/features/activities/model/useActivitiesModel";
 import { activityStatusLabel, type ActivityFilter } from "@/features/activities/model/activityPresentation";
 import type { ActivityStatus } from "@/domain/activity/activity.types";
@@ -16,7 +17,7 @@ export function ActivitiesPage({ initialActivityId, onChanged, onInitialActivity
   const model = useActivitiesModel(initialActivityId, onChanged, onInitialActivityConsumed);
   const { detailItem, activeDialog, form, busy } = model;
   const selectedParticipants = detailItem ? model.participants.filter((member) => detailItem.participantIds.includes(member.id)) : [];
-  return <section className="page active activities-page" aria-busy={model.loading || busy || model.detailLoading}>
+  return <AppPage className="page active activities-page" aria-busy={model.loading || busy || model.detailLoading}>
     <header className="app-header"><div className="header-title"><h1>تفریح و برنامه‌های خانوادگی</h1><p>برنامه‌های مشترک، شرکت‌کنندگان و یادآورها</p></div></header>
     <div className="content">
       {!model.available ? <Card><p className="modal-sub" role="status">مشاهده و مدیریت برنامه‌های خانوادگی به اتصال اینترنت و ورود معتبر نیاز دارد.</p></Card> : <>
@@ -86,5 +87,5 @@ export function ActivitiesPage({ initialActivityId, onChanged, onInitialActivity
       <button type="button" className="btn-primary activities-delete" disabled={busy} onClick={model.deleteItem}>{busy ? "در حال حذف…" : "تأیید حذف برنامه"}</button>
       <button type="button" className="btn-secondary" disabled={busy} onClick={model.closeForm}>انصراف</button>
     </Modal>
-  </section>;
+  </AppPage>;
 }

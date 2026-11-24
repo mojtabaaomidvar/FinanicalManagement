@@ -1,10 +1,11 @@
+import { AppPage } from "@/shared/ui/AppPage";
 /* صفحه گزارش‌ها */
 
 import { MonthlyReportPanelWidget } from "@/widgets/monthly-report-panel";
 
 export function ReportsPage() {
   return (
-    <section className="page active">
+    <AppPage className="page active">
       <header className="app-header">
         <div className="header-title">
           <h1>گزارش‌ها</h1>
@@ -14,6 +15,6 @@ export function ReportsPage() {
       <div className="content">
         <MonthlyReportPanelWidget />
       </div>
-    </section>
+    </AppPage>
   );
 }

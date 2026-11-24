@@ -1,3 +1,4 @@
+import { AppPage } from "@/shared/ui/AppPage";
 import { useApp } from "@/app/providers/AppProvider";
 import type { usePendingSmsModel } from "@/features/pending-sms/model/usePendingSmsModel";
 import { SmsImportFeature } from "@/features/sms-import";
@@ -12,7 +13,7 @@ export function SmsPage({ model: m, onImported }: {
   model: ReturnType<typeof usePendingSmsModel>; onImported: () => Promise<void>;
 }) {
   const { member, cur } = useApp();
-  return <section className="page active sms-page">
+  return <AppPage className="page active sms-page">
     <header className="app-header"><div className="header-title"><h1>پیامک‌های بانکی</h1>
       <p>ثبت‌های ناتمام را هر وقت خواستی ادامه بده</p></div>
       <div className="header-actions"><SmsImportFeature onImported={onImported} /></div>
@@ -40,5 +41,5 @@ export function SmsPage({ model: m, onImported }: {
         </button>;
       })}</div>
     </div>
-  </section>;
+  </AppPage>;
 }

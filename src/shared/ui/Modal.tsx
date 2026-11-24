@@ -12,14 +12,15 @@ import {
   type ReactNode,
   type TouchEvent,
 } from "react";
-import { createPortal } from "react-dom";
+import { RetainedPortal } from "./RetainedPortal";
 import { useBackGuard } from "@/shared/lib/useBackGuard";
+import { usePageActivity } from "@/shared/lib/pageActivity";
 
 /* پشتهٔ مودال‌های باز — چون مودال می‌تواند روی مودال باز شود
    (مثل «ورود پیامک» روی شیت ثبت تراکنش):
    • Escape فقط بالاترین مودال را می‌بندد، نه همه را
    • اسکرول body تنها وقتی آزاد می‌شود که آخرین مودال هم بسته شده باشد */
-const openStack: symbol[] = [];
+const openStack: { id: symbol; order: number }[] = [];
 
 export function Modal(props: {
   open: boolean;
@@ -35,6 +36,8 @@ export function Modal(props: {
   /** کشیدن به پایین (لمس) از ناحیه بالای شیت = بستن */
   dragToClose?: boolean;
 }) {
+  const active = usePageActivity();
+  const visible = props.open && active;
   const sheetRef = useRef<HTMLDivElement>(null);
   const drag = useRef({ active: false, startY: 0, y: 0 });
   /* شناسه ثابت این مودال در پشته */
@@ -46,14 +49,15 @@ export function Modal(props: {
   closeRef.current = props.onClose;
 
   /* بازگشت فیزیکی/نرم‌افزاری و سوایپ لبه = بستن این مودال (LIFO) */
-  useBackGuard(props.open, props.onClose);
+  const order = useBackGuard(props.open, props.onClose);
 
   useEffect(() => {
-    if (!props.open) return;
+    if (!visible) return;
     const id = idRef.current!;
-    openStack.push(id);
+    openStack.push({ id, order: order! });
+    openStack.sort((a, b) => a.order - b.order);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && openStack[openStack.length - 1] === id) {
+      if (e.key === "Escape" && openStack[openStack.length - 1]?.id === id) {
         closeRef.current();
       }
     };
@@ -61,11 +65,11 @@ export function Modal(props: {
     document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKey);
-      const i = openStack.lastIndexOf(id);
+      const i = openStack.findIndex(entry => entry.id === id);
       if (i !== -1) openStack.splice(i, 1);
       if (!openStack.length) document.body.style.overflow = "";
     };
-  }, [props.open]);
+  }, [visible, order]);
 
   if (!props.open) return null;
 
@@ -75,7 +79,7 @@ export function Modal(props: {
        کامپوننت بالا می‌آید؛ پس لمس داخل مودال رویی به این هندلر هم می‌رسد.
        بدون این نگهبان، اسکرول در «ورود پیامک» شیت تراکنش زیر آن را می‌بندد. */
     if (!props.dragToClose) return;
-    if (openStack[openStack.length - 1] !== idRef.current) return;
+    if (openStack[openStack.length - 1]?.id !== idRef.current) return;
     const sheet = sheetRef.current;
     if (!sheet || sheet.scrollTop > 0) return;
     drag.current = { active: true, startY: e.touches[0].clientY, y: 0 };
@@ -102,7 +106,7 @@ export function Modal(props: {
     sheet.style.transform = "";
   }
 
-  return createPortal(
+  return <RetainedPortal visible={visible} order={order!}>
     <div
       className={`modal-overlay ${props.overlayClassName ?? ""}`}
       onClick={(e) => {
@@ -122,7 +126,6 @@ export function Modal(props: {
         {props.title ? <h3>{props.title}</h3> : null}
         {props.children}
       </div>
-    </div>,
-    document.body,
-  );
+    </div>
+  </RetainedPortal>;
 }

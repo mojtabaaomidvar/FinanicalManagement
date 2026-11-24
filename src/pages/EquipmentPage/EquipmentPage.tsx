@@ -1,3 +1,4 @@
+import { AppPage } from "@/shared/ui/AppPage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
@@ -37,8 +38,9 @@ const dateValue = (value: string): string | null => {
 };
 const messageOf = (error: unknown) => error instanceof Error ? error.message : "انجام عملیات ناموفق بود. دوباره تلاش کنید.";
 
-export function EquipmentPage({ initialEquipmentId, onOpenTasks, onOpenDocuments, onChanged }: {
+export function EquipmentPage({ initialEquipmentId, onInitialEquipmentConsumed, onOpenTasks, onOpenDocuments, onChanged }: {
   initialEquipmentId?: string;
+  onInitialEquipmentConsumed?: () => void;
   onOpenTasks?: () => void;
   onOpenDocuments?: () => void;
   onChanged?: () => void | Promise<void>;
@@ -167,13 +169,15 @@ export function EquipmentPage({ initialEquipmentId, onOpenTasks, onOpenDocuments
     setDetail({ scope, id: item.id }); setFileError(""); void loadHistory(item);
   };
   useEffect(() => {
-    if (!initialEquipmentId || !available || loading || snapshot.scope !== scope || accessDenied) return;
+    if (!initialEquipmentId) { handledInitial.current = ""; return; }
+    if (!available || loading || snapshot.scope !== scope || accessDenied) return;
     const key = `${scope}:${initialEquipmentId}`;
     if (handledInitial.current === key) return;
     handledInitial.current = key;
     const item = snapshot.items.find((row) => row.id === initialEquipmentId);
     if (item) openDetail(item);
-  }, [initialEquipmentId, available, loading, snapshot, scope, accessDenied]);
+    onInitialEquipmentConsumed?.();
+  }, [initialEquipmentId, available, loading, snapshot, scope, accessDenied, onInitialEquipmentConsumed]);
   const closeDetail = () => {
     if (busy) return;
     setDetail(null); setHistory(null); setHistoryError(""); setFileError(""); historySequence.current += 1; closePreview();
@@ -282,7 +286,7 @@ export function EquipmentPage({ initialEquipmentId, onOpenTasks, onOpenDocuments
   const linkedDocument = detailItem ? documents.find((row) => row.id === detailItem.warrantyDocumentId) : undefined;
   const linkedTask = detailItem ? tasks.find((row) => row.id === detailItem.serviceTaskId) : undefined;
 
-  return <section className="page active equipment-page" aria-busy={loading || busy}>
+  return <AppPage className="page active equipment-page" aria-busy={loading || busy}>
     <header className="app-header"><div className="header-title"><h1>وسایل خانه</h1><p>گارانتی، موعد سرویس و سابقهٔ نگهداری</p></div></header>
     <div className="content">
       {!available ? <Card><p className="modal-sub" role="status">مشاهده و مدیریت وسایل خانه به اتصال اینترنت و ورود معتبر نیاز دارد.</p></Card> : <>
@@ -311,9 +315,9 @@ export function EquipmentPage({ initialEquipmentId, onOpenTasks, onOpenDocuments
         {detailItem.canEdit ? <div className="equipment-actions"><button type="button" className="btn-primary" disabled={busy} onClick={() => openService(detailItem)}>ثبت سرویس انجام‌شده</button>
           <button type="button" className="btn-secondary" disabled={busy} onClick={() => openItem(detailItem)}>ویرایش وسیله</button></div> : <p className="form-note">ویرایش و ثبت سرویس در اختیار سازندهٔ وسیله و مدیر خانواده است.</p>}
         {linkedDocument ? <div className="equipment-link"><span>سند گارانتی: {linkedDocument.title}</span><button type="button" className="btn-secondary" disabled={downloading} onClick={() => void downloadDocument(linkedDocument)}>{downloading ? "در حال دریافت سند…" : "مشاهدهٔ سند گارانتی"}</button></div> : null}
-        {!linkedDocument && onOpenDocuments ? <button type="button" className="equipment-text-action" onClick={() => { closeDetail(); onOpenDocuments(); }}>اسناد خانه</button> : null}
+        {!linkedDocument && onOpenDocuments ? <button type="button" className="equipment-text-action" onClick={onOpenDocuments}>اسناد خانه</button> : null}
         {linkedTask ? <div className="equipment-link"><span>کار مرتبط: {linkedTask.title} · {linkedTask.completed ? "انجام‌شده" : "در انتظار انجام"}</span>
-          {onOpenTasks ? <button type="button" className="btn-secondary" onClick={() => { closeDetail(); onOpenTasks(); }}>بازکردن کارهای خانه</button> : null}</div> : null}
+          {onOpenTasks ? <button type="button" className="btn-secondary" onClick={onOpenTasks}>بازکردن کارهای خانه</button> : null}</div> : null}
         {fileError ? <p className="form-error" role="alert">{fileError}</p> : null}
         <h2 className="equipment-section-title">سابقهٔ سرویس</h2>
         {historyLoading ? <p className="form-note" role="status">در حال دریافت سابقه…</p> : null}
@@ -379,7 +383,7 @@ export function EquipmentPage({ initialEquipmentId, onOpenTasks, onOpenDocuments
         <a className="btn-primary equipment-download" href={preview.url} download={preview.document.fileName}>دانلود سند</a>
         <button type="button" className="btn-secondary" onClick={closePreview}>بستن سند</button></> : null}
     </Modal>
-  </section>;
+  </AppPage>;
 }
 
 function EquipmentDate({ label, value, onChange, required = false }: { label: string; value: string; onChange: (value: string) => void; required?: boolean }) {

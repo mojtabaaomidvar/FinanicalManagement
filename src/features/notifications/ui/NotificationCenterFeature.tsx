@@ -1,3 +1,4 @@
+import { AppPage } from "@/shared/ui/AppPage";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 import { recurringTemplate } from "@/domain/transaction/recurring.rules";
 /* §۷ — مرکزِ اعلان (زنگ + فهرست).
@@ -305,7 +306,7 @@ export function NotificationCenterFeature({
   const displayedGroups = groups.map(group => ({ ...group, items: group.items.map(n => ({ n, text: label(n) }))
     .filter((item): item is { n: AppNotification; text: { title: string; sub: string } } => item.text !== null) }))
     .filter(group => group.items.length);
-  return <section className="page active notifications-page">
+  return <AppPage className="page active notifications-page">
     <header className="app-header"><div className="header-title"><h1>اعلان‌ها</h1>
       <p>موضوع و توضیح هر یادآوری، در یک نگاه</p></div>
       <button type="button" className="icon-btn" aria-label="دریافت دوباره اعلان‌ها" onClick={() => void m.reload()}>
@@ -345,5 +346,5 @@ export function NotificationCenterFeature({
         })}
       </section>)}</div>
     </div>
-  </section>;
+  </AppPage>;
 }

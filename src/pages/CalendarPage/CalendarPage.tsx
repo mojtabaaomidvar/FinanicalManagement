@@ -1,3 +1,4 @@
+import { AppPage } from "@/shared/ui/AppPage";
 /* §۱.۱۰ — صفحهٔ تقویم و مناسبت‌ها.
 
    دادهٔ این ماژول از قبل وجود داشت (`family_events` + مسیرها + هم‌گام‌سازیِ
@@ -58,8 +59,9 @@ import "./CalendarPage.css";
  *  نباید باشد: آن «کِی خبر بده» است، این «چه چیزی در پیش است». */
 const UPCOMING_DAYS = 30;
 
-export function CalendarPage({ onOpenItem, initialDate, summary, onRefresh }: {
+export function CalendarPage({ onOpenItem, initialDate, onInitialDateConsumed, summary, onRefresh }: {
   onOpenItem: (ref: CalendarTarget) => void; initialDate?: string;
+  onInitialDateConsumed?: () => void;
   summary: Pick<NotificationsModel, "equipment" | "vehicles" | "onlineSummaryState">;
   onRefresh: () => Promise<void>;
 }) {
@@ -74,6 +76,12 @@ export function CalendarPage({ onOpenItem, initialDate, summary, onRefresh }: {
   const initialDay = initialDate ? isoToJalali(initialDate) : todayJ;
   const [view, setView] = useState<[number, number]>([initialDay[0], initialDay[1]]);
   const [selected, setSelected] = useState<JDate>(initialDay);
+  useEffect(() => {
+    if (!initialDate) return;
+    const day = isoToJalali(initialDate);
+    setSelected(day); setView([day[0], day[1]]);
+    onInitialDateConsumed?.();
+  }, [initialDate, onInitialDateConsumed]);
   const horizonYear = addDays(todayJ, UPCOMING_DAYS)[0];
   const entries = useMemo(() => restricted ? [] : deriveCalendarEntries({
     events, members, birthdayYears: [view[0], selected[0], todayJ[0], horizonYear],
@@ -243,7 +251,7 @@ export function CalendarPage({ onOpenItem, initialDate, summary, onRefresh }: {
   };
 
   return (
-    <section className="page active household-calendar" aria-busy={loading}>
+    <AppPage className="page active household-calendar" aria-busy={loading}>
       <header className="app-header">
         <div className="header-title">
           <h1>تقویم و مناسبت‌ها</h1>
@@ -416,7 +424,7 @@ export function CalendarPage({ onOpenItem, initialDate, summary, onRefresh }: {
           </button>
         </div>
       </Modal>
-    </section>
+    </AppPage>
   );
 }
 

@@ -1,3 +1,4 @@
+import { AppPage } from "@/shared/ui/AppPage";
 /* صفحه خانه — سلام و اعلان، جستجو، پنل خلاصه ماه،
    هزینه‌های ماه، آخرین تراکنش‌ها و نوارهای هفته/اعضا/بودجه
 
@@ -34,7 +35,7 @@ export function DashboardPage({
   const headerDate = useMemo(() => formatWeekday(today()), []);
   const [q, setQ] = useState("");
   return (
-    <section className="page active">
+    <AppPage className="page active">
       <header className="app-header">
         <div className="header-title">
           <h1>{member ? `سلام، ${member.name}` : "خانه یار"}</h1>
@@ -94,6 +95,6 @@ export function DashboardPage({
         <BudgetCirclesWidget onManage={onNavBudgets} />
       </div>
 
-    </section>
+    </AppPage>
   );
 }

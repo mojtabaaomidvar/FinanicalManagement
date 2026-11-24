@@ -1,3 +1,4 @@
+import { AppPage } from "@/shared/ui/AppPage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
@@ -40,8 +41,9 @@ const dateValue = (value: string): string | null => {
 };
 const messageOf = (error: unknown) => error instanceof Error ? error.message : "انجام عملیات ناموفق بود. دوباره تلاش کنید.";
 
-export function VehiclesPage({ initialVehicleId, onOpenTasks, onOpenDocuments, onOpenFinance, onChanged }: {
+export function VehiclesPage({ initialVehicleId, onInitialVehicleConsumed, onOpenTasks, onOpenDocuments, onOpenFinance, onChanged }: {
   initialVehicleId?: string;
+  onInitialVehicleConsumed?: () => void;
   onOpenTasks?: () => void;
   onOpenDocuments?: () => void;
   onOpenFinance?: (transactionId: string) => void;
@@ -187,13 +189,15 @@ export function VehiclesPage({ initialVehicleId, onOpenTasks, onOpenDocuments, o
     setDetail({ scope, id: item.id }); setFileError(""); void loadHistory(item);
   };
   useEffect(() => {
-    if (!initialVehicleId || !available || loading || snapshot.scope !== scope || accessDenied) return;
+    if (!initialVehicleId) { handledInitial.current = ""; return; }
+    if (!available || loading || snapshot.scope !== scope || accessDenied) return;
     const key = `${scope}:${initialVehicleId}`;
     if (handledInitial.current === key) return;
     handledInitial.current = key;
     const item = snapshot.items.find((row) => row.id === initialVehicleId);
     if (item) openDetail(item);
-  }, [initialVehicleId, available, loading, snapshot, scope, accessDenied]);
+    onInitialVehicleConsumed?.();
+  }, [initialVehicleId, available, loading, snapshot, scope, accessDenied, onInitialVehicleConsumed]);
   const closeDetail = () => {
     if (busy) return;
     setDetail(null); setHistory(null); setHistoryError(""); setFileError(""); historySequence.current += 1; closePreview();
@@ -305,7 +309,7 @@ export function VehiclesPage({ initialVehicleId, onOpenTasks, onOpenDocuments, o
   const linkedDocument = detailItem ? documents.find((row) => row.id === detailItem.documentId) : undefined;
   const linkedTask = detailItem ? tasks.find((row) => row.id === detailItem.serviceTaskId) : undefined;
 
-  return <section className="page active vehicle-page" aria-busy={loading || busy}>
+  return <AppPage className="page active vehicle-page" aria-busy={loading || busy}>
     <header className="app-header"><div className="header-title"><h1>خودرو و نگهداری</h1><p>مدارک، کیلومتر و هزینهٔ سرویس</p></div></header>
     <div className="content">
       {!available ? <Card><p className="modal-sub" role="status">مشاهده و مدیریت خودرو و نگهداری به اتصال اینترنت و ورود معتبر نیاز دارد.</p></Card> : <>
@@ -339,9 +343,9 @@ export function VehiclesPage({ initialVehicleId, onOpenTasks, onOpenDocuments, o
         {detailItem.canEdit ? <div className="vehicle-actions"><button type="button" className="btn-primary" disabled={busy} onClick={() => openService(detailItem)}>ثبت سرویس انجام‌شده</button>
           <button type="button" className="btn-secondary" disabled={busy} onClick={() => openItem(detailItem)}>ویرایش خودرو</button></div> : <p className="form-note">ویرایش و ثبت سرویس در اختیار سازندهٔ خودرو و مدیر خانواده است.</p>}
         {detailItem.canViewHistory && linkedDocument ? <div className="vehicle-link"><span>سند خودرو: {linkedDocument.title}</span><button type="button" className="btn-secondary" disabled={downloading} onClick={() => void downloadDocument(linkedDocument)}>{downloading ? "در حال دریافت سند…" : "مشاهدهٔ سند خودرو"}</button></div> : null}
-        {detailItem.canViewHistory && !linkedDocument && onOpenDocuments ? <button type="button" className="vehicle-text-action" onClick={() => { closeDetail(); onOpenDocuments(); }}>اسناد خانه</button> : null}
+        {detailItem.canViewHistory && !linkedDocument && onOpenDocuments ? <button type="button" className="vehicle-text-action" onClick={onOpenDocuments}>اسناد خانه</button> : null}
         {linkedTask ? <div className="vehicle-link"><span>کار مرتبط: {linkedTask.title} · {linkedTask.completed ? "انجام‌شده" : "در انتظار انجام"}</span>
-          {onOpenTasks ? <button type="button" className="btn-secondary" onClick={() => { closeDetail(); onOpenTasks(); }}>بازکردن کارهای خانه</button> : null}</div> : null}
+          {onOpenTasks ? <button type="button" className="btn-secondary" onClick={onOpenTasks}>بازکردن کارهای خانه</button> : null}</div> : null}
         {fileError ? <p className="form-error" role="alert">{fileError}</p> : null}
         {detailItem.canViewHistory ? <><h2 className="vehicle-section-title">سابقهٔ سرویس</h2>
         {historyLoading ? <p className="form-note" role="status">در حال دریافت سابقه…</p> : null}
@@ -353,7 +357,7 @@ export function VehiclesPage({ initialVehicleId, onOpenTasks, onOpenDocuments, o
           <p className="vehicle-service-cost">{record.costStatus === "none" ? "بدون هزینهٔ ثبت‌شده" : record.costStatus === "recorded" && record.costAmount !== null
             ? `هزینهٔ ثبت‌شده در مالی: ${formatAmount(toDisplay(record.costAmount, cur))} ${currencyLabel(cur)}` : "هزینهٔ قبلی اکنون در دسترس نیست."}</p>
           {record.costStatus === "recorded" && record.transactionId && onOpenFinance ? <button type="button" className="btn-secondary" onClick={() => {
-            const transactionId = record.transactionId!; closeDetail(); onOpenFinance(transactionId);
+            const transactionId = record.transactionId!; onOpenFinance(transactionId);
           }}>مشاهدهٔ هزینه در مالی</button> : null}</li>)}</ol></> : <p className="form-note">سابقهٔ سرویس برای این حساب در دسترس نیست.</p>}
         <button type="button" className="btn-secondary" onClick={closeDetail}>بستن جزئیات</button>
       </div> : null}
@@ -425,7 +429,7 @@ export function VehiclesPage({ initialVehicleId, onOpenTasks, onOpenDocuments, o
         <a className="btn-primary vehicle-download" href={preview.url} download={preview.document.fileName}>دانلود سند</a>
         <button type="button" className="btn-secondary" onClick={closePreview}>بستن سند</button></> : null}
     </Modal>
-  </section>;
+  </AppPage>;
 }
 
 function VehicleDate({ label, value, onChange, required = false }: { label: string; value: string; onChange: (value: string) => void; required?: boolean }) {

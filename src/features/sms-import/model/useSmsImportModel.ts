@@ -6,15 +6,20 @@ import { parseSms, splitSmsBlocks } from "@/shared/lib/sms-parser";
 import { toFa } from "@/shared/lib/digits";
 import { smsAmountInToman } from "@/domain/sms/sms.rules";
 
-import { readImportDraft, rememberImportDraft, type SmsDraftScope } from "@/features/pending-sms/model/smsDraftStorage";
+import { rememberImportDraft, type SmsDraftScope } from "@/features/pending-sms/model/smsDraftStorage";
+import { usePageActivity } from "@/shared/lib/pageActivity";
 
 export function useSmsImportModel(useCases: UseCases, notify: (m: string) => void, scope: SmsDraftScope) {
-  const [raw, setRaw] = useState(() => readImportDraft(scope));
+  const active = usePageActivity();
+  const [raw, setRaw] = useState("");
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const saving = useRef(false);
 
-  useEffect(() => { setRaw(readImportDraft(scope)); setOpen(false); }, [scope.familyId, scope.memberId]);
+  useEffect(() => { setRaw(""); setOpen(false); rememberImportDraft(scope, ""); }, [scope.familyId, scope.memberId]);
+  useEffect(() => {
+    if (!active) { setRaw(""); setOpen(false); rememberImportDraft(scope, ""); }
+  }, [active, scope.familyId, scope.memberId]);
   const previews = useMemo(
     () =>
       splitSmsBlocks(raw).map((b) => {
@@ -53,12 +58,14 @@ export function useSmsImportModel(useCases: UseCases, notify: (m: string) => voi
 
   return {
     open,
-    setOpen: (value: boolean) => { if (!saving.current) setOpen(value); },
+    setOpen: (value: boolean) => {
+      if (saving.current) return;
+      setRaw(""); rememberImportDraft(scope, ""); setOpen(value);
+    },
     raw,
     setRaw: (value: string) => {
       if (saving.current) return;
       setRaw(value);
-      if (!rememberImportDraft(scope, value)) notify("پیش‌نویس پیامک در این مرورگر ذخیره نشد؛ پیامک را به فهرست اضافه کنید.");
     },
     previews,
     busy,

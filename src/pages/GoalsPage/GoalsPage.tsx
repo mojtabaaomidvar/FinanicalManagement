@@ -1,3 +1,4 @@
+import { AppPage } from "@/shared/ui/AppPage";
 import { useGoalsModel } from "@/features/goals/model/useGoalsModel";
 import { goalKindLabel, goalStatusLabel, type GoalKindFilter, type GoalStatusFilter } from "@/features/goals/model/goalPresentation";
 import type { GoalKind, GoalStatus } from "@/domain/goal/goal.types";
@@ -19,7 +20,7 @@ export function GoalsPage({ initialGoalId, onChanged, onInitialGoalConsumed }: {
 }) {
   const model = useGoalsModel(initialGoalId, onChanged, onInitialGoalConsumed);
   const { detailItem, activeDialog, form, busy } = model;
-  return <section className="page active goals-page" aria-busy={model.loading || busy || model.detailLoading}>
+  return <AppPage className="page active goals-page" aria-busy={model.loading || busy || model.detailLoading}>
     <header className="app-header"><div className="header-title"><h1>اهداف و آرزوها</h1><p>هدف‌ها و آرزوهای شخصی شما</p></div></header>
     <div className="content">
       {!model.available ? <Card><p className="modal-sub" role="status">مشاهده و مدیریت اهداف و آرزوها به اتصال اینترنت و ورود معتبر نیاز دارد.</p></Card> : <>
@@ -82,5 +83,5 @@ export function GoalsPage({ initialGoalId, onChanged, onInitialGoalConsumed }: {
       <button type="button" className="btn-primary goals-delete" disabled={busy} onClick={model.deleteItem}>{busy ? "در حال حذف…" : "تأیید حذف مورد"}</button>
       <button type="button" className="btn-secondary" disabled={busy} onClick={model.closeForm}>انصراف</button>
     </Modal>
-  </section>;
+  </AppPage>;
 }

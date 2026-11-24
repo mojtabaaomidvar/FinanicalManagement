@@ -1,3 +1,4 @@
+import { AppPage } from "@/shared/ui/AppPage";
 import { usePetsModel } from "@/features/pets/model/usePetsModel";
 import { formatLong, isoToJalali } from "@/shared/lib/jalali";
 import { toFa } from "@/shared/lib/digits";
@@ -12,8 +13,8 @@ export function PetsPage({ onChanged, onOpenTasks }: {
   const model = usePetsModel(onChanged);
   const { detailValue, activeDialog, form, careForm, busy } = model;
   const assigneeName = (id: string | null) => id ? model.assignees.find((row) => row.id === id)?.name ?? "مسئول تعیین‌شده" : "بدون مسئول";
-  const visitTasks = () => { model.closeDetail(); onOpenTasks?.(); };
-  return <section className="page active pets-page" aria-busy={model.loading || model.detailLoading || busy}>
+  const visitTasks = () => onOpenTasks?.();
+  return <AppPage className="page active pets-page" aria-busy={model.loading || model.detailLoading || busy}>
     <header className="app-header"><div className="header-title"><h1>حیوانات خانگی و مراقبت</h1><p>مشخصات حیوانات و کارهای مراقبتی خانواده</p></div></header>
     <div className="content">
       {!model.available ? <Card><p className="modal-sub" role="status">مشاهده و مدیریت حیوانات خانگی به اتصال اینترنت و ورود معتبر نیاز دارد.</p></Card> : <>
@@ -90,5 +91,5 @@ export function PetsPage({ onChanged, onOpenTasks }: {
       <button type="button" className="btn-primary pets-delete" disabled={busy} onClick={model.deletePet}>{busy ? "در حال حذف…" : "تأیید حذف حیوان"}</button>
       <button type="button" className="btn-secondary" disabled={busy} onClick={model.closeForm}>انصراف</button>
     </Modal>
-  </section>;
+  </AppPage>;
 }

@@ -3,7 +3,7 @@
    با onTimeChange: پس از انتخاب روز، ساعت در همین شیت انتخاب می‌شود */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { RetainedPortal } from "./RetainedPortal";
 import {
   MONTHS,
   daysInMonth,
@@ -18,6 +18,7 @@ import {
 import { toFa } from "@/shared/lib/digits";
 import { nowTime } from "@/shared/lib/format";
 import { useBackGuard } from "@/shared/lib/useBackGuard";
+import { usePageActivity } from "@/shared/lib/pageActivity";
 import { WheelColumn } from "./Wheel";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -45,10 +46,11 @@ export function JalaliDatePicker({
   onTimeChange?: (t: string) => void;
 }) {
   const withTime = !!onTimeChange;
+  const active = usePageActivity();
 
   /* این کامپوننت فقط وقتی والد بازش می‌کند mount می‌شود؛ پس همیشه «باز»
      است. بازگشت دکمه/سوایپ = بستن (LIFO؛ روی مودال زیرش می‌نشیند). */
-  useBackGuard(true, onClose);
+  const order = useBackGuard(true, onClose);
 
   const [view, setView] = useState<DpView>("date");
   const [jy, setJy] = useState(() => {
@@ -76,6 +78,7 @@ export function JalaliDatePicker({
   /* کلیک بیرون یا Escape → بستن فقط همین تقویم */
   const boxRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    if (!active) return;
     const onDown = (e: MouseEvent | TouchEvent) => {
       if (boxRef.current && !boxRef.current.contains(e.target as Node)) {
         onClose();
@@ -95,7 +98,7 @@ export function JalaliDatePicker({
       document.removeEventListener("touchstart", onDown);
       document.removeEventListener("keydown", onKey, true);
     };
-  }, [onClose]);
+  }, [onClose, active]);
 
   function goPrevMonth() {
     if (jy <= min && jm === 1) return;
@@ -137,7 +140,7 @@ export function JalaliDatePicker({
 
   const weekDays = ["ش", "ی", "د", "س", "چ", "پ", "ج"];
 
-  return createPortal(
+  return <RetainedPortal visible={active} order={order!}>
     <div className="dp-overlay">
       <div className="dp-box" ref={boxRef}>
         <div className="dp-head">
@@ -365,7 +368,6 @@ export function JalaliDatePicker({
           </>
         )}
       </div>
-    </div>,
-    document.body,
-  );
+    </div>
+  </RetainedPortal>;
 }

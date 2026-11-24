@@ -1,3 +1,4 @@
+import { AppPage } from "@/shared/ui/AppPage";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* صفحه بودجه‌بندی — بودجه ماهانه هر دسته هزینه + مصرف ماه جاری
    ───────────────────────────────────────────────────────────
@@ -350,7 +351,7 @@ export function BudgetsPage() {
   }
 
   return (
-    <section className="page active budgets-page">
+    <AppPage className="page active budgets-page">
       <header className="app-header budgets-header">
         <div className="header-title">
           <h1>بودجه‌بندی</h1>
@@ -646,6 +647,6 @@ export function BudgetsPage() {
             <button type="button" className="btn-primary" disabled={budgetDataStatus !== "ready"} onClick={() => void saveCap()}>{busy ? "در حال ذخیره…" : "ذخیره سقف"}</button></div>
         </fieldset>
       </Modal>
-    </section>
+    </AppPage>
   );
 }

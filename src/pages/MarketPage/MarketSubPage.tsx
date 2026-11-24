@@ -1,3 +1,4 @@
+import { AppPage } from "@/shared/ui/AppPage";
 /* پوسته‌ی زیرصفحه‌ی بازار — هدر با دکمه‌ی بازگشت + انیمیشن ورود.
 
    چرا کپی SettingsSubPage است و از آن import نمی‌شود: هر دو در لایه‌ی pages
@@ -20,7 +21,7 @@ export function MarketSubPage({
   children: ReactNode;
 }) {
   return (
-    <section className="page active">
+    <AppPage className="page active">
       <header className="app-header">
         <div className="market-sub-head">
           <button
@@ -39,6 +40,6 @@ export function MarketSubPage({
         {action}
       </header>
       <div className="content page-anim">{children}</div>
-    </section>
+    </AppPage>
   );
 }

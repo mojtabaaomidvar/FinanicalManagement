@@ -1,3 +1,4 @@
+import { AppPage } from "@/shared/ui/AppPage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
@@ -260,7 +261,7 @@ export function MealsPage() {
   const chooserDishes = dishes.filter(dish => normalizeFoodSearch(dish.title).includes(normalizeFoodSearch(chooserQuery)));
   const visibleDays = weekView ? days : [days[dayIndex]];
 
-  return <section className="page active meals-page" aria-busy={loading || busy}>
+  return <AppPage className="page active meals-page" aria-busy={loading || busy}>
     <header className="app-header"><div className="header-title"><h1>برنامهٔ غذایی</h1><p>برای سفرهٔ خانواده</p></div></header>
     <div className="content meals-content">
       <div className="meal-kitchen-hero"><div className="meal-hero-copy"><p className="meal-eyebrow">دفتر آشپزخانهٔ ما</p>
@@ -410,5 +411,5 @@ export function MealsPage() {
         <button type="submit" className="btn-primary" disabled={busy || !listId || !selectedIngredients}>{busy ? "در حال افزودن…" : `افزودن ${toFa(selectedIngredients)} ماده به خرید`}</button>
       </form>}
     </MealDialog>
-  </section>;
+  </AppPage>;
 }

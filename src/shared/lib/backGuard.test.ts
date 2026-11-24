@@ -51,6 +51,36 @@ beforeEach(() => vi.resetModules());
 afterEach(() => vi.unstubAllGlobals());
 
 describe("backGuard asynchronous browser history", () => {
+  it("restores nested guards in opening order despite child-first React effects", async () => {
+    const browser = browserHistory();
+    const { nextGuardOrder, pushOrderedGuard, popGuard } = await import("./backGuard");
+    const parentOrder = nextGuardOrder(), childOrder = nextGuardOrder();
+    const closeParent = vi.fn(), closeChild = vi.fn();
+    const child = pushOrderedGuard(closeChild, childOrder);
+    const parent = pushOrderedGuard(closeParent, parentOrder);
+    expect(browser.history.pushState).not.toHaveBeenCalled();
+    await Promise.resolve();
+    expect(browser.guardCount).toBe(2);
+    popGuard(parent); popGuard(child); browser.flushBacks();
+    expect(closeParent).not.toHaveBeenCalled(); expect(closeChild).not.toHaveBeenCalled();
+
+    pushOrderedGuard(closeChild, childOrder); pushOrderedGuard(closeParent, parentOrder);
+    await Promise.resolve();
+    browser.userBack();
+    expect(closeChild).toHaveBeenCalledOnce(); expect(closeParent).not.toHaveBeenCalled();
+    browser.userBack(); expect(closeParent).toHaveBeenCalledOnce();
+    expect(browser.currentEntry).toBe("application");
+  });
+
+  it("does not add history for a batched guard deactivated before registration settles", async () => {
+    const browser = browserHistory();
+    const { nextGuardOrder, pushOrderedGuard, popGuard } = await import("./backGuard");
+    const id = pushOrderedGuard(vi.fn(), nextGuardOrder()); popGuard(id);
+    await Promise.resolve();
+    expect(browser.history.pushState).not.toHaveBeenCalled();
+    expect(browser.history.back).not.toHaveBeenCalled();
+  });
+
   it("keeps a replacement dialog above the application until it closes", async () => {
     const browser = browserHistory();
     const { pushGuard, popGuard } = await import("./backGuard");

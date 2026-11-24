@@ -1,3 +1,4 @@
+import { AppPage } from "@/shared/ui/AppPage";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* §۱.۸ — صفحهٔ لیست خرید.
 
@@ -333,7 +334,7 @@ export function ShoppingPage() {
   }
 
   return (
-    <section className="page active">
+    <AppPage className="page active">
       <header className="app-header">
         <div className="header-title">
           <h1>لیست خرید</h1>
@@ -650,7 +651,7 @@ export function ShoppingPage() {
           {busy ? "…" : "بستنِ خرید"}
         </button>
       </Modal>
-    </section>
+    </AppPage>
   );
 }
 

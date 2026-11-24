@@ -18,6 +18,7 @@
 type Guard = {
   id: symbol;
   close: () => void;
+  order: number;
 };
 
 const stack: Guard[] = [];
@@ -26,9 +27,24 @@ const stack: Guard[] = [];
 const historyEntries: symbol[] = [];
 let internalBackPending = false;
 let listening = false;
+const handledPops = new WeakSet<Event>();
+let settledAction: (() => void) | null = null;
+let guardOrder = 0;
+let registrationsPending = false;
+
+export function nextGuardOrder() { return ++guardOrder; }
+
+export function isGuardPop(event: Event) { return handledPops.has(event); }
+
+/** Remove overlay entries before pushing a route; never navigate during async Back. */
+export function afterGuards(action: () => void) {
+  settledAction = action;
+  stack.splice(0);
+  reconcileHistory();
+}
 
 function reconcileHistory() {
-  if (internalBackPending) return;
+  if (internalBackPending || registrationsPending) return;
   const liveIds = new Set(stack.map((guard) => guard.id));
   const top = historyEntries[historyEntries.length - 1];
   if (top && !liveIds.has(top)) {
@@ -38,14 +54,21 @@ function reconcileHistory() {
     history.back();
     return;
   }
+  if (!historyEntries.length && settledAction) {
+    const action = settledAction;
+    settledAction = null;
+    action();
+  }
   for (const guard of stack) {
     if (historyEntries.includes(guard.id)) continue;
-    history.pushState({ backGuard: true, k: historyEntries.length + 1 }, "");
+    history.pushState({ ...history.state, backGuard: true, k: historyEntries.length + 1 }, "");
     historyEntries.push(guard.id);
   }
 }
 
-function onPopState() {
+function onPopState(event: Event) {
+  if (!internalBackPending && !historyEntries.length) return;
+  handledPops.add(event);
   const id = historyEntries.pop();
   if (internalBackPending) {
     internalBackPending = false;
@@ -62,17 +85,37 @@ function onPopState() {
   reconcileHistory();
 }
 
-function ensureListening() {
+export function observeGuardHistory() {
   if (listening) return;
   listening = true;
-  window.addEventListener("popstate", onPopState);
+  // Native events run microtasks between listeners. Inspect the old overlay
+  // entries before the router's listener can reactivate a cached destination
+  // and register its guards for this same route pop.
+  window.addEventListener("popstate", onPopState, true);
 }
 
 /** یک لایهٔ قابل‌بستن باز شد: ورودی تاریخچه push و close ثبت می‌شود. */
 export function pushGuard(close: () => void): symbol {
-  ensureListening();
+  return registerGuard(close, nextGuardOrder());
+}
+
+/** React restores descendants before parents: batch and keep original opening order. */
+export function pushOrderedGuard(close: () => void, order: number): symbol {
+  if (!registrationsPending) {
+    registrationsPending = true;
+    queueMicrotask(() => {
+      registrationsPending = false;
+      reconcileHistory();
+    });
+  }
+  return registerGuard(close, order);
+}
+
+function registerGuard(close: () => void, order: number): symbol {
+  observeGuardHistory();
   const id = Symbol("back-guard");
-  stack.push({ id, close });
+  stack.push({ id, close, order });
+  stack.sort((a, b) => a.order - b.order);
   reconcileHistory();
   return id;
 }
@@ -88,6 +131,10 @@ export function popGuard(id: symbol) {
 /** Visible back controls consume the same top layer as the native back button. */
 export function requestBack(): boolean {
   if (internalBackPending) return true;
+  if (registrationsPending) {
+    registrationsPending = false;
+    reconcileHistory();
+  }
   if (!stack.length) return false;
   history.back();
   return true;

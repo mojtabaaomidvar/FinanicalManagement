@@ -1,3 +1,4 @@
+import { AppPage } from "@/shared/ui/AppPage";
 /* پوسته زیرصفحه تنظیمات — هدر با دکمه بازگشت + انیمیشن ورود */
 
 import type { ReactNode } from "react";
@@ -12,7 +13,7 @@ export function SettingsSubPage({
   children: ReactNode;
 }) {
   return (
-    <section className="page active">
+    <AppPage className="page active">
       <header className="app-header">
         <div
           style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}
@@ -33,6 +34,6 @@ export function SettingsSubPage({
         </div>
       </header>
       <div className="content page-anim">{children}</div>
-    </section>
+    </AppPage>
   );
 }

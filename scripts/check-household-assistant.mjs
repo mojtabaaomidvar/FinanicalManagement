@@ -118,7 +118,7 @@ try {
     await page.keyboard.press('Shift+Tab'); assert.equal(await last.evaluate(el => el===document.activeElement),true);
     await page.keyboard.press('Escape'); await sheet(page).waitFor({state:'hidden'});
     assert.equal(await page.locator('.floating-assistant').evaluate(el => el===document.activeElement),true);
-    await open(page); assert.equal(await input.inputValue(),'پیش‌نویس خانه'); assert.equal(page.calls.length,0);
+    await open(page); assert.equal(await input.inputValue(),''); assert.equal(page.calls.length,0);
     await page.context().close();
   });
   await check('bread zero yields contextual alternatives without any expense, price or business writes',async () => {
@@ -211,6 +211,33 @@ try {
     await sheet(page).getByText('نتیجهٔ این تغییر هنوز روشن نیست',{exact:true}).waitFor({state:'hidden'});
     assert.equal((await api(page,'/shopping/lists'))[0].items.length,1);
     assert.equal(executeCalls(page),1); assert.equal(analyzeCalls(page),1); await page.context().close();
+  });
+  await check('closing and reopening during a held report keeps the conversation empty',async () => {
+    const page=await session(); let release, reached;
+    const gate=new Promise(resolve=>{release=resolve;}), start=new Promise(resolve=>{reached=resolve;});
+    await page.route('**/api/v1/assistant/report',async route=>{ const response=await route.fetch(); reached(); await gate; await route.fulfill({response}); });
+    await open(page); await sheet(page).locator('textarea').fill('نون نداریم'); await sheet(page).getByRole('button',{name:'ارسال',exact:true}).click();
+    await start; await sheet(page).getByRole('button',{name:'بستن دستیار',exact:true}).click(); await open(page);
+    assert.equal(await sheet(page).locator('textarea').inputValue(),''); release();
+    await page.waitForResponse(response=>response.url().endsWith('/assistant/report'));
+    // Drain rendering after the held response, without sleep or polling a job.
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    assert.equal(await sheet(page).getByRole('heading',{name:'گزارشِ اطلاعات ثبت‌شده',exact:true}).count(),0);
+    assert.equal(page.calls.filter(path=>path.endsWith('/report')).length,1); await page.context().close();
+  });
+  await check('closing and reopening during execution preserves recovery but never revives the report',async () => {
+    const page=await session(); await report(page); const item=await shoppingReview(page); let release, reached;
+    const gate=new Promise(resolve=>{release=resolve;}), start=new Promise(resolve=>{reached=resolve;});
+    await page.route('**/api/v1/assistant/execute',async route=>{ const response=await route.fetch(); reached(); await gate; await route.fulfill({response}); });
+    await item.getByRole('button',{name:'تأیید و انجام',exact:true}).click(); await start;
+    const stored=await savedAssistantDrafts(page); assert.ok(stored[0].draft.session.pending); assert.equal(stored[0].draft.text,''); assert.equal(stored[0].draft.session.result,null);
+    await sheet(page).getByRole('button',{name:'بستن دستیار',exact:true}).click(); await open(page); assert.equal(await sheet(page).locator('textarea').inputValue(),'');
+    await sheet(page).getByText('نتیجهٔ این تغییر هنوز روشن نیست',{exact:true}).waitFor(); release();
+    await sheet(page).getByText('نتیجهٔ این تغییر هنوز روشن نیست',{exact:true}).waitFor({state:'hidden'});
+    assert.equal(await sheet(page).getByRole('heading',{name:'گزارشِ اطلاعات ثبت‌شده',exact:true}).count(),0);
+    assert.equal((await api(page,'/shopping/lists'))[0].items.length,1);
+    assert.equal(page.calls.filter(path=>path.endsWith('/execute')).length,1); assert.equal(page.calls.filter(path=>path.endsWith('/report')).length,1);
+    await page.context().close();
   });
   await check('editing request invalidates a held late report without automatic resubmission',async () => {
     const page=await session(); await open(page);
