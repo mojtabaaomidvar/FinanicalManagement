@@ -1,0 +1,5 @@
+{
+  "expense": ["food", "home", "bills", "transport", "health", "clothing", "edu", "fun", "shopping", "comm", "finance", "insurance", "gifte", "family", "beauty", "sport", "pet", "other-e", "adjust-e"],
+  "income": ["salary", "business", "rent-home", "rent-shop", "ride", "invest", "sale", "gift", "other-i", "adjust-i"],
+  "transfer": ["transfer"]
+}

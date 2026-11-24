@@ -475,7 +475,6 @@ export function createUseCases(c: Container): UseCases {
     ignoreSms: new IgnoreSmsUseCase(c.repos.sms),
     recordSms: new RecordSmsUseCase(
       c.repos.sms,
-      new AddTransactionUseCase(c.repos.transactions),
     ),
 
     setAccountSmsEnabled: new SetAccountSmsEnabledUseCase(c.repos.smsSettings),

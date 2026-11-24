@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { parseSms } from './sms-fixture-parser.mjs';
 
 function samplePdfBytes() {
   const stream = '0.95 0.97 0.95 rg 0 0 640 420 re f\n0.12 0.28 0.24 rg\nBT /F1 24 Tf 120 220 Td (Sample household document) Tj ET\n';
@@ -174,7 +175,7 @@ function makeData(scenario, now) {
     subcategories: [{ id: id(210), family_id: familyId, category: 'food', name: 'نمونه: خرید روزمره', created_at: timestamp }],
     customCategories: [{ id: id(211), family_id: familyId, name: 'نمونه: دستهٔ سفارشی', icon: 'i-heart', type: 'expense', created_at: timestamp }],
     joinRequests: [{ id: id(1601), member_id: id(5), member_name: members[4].name, phone: members[4].phone, relation: 'سایر', via: 'link', state: 'pending', requested_at: timestamp }],
-    sms: [row(1701, { member_id: actorId, raw_text: 'نمونه: متن پیامک بانکی', bank: 'melli', type: 'expense', amount: 50_000, balance: 1_000_000, date: today, status: 'recorded', sender: '+987000', account_id: id(201) })],
+    sms: [row(1701, { member_id: actorId, raw_text: 'نمونه: برداشت مبلغ 50,000 ریال؛ موجودی 1,000,000 ریال؛ ' + today + '-14:37:52', bank: null, type: 'expense', amount: 50_000, balance: 1_000_000, date: today, time: '14:37:52', status: 'recorded', sender: '+987000', account_id: id(201) })],
     senders: [{ id: id(1702), account_id: id(201), sender: '+987000' }],
     numbers: [{ id: id(1703), member_id: actorId, phone: actor.phone, label: 'نمونه: شمارهٔ من', verified: true, active: true }],
     holdings: [row(1801, { member_id: actorId, kind: 'currency', symbol: 'USD', name: 'دلار آمریکا', unit: 'تومان', quantity: 100, price: 110_000, value: 11_000_000, priced: true }),
@@ -719,15 +720,48 @@ export function handlePreviewRequest(session, request) {
     data.accounts.some(account => account.id === item.account_id && account.member_id === data.actor.id)
     || data.actor.role === 'owner' && !item.account_id);
   if (path === '/sms' && method === 'GET') return response(data.sms.filter(item => ownSms(item) && (!query.get('status') || item.status === query.get('status'))));
-  if (path === '/sms/ingest') return response([normalizeCreate(session, 'transactions', body)]);
-  if (path === '/sms' && method === 'POST') {
-    const items = Array.isArray(body.items) ? body.items.filter(item => item.raw_text?.trim()) : [];
-    data.sms.push(...items.map(item => newRow(session, { ...clone(item), member_id: data.actor.id, status: 'pending', account_id: null })));
-    return response(items.length);
+  if ((path === '/sms' || path === '/sms/ingest') && method === 'POST') {
+    const added = [];
+    for (const item of body.items || []) {
+      const raw = item.raw_text?.trim(), parsed = raw && parseSms(raw);
+      if (!parsed || data.sms.some(sms => ownSms(sms) && sms.raw_text === raw)) continue;
+      const day = parsed.date;
+      const row = newRow(session, { raw_text: raw, bank: parsed.bank, type: parsed.type, amount: parsed.amount,
+        balance: parsed.balance, date: day ? `${day.gy}-${String(day.gm).padStart(2, '0')}-${String(day.gd).padStart(2, '0')}` : null,
+        time: parsed.time, received_at: item.received_at ?? null, parser_version: 'deterministic-v2',
+        member_id: data.actor.id, status: 'pending', account_id: null, sender: item.sender ?? null, transaction_id: null });
+      data.sms.push(row); added.push(row);
+    }
+    return response(path === '/sms' ? added.length : added);
+  }
+  if (/^\/sms\/[^/]+\/record$/.test(path) && method === 'POST') {
+    const sms = data.sms.find(row => row.id === path.split('/')[2] && ownSms(row));
+    if (!sms) return error('NOT_FOUND', 'پیامک یافت نشد.', 404);
+    if (sms.status === 'recorded') {
+      const stored = data.transactions.find(tx => tx.id === sms.transaction_id);
+      return stored ? response(stored) : error('SMS_HISTORY_REVIEW', 'این پیامک قبلاً ثبت شده است؛ سابقه را بررسی کنید.', 409);
+    }
+    if (sms.status !== 'pending') return error('SMS_NOT_PENDING', 'این پیامک در انتظار ثبت نیست.', 409);
+    let tx;
+    if (body.existing_transaction_id) {
+      if (sms.parser_version != null) return error('SMS_HISTORY_REVIEW', 'بازیابی رسید فقط برای پیامک‌های قدیمی است؛ سابقه را بررسی کنید.', 409);
+      tx = data.transactions.find(row => row.id === body.existing_transaction_id && row.member_id === data.actor.id);
+      if (!tx || data.sms.some(row => row.transaction_id === tx.id)) return error('SMS_HISTORY_REVIEW', 'سابقه را بررسی کنید.', 409);
+    } else {
+      const values = body.transaction;
+      if (!values?.date || !values.account_id || !['income', 'expense'].includes(values.type)) return error('INVALID_TX', 'اطلاعات تراکنش معتبر نیست.', 422);
+      const invalid = checkPreviewPayment(session, { ...values, require_available_balance: true });
+      if (invalid) return invalid;
+      tx = normalizeCreate(session, 'transactions', values);
+      data.transactions.push(tx); syncPreviewTransferFee(session, tx);
+    }
+    sms.transaction_id = tx.id; sms.status = 'recorded';
+    return response(tx);
   }
   if (/^\/sms\/[^/]+$/.test(path) && method === 'PATCH') {
     const item = data.sms.find(item => item.id === path.split('/')[2] && ownSms(item));
     if (!item) return error('NOT_FOUND', 'پیامک نمونه یافت نشد.', 404);
+    if (item.status === 'recorded' && body.status !== 'recorded' || body.status === 'recorded' && item.status !== 'recorded') return error('SMS_RECORD_REQUIRED', 'ثبت پیامک باید همراه با پیوند تراکنش انجام شود.', 409);
     item.status = body.status; return response(null, 204);
   }
   if (/^\/sms\/accounts\/[^/]+\/enabled$/.test(path)) {
@@ -900,6 +934,7 @@ export function handlePreviewRequest(session, request) {
         account_id: source ? source.account_id : body.account_id, to_account_id: source ? source.to_account_id : body.to_account_id,
         subcategory_id: source ? source.subcategory_id : plan && plan.category !== row.category ? null : row.subcategory_id,
         transfer_fee_method: source ? source.transfer_fee_method : row.transfer_fee_method,
+        payment_method: source ? source.payment_method : row.payment_method,
         require_available_balance: true };
       const invalid = checkPreviewPayment(session, values);
       if (invalid) return invalid;
@@ -1050,6 +1085,7 @@ function mutateRow(session, key, itemId, method, body) {
     }
     if (key === 'transactions') {
       if (values.transfer_fee_method === undefined) values.transfer_fee_method = ['expense','transfer'].includes(values.type) ? item.transfer_fee_method : null;
+      if (values.payment_method === undefined) values.payment_method = values.type === 'expense' ? item.payment_method : null;
       const invalid = checkPreviewPayment(session, values, item);
       if (invalid) return invalid;
     }
@@ -1107,6 +1143,8 @@ function checkPreviewPayment(session, values, replacing) {
   if (values.account_id && (!account || account.member_id !== (replacing && managersOnly(session) ? replacing.member_id : data.actor.id))) return error('ACCOUNT_FORBIDDEN', 'فقط حساب‌های خودتان قابل انتخاب‌اند.', 403);
   if (values.type === 'transfer' && (!account || values.to_account_id === account.id || !data.accounts.some(item => item.id === values.to_account_id))) return error('INVALID_TRANSFER', 'انتقال به حساب مبدأ و مقصد متفاوت نیاز دارد.', 422);
   const method = values.transfer_fee_method;
+  if (values.payment_method != null && (values.type !== 'expense' || !['card','online','bank_transfer'].includes(values.payment_method))) return error('INVALID_PAYMENT_METHOD', 'روش پرداخت هزینه را انتخاب کنید.', 422);
+  if (['card','online'].includes(values.payment_method) && method != null) return error('INVALID_TRANSFER_FEE', 'پرداخت با کارت یا آنلاین کارمزد انتقال ندارد.', 422);
   const fee = method == null ? 0 : previewTransferFee(method, Math.round(Number(values.amount) * 10));
   if (method != null && (!['expense','transfer'].includes(values.type) || account?.kind !== 'bank'
     || (values.type === 'transfer' && data.accounts.find(item => item.id === values.to_account_id)?.kind !== 'bank')

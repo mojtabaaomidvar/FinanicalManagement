@@ -6,6 +6,9 @@ import type { SmsRepository } from "@/domain/sms/sms.repository";
 import type { BankSms, NewBankSms, SmsStatus } from "@/domain/sms/sms.types";
 import type { RestClient } from "@/infrastructure/api/restClient";
 import { mapSms, toSmsItems, type SmsRow } from "./mappers";
+import { mapTransaction, type TransactionRow } from "./mappers";
+import { toTransactionBody } from "./transactionRepository";
+import type { TransactionInput } from "@/domain/transaction/transaction.types";
 
 export class SupabaseSmsRepository implements SmsRepository {
   constructor(private readonly client: RestClient) {}
@@ -28,11 +31,18 @@ export class SupabaseSmsRepository implements SmsRepository {
     await this.client.patch<void>(`/sms/${encodeURIComponent(id)}`, { status });
   }
 
-  async ingestRaw(rawText: string, sender?: string | null): Promise<number> {
+  async record(id: string, input: TransactionInput, existingTransactionId?: string) {
+    return mapTransaction(await this.client.post<TransactionRow>(`/sms/${encodeURIComponent(id)}/record`, {
+      transaction: existingTransactionId ? null : toTransactionBody(input),
+      existing_transaction_id: existingTransactionId ?? null,
+    }));
+  }
+
+  async ingestRaw(rawText: string, sender?: string | null, receivedAt?: string | null, transportId?: string | null): Promise<number> {
     /* سرور پارس/تشخیص را انجام می‌دهد و آرایهٔ رکوردهای ساخته‌شده را برمی‌گرداند؛
        طول آن = تعداد افزوده (۰ یعنی پیامک بانکی نبود یا تکراری بود). */
     const rows = await this.client.post<unknown[]>("/sms/ingest", {
-      items: [{ raw_text: rawText, sender: sender ?? null }],
+      items: [{ raw_text: rawText, sender: sender ?? null, received_at: receivedAt ?? null, transport_id: transportId ?? null }],
     });
     return Array.isArray(rows) ? rows.length : 0;
   }

@@ -5,7 +5,6 @@ import type { BankSms, NewBankSms } from "@/domain/sms/sms.types";
 import type { Transaction, TransactionInput } from "@/domain/transaction/transaction.types";
 import { parseSms, splitSmsBlocks } from "@/shared/lib/sms-parser";
 import { jalaliToIso } from "@/shared/lib/jalali";
-import { AddTransactionUseCase } from "@/application/transaction/transaction.usecases";
 
 /** پارس متن خام چند پیامک → رکوردهای جدید */
 export class ParseSmsImportUseCase {
@@ -21,6 +20,7 @@ export class ParseSmsImportUseCase {
           amount: p.amount,
           balance: p.balance,
           date: p.date ? jalaliToIso(p.date.jalali) : null,
+          time: p.time,
         } satisfies NewBankSms;
       })
       .filter((x): x is NewBankSms => x !== null);
@@ -40,8 +40,8 @@ export class AddSmsBatchUseCase {
    فرستنده (در خواندن نیتیو موجود است) برای کمک به تشخیص بانک فوروارد می‌شود. */
 export class IngestRawSmsUseCase {
   constructor(private readonly repo: SmsRepository) {}
-  execute(rawText: string, sender?: string | null): Promise<number> {
-    return this.repo.ingestRaw(rawText, sender ?? null);
+  execute(rawText: string, sender?: string | null, receivedAt?: string | null, transportId?: string | null): Promise<number> {
+    return this.repo.ingestRaw(rawText, sender ?? null, receivedAt, transportId);
   }
 }
 
@@ -63,7 +63,6 @@ export class IgnoreSmsUseCase {
 export class RecordSmsUseCase {
   constructor(
     private readonly repo: SmsRepository,
-    private readonly addTx: AddTransactionUseCase,
   ) {}
 
   async execute(sms: BankSms, input: TransactionInput, recovery?: {
@@ -71,10 +70,8 @@ export class RecordSmsUseCase {
     onCreated?: (transaction: Transaction) => void;
     isCurrent?: () => boolean;
   }): Promise<void> {
-    if (!recovery?.transactionId) {
-      const transaction = await this.addTx.execute(input);
-      recovery?.onCreated?.(transaction);
-    }
-    if (!recovery?.isCurrent || recovery.isCurrent()) await this.repo.setStatus(sms.id, "recorded");
+    if (recovery?.isCurrent && !recovery.isCurrent()) return;
+    const transaction = await this.repo.record(sms.id, input, recovery?.transactionId);
+    recovery?.onCreated?.(transaction);
   }
 }

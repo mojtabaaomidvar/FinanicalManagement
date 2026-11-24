@@ -23,6 +23,9 @@ import com.getcapacitor.annotation.PermissionCallback;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.time.Instant;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 /**
  * پلاگین خواندن نیتیو پیامک بانکی (فقط اندروید).
@@ -125,6 +128,24 @@ public class SmsReaderPlugin extends Plugin {
                 JSObject data = new JSObject();
                 data.put("rawText", text);
                 data.put("sender", sender);
+                // Transport receipt time is metadata, never the financial event time.
+                data.put("receivedAt", Instant.ofEpochMilli(System.currentTimeMillis()).toString());
+                Object[] pdus = intent.getExtras() == null ? null : (Object[]) intent.getExtras().get("pdus");
+                if (pdus != null) {
+                    try {
+                        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+                        boolean hasPdu = false;
+                        for (Object pdu : pdus) if (pdu instanceof byte[]) {
+                            digest.update((byte[]) pdu);
+                            hasPdu = true;
+                        }
+                        StringBuilder identity = new StringBuilder("android-pdu:");
+                        for (byte value : digest.digest()) identity.append(String.format(Locale.ROOT, "%02x", value & 0xff));
+                        if (hasPdu) data.put("transportId", identity.toString());
+                    } catch (NoSuchAlgorithmException ignored) {
+                        // Exact-body server deduplication remains available.
+                    }
+                }
                 notifyListeners("smsReceived", data);
             }
         };

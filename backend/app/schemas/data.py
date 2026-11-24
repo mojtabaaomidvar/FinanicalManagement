@@ -18,7 +18,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, field_serializer, model_validator
+from pydantic import BaseModel, Field, field_serializer, model_validator
 
 if TYPE_CHECKING:  # فقط تایپ؛ وابستگی زمان‌اجرا به مدل‌ها ایجاد نمی‌کند
     from app.models.account import Account
@@ -122,6 +122,7 @@ class TransactionOut(BaseModel):
     photos: list[TransactionPhotoOut]
     created_at: datetime
     source_kind: str | None = None
+    payment_method: str | None = None
     transfer_fee_method: str | None = None
     transfer_fee_rial: int | None = None
     transfer_fee_for_id: str | None = None
@@ -154,6 +155,7 @@ class TransactionOut(BaseModel):
             photos=[TransactionPhotoOut.of(p) for p in photos],
             created_at=t.created_at,
             source_kind=t.source_kind,
+            payment_method=t.payment_method,
             transfer_fee_method=t.transfer_fee_method,
             transfer_fee_rial=t.transfer_fee_rial,
             transfer_fee_for_id=_uuid_opt(t.transfer_fee_for_id),
@@ -241,6 +243,11 @@ class SmsOut(BaseModel):
     amount: Decimal | None
     balance: Decimal | None
     date: str | None  # میلادی 'YYYY-MM-DD'
+    time: str | None = None
+    received_at: datetime | None = None
+    transport_id: str | None = None
+    parser_version: str | None = None
+    transaction_id: str | None = None
     status: str
     created_at: datetime
     sender: str | None = None
@@ -263,6 +270,11 @@ class SmsOut(BaseModel):
             amount=s.amount,
             balance=s.balance,
             date=_isodate(s.date),
+            time=s.time,
+            received_at=s.received_at,
+            transport_id=s.transport_id,
+            parser_version=s.parser_version,
+            transaction_id=_uuid_opt(s.transaction_id),
             status=s.status,
             created_at=s.created_at,
             sender=s.sender,
@@ -385,6 +397,7 @@ class EventOut(BaseModel):
 
 
 class TransactionWrite(BaseModel):
+    payment_method: str | None = None
     """ورودی افزودن/ویرایش تراکنش (هزینه/درآمد/انتقال)."""
 
     member_id: str | None = None
@@ -492,6 +505,10 @@ class SmsItem(BaseModel):
     amount: Decimal | None = None
     balance: Decimal | None = None
     date: _date | None = None
+    time: str | None = None
+    sender: str | None = None
+    received_at: datetime | None = None
+    transport_id: str | None = Field(default=None, max_length=256)
 
 
 class SmsBatch(BaseModel):
@@ -502,6 +519,11 @@ class SmsStatusUpdate(BaseModel):
     status: str | None = None
 
 
+class SmsRecord(BaseModel):
+    transaction: TransactionWrite | None = None
+    existing_transaction_id: str | None = None
+
+
 # ── ingest پیامک (فاز ۸): پارس «سمت سرور» ───────────────────
 # برخلاف SmsItem/SmsBatch (که فیلدهای «پارس‌شده» را از کلاینت می‌گیرند)، این‌ها فقط
 # متن خام را می‌گیرند و سرور خودش پارس می‌کند تا وب و اندروید یک نتیجهٔ یکسان بدهند.
@@ -510,6 +532,8 @@ class SmsIngestItem(BaseModel):
 
     raw_text: str | None = None
     sender: str | None = None  # فرستنده (اختیاری) — فقط کمکی برای تشخیص بانک
+    received_at: datetime | None = None
+    transport_id: str | None = Field(default=None, max_length=256)
 
 
 class SmsIngestBatch(BaseModel):
@@ -525,6 +549,8 @@ class BridgeIngest(BaseModel):
     token: str | None = None
     text: str | None = None
     sender: str | None = None
+    received_at: datetime | None = None
+    transport_id: str | None = Field(default=None, max_length=256)
 
 
 # ── ورودی‌های تنظیمات تشخیص پیامک ──────────────────────────

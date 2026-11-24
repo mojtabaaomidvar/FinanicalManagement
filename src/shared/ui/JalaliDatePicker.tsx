@@ -63,8 +63,8 @@ export function JalaliDatePicker({
   const [wy, setWy] = useState(jy);
   const [wm, setWm] = useState(jm);
   /* ساعت */
-  const [h, setH] = useState(0);
-  const [mi, setMi] = useState(0);
+  const [h, setH] = useState(() => Number(time?.split(":")[0]) || 0);
+  const [mi, setMi] = useState(() => Number(time?.split(":")[1]) || 0);
 
   const selected = useMemo(() => parse(value), [value]);
   const [ty, tm, td] = today();
@@ -301,7 +301,8 @@ export function JalaliDatePicker({
                 type="button"
                 className="btn-primary"
                 onClick={() => {
-                  onTimeChange!(`${pad2(h)}:${pad2(mi)}`);
+                  const chosen = `${pad2(h)}:${pad2(mi)}`;
+                  onTimeChange!(time?.startsWith(`${chosen}:`) ? time : chosen);
                   onClose();
                 }}
               >

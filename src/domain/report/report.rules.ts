@@ -4,6 +4,7 @@ import { categoryById } from "../category/category.catalog";
 import type { CategoryResolver } from "../category/resolve";
 import { sortTxDesc } from "../transaction/transaction.rules";
 import type { Transaction } from "../transaction/transaction.types";
+import { visibleTransactions } from "../transaction/transaction.presentation";
 import type { Account } from "../account/account.types";
 import {
   isoToJalali,
@@ -113,7 +114,7 @@ export function recentTransactions(
   list: Transaction[],
   n: number,
 ): Transaction[] {
-  return sortTxDesc(list).slice(0, n);
+  return sortTxDesc(visibleTransactions(list)).slice(0, n);
 }
 
 /* جریان نقدی ۷ روز منتهی به end (روز آخر = end) — قدیمی → جدید */

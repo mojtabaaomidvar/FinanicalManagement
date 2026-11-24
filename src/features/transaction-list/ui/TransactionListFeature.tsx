@@ -10,6 +10,7 @@ import { formatAmount } from "@/shared/lib/format";
 import { toDisplay } from "@/shared/lib/currency";
 import { toFa } from "@/shared/lib/digits";
 import type { Transaction } from "@/domain/transaction/transaction.types";
+import { transactionFeeAmount } from "@/domain/transaction/transaction.presentation";
 import type { TxFormModel } from "@/features/transaction-form";
 import { buildCategoryResolver } from "@/domain/category/resolve";
 import {
@@ -118,6 +119,10 @@ export function TransactionListFeature({
           onChange={(e) => m.setSearch(e.target.value)}
         />
       </div>
+
+      {m.totalTransferFees > 0 || m.adv.hasTransferFee ? <p className="tx-simple-hint" role="status">
+        مجموع کارمزد انتقال: {formatAmount(toDisplay(m.totalTransferFees, cur))} {currencyDisplayLabel(cur)}
+      </p> : null}
 
       {m.groups.length ? (
         <div className="tx-list grouped">
@@ -242,6 +247,13 @@ export function TransactionListFeature({
               </optgroup>
             </select>
           </div>
+          <div className="form-row full">
+            <label className="form-label">
+              <input type="checkbox" checked={!!filterDraft.hasTransferFee}
+                onChange={event => setFilterDraft({ ...filterDraft, hasTransferFee: event.target.checked })} />
+              فقط تراکنش‌های دارای کارمزد انتقال
+            </label>
+          </div>
         </div>
         <div className="modal-actions">
           <button
@@ -288,6 +300,7 @@ export function TxRow({
   const cat = resolve ? resolve(tx.category) : { name: tx.category, icon: "i-more" };
   const sub = subcategoryName ? ` (${subcategoryName})` : "";
   const isTransfer = tx.type === "transfer";
+  const feeAmount = tx.sourceKind === "transfer_fee" ? 0 : transactionFeeAmount(tx);
 
   /* عنوان انتقال: از حساب مبدأ به مقصد */
   const title = isTransfer
@@ -331,6 +344,11 @@ export function TxRow({
           ) : null}
         </h4>
         <p>{subtitle}</p>
+        {feeAmount > 0 ? <p>
+          کارمزد انتقال: {formatAmount(toDisplay(feeAmount, currency))} {currencyDisplayLabel(currency)}
+          <br />
+          جمع برداشت از حساب: {formatAmount(toDisplay(tx.amount + feeAmount, currency))} {currencyDisplayLabel(currency)}
+        </p> : null}
       </div>
       <div className={`tx-amount ${tx.type}`}>
         <b>{formatAmount(toDisplay(tx.amount, currency))}</b>

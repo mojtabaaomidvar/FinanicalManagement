@@ -32,6 +32,8 @@ def to_en(value: str) -> str:
 
 # ── بانک‌ها (ترتیب مهم است؛ اولین تطبیق برنده) ──────────────────
 _BANKS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"توسعه\s*صادرات|export\s*development", re.I), "بانک توسعه صادرات"),
+    (re.compile(r"(?:قرض\s*الحسنه\s*)?مهر\s*ایران|mehr\s*iran", re.I), "بانک مهر ایران"),
     (re.compile(r"ملی|BMI|bank.?melli", re.I), "بانک ملی"),
     (re.compile(r"ملت|BMEL|tejarat.?area", re.I), "بانک ملت"),
     (re.compile(r"صادرات|BSIR|bsi", re.I), "بانک صادرات"),
@@ -42,20 +44,18 @@ _BANKS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"کشاورزی|keshavarzi|bki", re.I), "بانک کشاورزی"),
     (re.compile(r"رفاه|refah", re.I), "بانک رفاه"),
     (re.compile(r"مسکن|maskan", re.I), "بانک مسکن"),
-    (re.compile(r"development", re.I), "بانک توسعه صادرات"),
     (re.compile(r"سامان|saman", re.I), "بانک سامان"),
     (re.compile(r"انصاری|ansari", re.I), "بانک انصاری"),
     (re.compile(r"گردشگری|tourism", re.I), "بانک گردشگری"),
     (re.compile(r"حکمت|hekmat", re.I), "بانک حکمت"),
-    (re.compile(r"دی|day", re.I), "بانک دی"),
+    (re.compile(r"بانک\s*دی|day\s*bank|bank\s*day", re.I), "بانک دی"),
     (re.compile(r"ایران.?زمین|iranzamin", re.I), "بانک ایران‌زمین"),
-    (re.compile(r"قرض.?الحسنه|qarz|mehr", re.I), "بانک قرض‌الحسنه"),
+    (re.compile(r"قرض.?الحسنه|qarz", re.I), "بانک قرض‌الحسنه"),
     (re.compile(r"شهر|shahr", re.I), "بانک شهر"),
     (re.compile(r"آینده|ayandeh", re.I), "بانک آینده"),
     (re.compile(r"سرمایه|sarmayeh", re.I), "بانک سرمایه"),
     (re.compile(r"کارآفرین|karafarin", re.I), "بانک کارآفرین"),
     (re.compile(r"سینا|sina", re.I), "بانک سینا"),
-    (re.compile(r"مهر|mehr", re.I), "بانک مهر ایران"),
     (re.compile(r"خاورمیانه|khavarmianeh", re.I), "بانک خاورمیانه"),
 ]
 
@@ -137,6 +137,7 @@ class ParsedSms:
     balance: int | None
     date: date | None
     category: str | None
+    time: str | None = None
 
 
 def normalize_sms(s: str) -> str:
@@ -168,32 +169,51 @@ def detect_type(text: str) -> str | None:
 
 
 def detect_bank(text: str) -> str | None:
+    text = normalize_sms(text)
+    hits = set()
     for pat, name in _BANKS:
-        if pat.search(text):
-            return name
-    return None
+        bounded = re.compile(r"(?<!\w)(?:" + pat.pattern + r")(?!\w)", re.I)
+        if bounded.search(text):
+            hits.add(name)
+            text = bounded.sub(" ", text)
+    return next(iter(hits)) if len(hits) == 1 else None
 
 
 def extract_date(text: str) -> SmsDate | None:
-    """جلالی (۱۴xx/xx/xx) → میلادی؛ وگرنه میلادی 20xx (سال-اول یا روز-اول)."""
+    """Only a complete, valid, unambiguous calendar date; never infer a century."""
     t = to_en(text)
-    m = _JALALI_RE.search(t)
-    if m:
-        jy = int(m.group(0)[:4])
-        jm, jd = int(m.group(1)), int(m.group(2))
-        if 1 <= jm <= 12 and 1 <= jd <= 31:
-            gy, gm, gd = to_gregorian(jy, jm, jd)
-            return SmsDate(gy, gm, gd, (jy, jm, jd))
-        # جلالی خارج از بازه: به شاخهٔ میلادی می‌افتد (مثل نسخهٔ TS)
-    m = _GREG_RE.search(t)
-    if m:
-        gy, gm, gd = int(m.group(1)), int(m.group(2)), int(m.group(3))
-        return SmsDate(gy, gm, gd, to_jalali(gy, gm, gd))
-    m = _GREG_DAYFIRST_RE.search(t)
-    if m:
-        gy, gm, gd = int(m.group(3)), int(m.group(2)), int(m.group(1))
-        return SmsDate(gy, gm, gd, to_jalali(gy, gm, gd))
-    return None
+    candidates = []
+    pattern = r"(?<!\d)(\d{4}|\d{1,2})[/.-](\d{1,2})[/.-](\d{4}|\d{1,2})(?!\d)"
+    for m in re.finditer(pattern, t):
+        a, b, c = map(int, m.groups())
+        try:
+            if 1300 <= a <= 1499:
+                gy, gm, gd = to_gregorian(a, b, c)
+                if to_jalali(gy, gm, gd) != (a, b, c):
+                    return None
+                candidate = SmsDate(gy, gm, gd, (a, b, c))
+            elif 2000 <= a <= 2099:
+                valid = date(a, b, c)
+                candidate = SmsDate(a, b, c, to_jalali(valid.year, b, c))
+            elif 2000 <= c <= 2099 and a > 12:
+                valid = date(c, b, a)
+                candidate = SmsDate(c, b, a, to_jalali(valid.year, b, a))
+            else:
+                return None
+            candidates.append(candidate)
+        except (ValueError, OverflowError):
+            return None
+    return candidates[0] if candidates and len(set(candidates)) == 1 else None
+
+
+def extract_time(text: str) -> str | None:
+    candidates = []
+    for m in re.finditer(r"(?<![\d:])(\d{1,2}):(\d{2})(?::(\d{2}))?(?![\d:])", to_en(text)):
+        h, minute, second = m.groups()
+        if int(h) > 23 or int(minute) > 59 or second is not None and int(second) > 59:
+            return None
+        candidates.append(f"{int(h):02d}:{minute}" + (f":{second}" if second is not None else ""))
+    return candidates[0] if candidates and len(set(candidates)) == 1 else None
 
 
 def extract_balance(text: str) -> int | None:
@@ -258,6 +278,7 @@ def parse_sms(raw_text: str) -> ParsedSms | None:
         amount=amount,
         balance=balance,
         date=parsed_date,
+        time=extract_time(text),
         category=guess_category(text),
     )
 

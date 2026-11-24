@@ -6,7 +6,7 @@ import type { BankSms } from "./sms.types";
 import type { TransactionInput } from "../transaction/transaction.types";
 import { normalizeSms, parseSms } from "@/shared/lib/sms-parser";
 import { formatAmount } from "@/shared/lib/format";
-import { isoToJalali, jalaliToIso, today } from "@/shared/lib/jalali";
+import { jalaliToIso } from "@/shared/lib/jalali";
 
 export interface SmsDraftDefaults {
   type: SmsTxType;
@@ -14,7 +14,8 @@ export interface SmsDraftDefaults {
   amount: number;
   memberId: string;
   /** ورودی تاریخ جلالی کاربر-friendly: "۱۴۰۴/۰۶/۱۵" */
-  jalaliDate: [number, number, number];
+  jalaliDate: [number, number, number] | null;
+  time: string | null;
   note: string;
   amountNeedsReview: boolean;
 }
@@ -33,7 +34,7 @@ export function smsAmountInToman(rawText: string, amount: number | null): number
 
 /**
  * حدس مقادیر پیش‌فرض فرم ثبت پیامک:
- * نوع/دسته از خود پیامک، عضو = عضو فعلی، تاریخ = تاریخ پیامک یا امروز
+ * نوع/دسته از خود پیامک، عضو = عضو فعلی؛ تاریخ و ساعت فقط از متن معتبر
  */
 export function smsDraftDefaults(
   sms: BankSms,
@@ -47,13 +48,9 @@ export function smsDraftDefaults(
     categoryId = categoriesFor(type)[0].id;
   }
 
-  const jalaliDate = sms.date
-    ? isoToJalali(sms.date)
-    : parsed?.date
-      ? parsed.date.jalali
-      : today();
-
-  const note = smsSummary(sms);
+  // Reparse legacy rows too: their stored dates may have rolled over invalid dates.
+  const jalaliDate = parsed?.date?.jalali ?? null;
+  const note = "";
   const amount = smsAmountInToman(sms.rawText, sms.amount ?? parsed?.amount ?? null);
 
   return {
@@ -62,6 +59,7 @@ export function smsDraftDefaults(
     amount: amount ?? 0,
     memberId: sms.memberId ?? currentMemberId,
     jalaliDate,
+    time: parsed?.time ?? null,
     note,
     amountNeedsReview: amount == null,
   };

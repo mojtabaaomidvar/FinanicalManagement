@@ -34,3 +34,28 @@ test('accounts enforce owner mutations and child additions, and require typed de
   assert.equal(request(session, '/accounts/' + own.body.id, 'DELETE', { confirmation: 'Wrong name' }).status, 422);
   assert.equal(request(session, '/accounts/' + own.body.id, 'DELETE', { confirmation: 'Own wallet' }).status, 204);
 });
+
+test('expense settlement retains online choice and honors an explicitly changed payment without rewriting its parent', () => {
+  for (const explicit of [false, true]) {
+    const session = create(), account = session.data.accounts[0];
+    const fields = { member_id: session.data.actor.id, type: 'expense', amount: 1000, category: 'food',
+      date: '2026-11-01', repeat: 'weekly', repeat_end: '2027-01-01', account_id: account.id,
+      payment_method: explicit ? 'bank_transfer' : 'online', transfer_fee_method: explicit ? 'paya' : null };
+    const created = request(session, '/transactions', 'POST', fields);
+    assert.equal(created.status, 201);
+    const parent = structuredClone(created.body), path = '/transactions/' + parent.id + '/settle';
+    const body = { due_date: '2026-11-08', revision: 0, account_id: account.id,
+      ...(explicit ? { transaction: { ...fields, repeat: 'none', repeat_end: null, date: '2026-11-19',
+        payment_method: 'online', transfer_fee_method: null } } : {}) };
+    const paid = request(session, path, 'POST', body);
+    assert.equal(paid.status, 200);
+    assert.equal(paid.body.payment_method, 'online');
+    assert.equal(paid.body.transfer_fee_rial, null);
+    assert.deepEqual(request(session, path, 'POST', body), paid);
+    assert.equal(session.data.transactions.filter(row => row.recurring_source_id === parent.id).length, 1);
+    const after = session.data.transactions.find(row => row.id === parent.id);
+    for (const key of ['amount', 'note', 'date', 'payment_method', 'transfer_fee_method', 'transfer_fee_rial']) {
+      assert.deepEqual(after[key], parent[key]);
+    }
+  }
+});

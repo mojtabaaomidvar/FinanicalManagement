@@ -42,6 +42,8 @@ from app.schemas.data import (
     SmsSenderCreate,
     SmsSenderOut,
     SmsStatusUpdate,
+    SmsRecord,
+    TransactionOut,
 )
 from app.services import messaging as messaging_service
 from app.services import sms_settings as settings_service
@@ -97,6 +99,13 @@ def get_bridge(
     return BridgeOut.of(bridge) if bridge is not None else None
 
 
+@router.post("/sms/{sms_id}/record", response_model=TransactionOut)
+def record_sms(sms_id: str, body: SmsRecord, member: Member = Depends(get_tenant_member),
+               db: Session = Depends(get_db)) -> TransactionOut:
+    row = messaging_service.record_sms(db, member, to_uuid(sms_id, "NOT_FOUND", "پیامک یافت نشد.", 404), body)
+    return TransactionOut.of(row, [])
+
+
 @router.post("/sms/bridge", response_model=str, status_code=status.HTTP_201_CREATED)
 def create_bridge(
     member: Member = Depends(get_tenant_member),
@@ -122,7 +131,7 @@ def ingest_sms_messages(
     باشند. ردیف‌های واردشده را برمی‌گرداند. تحت get_tenant_member و RLS.
     """
     rows = messaging_service.ingest_sms(
-        db, member, [(it.raw_text, it.sender) for it in body.items]
+        db, member, [(it.raw_text, it.sender, it.received_at, it.transport_id) for it in body.items]
     )
     return [SmsOut.of(r) for r in rows]
 

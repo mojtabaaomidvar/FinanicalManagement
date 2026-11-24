@@ -18,6 +18,15 @@ const ok = (over: Partial<Parameters<typeof validateTransaction>[0]> = {}) =>
   });
 
 describe("validateTransaction", () => {
+  it("keeps payment methods separate from transfer fees, retaining legacy omissions", () => {
+    expect(ok({ paymentMethod: "online", transferFeeMethod: null }).ok).toBe(true);
+    expect(ok({ paymentMethod: "card", transferFeeMethod: "internal" }).error).toBe("INVALID_TRANSFER_FEE");
+    expect(ok({ paymentMethod: "online", transferFeeMethod: "paya" }).error).toBe("INVALID_TRANSFER_FEE");
+    expect(ok({ paymentMethod: "bank_transfer", transferFeeMethod: "paya" }).ok).toBe(true);
+    expect(ok({ transferFeeMethod: "paya" }).ok).toBe(true);
+    expect(ok({ paymentMethod: "other" as "online" }).error).toBe("INVALID_PAYMENT_METHOD");
+    expect(ok({ type: "income", category: "salary", paymentMethod: "online" }).error).toBe("INVALID_PAYMENT_METHOD");
+  });
   it("ورودی سالم", () => expect(ok().ok).toBe(true));
 
   it("مبلغ صفر/منفی/غیرعددی → INVALID_AMOUNT", () => {

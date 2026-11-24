@@ -50,9 +50,16 @@ describe("unfinished SMS drafts", () => {
       categoryId: "food", date: "۱۴۰۵/۰۸/۲۹", accountId: "own-bank", label: "" };
     rememberPendingDraft(scope, legacy, store);
     expect(readPendingDraft(scope, store)).toEqual(legacy);
-    for (const payment of [{ feeChoice: ["yes"] }, { feeMethod: ["paya"] }, { feeMethod: "paya_group" }, { feeChoice: "unconfirmed" }]) {
+    for (const payment of [{ feeChoice: ["yes"] }, { feeMethod: ["paya"] }, { feeMethod: "paya_group" }, { feeChoice: "unconfirmed" }, { paymentMethod: ["online"] }, { paymentMethod: "unconfirmed" }]) {
       rememberPendingDraft(scope, { ...legacy, ...payment } as typeof legacy, store);
       expect(readPendingDraft(scope, store)).toBeNull();
     }
+  });
+  it("retains an online choice distinctly from a no-fee card payment", () => {
+    const store = storage(), draft = { type: "expense" as const, amount: "۱۰۰۰", currency: "تومان",
+      categoryId: "food", date: "۱۴۰۵/۰۸/۲۹", accountId: "own-bank", label: "", paymentMethod: "online" as const };
+    rememberPendingDraft(scope, draft, store);
+    expect(readPendingDraft(scope, store)?.paymentMethod).toBe("online");
+    expect(readPendingDraft({ ...scope, memberId: "another-member" }, store)).toBeNull();
   });
 });

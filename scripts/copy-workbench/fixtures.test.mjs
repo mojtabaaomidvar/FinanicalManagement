@@ -5,6 +5,26 @@ import { SCENARIOS, ROUTES, createPreviewSession, handlePreviewRequest } from '.
 const create = (scenario = 'full-owner', route = 'hub') => createPreviewSession(scenario, route, { now: '2026-11-16T08:00:00.000Z' });
 const request = (session, path, method = 'GET', body) => handlePreviewRequest(session, { path, method, body });
 
+test('payment fixtures retain online choice, reject tariffs, and cascade only linked fee', () => {
+  const session = create(), bank = session.data.accounts.find(row => row.kind === 'bank');
+  const fields = { member_id: session.data.actor.id, type: 'expense', amount: 1000, category: 'food',
+    date: session.data.today, account_id: bank.id, payment_method: 'online', transfer_fee_method: null };
+  const before = session.data.transactions.length;
+  const tx = request(session, '/transactions', 'POST', fields).body;
+  assert.equal(tx.payment_method, 'online');
+  const older = { ...fields, note: 'Older client note' };
+  delete older.payment_method;
+  delete older.transfer_fee_method;
+  assert.equal(request(session, '/transactions/' + tx.id, 'PATCH', older).status, 200);
+  assert.equal(session.data.transactions.find(row => row.id === tx.id).payment_method, 'online');
+  assert.equal(session.data.transactions.length, before + 1);
+  assert.equal(request(session, '/transactions', 'POST', { ...fields, transfer_fee_method: 'internal' }).status, 422);
+  assert.equal(request(session, '/transactions/' + tx.id, 'PATCH', { ...fields, payment_method: 'bank_transfer', transfer_fee_method: 'paya' }).status, 200);
+  assert.equal(session.data.transactions.length, before + 2);
+  assert.equal(request(session, '/transactions/' + tx.id, 'PATCH', fields).status, 200);
+  assert.equal(session.data.transactions.length, before + 1);
+});
+
 test('assistant fixture preserves name-only recipe amounts as unknown with matching stock', () => {
   for (const quantity of [0, 2]) {
     const session = create('assistant-bread-zero');
@@ -169,7 +189,16 @@ test('SMS import remains pending and each actor can only read or change own mess
     assert.equal(pending[0].member_id, session.data.actor.id);
     assert.equal(request(session, '/sms/foreign-sms', 'PATCH', { status: 'recorded' }).status, 404);
     assert.equal(foreign.status, 'pending');
-    assert.equal(request(session, '/sms/' + pending[0].id, 'PATCH', { status: 'recorded' }).status, 204);
+    assert.equal(request(session, '/sms/' + pending[0].id, 'PATCH', { status: 'recorded' }).status, 409);
+    const account = session.data.accounts.find(row => row.member_id === session.data.actor.id);
+    const fields = { member_id: session.data.actor.id, type: 'income', category: 'ride',
+      amount: 100, date: session.data.today, account_id: account.id, note: 'Reviewed note', time: '14:37:52' };
+    const recorded = request(session, '/sms/' + pending[0].id + '/record', 'POST', { transaction: fields });
+    assert.equal(recorded.status, 200);
+    const replay = request(session, '/sms/' + pending[0].id + '/record', 'POST', { transaction: fields });
+    assert.equal(replay.body.id, recorded.body.id);
+    assert.equal(recorded.body.note, 'Reviewed note');
+    assert.equal(recorded.body.time, '14:37:52');
     assert.deepEqual(request(session, '/sms?status=pending').body, []);
   }
 });

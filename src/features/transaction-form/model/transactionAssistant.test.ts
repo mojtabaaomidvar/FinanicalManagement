@@ -8,6 +8,7 @@ const form: TxFormState = {
   type: "expense", amount: "", categoryId: "", date: "۱۴۰۵/۰۹/۰۱", time: "12:00",
   memberId: "self", note: "", accountId: "mine", toAccountId: "", feeChoice: "yes",
   feeMethod: "card_to_card", label: "", repeat: "none", repeatEnd: "",
+  paymentMethod: "",
 };
 const accounts = [{ id: "mine", memberId: "self" }, { id: "foreign", memberId: "other" }] as Account[];
 const proposal: SmsAssistantProposal = {

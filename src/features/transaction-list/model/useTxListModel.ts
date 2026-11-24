@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { Transaction } from "@/domain/transaction/transaction.types";
 import type { Member } from "@/domain/family/family.types";
 import { sortTxDesc } from "@/domain/transaction/transaction.rules";
+import { visibleTransactions, transactionFeeAmount, transactionExpenseAmount } from "@/domain/transaction/transaction.presentation";
 import { searchTransactions } from "@/domain/report/report.rules";
 import type { CategoryResolver } from "@/domain/category/resolve";
 import type { Subcategory } from "@/domain/category/subcategory.types";
@@ -20,6 +21,7 @@ export interface TxAdvFilter {
   range: TxRange;
   accountId: string;
   categoryId: string;
+  hasTransferFee?: boolean;
 }
 
 export interface DayGroup {
@@ -65,7 +67,7 @@ export function useTxListModel(
   }, [subcategories]);
 
   const list = useMemo(() => {
-    let l = sortTxDesc(txs);
+    let l = sortTxDesc(visibleTransactions(txs));
     if (filter !== "all") l = l.filter((t) => t.type === filter);
     if (adv.accountId) {
       l = l.filter(
@@ -73,6 +75,7 @@ export function useTxListModel(
       );
     }
     if (adv.categoryId) l = l.filter((t) => t.category === adv.categoryId);
+    if (adv.hasTransferFee) l = l.filter(t => transactionFeeAmount(t) > 0 && (!adv.accountId || t.accountId === adv.accountId));
     if (adv.range !== "all") {
       const [ty, tm] = today();
       if (adv.range === "month") {
@@ -99,10 +102,13 @@ export function useTxListModel(
     if (adv.range !== "all") parts.push(RANGES[adv.range]);
     if (adv.accountId) parts.push("حساب مشخص");
     if (adv.categoryId) parts.push("دسته مشخص");
+    if (adv.hasTransferFee) parts.push("دارای کارمزد انتقال");
     return parts.join(" · ");
   }, [adv]);
 
-  const advActive = adv.range !== "all" || !!adv.accountId || !!adv.categoryId;
+  const advActive = adv.range !== "all" || !!adv.accountId || !!adv.categoryId || !!adv.hasTransferFee;
+  const totalTransferFees = useMemo(() => list.reduce((sum, tx) => sum +
+    (!adv.accountId || tx.accountId === adv.accountId ? transactionFeeAmount(tx) : 0), 0), [list, adv.accountId]);
 
   /* گروه‌بندی بر اساس تاریخ */
   const groups = useMemo<DayGroup[]>(() => {
@@ -118,11 +124,11 @@ export function useTxListModel(
         iso: formatISO(jd),
         weekday: formatWeekday(jd),
         income: items.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0),
-        expense: items.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0),
+        expense: items.reduce((s, t) => s + transactionExpenseAmount(t, adv.accountId), 0),
         items,
       };
     });
-  }, [list]);
+  }, [list, adv.accountId]);
 
   return {
     filter,
@@ -134,6 +140,7 @@ export function useTxListModel(
     advLabel,
     advActive,
     list,
+    totalTransferFees,
     groups,
     memberNameOf,
     amountText: formatAmount,

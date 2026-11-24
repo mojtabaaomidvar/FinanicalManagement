@@ -27,7 +27,7 @@ export function PendingSmsFeature({ model: m }: { model: ReturnType<typeof usePe
   const ownCount = accounts.filter(account => account.memberId === member?.id).length;
   const bankExpense = m.type === "expense" && accounts.find(account => account.id === m.accountId)?.kind === "bank";
   const quote = useTransferFeeQuote(useCases, `${member?.id}:${m.list[m.idx]?.id}:${m.type}:${m.accountId}`,
-    m.open && !m.savedId && bankExpense && m.feeChoice === "yes" ? m.feeMethod : "", amount);
+    m.open && !m.savedId && bankExpense && m.paymentMethod === "bank_transfer" ? m.feeMethod : "", amount);
   const choices = transactionAccountChoices(accounts, txs, member?.id ?? "", amount,
     m.type === "expense" && !m.savedId, showAll || m.type === "income" || !!m.savedId)
     .filter(({ account, balance }) => m.savedId || m.type !== "expense" || account.kind !== "bank" || amount === null || balance >= amount + quote.rial / 10);
@@ -58,7 +58,7 @@ export function PendingSmsFeature({ model: m }: { model: ReturnType<typeof usePe
         </button>
       </div> : null}
       {!m.loading && !m.loadError && m.list.length > 0 ? <>
-      {m.savedId ? <p className="section-hint" role="status">تراکنش ثبت شده؛ فقط تأیید پیامک باقی مانده است.</p> : null}
+      {m.savedId ? <p className="section-hint" role="status">رسید ثبت قبلی در این مرورگر پیدا شد؛ فقط پیوند پیامک به همان تراکنش بازیابی می‌شود.</p> : null}
       {m.amountNeedsReview && !m.savedId ? <p className="section-hint">واحد مبلغ پیامک مشخص نیست؛ مبلغ را در واحد انتخابی وارد کنید.</p> : null}
       <p className="section-hint">ثبت برای <b>{member?.name}</b></p>
       {!m.savedId && (suggestion.member || suggestion.account) ? <div className="sms-account-suggestion">
@@ -164,9 +164,18 @@ export function PendingSmsFeature({ model: m }: { model: ReturnType<typeof usePe
               {!m.savedId && !choices.length ? <p className="field-error">حساب یا کیف‌پول با موجودی کافی برای این مبلغ ندارید؛ مبلغ یا فهرست کامل حساب‌ها را بررسی کنید.</p> : null}
             </Field>
             {bankExpense && !m.savedId ? <BankPaymentFields mode="expense" choice={m.feeChoice} method={m.feeMethod}
+              paymentMethod={m.paymentMethod} onPaymentMethod={m.setPaymentMethod}
               onChoice={m.setFeeChoice} onMethod={m.setFeeMethod} loading={quote.loading} error={quote.error} /> : null}
-            <Field label="تاریخ">
-              <JalaliDateInput value={m.date} onChange={m.setDate} aria-label="تاریخ پیامک" />
+            <Field label="تاریخ انجام تراکنش">
+              <JalaliDateInput value={m.date} onChange={m.setDate} aria-label="تاریخ انجام تراکنش" />
+              {!m.date ? <p className="section-hint">تاریخ معتبر در پیامک پیدا نشد؛ تاریخ انجام تراکنش را انتخاب کنید.</p> : null}
+            </Field>
+            <Field label="ساعت انجام تراکنش (اختیاری)">
+              <TextInput value={m.time} onChange={m.setTime} aria-label="ساعت انجام تراکنش" placeholder="مثلاً ۱۴:۳۷:۵۲" className="num-input" inputMode="text" />
+              {!m.time ? <p className="section-hint">ساعت انجام تراکنش نامعلوم است؛ زمان دریافت پیامک جایگزین آن نمی‌شود.</p> : null}
+            </Field>
+            <Field label="شرح تراکنش (اختیاری)">
+              <TextInput value={m.note} onChange={m.setNote} aria-label="شرح تراکنش پیامک" maxLength={200} />
             </Field>
           </div>
           </fieldset>
@@ -187,7 +196,7 @@ export function PendingSmsFeature({ model: m }: { model: ReturnType<typeof usePe
           disabled={m.busy}
           onClick={() => m.record(refreshData, ownCount)}
         >
-          {m.busy ? "در حال رسیدگی…" : m.savedId ? "تأیید دوباره پیامک" : "ثبت"}
+          {m.busy ? "در حال رسیدگی…" : m.savedId ? "بازیابی پیوند پیامک" : "ثبت"}
         </button>
       </div>
       </> : null}

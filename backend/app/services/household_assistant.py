@@ -15,7 +15,7 @@ from pydantic import ValidationError
 from app.core.config import settings
 from app.core.errors import AppError
 from app.services import sms_assistant
-from app.services.financial_text import amount_unit, normalize_financial_text, source_amounts
+from app.services.financial_text import normalize_financial_text
 from app.services.household_ai_protocol import (
     KINDS,
     SCOPE_KINDS,
@@ -139,18 +139,6 @@ def resolve_day(text: str, reference: date, *, future: bool = False) -> tuple[da
     return None, bool(found)
 
 
-def _actual_finance(text: str, kind: str) -> bool:
-    text = normalize_sms(text)
-    if re.search(
-        r"(?:آیا|چقدر|چند|کی|چرا)\b|[؟?]|نکردم|ندادم|نگرفتم|نشد|نخریدم|نشده|نکرده|نکن|"
-        r"خواهم|قرار است|انتقال|حذف|ویرایش|نمی ?\w+|نخواهد|فردا|قرار بود|اگر|می ?خواستم", text,
-    ):
-        return False
-    verbs = (r"برداشت|کسر|خرج کردم|خرج شد|پرداخت کردم|پرداخت شد|دادم|خرید.*کردم"
-             if kind == "expense" else r"واریز|دریافت کردم|دریافت شد|گرفتم|حقوق.*آمد")
-    return bool(re.search(verbs, text))
-
-
 def _quantity(value: Decimal | None, evidence: str) -> Decimal | None:
     if value is None:
         return None
@@ -159,7 +147,15 @@ def _quantity(value: Decimal | None, evidence: str) -> Decimal | None:
     return value if any(_value(token) == value for token in tokens) else None
 
 
+def require_nonfinancial_registration(text: str, scope: str = "auto") -> None:
+    financial = bool(re.search(r"تراکنش|واریز|برداشت|پرداخت|خرج|درآمد|حقوق|تومان|ریال|کرایه|دادم|بانک|transaction|deposit|withdraw|payment|paid|income|expense|rial|toman", text, re.I))
+    other_request = bool(re.search(r"لیست|اضافه کن|یادآور|نظافت|صبحانه|صبحونه|ناهار|شام|موجودی مواد|وظیفه|کارها", text))
+    if scope == "finance" or scope == "auto" and financial and not other_request:
+        raise AppError("AI_FINANCE_DISABLED", "دستیار در ثبت تراکنش مالی نقشی ندارد؛ از بخش تراکنش‌ها استفاده کنید.", 422)
+
+
 def analyze(db, actor, text: str, scope: str) -> dict:
+    require_nonfinancial_registration(text, scope)
     if not text.strip():
         # @copy-text assistant.text_required
         raise AppError("AI_EMPTY_TEXT", "متن درخواست را بنویسید.", 422)
@@ -208,33 +204,8 @@ def ground_result(payload, masked, aliases, exact_hits, accounts, reference, sco
         row.update(id=str(uuid.uuid4()), warnings=[])
         ambiguous = masked.count(evidence) != 1
         if isinstance(item, FinancialProposal):
-            if not _actual_finance(evidence, item.type):
-                unsupported.append({"source_text": evidence, "reason": "unsupported_action"})
-                continue
-            amounts = source_amounts(evidence)
-            # A model-selected broad span containing multiple amounts isn't a definite event amount.
-            amount = item.amount if not ambiguous and amounts == {item.amount} else None
-            unit = amount_unit(evidence, amount)
-            account, _match, certainty = sms_assistant._suggest_account(
-                evidence, None, item.account_alias, aliases,
-                [a for a in exact_hits if any(f"[[ACCOUNT_{key}]]" in evidence and value.id == a.id
-                                             for key, value in aliases.items())], accounts,
-            )
-            day, review = resolve_day(evidence, reference)
-            alias_count = len(re.findall(r"\[\[ACCOUNT_A\d+\]\]", evidence))
-            row.update(
-                amount=amount, unit=unit, date=day.isoformat() if day and not ambiguous else None,
-                category=sms_assistant._allowed_category(item.category, item.type),
-                account_id=str(account.id)
-                if account and certainty >= 0.9 and alias_count == 1 and not ambiguous else None,
-            )
-            row.pop("account_alias", None)
-            for condition, warning in [
-                (amount is None, "amount"), (unit is None, "unit"),
-                (row["account_id"] is None, "account"), (row["date"] is None or review, "date"),
-            ]:
-                if condition:
-                    row["warnings"].append(warning)
+            unsupported.append({"source_text": evidence, "reason": "unsupported_action"})
+            continue
         elif isinstance(item, ShoppingProposal):
             row["qty"] = _quantity(item.qty, evidence) if not ambiguous else None
             row["unit"] = item.unit if item.unit and item.unit in evidence else None

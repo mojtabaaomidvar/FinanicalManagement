@@ -16,6 +16,11 @@ export interface BankSms {
   balance: number | null;
   /** "YYYY-MM-DD" میلادی */
   date: string | null;
+  time?: string | null;
+  receivedAt?: string | null;
+  transportId?: string | null;
+  parserVersion?: string | null;
+  transactionId?: string | null;
   status: SmsStatus;
   /** فرستنده همان‌طور که رسیده (سرشماره یا نام) — برای ساختن فرستنده مجاز */
   sender: string | null;
@@ -38,6 +43,7 @@ export interface NewBankSms {
   balance: number | null;
   /** "YYYY-MM-DD" میلادی */
   date: string | null;
+  time?: string | null;
 }
 
 /** پل پیامک — کلید اتصال اپ فوروادر اندروید برای عضو */

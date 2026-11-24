@@ -66,6 +66,7 @@ def _report_context(facts, actions, context):
 
 
 def analyze(db, actor, text: str):
+    legacy.require_nonfinancial_registration(text)
     if not text.strip():
         raise AppError("AI_EMPTY_TEXT", "متن درخواست را بنویسید.", 422)
     reference = today_tehran()
@@ -93,10 +94,9 @@ def analyze(db, actor, text: str):
     declared_missing = bool(re.search(r"نداریم|تمام شده|تموم شده|نیاز داریم", masked))
     facts = build_facts(context, terms, declared_missing=declared_missing)
     actions = []
-    financial = []
     for proposal in grounded["proposals"]:
         if proposal["kind"] == "transaction":
-            financial.append(proposal)
+            continue
         else:
             actions.append({**proposal, "id": str(uuid.uuid4())})
     for fact in facts:
@@ -151,7 +151,7 @@ def analyze(db, actor, text: str):
     # Narrative only chooses verified facts/actions; it cannot supply computed values.
     report = ContextReport()
     count = 1
-    if context or actions or financial:
+    if context or actions:
         report = _infer(ContextReportIn(
             text=masked, context_json=_report_context(facts, actions, context),
         ), ContextReport, "/v1/assistant/report")
@@ -207,7 +207,7 @@ def analyze(db, actor, text: str):
             titles.append(title)
         options.append({"title": " · ".join(titles),
                         "action_ids": list(dict.fromkeys(option.action_ids))})
-    if plan.questions or report.questions or not (facts or actions or financial):
+    if plan.questions or report.questions or not (facts or actions):
         # @copy-text assistant.clarify_request
         questions.append("کدام بخش از این درخواست را با چه تغییر مشخصی می‌خواهید دنبال کنید؟")
     # All deterministic facts are shown, even if the model omitted an inconvenient one.
@@ -215,4 +215,4 @@ def analyze(db, actor, text: str):
             "report_id": report_id, "report_token": token, "sections": context, "facts": facts,
             "actions": actions, "options": options,
             "questions": list(dict.fromkeys(questions))[:5],
-            "proposals": financial, "unsupported": grounded["unsupported"], "inferences": count}
+            "proposals": [], "unsupported": grounded["unsupported"], "inferences": count}

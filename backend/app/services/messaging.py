@@ -20,8 +20,10 @@ from __future__ import annotations
 
 import secrets
 import uuid
+import hashlib
+from datetime import datetime
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, or_, select, text
 from sqlalchemy import update as sa_update
 from sqlalchemy.orm import Session
 
@@ -30,11 +32,48 @@ from app.db.rls import apply_to_transaction, reset_current_family, set_current_f
 from app.models.family import Member
 from app.models.account import Account
 from app.models.messaging import SmsBridge, SmsMessage
-from app.schemas.data import SmsItem
+from app.schemas.data import SmsItem, SmsRecord
+from app.models.transaction import Transaction
+from app.services import transactions
 from app.services import sms_settings as settings_service
 from app.services.sms_parser import detect_bank, normalize_sms, parse_sms
 
 _SMS_STATUS = {"pending", "recorded", "ignored"}
+PARSER_VERSION = "deterministic-v2"
+
+
+def _body(raw: str) -> str:
+    return " ".join(normalize_sms(raw).split())
+
+
+def _identity_lock(db: Session, family_id, member_id, raw: str) -> None:
+    # Serialize this recipient's small SMS batches, including transport-ID replays
+    # whose body changed. No account lock is held at this point.
+    key = f"sms:{family_id}:{member_id}"
+    digest = int.from_bytes(hashlib.sha256(key.encode()).digest()[:8], "big", signed=True)
+    db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": digest})
+
+
+def _same_messages(db: Session, actor: Member, row: SmsMessage) -> list[SmsMessage]:
+    # Legacy rows intentionally remain unchanged. Compare complete bodies, not amounts.
+    candidates = db.scalars(select(SmsMessage).where(_own_sms(actor)).order_by(SmsMessage.created_at, SmsMessage.id))
+    return [other for other in candidates if _body(other.raw_text) == _body(row.raw_text)
+            and not (row.transport_id and other.transport_id and row.transport_id != other.transport_id)
+            and not (row.sender and other.sender and settings_service.normalize_sender(row.sender) != settings_service.normalize_sender(other.sender))]
+
+
+def _insert_unique(db: Session, actor: Member, row: SmsMessage) -> bool:
+    _identity_lock(db, actor.family_id, actor.id, row.raw_text)
+    if _same_messages(db, actor, row):
+        return False
+    row.identity_key = hashlib.sha256(("transport:" + row.transport_id if row.transport_id else
+        "body:" + settings_service.normalize_sender(row.sender) + ":" + _body(row.raw_text)).encode()).hexdigest()
+    if db.scalar(select(SmsMessage.id).where(SmsMessage.family_id == actor.family_id,
+            SmsMessage.member_id == actor.id, SmsMessage.identity_key == row.identity_key)):
+        return False
+    db.add(row)
+    db.flush()
+    return True
 
 
 def _own_sms(actor: Member):
@@ -81,25 +120,14 @@ def add_sms_messages(db: Session, actor: Member, items: list[SmsItem]) -> int:
         raw = (it.raw_text or "").strip()
         if not raw:
             continue
-        stype = it.type if it.type in ("expense", "income") else None
-        rows.append(
-            SmsMessage(
-                family_id=actor.family_id,
-                member_id=actor.id,
-                raw_text=raw,
-                bank=(it.bank or "").strip() or None,
-                type=stype,
-                amount=it.amount,
-                balance=it.balance,
-                date=it.date,
-                status="pending",
-            )
-        )
+        row = _row_from_raw(actor.family_id, actor.id, raw, it.sender, it.received_at, it.transport_id)
+        if row is not None:
+            rows.append(row)
     if not rows:
         return 0
-    db.add_all(rows)
+    inserted = sum(_insert_unique(db, actor, row) for row in sorted(rows, key=lambda r: _body(r.raw_text)))
     db.commit()
-    return len(rows)
+    return inserted
 
 
 def set_sms_status(
@@ -111,12 +139,60 @@ def set_sms_status(
     row = db.execute(
         select(SmsMessage).where(
             SmsMessage.id == sms_id, _own_sms(actor)
-        )
+        ).with_for_update()
     ).scalar_one_or_none()
     if row is None:
         raise AppError("NOT_FOUND", "پیامک یافت نشد.", 404)
+    if row.status == "recorded" and st != "recorded" or st == "recorded" and row.status != "recorded":
+        raise AppError("SMS_RECORD_REQUIRED", "ثبت پیامک باید همراه با پیوند تراکنش انجام شود.", 409)
     row.status = st
     db.commit()
+
+
+def record_sms(db: Session, actor: Member, sms_id: uuid.UUID, req: SmsRecord) -> Transaction:
+    row = db.scalar(select(SmsMessage).where(SmsMessage.id == sms_id, _own_sms(actor)))
+    if row is None:
+        raise AppError("NOT_FOUND", "پیامک یافت نشد.", 404)
+    _identity_lock(db, actor.family_id, actor.id, row.raw_text)
+    row = db.scalar(select(SmsMessage).where(SmsMessage.id == sms_id, _own_sms(actor))
+                    .with_for_update().execution_options(populate_existing=True))
+    aliases = _same_messages(db, actor, row)
+    recorded = next((other for other in aliases if other.status == "recorded" and other.transaction_id), None)
+    recorded = recorded or next((other for other in aliases if other.status == "recorded"), None)
+    if recorded:
+        transaction = db.scalar(select(Transaction).where(Transaction.id == recorded.transaction_id,
+            Transaction.family_id == actor.family_id, Transaction.member_id == actor.id))
+        if transaction is not None:
+            if row.status == "pending":
+                row.status = "recorded"
+                db.commit()
+            return transaction
+        raise AppError("SMS_HISTORY_REVIEW", "این پیامک قبلاً ثبت شده است؛ سابقهٔ تراکنش‌ها را بررسی کنید.", 409)
+    if row.status != "pending":
+        raise AppError("SMS_NOT_PENDING", "این پیامک در انتظار ثبت نیست.", 409)
+    if req.existing_transaction_id:
+        # Recover an explicit v0.8.0 browser receipt, never infer a historical link.
+        if row.parser_version is not None:
+            raise AppError("SMS_HISTORY_REVIEW", "بازیابی رسید فقط برای پیامک‌های قدیمی است؛ سابقه را بررسی کنید.", 409)
+        tx_id = transactions.to_uuid(req.existing_transaction_id, "NOT_FOUND", "تراکنش یافت نشد.", 404)
+        transaction = db.scalar(select(Transaction).where(Transaction.id == tx_id,
+            Transaction.family_id == actor.family_id, Transaction.member_id == actor.id).with_for_update())
+        if transaction is None or transaction.source_kind is not None or transaction.type not in ("expense", "income"):
+            raise AppError("SMS_HISTORY_REVIEW", "تراکنش قبلی پیدا نشد؛ سابقه را بررسی کنید.", 409)
+        if db.scalar(select(SmsMessage.id).where(SmsMessage.transaction_id == tx_id)):
+            raise AppError("SMS_HISTORY_REVIEW", "این تراکنش به پیامک دیگری پیوند دارد؛ سابقه را بررسی کنید.", 409)
+    else:
+        if req.transaction is None or req.transaction.type not in ("expense", "income") or req.transaction.repeat != "none":
+            raise AppError("INVALID_TYPE", "اطلاعات تراکنش پیامک معتبر نیست.", 422)
+        if req.transaction.member_id != str(actor.id) or not req.transaction.account_id:
+            raise AppError("ACCOUNT_FORBIDDEN", "فقط حساب‌ها و کیف‌پول‌های خودتان قابل انتخاب‌اند.", 403)
+        transaction = transactions.create_uncommitted(db, actor.family_id,
+            req.transaction.model_copy(update={"require_available_balance": True}), actor=actor)
+    row.transaction_id = transaction.id
+    row.status = "recorded"
+    db.commit()
+    db.refresh(transaction)
+    return transaction
 
 
 def create_bridge(db: Session, actor: Member) -> str:
@@ -237,15 +313,15 @@ def _resolve_account(
 
 
 # ── ingest: پارس «سمت سرور» (فاز ۸) ──────────────────────────
-# تفاوت کلیدی با add_sms_messages: آنجا کلاینت فیلدهای پارس‌شده را می‌فرستد؛ اینجا
-# فقط متن خام می‌آید و سرور با app.services.sms_parser پارس می‌کند. هدف: وب و اندروید
-# و پل فورواردر همگی «یک منطق پارس» داشته باشند (پیش‌تر فقط کلاینت پارس می‌کرد و
-# مسیرها ناهم‌سان بودند).
+# All paths now parse raw text on the server. Manual imports deliberately bypass
+# automatic-reading consent; native and bridge ingestion retain the consent gate.
 def _row_from_raw(
     family_id: uuid.UUID,
     member_id: uuid.UUID | None,
     raw_text: str | None,
     sender: str | None,
+    received_at: datetime | None = None,
+    transport_id: str | None = None,
 ) -> SmsMessage | None:
     """متن خام → ردیف SmsMessage (pending) با فیلدهای پارس‌شده؛ یا None اگر متن خالی.
 
@@ -272,6 +348,10 @@ def _row_from_raw(
         amount=parsed.amount,
         balance=parsed.balance,
         date=parsed.date,
+        time=parsed.time,
+        received_at=received_at if received_at and received_at.tzinfo else None,
+        transport_id=(transport_id or "").strip() or None,
+        parser_version=PARSER_VERSION,
         status="pending",
         # فرستنده «همان‌طور که آمده» ذخیره می‌شود تا کاربر در فهرست ببیند
         # پیامک از کجاست و بتواند از رویش سرشمارهٔ مجاز بسازد (بند ۱۰).
@@ -301,7 +381,7 @@ def _is_transaction(row: SmsMessage) -> bool:
 
 
 def ingest_sms(
-    db: Session, actor: Member, items: list[tuple[str | None, str | None]]
+    db: Session, actor: Member, items: list[tuple]
 ) -> list[SmsMessage]:
     """درج دسته‌ای پیامک‌های «خام» برای عضو جاری با پارس سمت‌سرور.
 
@@ -313,8 +393,9 @@ def ingest_sms(
     نمی‌شود — حتی اگر متن کاملاً یک پیامک بانکی معتبر باشد.
     """
     rows: list[SmsMessage] = []
-    for raw_text, sender in items:
-        row = _row_from_raw(actor.family_id, actor.id, raw_text, sender)
+    for item in items:
+        raw_text, sender, *metadata = item
+        row = _row_from_raw(actor.family_id, actor.id, raw_text, sender, *metadata)
         if row is None:
             continue
         # بند ۱۰/۸: پیامکِ بی‌مبلغ یا بی‌نوع (تبلیغ/OTP) ذخیره نمی‌شود
@@ -329,7 +410,7 @@ def ingest_sms(
         rows.append(row)
     if not rows:
         return []
-    db.add_all(rows)
+    rows = [row for row in sorted(rows, key=lambda r: _body(r.raw_text)) if _insert_unique(db, actor, row)]
     db.commit()
     for r in rows:
         db.refresh(r)
@@ -337,7 +418,8 @@ def ingest_sms(
 
 
 def ingest_via_bridge(
-    db: Session, token: str | None, text: str | None, sender: str | None = None
+    db: Session, token: str | None, text: str | None, sender: str | None = None,
+    received_at: datetime | None = None, transport_id: str | None = None,
 ) -> int:
     """webhook پل (جایگزین api/sms-webhook.js): توکن → خانواده/عضو → پارس و درج.
 
@@ -359,7 +441,7 @@ def ingest_via_bridge(
     ctx = set_current_family(bridge.family_id)
     try:
         apply_to_transaction(db)  # زمینهٔ خانواده روی همین تراکنش باز
-        row = _row_from_raw(bridge.family_id, bridge.member_id, text, sender)
+        row = _row_from_raw(bridge.family_id, bridge.member_id, text, sender, received_at, transport_id)
         if row is None:
             return 0
         # بند ۱۰/۸: پیامکِ بی‌مبلغ یا بی‌نوع (تبلیغ/OTP) ذخیره نمی‌شود
@@ -374,7 +456,9 @@ def ingest_via_bridge(
         if not accept:
             return 0
         row.account_id = account_id
-        db.add(row)
+        recipient = db.scalar(select(Member).where(Member.id == bridge.member_id, Member.family_id == bridge.family_id))
+        if recipient is None or not _insert_unique(db, recipient, row):
+            return 0
         db.commit()
         return 1
     finally:

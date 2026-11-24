@@ -43,7 +43,7 @@ def test_legacy_sms_is_scoped_to_account_and_unassigned_owner(client, home_a, me
         assert {row["id"] for row in client.get(f"{API}/sms", headers=actor.h).json()} == visible
         for sms_id in {own, members, orphan}:
             res = client.patch(f"{API}/sms/{sms_id}", headers=actor.h, json={"status": "recorded"})
-            assert res.status_code == (204 if sms_id in visible else 404), res.text
+            assert res.status_code == (409 if sms_id in visible else 404), res.text
 
 
 def test_explicit_recipient_wins_over_linked_account(client, home_a, member_a, raw_sql):

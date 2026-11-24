@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapMember, mapTransaction, mapEvent, type MemberRow, type TransactionRow, type EventRow } from "./mappers";
+import { mapMember, mapTransaction, mapEvent, mapSms, type MemberRow, type TransactionRow, type EventRow, type SmsRow } from "./mappers";
 
 const row: MemberRow = {
   id: "second-admin", family_id: "family", name: "مدیر دوم", role: "admin",
@@ -17,6 +17,22 @@ describe("member role mapping", () => {
   it("does not grant admin privileges to unknown roles or memberships", () => {
     expect(mapMember({ ...row, role: "unknown" }).role).toBe("member");
     expect(mapMember({ ...row, membership_state: undefined }).membershipState).toBeNull();
+  });
+});
+
+describe("SMS timestamp and provenance mapping", () => {
+  const sms: SmsRow = { id: "sms", family_id: "family", member_id: "self", raw_text: "original message",
+    bank: null, type: "expense", amount: "250000", balance: null, date: null, status: "pending",
+    received_at: "2026-11-25T20:00:00Z", created_at: "2026-11-26T00:00:00Z" };
+  it("keeps an unknown event timestamp null regardless of receipt and storage time", () => {
+    expect(mapSms(sms)).toMatchObject({ date: null, time: null, receivedAt: sms.received_at,
+      createdAt: sms.created_at, rawText: sms.raw_text, amount: 250000 });
+  });
+  it("retains explicit event seconds and transport/link metadata without changing the body", () => {
+    expect(mapSms({ ...sms, date: "2026-11-24", time: "14:37:52", transport_id: "delivery",
+      parser_version: "deterministic-v2", transaction_id: "tx" })).toMatchObject({
+      date: "2026-11-24", time: "14:37:52", transportId: "delivery", parserVersion: "deterministic-v2",
+      transactionId: "tx", receivedAt: sms.received_at, rawText: sms.raw_text });
   });
 });
 
@@ -42,6 +58,12 @@ describe("vehicle service finance provenance", () => {
     expect(mapTransaction({ ...transaction, source_kind: "vehicle_service" })).toMatchObject({
       sourceKind: "vehicle_service", amount: 50000, accountId: null,
     });
+  });
+  it("retains online choice distinctly from legacy absence and maps fee snapshots", () => {
+    expect(mapTransaction({ ...transaction, payment_method: "online" })).toMatchObject({ paymentMethod: "online", transferFeeRial: null });
+    expect(mapTransaction(transaction).paymentMethod).toBeNull();
+    expect(mapTransaction({ ...transaction, payment_method: "bank_transfer", transfer_fee_method: "paya", transfer_fee_rial: 4000 }))
+      .toMatchObject({ paymentMethod: "bank_transfer", transferFeeMethod: "paya", transferFeeRial: 4000 });
   });
   it("keeps legacy and unknown transaction sources outside service-specific rules", () => {
     expect(mapTransaction(transaction).sourceKind).toBeNull();

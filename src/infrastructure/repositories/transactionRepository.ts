@@ -17,9 +17,10 @@ import { AppError } from "@/shared/lib/appError";
 import { mapTransaction, type TransactionRow } from "./mappers";
 
 /** بدنهٔ snake_case مشترک افزودن/ویرایش تراکنش (سازگار با اسکیمای بک‌اند). */
-function toBody(input: TransactionInput) {
+export function toTransactionBody(input: TransactionInput) {
   return {
     member_id: input.memberId,
+    ...(input.paymentMethod !== undefined ? { payment_method: input.paymentMethod } : {}),
     ...(input.transferFeeMethod !== undefined ? { transfer_fee_method: input.transferFeeMethod } : {}),
     require_available_balance: input.requireAvailableBalance ?? false,
     type: input.type,
@@ -57,7 +58,7 @@ export class SupabaseTransactionRepository implements TransactionRepository {
   async add(input: TransactionInput): Promise<Transaction> {
     const row = await this.client.post<TransactionRow>(
       "/transactions",
-      toBody(input),
+      toTransactionBody(input),
     );
     return mapTransaction(row);
   }
@@ -65,7 +66,7 @@ export class SupabaseTransactionRepository implements TransactionRepository {
   async update(id: string, input: TransactionInput): Promise<void> {
     await this.client.patch<void>(
       `/transactions/${encodeURIComponent(id)}`,
-      toBody(input),
+      toTransactionBody(input),
     );
   }
 
@@ -89,7 +90,7 @@ export class SupabaseTransactionRepository implements TransactionRepository {
   async settleOccurrence(id: string, input: OccurrenceSettle): Promise<Transaction> {
     return mapTransaction(await this.client.post<TransactionRow>(`/transactions/${encodeURIComponent(id)}/settle`, {
       due_date: input.dueDate, revision: input.revision, account_id: input.accountId, to_account_id: input.toAccountId ?? null,
-      ...(input.transaction ? { transaction: toBody(input.transaction) } : {}),
+      ...(input.transaction ? { transaction: toTransactionBody(input.transaction) } : {}),
     }));
   }
 

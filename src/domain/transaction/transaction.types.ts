@@ -2,6 +2,7 @@
 
 export type TxType = "expense" | "income" | "transfer";
 export type TransferFeeMethod = "internal" | "card_to_card" | "paya" | "satna" | "pol";
+export type PaymentMethod = "card" | "online" | "bank_transfer";
 
 /** دوره تکرار تراکنش (برای قسط/حقوق/اجاره و…) */
 export type TxRepeat = "none" | "weekly" | "monthly" | "yearly";
@@ -28,6 +29,7 @@ export interface Transaction {
   /** Server-assigned provenance survives removal of the originating vehicle. */
   sourceKind?: "vehicle_service" | "transfer_fee" | null;
   transferFeeMethod?: TransferFeeMethod | null;
+  paymentMethod?: PaymentMethod | null;
   transferFeeRial?: number | null;
   transferFeeForId?: string | null;
   familyId: string;
@@ -58,6 +60,7 @@ export interface Transaction {
 }
 
 export interface TransactionInput {
+  paymentMethod?: PaymentMethod | null;
   transferFeeMethod?: TransferFeeMethod | null;
   requireAvailableBalance?: boolean;
   memberId: string;

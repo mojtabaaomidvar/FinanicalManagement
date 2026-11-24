@@ -30,41 +30,14 @@ from app.schemas.data import OccurrenceSettle, PhotoCreate, RecurringUpdate, Tra
 from app.services.common import is_admin, to_uuid, to_uuid_opt
 from app.services.member_age import document_age_restricted, today_tehran
 from app.services.transfer_fees import TRANSFER_METHODS, calculate_transfer_fee_rial
+from app.services.transaction_categories import CATEGORY_TYPES
 
-_TIME_RE = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
+_TIME_RE = re.compile(r"(?:[01][0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?")
 _REPEATS = {"none", "weekly", "monthly", "yearly"}
 _TYPES = {"expense", "income", "transfer"}
 
 # دسته‌های ثابت برنامه (هم‌سان با add_transaction قدیمی)
-_FIXED_CATEGORIES = frozenset(
-    {
-        "food",
-        "home",
-        "bills",
-        "transport",
-        "health",
-        "clothing",
-        "edu",
-        "fun",
-        "shopping",
-        "comm",
-        "finance",
-        "insurance",
-        "gifte",
-        "family",
-        "beauty",
-        "sport",
-        "pet",
-        "other-e",
-        "salary",
-        "business",
-        "invest",
-        "sale",
-        "gift",
-        "other-i",
-        "transfer",
-    }
-)
+_FIXED_CATEGORIES = frozenset(CATEGORY_TYPES)
 
 
 # ── خواندن (فاز ۶) ───────────────────────────────────────────
@@ -102,18 +75,18 @@ def _require_source_access(actor: Member, row: Transaction) -> None:
 
 
 # ── اعتبارسنجی مشترک افزودن/ویرایش ─────────────────────────
-def _prepare(db: Session, family_id: uuid.UUID, req: TransactionWrite) -> dict:
+def _prepare(db: Session, family_id: uuid.UUID, req: TransactionWrite, *, replacing: Transaction | None = None) -> dict:
     """قواعد سمت سرور را اعمال و مقادیر نرمال‌شدهٔ ستون‌ها را برمی‌گرداند."""
     if req.type not in _TYPES:
         raise AppError("INVALID_TYPE", "نوع تراکنش نامعتبر است.", 422)
-    if req.amount is None or req.amount <= 0:
+    if req.amount is None or not req.amount.is_finite() or req.amount <= 0 or req.amount > 999999999999:
         raise AppError("INVALID_AMOUNT", "مبلغ باید بزرگ‌تر از صفر باشد.", 422)
     category = (req.category or "").strip()
     if not category:
         raise AppError("INVALID_CATEGORY", "دسته نامعتبر است.", 422)
     if req.date is None:
         raise AppError("INVALID_DATE", "تاریخ نامعتبر است.", 422)
-    if req.time is not None and not _TIME_RE.match(req.time):
+    if req.time is not None and not _TIME_RE.fullmatch(req.time):
         raise AppError("INVALID_TIME", "ساعت نامعتبر است.", 422)
     if req.repeat not in _REPEATS:
         raise AppError("INVALID_REPEAT", "دورهٔ تکرار نامعتبر است.", 422)
@@ -134,7 +107,11 @@ def _prepare(db: Session, family_id: uuid.UUID, req: TransactionWrite) -> dict:
         raise AppError("INVALID_MEMBER", "عضو نامعتبر است.", 422)
 
     # دسته: از لیست ثابت یا دستهٔ سفارشی همین خانواده با همین نوع
-    if category not in _FIXED_CATEGORIES:
+    if category in _FIXED_CATEGORIES:
+        unchanged_history = replacing is not None and (replacing.type, replacing.category) == (req.type, category)
+        if CATEGORY_TYPES[category] != req.type and not unchanged_history:
+            raise AppError("INVALID_CATEGORY", "دسته‌بندی با نوع تراکنش سازگار نیست.", 422)
+    else:
         try:
             custom_id = uuid.UUID(category)
         except ValueError:
@@ -202,6 +179,12 @@ def _prepare(db: Session, family_id: uuid.UUID, req: TransactionWrite) -> dict:
 
     note = (req.note or "").strip() or None
     fee_method = req.transfer_fee_method
+    payment_method = req.payment_method
+    if payment_method is not None:
+        if req.type != "expense" or payment_method not in ("card", "online", "bank_transfer"):
+            raise AppError("INVALID_PAYMENT_METHOD", "روش پرداخت هزینه را انتخاب کنید.", 422)
+        if payment_method in ("card", "online") and fee_method is not None:
+            raise AppError("INVALID_TRANSFER_FEE", "پرداخت با کارت یا آنلاین کارمزد انتقال ندارد.", 422)
     fee_rial = None
     if fee_method is not None:
         if req.type not in ("expense", "transfer") or fee_method not in TRANSFER_METHODS:
@@ -229,6 +212,7 @@ def _prepare(db: Session, family_id: uuid.UUID, req: TransactionWrite) -> dict:
         "repeat": req.repeat,
         "repeat_end": req.repeat_end if req.repeat != "none" else None,
         "transfer_fee_method": fee_method,
+        "payment_method": payment_method,
         "transfer_fee_rial": fee_rial,
     }
 
@@ -240,6 +224,7 @@ def create_uncommitted(
     req: TransactionWrite,
     *,
     source_kind: Literal["vehicle_service"] | None = None,
+    actor: Member | None = None,
 ) -> Transaction:
     """تراکنش را می‌سازد و `flush` می‌کند — **بدون commit**.
 
@@ -257,9 +242,12 @@ def create_uncommitted(
     نمی‌شود: یک موتورِ قاعده، یک commit.
     """
     values = _prepare(db, family_id, req)
+    if actor is not None:
+        _check_payment_account(db, actor, values, req.require_available_balance or values["transfer_fee_method"] is not None)
     row = Transaction(family_id=family_id, source_kind=source_kind, **values)
     db.add(row)
     db.flush()
+    _sync_transfer_fee(db, row)
     return row
 
 
@@ -292,13 +280,7 @@ def create_vehicle_service_uncommitted(
 def create(
     db: Session, family_id: uuid.UUID, req: TransactionWrite, *, actor: Member | None = None
 ) -> Transaction:
-    values = _prepare(db, family_id, req)
-    if actor is not None:
-        _check_payment_account(db, actor, values, req.require_available_balance or values["transfer_fee_method"] is not None)
-    row = Transaction(family_id=family_id, **values)
-    db.add(row)
-    db.flush()
-    _sync_transfer_fee(db, row)
+    row = create_uncommitted(db, family_id, req, actor=actor)
     db.commit()
     db.refresh(row)
     return row
@@ -322,7 +304,9 @@ def update(db: Session, actor: Member, tx_id: uuid.UUID, req: TransactionWrite) 
         raise AppError("SOURCE_IMMUTABLE", "کارمزد همراه پرداخت مدیریت می‌شود؛ پرداخت اصلی را ویرایش یا حذف کنید.", 422)
     if "transfer_fee_method" not in req.model_fields_set and req.type in ("expense", "transfer"):
         req = req.model_copy(update={"transfer_fee_method": row.transfer_fee_method})
-    values = _prepare(db, actor.family_id, req)
+    if "payment_method" not in req.model_fields_set and req.type == "expense":
+        req = req.model_copy(update={"payment_method": row.payment_method})
+    values = _prepare(db, actor.family_id, req, replacing=row)
     if all(values[key] == getattr(row, key) for key in ("amount", "type", "account_id", "to_account_id", "transfer_fee_method")):
         values["transfer_fee_rial"] = row.transfer_fee_rial
     _check_payment_account(db, actor, values, req.require_available_balance or values["transfer_fee_method"] is not None, replacing=row)
@@ -639,6 +623,7 @@ def settle_occurrence(
             category=source.category if source else row.recurring_category or row.category,
             date=source.date if source else today_tehran(),
             time=source.time if source else None,
+            payment_method=source.payment_method if source else row.payment_method,
             note=source.note
             if source
             else row.recurring_note

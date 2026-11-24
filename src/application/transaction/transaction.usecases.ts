@@ -39,7 +39,11 @@ export class AddTransactionUseCase {
 export class UpdateTransactionUseCase {
   constructor(private readonly repo: TransactionRepository) {}
   async execute(id: string, input: TransactionInput): Promise<void> {
-    const v = validateTransaction(input);
+    let v = validateTransaction(input);
+    if (v.error === "INVALID_CATEGORY") {
+      const existing = (await this.repo.list()).find(tx => tx.id === id);
+      v = validateTransaction(input, existing);
+    }
     if (!v.ok) throw new AppError("INVALID_TX", "اطلاعات تراکنش معتبر نیست");
     await this.repo.update(id, input);
   }

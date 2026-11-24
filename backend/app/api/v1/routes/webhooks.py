@@ -31,5 +31,5 @@ def bridge_ingest(
 
     توکن نامعتبر → UNAUTHORIZED (۴۰۱). متن خالی → count=0 بدون خطا.
     """
-    n = messaging_service.ingest_via_bridge(db, body.token, body.text, body.sender)
+    n = messaging_service.ingest_via_bridge(db, body.token, body.text, body.sender, body.received_at, body.transport_id)
     return IngestResult(ok=True, count=n)

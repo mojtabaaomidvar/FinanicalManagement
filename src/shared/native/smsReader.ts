@@ -9,6 +9,8 @@ import type { PermissionState, PluginListenerHandle } from "@capacitor/core";
 export interface SmsReceivedEvent {
   rawText: string;
   sender: string | null;
+  receivedAt?: string | null;
+  transportId?: string | null;
 }
 
 /** وضعیت مجوز خواندن/دریافت پیامک. */

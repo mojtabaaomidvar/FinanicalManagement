@@ -1,11 +1,10 @@
 import { useEffect, useId, useRef, useState } from "react";
-import type { AssistantSuggestion, UnsupportedReason } from "@/domain/assistant/assistant.types";
+import type { UnsupportedReason } from "@/domain/assistant/assistant.types";
 import type { Member } from "@/domain/family/family.types";
 import type { ShoppingList } from "@/domain/shopping/shopping.types";
 import type { ActionReceipt } from "@/domain/assistant/contextual.types";
 import type { HouseholdAssistantModel } from "../model/useHouseholdAssistant";
 import { Modal } from "@/shared/ui";
-import { toFa } from "@/shared/lib/digits";
 import { ContextSources, GroundedFinding } from "./ContextReport";
 import { ACTION_LABELS, ActionReview, PreparedSummary } from "./ActionReview";
 import "./HouseholdAssistant.css";
@@ -22,10 +21,9 @@ export function AssistantSparkle() {
   return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m12 3 2.3 6.7L21 12l-6.7 2.3L12 21l-2.3-6.7L3 12l6.7-2.3L12 3Z" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>;
 }
 
-export function HouseholdAssistant({ model, offline, lists, members, onReview, onLegacyFinance, onShopping, onChanged }: {
+export function HouseholdAssistant({ model, offline, lists, members, onShopping, onChanged }: {
   model: HouseholdAssistantModel; offline: boolean; lists: ShoppingList[]; members: Member[];
-  onReview: (proposal: AssistantSuggestion, listId?: string) => boolean;
-  onLegacyFinance: () => void; onShopping: () => void; onChanged: () => Promise<void>;
+  onShopping: () => void; onChanged: () => Promise<void>;
 }) {
   const inputId = useId(), hintId = useId();
   const dialogRef = useRef<HTMLElement | null>(null);
@@ -83,7 +81,6 @@ export function HouseholdAssistant({ model, offline, lists, members, onReview, o
       {!ready && !offline && !model.checking ? <div className="assistant-unavailable" role="status">
         <p>{model.capabilities?.status === "upgrade_required" ? "برای بررسی اطلاعات خانه، درگاه دستیار باید به نسخهٔ جدید ارتقا پیدا کند." : "دستیار فعلاً در دسترس نیست؛ اتصال یا تنظیمات سرویس باید بررسی شود."}</p>
         <button type="button" className="btn-ghost" onClick={() => void model.checkCapabilities()}>بررسی دوبارهٔ اتصال</button>
-        <button type="button" className="btn-ghost" disabled={locked} onClick={onLegacyFinance}>ادامه در فرم مالی فعلی</button>
       </div> : null}
       {model.storageError ? <p role="status" className="field-error">پیش‌نویس یا نتیجه در این مرورگر ماندگار نشد؛ متن را کپی کن. اجرای تازه به ذخیرهٔ امنِ اطلاعات بازیابی نیاز دارد.</p> : null}
       {model.error !== null ? <p role="alert" className="field-error">{model.error}</p> : null}
@@ -127,16 +124,7 @@ export function HouseholdAssistant({ model, offline, lists, members, onReview, o
               : <button type="button" className="btn-ghost" disabled={offline || locked} onClick={() => { model.cancelReview(); setSelected(action.id); }}>بررسی همین تغییر</button>}
         </article>)}
         {!lists.length && result.actions.some(action => action.kind === "shopping_item") ? <button type="button" className="btn-ghost" disabled={locked} onClick={onShopping}>ادامه در بخش خرید</button> : null}
-        {result.proposals.map(proposal => proposal.kind === "transaction" ? <article className="assistant-proposal" key={proposal.id}>
-          <strong>{proposal.type === "income" ? "درآمد انجام‌شده" : "هزینهٔ انجام‌شده"}</strong>
-          <p>{proposal.amount === null ? "مبلغ نامشخص" : <bdi>{toFa(Number(proposal.amount).toLocaleString("en-US"))}</bdi>}
-            {proposal.unit === "rial" ? " ریال" : proposal.unit === "toman" ? " تومان" : " · واحد نامشخص"}</p>
-          <blockquote>{proposal.source_text}</blockquote>
-          {model.outcomes[proposal.id] === "saved" ? <p>این پیشنهاد ثبت شد.</p> : model.outcomes[proposal.id] === "reviewing" ? <p>فرم مالی برای بررسی باز شده است.</p> : <>
-            <p>ثبت مالی فقط پس از تکمیل و تأیید در فرم معمول انجام می‌شود.</p>
-            <button type="button" className="btn-ghost" disabled={offline || locked} onClick={() => { if (onReview(proposal)) model.mark(proposal.id, "reviewing"); }}>بررسی در فرم مالی</button>
-          </>}
-        </article> : null)}
+        {result.proposals.some(proposal => proposal.kind === "transaction") ? <p>دستیار در ثبت تراکنش مالی نقشی ندارد؛ از بخش تراکنش‌ها استفاده کنید.</p> : null}
         {result.unsupported.map((item, index) => <div className="assistant-unsupported" key={index}><blockquote>{item.source_text}</blockquote><p>{UNSUPPORTED_LABELS[item.reason]}</p></div>)}
       </div> : null}
       <button type="button" className="btn-ghost" onClick={close}>بستن دستیار</button>

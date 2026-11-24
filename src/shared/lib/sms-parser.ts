@@ -21,9 +21,12 @@ export interface ParsedSms {
   balance: number | null;
   date: SmsDate | null;
   category: string | null;
+  time: string | null;
 }
 
 const BANKS: { re: RegExp; name: string }[] = [
+  { re: /توسعه\s*صادرات|export\s*development/i, name: "بانک توسعه صادرات" },
+  { re: /(?:قرض\s*الحسنه\s*)?مهر\s*ایران|mehr\s*iran/i, name: "بانک مهر ایران" },
   { re: /ملی|BMI|bank.?melli/i, name: "بانک ملی" },
   { re: /ملت|BMEL|tejarat.?area/i, name: "بانک ملت" },
   { re: /صادرات|BSIR|bsi/i, name: "بانک صادرات" },
@@ -34,20 +37,18 @@ const BANKS: { re: RegExp; name: string }[] = [
   { re: /کشاورزی|keshavarzi|bki/i, name: "بانک کشاورزی" },
   { re: /رفاه|refah/i, name: "بانک رفاه" },
   { re: /مسکن|maskan/i, name: "بانک مسکن" },
-  { re: /development/i, name: "بانک توسعه صادرات" },
   { re: /سامان|saman/i, name: "بانک سامان" },
   { re: /انصاری|ansari/i, name: "بانک انصاری" },
   { re: /گردشگری|tourism/i, name: "بانک گردشگری" },
   { re: /حکمت|hekmat/i, name: "بانک حکمت" },
-  { re: /دی|day/i, name: "بانک دی" },
+  { re: /بانک\s*دی|day\s*bank|bank\s*day/i, name: "بانک دی" },
   { re: /ایران.?زمین|iranzamin/i, name: "بانک ایران‌زمین" },
-  { re: /قرض.?الحسنه|qarz|mehr/i, name: "بانک قرض‌الحسنه" },
+  { re: /قرض.?الحسنه|qarz/i, name: "بانک قرض‌الحسنه" },
   { re: /شهر|shahr/i, name: "بانک شهر" },
   { re: /آینده|ayandeh/i, name: "بانک آینده" },
   { re: /سرمایه|sarmayeh/i, name: "بانک سرمایه" },
   { re: /کارآفرین|karafarin/i, name: "بانک کارآفرین" },
   { re: /سینا|sina/i, name: "بانک سینا" },
-  { re: /مهر|mehr/i, name: "بانک مهر ایران" },
   { re: /خاورمیانه|khavarmianeh/i, name: "بانک خاورمیانه" },
 ];
 
@@ -111,46 +112,50 @@ export function detectType(text: string): SmsTxType | null {
 }
 
 export function detectBank(text: string): string | null {
+  let remaining = normalizeSms(text);
+  const hits = new Set<string>();
   for (const b of BANKS) {
-    if (b.re.test(text)) return b.name;
+    const bounded = new RegExp(`(?<![\\p{L}\\p{N}_])(?:${b.re.source})(?![\\p{L}\\p{N}_])`, "giu");
+    if (bounded.test(remaining)) {
+      hits.add(b.name);
+      remaining = remaining.replace(bounded, " ");
+    }
   }
-  return null;
+  return hits.size === 1 ? [...hits][0] : null;
 }
 
 export function extractDate(text: string): SmsDate | null {
   const t = toEn(text);
-
-  /* جلالی: ۱۴۰۴/۰۶/۱۵ */
-  let m = t.match(/1[34]\d{2}[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
-  if (m) {
-    const jy = +m[0].slice(0, 4);
-    const jm = +m[1],
-      jd = +m[2];
-    if (jm >= 1 && jm <= 12 && jd >= 1 && jd <= 31) {
-      const [gy, gm, gd] = toGregorian(jy, jm, jd);
-      return { gy, gm, gd, jalali: [jy, jm, jd] };
-    }
+  const candidates: SmsDate[] = [];
+  for (const m of t.matchAll(/(?<!\d)(\d{4}|\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4}|\d{1,2})(?!\d)/g)) {
+    const [a, b, c] = m.slice(1).map(Number);
+    try {
+      let candidate: SmsDate;
+      if (a >= 1300 && a <= 1499) {
+        const [gy, gm, gd] = toGregorian(a, b, c);
+        if (toJalali(gy, gm, gd).join() !== [a, b, c].join()) return null;
+        candidate = { gy, gm, gd, jalali: [a, b, c] };
+      } else {
+        const [gy, gm, gd] = a >= 2000 && a <= 2099 ? [a, b, c]
+          : c >= 2000 && c <= 2099 && a > 12 ? [c, b, a] : [];
+        if (!gy || gm === undefined || gd === undefined) return null;
+        const valid = new Date(Date.UTC(gy, gm - 1, gd));
+        if (valid.getUTCFullYear() !== gy || valid.getUTCMonth() + 1 !== gm || valid.getUTCDate() !== gd) return null;
+        candidate = { gy, gm, gd, jalali: toJalali(gy, gm, gd) };
+      }
+      candidates.push(candidate);
+    } catch { return null; }
   }
+  return candidates.length && new Set(candidates.map(c => `${c.gy}-${c.gm}-${c.gd}`)).size === 1 ? candidates[0] : null;
+}
 
-  /* میلادی: 2025-09-06 */
-  m = t.match(/(20\d{2})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
-  if (m) {
-    const gy = +m[1],
-      gm = +m[2],
-      gd = +m[3];
-    return { gy, gm, gd, jalali: toJalali(gy, gm, gd) };
+export function extractTime(text: string): string | null {
+  const candidates: string[] = [];
+  for (const m of toEn(text).matchAll(/(?<![\d:])(\d{1,2}):(\d{2})(?::(\d{2}))?(?![\d:])/g)) {
+    if (+m[1] > 23 || +m[2] > 59 || m[3] !== undefined && +m[3] > 59) return null;
+    candidates.push(`${m[1].padStart(2, "0")}:${m[2]}${m[3] !== undefined ? `:${m[3]}` : ""}`);
   }
-
-  /* میلادی با روز اول: 06/09/2025 */
-  m = t.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](20\d{2})/);
-  if (m) {
-    const gy = +m[3],
-      gm = +m[2],
-      gd = +m[1];
-    return { gy, gm, gd, jalali: toJalali(gy, gm, gd) };
-  }
-
-  return null;
+  return candidates.length && new Set(candidates).size === 1 ? candidates[0] : null;
 }
 
 export function extractBalance(text: string): number | null {
@@ -208,6 +213,7 @@ export function parseSms(rawText: string): ParsedSms | null {
     amount,
     balance,
     date,
+    time: extractTime(text),
     category: guessCategory(text),
   };
 }

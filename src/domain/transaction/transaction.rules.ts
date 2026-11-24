@@ -2,14 +2,15 @@
    اعتبارسنجی دسته: ثابت یا uuid دسته سفارشی — مالکیت نهایی در سرور چک می‌شود */
 
 import { isValidCategory } from "../category/category.catalog";
-import type { Transaction, TransactionInput } from "./transaction.types";
+import type { Transaction, TransactionInput, TxType } from "./transaction.types";
 import { isoToJalali } from "@/shared/lib/jalali";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** دسته معتبر: از کاتالوگ ثابت (هر نوع) یا uuid دسته سفارشی خانواده */
-export function isValidCategoryId(id: string): boolean {
+export function isValidCategoryId(id: string, type?: TxType): boolean {
+  if (type) return isValidCategory(id, type) || (type !== "transfer" && UUID_RE.test(id));
   return (
     isValidCategory(id, "expense") ||
     isValidCategory(id, "income") ||
@@ -23,9 +24,12 @@ export type TxValidationCode =
   | "INVALID_AMOUNT"
   | "INVALID_CATEGORY"
   | "INVALID_DATE"
+  | "INVALID_TIME"
   | "INVALID_MEMBER"
   | "INVALID_NOTE"
   | "INVALID_TRANSFER"
+  | "INVALID_PAYMENT_METHOD"
+  | "INVALID_TRANSFER_FEE"
   | "INVALID_REPEAT_END";
 
 export interface TxValidationResult {
@@ -41,10 +45,11 @@ function isValidGregorianIso(date: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
   const year = +date.slice(0, 4);
   if (year < 1900 || year > 2200) return false;
-  return !isNaN(Date.parse(date));
+  const parsed = new Date(`${date}T00:00:00Z`);
+  return !isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date;
 }
 
-export function validateTransaction(input: TransactionInput): TxValidationResult {
+export function validateTransaction(input: TransactionInput, existing?: Transaction): TxValidationResult {
   if (input.type !== "expense" && input.type !== "income" && input.type !== "transfer") {
     return { ok: false, error: "INVALID_TYPE" };
   }
@@ -55,17 +60,30 @@ export function validateTransaction(input: TransactionInput): TxValidationResult
   ) {
     return { ok: false, error: "INVALID_AMOUNT" };
   }
-  if (!input.category || !isValidCategoryId(input.category)) {
+  const unchangedHistory = existing && existing.type === input.type && existing.category === input.category
+    && isValidCategoryId(input.category);
+  if (!input.category || !isValidCategoryId(input.category, input.type) && !unchangedHistory) {
     return { ok: false, error: "INVALID_CATEGORY" };
   }
   if (!isValidGregorianIso(input.date)) {
     return { ok: false, error: "INVALID_DATE" };
+  }
+  if (input.time != null && !/^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(input.time)) {
+    return { ok: false, error: "INVALID_TIME" };
   }
   if (!input.memberId) {
     return { ok: false, error: "INVALID_MEMBER" };
   }
   if ((input.note ?? "").length > MAX_NOTE_LENGTH) {
     return { ok: false, error: "INVALID_NOTE" };
+  }
+  if (input.paymentMethod != null) {
+    if (input.type !== "expense" || !["card", "online", "bank_transfer"].includes(input.paymentMethod)) {
+      return { ok: false, error: "INVALID_PAYMENT_METHOD" };
+    }
+    if (input.paymentMethod !== "bank_transfer" && input.transferFeeMethod != null) {
+      return { ok: false, error: "INVALID_TRANSFER_FEE" };
+    }
   }
   /* انتقال: حساب مبدأ و مقصد الزامی و متفاوت */
   if (input.type === "transfer") {

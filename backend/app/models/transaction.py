@@ -46,6 +46,10 @@ class Transaction(Base):
         CheckConstraint("type IN ('expense','income','transfer')", name="type"),
         CheckConstraint("amount > 0", name="amount_positive"),
         CheckConstraint("repeat IN ('none','weekly','monthly','yearly')", name="repeat"),
+        CheckConstraint("payment_method IS NULL OR (type='expense' AND payment_method IN ('card','online','bank_transfer'))",
+                        name="transaction_payment_method"),
+        CheckConstraint("payment_method IS NULL OR payment_method='bank_transfer' OR transfer_fee_method IS NULL",
+                        name="transaction_payment_fee"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -59,6 +63,7 @@ class Transaction(Base):
     )
     type: Mapped[str] = mapped_column(Text, nullable=False)
     source_kind: Mapped[str | None] = mapped_column(Text)
+    payment_method: Mapped[str | None] = mapped_column(Text)
     transfer_fee_method: Mapped[str | None] = mapped_column(Text)
     transfer_fee_rial: Mapped[int | None] = mapped_column(BigInteger)
     transfer_fee_for_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))

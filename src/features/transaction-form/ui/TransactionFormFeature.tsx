@@ -6,7 +6,8 @@ import { useTransferFeeQuote } from "../model/useTransferFeeQuote";
 import { BankPaymentFields } from "./BankPaymentFields";
 import { SmsImportFeature } from "@/features/sms-import";
 import { Modal, Select, TextInput, JalaliDateInput, expressionInputCaret, normalizeExpressionInput } from "@/shared/ui";
-import { categoriesFor, CUSTOM_CATEGORY_ICON } from "@/domain/category/category.catalog";
+import { categoriesFor, categoryById, CUSTOM_CATEGORY_ICON } from "@/domain/category/category.catalog";
+import { isValidCategoryId } from "@/domain/transaction/transaction.rules";
 import { TX_REPEATS, type TxRepeat } from "@/domain/transaction/transaction.types";
 import { parseScheduledAmount } from "@/domain/transaction/recurring.rules";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
@@ -62,16 +63,27 @@ export function TransactionFormFeature({ form: m, onImported }: {
   const bankTransfer = isTransfer && sourceAccount?.kind === "bank" && destinationAccount?.kind === "bank";
   const bankExpense = m.form.type === "expense" && sourceAccount?.kind === "bank";
   const quote = useTransferFeeQuote(useCases, `${ownerId}:${m.open}:${m.form.type}:${m.form.accountId}:${m.form.toAccountId}`,
-    m.open && (bankTransfer || bankExpense) && m.form.feeChoice === "yes" ? m.form.feeMethod : "", amount);
+    m.open && ((bankTransfer && m.form.feeChoice === "yes") || (bankExpense && m.form.paymentMethod === "bank_transfer")) ? m.form.feeMethod : "", amount);
   const choices = transactionAccountChoices(accounts, txs, ownerId, amount, m.form.type !== "income", showAll || m.form.type === "income",
     m.editing?.id).filter(({ account, balance }) => m.form.type === "income" || account.kind !== "bank" || amount === null || balance >= amount + quote.rial / 10);
   const destinations = transactionAccountChoices(accounts, txs, null, null, false, showAll)
     .filter(row => row.account.id !== m.form.accountId);
-  const cats = useMemo(() => isTransfer ? [] : [
-    ...categoriesFor(m.form.type),
-    ...customCategories.filter(category => category.type === m.form.type)
-      .map(category => ({ id: category.id, name: category.name, icon: CUSTOM_CATEGORY_ICON })),
-  ], [isTransfer, m.form.type, customCategories]);
+  const cats = useMemo(() => {
+    if (isTransfer) return [];
+    const choices = [
+      ...categoriesFor(m.form.type),
+      ...customCategories.filter(category => category.type === m.form.type)
+        .map(category => ({ id: category.id, name: category.name, icon: CUSTOM_CATEGORY_ICON })),
+    ];
+    // Show the existing historical value without making it selectable for new
+    // transactions or silently replacing it when only the note/amount is edited.
+    if (m.editing && m.editing.type === m.form.type && m.editing.category === m.form.categoryId
+      && isValidCategoryId(m.form.categoryId) && !choices.some(category => category.id === m.form.categoryId)) {
+      const category = categoryById(m.form.categoryId);
+      choices.unshift({ id: m.form.categoryId, name: category.name, icon: category.icon });
+    }
+    return choices;
+  }, [isTransfer, m.form.type, m.form.categoryId, m.editing, customCategories]);
   const tags = useMemo(() => {
     const history = subcategories.filter(item => item.category === m.form.categoryId)
       .map(item => ({ value: item.name, label: item.name }));
@@ -142,8 +154,6 @@ export function TransactionFormFeature({ form: m, onImported }: {
       {m.occurrencePending && !m.occurrenceAcknowledged ? <div className="tx-save-status" role="status">
         <p>تراکنش این نوبت ثبت شده؛ فقط تأیید سررسید باقی مانده است.</p><p>{m.occurrenceError}</p>
       </div> : null}
-      {m.householdReviewNote ? <p className="tx-simple-hint" role="status">پیشنهاد دستیار سراسری وارد فرم شد؛ مبلغ، واحد، حساب و تاریخ را بررسی کن. تحلیل دوباره لازم نیست.</p> : null}
-      {m.assistantInitialText ? <blockquote dir="auto">{m.assistantInitialText}</blockquote> : null}
       <fieldset className="tx-simple-fields" disabled={locked}>
         <div className="tx-tabs" role="tablist" aria-label="نوع تراکنش">
           {TYPE_TABS.map(tab => <button key={tab.value} type="button" role="tab" aria-selected={m.form.type === tab.value}
@@ -175,6 +185,8 @@ export function TransactionFormFeature({ form: m, onImported }: {
         </div>
         {bankTransfer || bankExpense ? <BankPaymentFields mode={bankExpense ? "expense" : "transfer"}
           choice={m.form.feeChoice} method={m.form.feeMethod} loading={quote.loading} error={quote.error}
+          paymentMethod={m.form.paymentMethod}
+          onPaymentMethod={paymentMethod => m.setForm(previous => ({ ...previous, paymentMethod, feeMethod: paymentMethod === "bank_transfer" ? previous.feeMethod : "" }))}
           onChoice={feeChoice => m.setForm(previous => ({ ...previous, feeChoice, feeMethod: feeChoice === "no" ? "" : previous.feeMethod }))}
           onMethod={feeMethod => m.setForm(previous => ({ ...previous, feeMethod }))} /> : null}
         {!isTransfer ? <div className="tx-simple-category">

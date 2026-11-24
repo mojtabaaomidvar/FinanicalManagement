@@ -40,6 +40,7 @@ export interface FamilyRow {
 }
 
 export interface TransactionRow {
+  payment_method?: Transaction["paymentMethod"];
   transfer_fee_method?: Transaction["transferFeeMethod"];
   transfer_fee_rial?: number | null;
   transfer_fee_for_id?: string | null;
@@ -76,6 +77,11 @@ export interface SmsRow {
   amount: string | number | null;
   balance: string | number | null;
   date: string | null;
+  time?: string | null;
+  received_at?: string | null;
+  transport_id?: string | null;
+  parser_version?: string | null;
+  transaction_id?: string | null;
   status: SmsStatus;
   sender?: string | null;
   account_id?: string | null;
@@ -171,6 +177,7 @@ export function mapTransaction(r: TransactionRow): Transaction {
     id: r.id,
     sourceKind: r.source_kind === "vehicle_service" || r.source_kind === "transfer_fee" ? r.source_kind : null,
     transferFeeMethod: r.transfer_fee_method ?? null,
+    paymentMethod: r.payment_method ?? null,
     transferFeeRial: r.transfer_fee_rial ?? null,
     transferFeeForId: r.transfer_fee_for_id ?? null,
     familyId: r.family_id,
@@ -212,6 +219,11 @@ export function mapSms(r: SmsRow): BankSms {
     amount: r.amount == null ? null : +r.amount,
     balance: r.balance == null ? null : +r.balance,
     date: r.date,
+    time: r.time ?? null,
+    receivedAt: r.received_at ?? null,
+    transportId: r.transport_id ?? null,
+    parserVersion: r.parser_version ?? null,
+    transactionId: r.transaction_id ?? null,
     status: r.status,
     sender: r.sender ?? null,
     accountId: r.account_id ?? null,
@@ -227,6 +239,7 @@ export function toSmsItems(items: NewBankSms[]): Record<string, unknown>[] {
     amount: s.amount,
     balance: s.balance,
     date: s.date,
+    time: s.time ?? null,
   }));
 }
 

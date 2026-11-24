@@ -60,10 +60,9 @@ def test_mixed_requests_only_prepare_and_mask_personal_accounts(client, home_a, 
     before = {path: client.get(API + path, headers=home_a.h).json() for path in paths}
     result = expect_status(analyze(client, home_a, raw), 200).json()
     assert [row["kind"] for row in result["proposals"]] == [
-        "transaction", "shopping_item", "shopping_item", "task",
+        "shopping_item", "shopping_item", "task",
     ]
-    assert result["proposals"][0]["amount"] == "250000"
-    assert result["proposals"][0]["date"] == result["reference_date"]
+    assert result["unsupported"][0]["reason"] == "unsupported_action"
     payload = json.loads(calls[0][0][1]["content"])
     assert "6037991234567890" not in payload["text"] and "6037991234567882" not in payload["text"]
     assert "09121234567" not in payload["text"] and payload["account_aliases"] == ["A1"]
@@ -88,9 +87,8 @@ def test_money_is_exact_event_grounded_and_not_balance(
     calls, output = provider
     output["proposals"] = [finance(normalize_financial_text(text), amount,
                                    type="income" if "واریز" in text else "expense")]
-    result = expect_status(analyze(client, home_a, text), 200).json()["proposals"][0]
-    assert result["amount"] == expected and result["unit"] == unit
-    assert len(calls) == 1
+    expect_status(analyze(client, home_a, text), 422)
+    assert calls == []
 
 
 @pytest.mark.parametrize("text", ["این ماه 250000 تومان خرج کردم؟", "250000 تومان خرج نکردم",
@@ -101,10 +99,10 @@ def test_money_is_exact_event_grounded_and_not_balance(
 def test_questions_and_future_or_negated_events_cannot_be_transactions(
     client, home_a, provider, text,
 ):
-    _, output = provider
+    calls, output = provider
     output["proposals"] = [finance(text)]
-    result = expect_status(analyze(client, home_a, text), 200).json()
-    assert result["proposals"] == [] and result["unsupported"][0]["reason"] == "unsupported_action"
+    expect_status(analyze(client, home_a, text), 422)
+    assert calls == []
 
 
 def test_scope_rejects_other_kinds_without_legacy_fallback(client, home_a, provider):

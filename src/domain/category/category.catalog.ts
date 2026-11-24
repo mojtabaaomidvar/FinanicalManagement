@@ -3,6 +3,7 @@
    دسته‌های سفارشی خانواده از جدول custom_categories می‌آیند. */
 
 import type { TxType } from "../transaction/transaction.types";
+import categoryContract from "../../../backend/app/services/transaction_categories.json";
 
 export interface Category {
   id: string;
@@ -100,8 +101,5 @@ export function categoryById(id: string): Category {
 }
 
 export function isValidCategory(id: string, type: TxType): boolean {
-  return (
-    CATEGORIES.some((c) => c.id === id && c.type === type) ||
-    SYSTEM_CATEGORIES.some((c) => c.id === id && c.type === type)
-  );
+  return categoryContract[type].includes(id);
 }

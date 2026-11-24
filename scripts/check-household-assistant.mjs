@@ -243,12 +243,13 @@ try {
     await page.waitForFunction(() => !document.querySelector('.household-assistant .home-assistant-actions button')?.disabled);
     assert.equal(analyzeCalls(page),1); assert.equal(executeCalls(page),0); await page.context().close();
   });
-  await check('old gateway reports upgrade and offers only explicit existing financial handoff',async () => {
+  await check('old gateway reports upgrade without a financial form handoff',async () => {
     const page=await session(); await page.route('**/api/v1/assistant/capabilities',route => route.fulfill({json:{status:'upgrade_required',protocol_version:null,kinds:[]}}));
     await page.reload(); await page.locator('.floating-assistant').waitFor(); await open(page);
     await sheet(page).getByText('برای بررسی اطلاعات خانه، درگاه دستیار باید به نسخهٔ جدید ارتقا پیدا کند.',{exact:true}).waitFor();
     await sheet(page).locator('textarea').fill('امروز ۲۵۰ هزار تومان خرج کردم');
-    await sheet(page).getByRole('button',{name:'ادامه در فرم مالی فعلی',exact:true}).click(); await page.locator('.tx-simple').waitFor();
+    assert.equal(await sheet(page).getByRole('button',{name:'ادامه در فرم مالی فعلی',exact:true}).count(),0);
+    assert.equal(await page.locator('.tx-simple').count(),0);
     assert.equal(analyzeCalls(page),0); await page.context().close();
   });
   await check('English and empty copy edits preserve source metadata and household records',async () => {

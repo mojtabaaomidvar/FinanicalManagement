@@ -1,12 +1,15 @@
 import type { SmsReceiptScope } from "./pendingSmsReceipt";
-import type { TransferFeeMethod } from "@/domain/transaction/transaction.types";
+import type { PaymentMethod, TransferFeeMethod } from "@/domain/transaction/transaction.types";
 
 export interface SmsDraftScope { familyId: string; memberId: string }
 type DraftStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 export interface PendingSmsDraft {
   type: "expense" | "income"; categoryId: string; amount: string; currency: string;
   date: string; accountId: string; label: string;
+  time?: string;
+  note?: string;
   feeChoice?: "" | "yes" | "no";
+  paymentMethod?: "" | PaymentMethod;
   feeMethod?: "" | TransferFeeMethod;
 }
 function key(scope: SmsDraftScope, smsId?: string): string {
@@ -32,6 +35,7 @@ export function readPendingDraft(scope: SmsReceiptScope, storage?: DraftStorage)
     if (!["expense", "income"].includes(String(value.type))
       || !["categoryId", "amount", "currency", "date", "accountId", "label"].every(field => typeof value[field] === "string")) return null;
     if (value.feeChoice !== undefined && (typeof value.feeChoice !== "string" || !["", "yes", "no"].includes(value.feeChoice))) return null;
+    if (value.paymentMethod !== undefined && (typeof value.paymentMethod !== "string" || !["", "card", "online", "bank_transfer"].includes(value.paymentMethod))) return null;
     if (value.feeMethod !== undefined && (typeof value.feeMethod !== "string" || !["", "internal", "card_to_card", "paya", "satna", "pol"].includes(value.feeMethod))) return null;
     return value as unknown as PendingSmsDraft;
   } catch { return null; }

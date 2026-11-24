@@ -68,7 +68,12 @@ export async function buildPortablePreview(root, portable, { catalog, visualCata
     } }],
   });
   const fixtureSource = await readFile(join(root, 'scripts/copy-workbench/fixtures.mjs'), 'utf8');
-  const fixtures = await build({ stdin: { contents: browserBuffer + fixtureSource.replace(/^import \{ randomUUID \} from 'node:crypto';\s*/, ''), sourcefile: 'portable-fixtures.js', resolveDir: root },
+  const parser = fixtureSource.includes("import { parseSms } from './sms-fixture-parser.mjs';")
+    ? await build({ entryPoints: [join(root, 'src/shared/lib/sms-parser.ts')], bundle: true, write: false,
+      format: 'iife', globalName: '__SMS_PARSER__', platform: 'browser', minify: true, legalComments: 'none', sourcemap: false }) : null;
+  const fixtureBody = fixtureSource.replace(/^import \{ randomUUID \} from 'node:crypto';\s*/, '')
+    .replace("import { parseSms } from './sms-fixture-parser.mjs';", 'const { parseSms } = __SMS_PARSER__;');
+  const fixtures = await build({ stdin: { contents: browserBuffer + (parser?.outputFiles[0].text ?? '') + fixtureBody, sourcefile: 'portable-fixtures.js', resolveDir: root },
     bundle: true, write: false, format: 'iife', globalName: '__COPY_FIXTURES__', platform: 'browser', minify: true, legalComments: 'none', sourcemap: false });
   let bridge = await readFile(join(root, 'tools/copy-workbench/preview-bridge.js'), 'utf8');
   bridge = bridge.replace("if (location.hostname !== '127.0.0.1' || location.port !== '5701' || !location.pathname.startsWith('/preview')) return;", "if (!window.__COPY_PREVIEW__?.portable) return;")

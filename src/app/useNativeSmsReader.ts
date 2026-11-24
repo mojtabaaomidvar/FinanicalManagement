@@ -124,7 +124,7 @@ export function useNativeSmsReader(onIngested?: () => void): void {
           const text = (ev?.rawText ?? "").trim();
           if (!text) return;
           void useCases.ingestRawSms
-            .execute(text, ev?.sender ?? null)
+            .execute(text, ev?.sender ?? null, ev?.receivedAt ?? null, ev?.transportId ?? null)
             .then((n) => {
               if (n > 0) onIngested?.();
             })

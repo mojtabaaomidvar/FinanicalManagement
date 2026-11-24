@@ -14,6 +14,8 @@ from sqlalchemy import (
     ForeignKey,
     Numeric,
     Text,
+    ForeignKeyConstraint,
+    Index,
     func,
     text,
 )
@@ -28,6 +30,13 @@ class SmsMessage(Base):
     __table_args__ = (
         CheckConstraint("type IS NULL OR type IN ('expense','income')", name="type"),
         CheckConstraint("status IN ('pending','recorded','ignored')", name="status"),
+        ForeignKeyConstraint(["transaction_id", "family_id"], ["transactions.id", "transactions.family_id"],
+                             name="sms_transaction_family", ondelete="SET NULL (transaction_id)"),
+        CheckConstraint("transaction_id IS NULL OR status = 'recorded'", name="sms_link_recorded"),
+        Index("sms_identity_unique", "family_id", "member_id", "identity_key", unique=True,
+              postgresql_where=text("identity_key IS NOT NULL")),
+        Index("sms_transaction_unique", "transaction_id", unique=True,
+              postgresql_where=text("transaction_id IS NOT NULL")),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -45,6 +54,12 @@ class SmsMessage(Base):
     amount: Mapped[Decimal | None] = mapped_column(Numeric(15, 2))
     balance: Mapped[Decimal | None] = mapped_column(Numeric(15, 2))
     date: Mapped[date | None] = mapped_column(Date)
+    time: Mapped[str | None] = mapped_column(Text)
+    received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    transport_id: Mapped[str | None] = mapped_column(Text)
+    identity_key: Mapped[str | None] = mapped_column(Text)
+    parser_version: Mapped[str | None] = mapped_column(Text)
+    transaction_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'pending'"), index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
