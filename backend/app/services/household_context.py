@@ -51,6 +51,9 @@ def ingredient_status(ingredient: dict, stock: list[dict]) -> dict:
         return result
     row = matches[0]
     result["inventory_id"] = row.get("id")
+    if ingredient.get("qty") is None:
+        # A library ingredient names a requirement, not a known recipe amount.
+        return result
     units = {"گرم": ("mass", Decimal(1)), "کیلوگرم": ("mass", Decimal(1000)),
              "کیلو": ("mass", Decimal(1000)), "میلی لیتر": ("volume", Decimal(1)),
              "میلی‌لیتر": ("volume", Decimal(1)), "لیتر": ("volume", Decimal(1000))}

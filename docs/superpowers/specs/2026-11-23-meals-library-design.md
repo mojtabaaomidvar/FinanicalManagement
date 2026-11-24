@@ -34,6 +34,14 @@ content and sheet width limits rather than making meals wider than other screens
 Library and full-week views remain single-column, and culinary artwork uses the
 compact composition. Test actual column/sheet dimensions as well as page overflow.
 
+Official release approval (24 November): promote the reviewed meals implementation
+onto the latest official `v0.7.2` for `v0.8.0`, preserving all released assistant
+features and repairs. The existing assistant fact adapter must retain `qty: null`
+as unknown rather than attempting Decimal conversion; this compatibility guard
+does not add a quantity-calculation workflow. The deployment is API/PWA only, on
+the unchanged `0034_assistant_receipts` schema, without a gateway upgrade or billed
+inference. Publication does not imply production installation.
+
 Three navigation sections:
 
 1. «برنامهٔ هفته»: selected-day menu by default; optional full-week view; existing

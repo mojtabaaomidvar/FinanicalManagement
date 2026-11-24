@@ -1,5 +1,6 @@
 """Public API -> private gateway -> real JSON parser; only provider HTTP is fictional."""
 import json
+from decimal import Decimal
 
 import httpx
 import pytest
@@ -99,6 +100,34 @@ def test_public_report_preserves_safe_failure_code_without_retry_or_write(
     assert response.status_code >= 400 and response.json()["error"] == code
     assert "private-" not in response.text and TEXT not in response.text
     assert len(real_transport["provider_calls"]) == len(real_transport["gateway_calls"]) == fail_at
+    assert {path: client.get(API + path, headers=home_a.h).json() for path in PATHS} == before
+
+
+@pytest.mark.parametrize("quantity", [0, 2])
+def test_library_name_only_dish_uses_real_report_transport_without_invented_amounts(
+    client, home_a, real_transport, quantity,
+):
+    seed_breakfast(client, home_a, quantity)
+    response = client.post(API + "/meals/dishes", headers=home_a.h, json={
+        "title": "غذای کتابخانه", "ingredients": [
+            {"title": "نان", "qty": None, "unit": "عدد"},
+            {"title": "پنیر", "qty": 20, "unit": "گرم"},
+        ],
+    })
+    assert response.status_code == 201, response.text
+    dish_id = response.json()["id"]
+    before = {path: client.get(API + path, headers=home_a.h).json() for path in PATHS}
+    response = client.post(API + "/assistant/report", headers=home_a.h,
+                           json={"text": "برای صبحانه چه غذایی داریم؟"})
+    assert response.status_code == 200, response.text
+    value = response.json()
+    dish = next(fact for fact in value["facts"] if fact.get("dish_id") == dish_id)
+    assert dish["status"] == "unknown"
+    bread, cheese = dish["ingredients"]
+    assert bread["qty"] is None and bread["status"] == "unknown" and bread["shortage"] is None
+    assert cheese["status"] == "available" and Decimal(cheese["qty"]) == Decimal("20")
+    assert value["inferences"] == len(real_transport["provider_calls"]) == 2
+    assert len(real_transport["gateway_calls"]) == 2
     assert {path: client.get(API + path, headers=home_a.h).json() for path in PATHS} == before
 
 

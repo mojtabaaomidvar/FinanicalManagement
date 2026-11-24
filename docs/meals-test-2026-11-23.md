@@ -2,12 +2,19 @@
 
 ## Status and scope
 
-This is a local test implementation of the approved
+This document records the isolated review and its original validation checkpoints.
+On 24 November the user explicitly approved the official release. The reviewed
+meals commits, including the mobile-width correction, are promoted onto official
+`v0.7.2` for `v0.8.0`; the test baseline below remains historical. Exact release
+scope and installation status are recorded in
+[`deployment-0.8.0-2026-11-24.md`](deployment-0.8.0-2026-11-24.md).
+
+The original local test implementation of the approved
 [`2026-11-23-meals-library-design.md`](superpowers/specs/2026-11-23-meals-library-design.md),
-not an official release or production installation. Its branch is
+was not an official release or production installation. Its branch is
 `codex/meals-test-2026-11-23`, based on official `v0.6.0`
 (`0faa080f7c272e4b3842d19f57ed1e10d56ab992`). The version displayed by the
-application still identifies that baseline; no next release number has been chosen.
+application identified that baseline; no release number had been chosen then.
 
 The meals interface now contains a selected-day breakfast/lunch/dinner menu, a
 seven-day selector and optional full-week view, a searchable public food library,
@@ -105,8 +112,9 @@ separate real PostgreSQL tests above. Session identity/request-capture safeguard
 are also covered by the meal repository's frontend tests, not by a claim of a live
 production account-transition test.
 
-`git diff --check` passes. All work remains local; no remote branch, tag or release
-has been published, and no production install or manual-sandbox refresh was run.
+At the original test checkpoint, `git diff --check` passed and all work remained
+local; no remote branch, tag, release, production install or manual-sandbox refresh
+had been run.
 
 Projection source SHA-256:
 `da49cd9a2241b402b5cf1ccbf9a5ac1a30bde5135ed96c712447706a645af36a`.
@@ -141,8 +149,9 @@ source-apply suite is covered separately by the 122 passing copy tests above. A 
 full-catalogue request in the editor can still time out on a busy host; this is not
 a claim that the editor's startup-performance issue has been fixed.
 
-Publication, merging into another active worktree, production installation and a
-release version all require separate user approval after review of the running UI.
+Publication originally required separate user approval after review of the running
+UI; that approval was given on 24 November. Production installation remains separate,
+and unrelated active worktrees are not merged into the release.
 
 ## Mobile-width review correction
 
@@ -185,5 +194,5 @@ Correction validation completed:
 
 Reports and responsive screenshots are under `../browser-report/chrome/` and
 `../browser-report/firefox/`. Read `../preview-url.txt` for the corrected running
-review session. The correction is local only; no push, merge, release or production
-installation has been performed.
+review session. At that correction checkpoint no push, merge, release or production
+installation had been performed.

@@ -338,6 +338,7 @@ function fixtureIngredient(ingredient, inventory) {
   const result = {...ingredient,status:'unknown',shortage:null,inventory_id:null};
   if (matches.length !== 1) return result;
   const stock = matches[0]; result.inventory_id = stock.id;
+  if (ingredient.qty == null) return result;
   let have = Number(stock.quantity);
   const units = {'گرم':['mass',1],'کیلوگرم':['mass',1000],'لیتر':['volume',1000],'میلی لیتر':['volume',1]};
   if (stock.unit !== ingredient.unit) {

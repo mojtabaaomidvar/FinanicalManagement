@@ -46,6 +46,17 @@ def test_pure_ambiguous_inventory_rows_are_unknown():
     assert result["status"] == "unknown"
 
 
+@pytest.mark.parametrize("quantity", ["0", "2"])
+@pytest.mark.parametrize("unit", [None, "عدد"])
+def test_name_only_ingredient_remains_unknown_with_matching_inventory(quantity, unit):
+    ingredient = {"title": "نان", "qty": None, "unit": unit}
+    result = ingredient_status(ingredient, [
+        {"id": "bread", "title": "نان", "quantity": quantity, "unit": "عدد"},
+    ])
+    assert result == {**ingredient, "status": "unknown", "shortage": None,
+                      "inventory_id": "bread"}
+
+
 @pytest.fixture
 def contextual_provider(monkeypatch):
     monkeypatch.setattr(settings, "ai_sms_gateway_url", "")

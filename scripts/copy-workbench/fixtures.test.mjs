@@ -5,6 +5,23 @@ import { SCENARIOS, ROUTES, createPreviewSession, handlePreviewRequest } from '.
 const create = (scenario = 'full-owner', route = 'hub') => createPreviewSession(scenario, route, { now: '2026-11-16T08:00:00.000Z' });
 const request = (session, path, method = 'GET', body) => handlePreviewRequest(session, { path, method, body });
 
+test('assistant fixture preserves name-only recipe amounts as unknown with matching stock', () => {
+  for (const quantity of [0, 2]) {
+    const session = create('assistant-bread-zero');
+    session.data.inventory.find(row => row.title === 'نان').quantity = quantity;
+    session.data.dishes[0].ingredients[0].qty = null;
+    const before = JSON.stringify([session.data.inventory, session.data.dishes, session.data.lists]);
+    const result = request(session, '/assistant/report', 'POST', { text: 'برای صبحانه چه غذایی داریم؟' });
+    assert.equal(result.status, 200);
+    const dish = result.body.facts.find(fact => fact.dish_id === session.data.dishes[0].id);
+    assert.equal(dish.status, 'unknown');
+    assert.equal(dish.ingredients[0].qty, null);
+    assert.equal(dish.ingredients[0].shortage, null);
+    assert.equal(dish.ingredients[0].status, 'unknown');
+    assert.equal(before, JSON.stringify([session.data.inventory, session.data.dishes, session.data.lists]));
+  }
+});
+
 test('household report computes fixture stock and performs zero business writes', () => {
   const session = create('assistant-bread-zero');
   const paths = ['/transactions','/inventory','/shopping/lists','/tasks','/meals/dishes'];
