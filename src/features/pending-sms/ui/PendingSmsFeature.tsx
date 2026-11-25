@@ -15,6 +15,7 @@ import { toFa } from "@/shared/lib/digits";
 import { transactionAccountChoices } from "@/features/transaction-form/model/transactionAccounts";
 import { parseScheduledAmount } from "@/domain/transaction/recurring.rules";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
+import { InputCurrencyUnit } from "@/shared/ui/InputCurrencyUnit";
 import { formatAccountAmount } from "@/shared/lib/format";
 import { suggestSmsAccount } from "@/domain/sms/sms-parser-account-suggestion";
 import { BankPaymentFields } from "@/features/transaction-form/ui/BankPaymentFields";
@@ -110,7 +111,7 @@ export function PendingSmsFeature({ model: m }: { model: ReturnType<typeof usePe
                 inputMode="decimal"
                 aria-label="مبلغ پیامک"
               />
-              <span className="cur-suffix">{currencyDisplayLabel(m.entryCurrency)}</span>
+              <InputCurrencyUnit value={m.amount} currency={m.entryCurrency} disabled={m.busy || !!m.savedId} onChange={m.setAmountCurrency} />
               </div>
             </Field>
             <Field label="دسته‌بندی">

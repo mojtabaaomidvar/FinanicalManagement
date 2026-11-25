@@ -2,9 +2,9 @@
    در صفحه‌ی «کیف پول‌ها» و زیرصفحه‌ی «کارت‌ها و حساب‌ها»ی تنظیمات
    عیناً همین کامپوننت رندر می‌شود، پس نمایش هر دو همیشه یکسان است. */
 
-import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
+import type { CSSProperties, KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useState } from "react";
-import { Card, Icon, Modal, TextInput } from "@/shared/ui";
+import { Card, Icon, Modal, TextInput, CurrencyUnit } from "@/shared/ui";
 import { maskCardNumber } from "@/domain/account/account.rules";
 import type { Account } from "@/domain/account/account.types";
 import { formatAmount } from "@/shared/lib/format";
@@ -22,6 +22,7 @@ import { AccountFormFeature } from "./AccountFormFeature";
 import { bankDisplayLabel } from "@/shared/lib/banks";
 import { WalletBalanceDisplay } from "./WalletBalanceDisplay";
 import { WalletCorrectionFeature } from "./WalletCorrectionFeature";
+import { bankCardAppearance } from "../model/bankCardAppearance";
 import "./AccountsFeature.css";
 
 /** جلوی باز شدن فرم ویرایش را می‌گیرد — برای دکمه‌های داخل کارت کلیک‌پذیر */
@@ -29,38 +30,39 @@ function stop(e: MouseEvent) {
   e.stopPropagation();
 }
 
-/** پوسته‌ی کارت کلیک‌پذیر — کل کارت دکمه‌ی ویرایش است.
-    اگر کاربر اجازه‌ی ویرایش نداشته باشد، کارت ساده و غیرفعال می‌ماند. */
+/** Card activation opens account actions, including read-only transactions. */
 function ClickableCard({
   acc,
   m,
   className,
+  style,
+  onOpen,
   children,
 }: {
   acc: Account;
   m: AccountsModel;
   className: string;
+  style?: CSSProperties;
+  onOpen: (account: Account) => void;
   children: ReactNode;
 }) {
-  if (!m.canEdit(acc)) {
-    return <div className={className}>{children}</div>;
-  }
-  /* کارت فقط فرم ویرایش را باز می‌کند؛ عملیات حساب داخل فرم هستند. */
+  function open() { if (!m.locked) onOpen(acc); }
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     if (e.target !== e.currentTarget) return;
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      m.openEdit(acc);
+      open();
     }
   }
   return (
     <div
       className={`${className} tappable`}
+      style={style}
       role="button"
       tabIndex={m.locked ? -1 : 0}
       aria-disabled={m.locked}
-      aria-label={`ویرایش ${acc.title}`}
-      onClick={() => m.openEdit(acc)}
+      aria-label={`جزئیات ${acc.title}`}
+      onClick={open}
       onKeyDown={onKeyDown}
     >
       {children}
@@ -161,7 +163,7 @@ function HoldingsCard({ m }: { m: AccountsModel }) {
                       {x.priced ? (
                         <>
                           <b>{formatAmount(toDisplay(x.value, m.cur))}</b>
-                          <span>{m.cur}</span>
+                          <CurrencyUnit />
                         </>
                       ) : (
                         <span className="hold-noprice">قیمت ندارد</span>
@@ -245,19 +247,29 @@ function HoldingsCard({ m }: { m: AccountsModel }) {
 }
 
 export function AccountsFeature({ m, showAddAction = true, onOpenTransactions }: { m: AccountsModel; showAddAction?: boolean; onOpenTransactions: (account: Account) => void }) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedAccount = m.accounts.find(account => account.id === selectedId);
   const [correction, setCorrection] = useState<Account | null>(null);
+  const [correctionHistory, setCorrectionHistory] = useState(false);
   const correctionAccount = correction ? m.accounts.find(account => account.id === correction.id && m.canEdit(account)) : undefined;
   const correctionKey = JSON.stringify([m.member?.familyId, m.member?.id, m.member?.role, correctionAccount?.id]);
-  function actions(account: Account) {
-    return <div className="account-actions wallet-card-actions">
-      <button type="button" className="btn-secondary" disabled={m.locked} onClick={event => { stop(event); onOpenTransactions(account); }}>تراکنش‌ها</button>
-      {m.canEdit(account) ? <button type="button" className="btn-secondary" disabled={m.locked} onClick={event => { stop(event); setCorrection(account); }}>اصلاح موجودی</button> : null}
-    </div>;
-  }
   return (
     <div className="accounts-feature">
-      {correctionAccount ? <WalletCorrectionFeature key={correctionKey} account={correctionAccount} onClose={() => setCorrection(null)} onSaved={m.refreshAfterCorrection} /> : null}
-      <div className="accounts-toolbar"><button type="button" className="btn-secondary" onClick={m.walletBalances.refresh}>دریافت دوبارهٔ موجودی‌ها</button></div>
+      <Modal open={!!selectedAccount} onClose={() => setSelectedId(null)} title={selectedAccount?.title} sheetClassName="wallet-account-sheet">
+        {selectedAccount ? <>
+          {selectedAccount.cardNumber ? <p className="account-detail-number" dir="ltr">{maskCardNumber(selectedAccount.cardNumber)}</p> : null}
+          <div className="wallet-account-actions">
+            <button type="button" className="btn-primary" disabled={m.locked} onClick={() => { setSelectedId(null); onOpenTransactions(selectedAccount); }}>تراکنش‌ها</button>
+            {m.canEdit(selectedAccount) ? <>
+              <button type="button" className="btn-secondary" disabled={m.locked} onClick={() => { setSelectedId(null); setCorrectionHistory(false); setCorrection(selectedAccount); }}>اصلاح موجودی</button>
+              <button type="button" className="btn-secondary" disabled={m.locked} onClick={() => { setSelectedId(null); m.openEdit(selectedAccount); }}>ویرایش حساب</button>
+              <button type="button" className="btn-secondary" disabled={m.locked} onClick={() => { setSelectedId(null); setCorrectionHistory(true); setCorrection(selectedAccount); }}>سابقهٔ اصلاح موجودی</button>
+            </> : null}
+          </div>
+          <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setSelectedId(null)}>بستن</button></div>
+        </> : null}
+      </Modal>
+      {correctionAccount ? <WalletCorrectionFeature key={correctionKey} account={correctionAccount} historyOnly={correctionHistory} onClose={() => setCorrection(null)} onSaved={m.refreshAfterCorrection} /> : null}
       <Modal open={!!m.deleting} onClose={m.closeDelete} title="بررسی حذف حساب" sheetClassName="account-delete-sheet">
         <p>{m.deleting?.title}</p>
         {m.deleteHasHistory ? <p role="status">این حساب سابقهٔ تراکنش دارد و حذف نمی‌شود؛ سابقهٔ مالی حفظ می‌شود.</p> : <>
@@ -273,35 +285,36 @@ export function AccountsFeature({ m, showAddAction = true, onOpenTransactions }:
       </Modal>
       {showAddAction ? <div className="accounts-toolbar"><AccountAddButton m={m} /></div> : null}
       {/* حساب‌های بانکی */}
-      <Card title="حساب‌های بانکی">
+      <Card title="حساب‌های بانکی" action={<button type="button" className="link-btn wallet-refresh" onClick={m.walletBalances.refresh}>به‌روزرسانی</button>}>
         {m.banks.length ? (
           m.banks.map(({ account: acc }) => {
             const owner = m.members.find((x) => x.id === acc.memberId);
+            const appearance = bankCardAppearance(acc.bank, acc.cardNumber);
             return (
               <ClickableCard
                 key={acc.id}
                 acc={acc}
                 m={m}
-                className="account-card flat"
+                onOpen={account => setSelectedId(account.id)}
+                className={`account-card flat bank-wallet-card${appearance ? " is-branded" : ""}`}
+                style={appearance ? { "--bank-color": appearance.color } as CSSProperties : undefined}
               >
                 <div className="account-head">
                   <div className="account-icon">
-                    <svg>
+                    {appearance ? <img src={appearance.logo} alt="" loading="lazy" decoding="async" /> : <svg>
                       <use href="#i-card" />
-                    </svg>
+                    </svg>}
                   </div>
                   <div className="account-title">
                     <h4>{acc.title}</h4>
                     <p>
-                      {acc.bank ? bankDisplayLabel(acc.bank) : "بانک نامشخص"}
+                      {appearance?.label ?? (acc.bank ? bankDisplayLabel(acc.bank) : "بانک نامشخص")}
                       {owner ? ` · ${owner.name}` : ""}
                     </p>
                     {acc.cardNumber ? <span className="account-card-number" dir="ltr">{maskCardNumber(acc.cardNumber)}</span> : null}
                   </div>
                   <div className="account-balance-wrap"><WalletBalanceDisplay state={m.walletBalances.rows.get(acc.id)} currency={m.cur} className="account-balance" /></div>
                 </div>
-
-                {actions(acc)}
 
               </ClickableCard>
             );
@@ -322,6 +335,7 @@ export function AccountsFeature({ m, showAddAction = true, onOpenTransactions }:
                   key={acc.id}
                   acc={acc}
                   m={m}
+                  onOpen={account => setSelectedId(account.id)}
                   className="wallet-card"
                 >
                   <div className="wallet-head">
@@ -336,7 +350,6 @@ export function AccountsFeature({ m, showAddAction = true, onOpenTransactions }:
                     </div>
                   </div>
                   <WalletBalanceDisplay state={m.walletBalances.rows.get(acc.id)} currency={m.cur} className="wallet-balance" />
-                  {actions(acc)}
                 </ClickableCard>
               );
             })}

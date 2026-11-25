@@ -66,6 +66,7 @@ export function useAccountsModel() {
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [cardChangeAck, setCardChangeAck] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY);
+  const [entryCurrency, setEntryCurrency] = useState(cur);
   const [busy, setBusy] = useState(false);
   const writing = useRef(false);
   const smsWriting = useRef(false);
@@ -184,13 +185,14 @@ export function useAccountsModel() {
     return "";
   }, [form.cardNo, form.bank, form.kind]);
 
-  const parsedBalance = parseAccountBalance(form.balance, cur);
+  const parsedBalance = parseAccountBalance(form.balance, entryCurrency);
   const targetBalance = parsedBalance === null ? null : form.negative ? negateMoney(parsedBalance) : parsedBalance;
 
   function openNew(kind: AccountKind, title = "") {
     if (writing.current || smsWriting.current) return;
     setNotice(null);
     setEditing(null);
+    setEntryCurrency(cur);
     setForm({ ...EMPTY, kind, title, memberId: member?.id ?? "" });
     setCardChangeAck(false);
     /* حساب تازه هنوز شناسه‌ای ندارد، پس کلید پیامک اینجا معنا ندارد */
@@ -383,6 +385,8 @@ export function useAccountsModel() {
     members,
     member,
     cur,
+    entryCurrency,
+    setEntryCurrency,
     balances,
     walletBalances,
     refreshAfterCorrection: () => {

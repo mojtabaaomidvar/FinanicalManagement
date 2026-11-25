@@ -1,4 +1,5 @@
 import { AppPage } from "@/shared/ui/AppPage";
+import { CurrencyUnit } from "@/shared/ui/CurrencyUnit";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
@@ -355,7 +356,7 @@ export function VehiclesPage({ initialVehicleId, onInitialVehicleConsumed, onOpe
           <span>تاریخ سرویس بعدی: {dateText(record.nextDueDate)}</span>
           <span>کیلومتر سرویس بعدی: {record.nextDueOdometer === null ? "ثبت نشده" : `${toFa(record.nextDueOdometer)} کیلومتر`}</span>
           <p className="vehicle-service-cost">{record.costStatus === "none" ? "بدون هزینهٔ ثبت‌شده" : record.costStatus === "recorded" && record.costAmount !== null
-            ? `هزینهٔ ثبت‌شده در مالی: ${formatAmount(toDisplay(record.costAmount, cur))} ${currencyLabel(cur)}` : "هزینهٔ قبلی اکنون در دسترس نیست."}</p>
+            ? <>هزینهٔ ثبت‌شده در مالی: {formatAmount(toDisplay(record.costAmount, cur))} <CurrencyUnit /></> : "هزینهٔ قبلی اکنون در دسترس نیست."}</p>
           {record.costStatus === "recorded" && record.transactionId && onOpenFinance ? <button type="button" className="btn-secondary" onClick={() => {
             const transactionId = record.transactionId!; onOpenFinance(transactionId);
           }}>مشاهدهٔ هزینه در مالی</button> : null}</li>)}</ol></> : <p className="form-note">سابقهٔ سرویس برای این حساب در دسترس نیست.</p>}
@@ -400,7 +401,7 @@ export function VehiclesPage({ initialVehicleId, onInitialVehicleConsumed, onOpe
           <VehicleDate label="تاریخ سرویس بعدی" value={nextDue} onChange={(value) => changeService(setNextDue, value)} />
           <Field label="کیلومتر سرویس بعدی"><input className="text-input" aria-label="کیلومتر سرویس بعدی" inputMode="numeric" value={nextKm} placeholder="اختیاری" onChange={(event) => changeService(setNextKm, event.target.value)} /></Field>
           <p className="form-note">موعدهای قبلی با انتخاب جدید جایگزین می‌شوند. می‌توانید تاریخ، کیلومتر یا هر دو را ثبت کنید؛ خالی‌بودن هر دو یعنی فعلاً سرویس دیگری برنامه‌ریزی نشده است.</p>
-          <div role="group" aria-label="هزینهٔ سرویس"><Field label={`هزینهٔ سرویس (${currencyLabel(entryCurrency)}؛ اختیاری)`}><AmountInput value={cost} currency={currencyLabel(entryCurrency)} onChange={(value) => {
+          <div role="group" aria-label="هزینهٔ سرویس"><Field label="هزینهٔ سرویس — اختیاری"><AmountInput value={cost} currency={currencyLabel(entryCurrency)} disabled={busy} onCurrencyChange={(value, unit) => { changeService(setCost, value); setEntryCurrency(unit); }} onChange={(value) => {
             changeService(setCost, value); if (!value.trim()) setAccountId("");
           }} /></Field></div>
           <Field label="حساب پرداخت هزینه"><select className="text-input" aria-label="حساب پرداخت هزینه" value={accountId} disabled={!cost.trim()} onChange={(event) => changeService(setAccountId, event.target.value)}>

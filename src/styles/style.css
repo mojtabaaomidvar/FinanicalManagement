@@ -677,7 +677,7 @@ button:active {
   font-weight: 700;
   color: var(--text-2);
 }
-.tx-amount {
+.tx-form .tx-amount {
   max-width: 100%;
   margin-top: 2px;
   font-size: 44px;
@@ -701,7 +701,7 @@ button:active {
   font-family: inherit;
   letter-spacing: normal;
 }
-.tx-amount::-webkit-scrollbar {
+.tx-form .tx-amount::-webkit-scrollbar {
   display: none;
 }
 .tx-form .tx-amount::placeholder {
@@ -1429,36 +1429,45 @@ button:active {
   min-width: 0;
 }
 .tx-info h4 {
-  font-size: 14px;
+  font-size: var(--fs-3);
   font-weight: 600;
-  white-space: nowrap;
+  min-inline-size: 0;
+  margin: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.45;
 }
 .tx-info p {
-  font-size: 11.5px;
+  font-size: var(--fs-2);
   color: var(--text-3);
-  margin-top: 1px;
+  margin: 0;
+  line-height: 1.9;
 }
 
-.tx-amount {
-  text-align: left;
-  flex-shrink: 0;
+.tx-list .tx-amount {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  direction: rtl;
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+  line-height: 1.6;
 }
-.tx-amount b {
-  font-size: 14.5px;
+.tx-list .tx-amount b {
+  font-size: var(--fs-3);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   display: block;
 }
-.tx-amount span {
+.tx-list .tx-amount span {
   font-size: 10.5px;
   color: var(--text-3);
 }
-.tx-amount.income b {
+.tx-list .tx-amount.income b {
   color: var(--income);
 }
-.tx-amount.expense b {
+.tx-list .tx-amount.expense b {
   color: var(--expense);
 }
 
@@ -1496,7 +1505,28 @@ button:active {
   font-size: 11px;
   color: var(--text-3);
   font-weight: 500;
+  overflow-wrap: anywhere;
 }
+
+/* تراکنش سه‌خطی: عنوان و نام جدا؛ تاریخ تنها؛ مبلغ بدون حذف رقم. */
+.tx-list .tx-item { align-items: flex-start; padding-block: var(--sp-3); gap: var(--sp-2); }
+.tx-list .tx-icon { inline-size: var(--sp-8); block-size: var(--sp-8); }
+.tx-line-one { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2); }
+.tx-description-preview { display: block; inline-size: 100%; min-block-size: var(--sp-8); padding: 0; background: transparent; border: 0; font: inherit; color: inherit; text-align: start; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.tx-description-preview:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--r-btn); }
+.tx-member-label { max-inline-size: var(--sp-10); padding: var(--sp-1) var(--sp-2); border-radius: var(--r-btn); background: hsl(var(--member-hue) 60% 94%); color: hsl(var(--member-hue) 65% 27%); font-size: var(--fs-2); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+[data-theme="dark"] .tx-member-label { background: hsl(var(--member-hue) 35% 20%); color: hsl(var(--member-hue) 65% 83%); }
+.tx-info .tx-date-time { text-align: start; direction: rtl; white-space: nowrap; }
+.tx-description-full { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.9; }
+.tx-detail-amount { display: flex; align-items: center; gap: var(--sp-2); }
+.tx-detail-badges { display: flex; align-items: center; gap: var(--sp-2); }
+
+/* واحد پول یک کنترل مستقل است؛ کلیک آن کارت یا فرم را فعال نمی‌کند. */
+.currency-unit { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; min-inline-size: var(--sp-8); min-block-size: var(--sp-8); padding: 0 var(--sp-1); border: 0; border-radius: var(--r-btn); background: transparent; font-family: inherit; font-size: var(--fs-2); font-weight: 500; line-height: 1.45; color: var(--text-2); cursor: pointer; flex-shrink: 0; }
+.currency-unit:hover { background: var(--card-2); }
+.currency-unit:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
+.currency-unit:disabled { cursor: wait; opacity: .6; }
+.amt-field .currency-unit { position: static; padding-inline: var(--sp-2); }
 
 /* ─────────── Empty state ─────────── */
 .empty-state {
@@ -2428,7 +2458,7 @@ button:active {
   background: color-mix(in srgb, var(--c2) 18%, var(--card));
   color: var(--c2);
 }
-.tx-amount.transfer b {
+.tx-list .tx-amount.transfer b {
   color: var(--c2);
 }
 
@@ -4687,7 +4717,7 @@ button:active {
   .fin-hero-balance {
     font-size: 29px;
   }
-  .tx-amount {
+  .tx-form .tx-amount {
     font-size: 38px;
   }
   .tx-catbar-ico {

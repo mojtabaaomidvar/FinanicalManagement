@@ -14,18 +14,21 @@ exec 9>/var/lock/khaneyar-release.lock
 flock -n 9 || { echo 'Another release installer is running.' >&2; exit 1; }
 [[ -d "$web_dir" && ! -L "$web_dir" && "$(realpath "$web_dir")" == "$web_dir" ]]
 python3 "$checker" incoming "$release_root"
+version="$(python3 "$checker" version "$release_root")"
+[[ "$version" == 0.10.0 || "$version" == 0.12.0 ]]
+if [[ "$version" == 0.12.0 ]]; then python3 "$checker" api "$release_root"; fi
 status="$(python3 "$checker" pwa "$release_root" "$web_dir")"
 if [[ "$status" == ALREADY ]]; then
     python3 "$checker" public "$release_root"
-    echo 'RELEASE ALREADY INSTALLED: v0.10.0'
+    echo "RELEASE ALREADY INSTALLED: v$version"
     exit 0
 fi
 [[ "$status" == BASELINE ]]
 curl -fsS --max-time 20 https://api.khaanehyar.ir/api/v1/auth/config >/dev/null
-backup_dir="$(mktemp -d /var/backups/khaneyar/releases/pwa-0.10.0-XXXXXX)"
+backup_dir="$(mktemp -d /var/backups/khaneyar/releases/pwa-$version-XXXXXX)"
 tar -czf "$backup_dir/pwa-before.tar.gz" -C "$web_dir" .
 tar -tzf "$backup_dir/pwa-before.tar.gz" >/dev/null
-new_web="$(mktemp -d /var/www/khaneyar-next-0.10.0.XXXXXX)"
+new_web="$(mktemp -d /var/www/khaneyar-next-$version.XXXXXX)"
 previous_web="$new_web.previous"
 rollback() {
     local code=$?
@@ -56,8 +59,9 @@ mv -- "$new_web" "$web_dir"
 web_swapped=1
 [[ "$(python3 "$checker" pwa "$release_root" "$web_dir")" == ALREADY ]]
 python3 "$checker" public "$release_root"
+if [[ "$version" == 0.12.0 ]]; then python3 "$checker" api "$release_root"; fi
 curl -fsS --max-time 20 https://api.khaanehyar.ir/api/v1/auth/config >/dev/null
 completed=1
-echo 'RELEASE INSTALLED: v0.10.0'
+echo "RELEASE INSTALLED: v$version"
 echo "PWA backup: $backup_dir; previous files: $previous_web"
 echo 'API, database, uploads, private settings, AI gateway and APK were not changed.'

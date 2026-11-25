@@ -11,6 +11,7 @@ import { useWalletBalances } from "@/features/accounts/model/useWalletBalances";
 import { pendingWalletOptions, WalletAccountStatus } from "@/features/accounts/ui/WalletAccountStatus";
 import { toDisplay } from "@/shared/lib/currency";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
+import { CurrencyUnit, InputCurrencyUnit } from "@/shared/ui";
 import { formatISO, isoToJalali, jalaliToIso, parse, today } from "@/shared/lib/jalali";
 
 type SchedType = "expense" | "income" | "transfer";
@@ -231,7 +232,7 @@ export function ScheduledTxsCard() {
               {tx.repeatEnd ? /* @copy-text recurring.until */ ` تا ${formatISO(isoToJalali(tx.repeatEnd))}` : ""}
             </span>
             <b className="scheduled-title">{label}</b>
-            <span className="scheduled-amount">{formatExpressionValue(toDisplay(template.amount, cur))} {currencyDisplayLabel(cur)}</span>
+            <span className="scheduled-amount">{formatExpressionValue(toDisplay(template.amount, cur))} <CurrencyUnit /></span>
             {canManage(tx) ? <div className="scheduled-actions">
               {<button type="button" className="link-btn" disabled={busy || !available}
                 aria-label={/* @copy-text recurring.edit_label */ `ویرایش تکرار ${label}`} onClick={() => openEdit(tx)}>ویرایش</button>}
@@ -248,7 +249,7 @@ export function ScheduledTxsCard() {
       {settlementTemplate && settlementDue ? <>
         <p>{settlementTemplate.note || resolveName(settlementTemplate.category)}</p>
         <p>نوبت {formatISO(isoToJalali(settlementDue))}</p>
-        <b>{formatExpressionValue(toDisplay(settlementTemplate.amount, cur))} {currencyDisplayLabel(cur)}</b>
+        <b>{formatExpressionValue(toDisplay(settlementTemplate.amount, cur))} <CurrencyUnit /></b>
         <p className="modal-sub">پرداخت امروز ثبت می‌شود؛ این نوبت دوباره ثبت نخواهد شد.</p>
         <Field label="حساب تسویه"><Select value={settleAccount} onChange={setSettleAccount} disabled={busy} aria-label="حساب تسویه"
           options={[{ value: "", label: settlementNeedsAccount ? "انتخاب حساب تسویه…" : "بدون حساب مشخص" }, ...settlementAccounts.map(({ account, balance }) => ({ value: account.id,
@@ -272,7 +273,7 @@ export function ScheduledTxsCard() {
             <Field label="مبلغ"><div className="amt-field">
               <input ref={amountRef} type="text" className="num-input big" inputMode="decimal" aria-label="مبلغ تراکنش تکرارشونده"
                 value={form.amount} onChange={amountChanged} onKeyDown={amountKeyDown} />
-              <span className="cur-suffix">{currencyDisplayLabel(form.currency)}</span>
+              <InputCurrencyUnit value={form.amount} currency={form.currency} disabled={busy} onChange={(amount, currency) => setForm(previous => ({ ...previous, amount, currency }))} />
             </div></Field>
             <div className="sched-grid">
               <Field label="توضیح"><TextInput value={form.note} onChange={note => patch({ note })} aria-label="توضیح تراکنش تکرارشونده" placeholder={NOTE_HINT[form.type]} maxLength={200} /></Field>

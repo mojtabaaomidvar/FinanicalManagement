@@ -21,7 +21,7 @@ function PinIcon() {
 export function HomeModules({ preferences, onChange, disabled, subtitle, onNav, children, view,
   saving, pending, conflict, error, restricted, onRetry }: {
   preferences: HomePreferences; onChange: (next: HomePreferences) => void; disabled: boolean;
-  subtitle: (module: HubModule) => string | undefined; onNav: (route: Route) => void;
+  subtitle: (module: HubModule) => ReactNode; onNav: (route: Route) => void;
   children: ReactNode; view: "dashboard" | "sections"; saving: boolean; pending: boolean;
   conflict: boolean; error: string | null; restricted: boolean; onRetry: () => void;
 }) {
@@ -44,11 +44,12 @@ export function HomeModules({ preferences, onChange, disabled, subtitle, onNav, 
   function tile(id: string) {
     const module = byId.get(id)!;
     return <article key={id} className={`home-module-tile tone-${module.tone}`} data-module-id={id}>
-      <button type="button" className="home-module-main" data-home-module={id} data-open-module={id}
+      <div role="button" tabIndex={0} className="home-module-main" data-home-module={id} data-open-module={id}
+        onKeyDown={event => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); if (module.route) onNav(module.route); } }}
         aria-label={`بازکردن ${module.title}`} onClick={() => module.route && onNav(module.route)}>
         <span className="home-module-top">{moduleIcon(module)}<b>{module.title}</b></span>
         <span className="home-module-sub hub-tile-sub">{subtitle(module)}</span>
-      </button>
+      </div>
       {pin(module)}
     </article>;
   }

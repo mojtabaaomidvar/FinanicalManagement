@@ -2,9 +2,10 @@ import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* کامپوننت‌های پایه فرم — سازگار با کلاس‌های CSS موجود */
 
 import { useId, useState, type ChangeEvent, type ReactNode } from "react";
-import { liveFormatAmount } from "@/shared/lib/format";
+import { normalizeExpressionInput } from "./CalcKeypad";
 import { toFa } from "@/shared/lib/digits";
 import { JalaliDatePicker } from "./JalaliDatePicker";
+import { InputCurrencyUnit } from "./InputCurrencyUnit";
 
 export function Field({
   label,
@@ -64,22 +65,26 @@ export function AmountInput(props: {
   placeholder?: string;
   big?: boolean;
   currency?: string;
+  onCurrencyChange?: (value: string, currency: string) => void;
+  disabled?: boolean;
 }) {
   const input = (
     <input
       type="text"
       className={`num-input ${props.big ? "big" : ""}`}
-      inputMode="numeric"
+      inputMode="decimal"
+      dir="ltr"
       placeholder={props.placeholder ?? "۰"}
       value={props.value}
-      onChange={(e) => props.onChange(liveFormatAmount(e.target.value))}
+      disabled={props.disabled}
+      onChange={(e) => props.onChange(normalizeExpressionInput(e.target.value))}
     />
   );
   if (!props.currency) return input;
   return (
     <div className="amt-field">
       {input}
-      <span className="cur-suffix">{currencyDisplayLabel(props.currency)}</span>
+      {props.onCurrencyChange ? <InputCurrencyUnit value={props.value} currency={props.currency} disabled={props.disabled} onChange={props.onCurrencyChange} /> : <span className="cur-suffix">{currencyDisplayLabel(props.currency)}</span>}
     </div>
   );
 }

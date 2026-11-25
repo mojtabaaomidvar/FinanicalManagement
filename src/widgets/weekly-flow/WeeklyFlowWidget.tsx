@@ -1,4 +1,4 @@
-import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
+import { CurrencyUnit } from "@/shared/ui/CurrencyUnit";
 /* ویجت جریان هفته — نوار فشرده: خالص هفته + ۷ ستون کوچک ورودی/خروجی */
 
 import { useMemo } from "react";
@@ -24,7 +24,7 @@ export function WeeklyFlowWidget() {
         <h3 className="strip-title">جریان هفت روز گذشته</h3>
         <span className={`strip-net ${compareMoney(flow.net, "0") >= 0 ? "income" : "expense"}`}>
           {formatSignedAmount(toDisplay(flow.net, cur))}
-          <i>{currencyDisplayLabel(cur)}</i>
+          <CurrencyUnit />
         </span>
       </div>
 

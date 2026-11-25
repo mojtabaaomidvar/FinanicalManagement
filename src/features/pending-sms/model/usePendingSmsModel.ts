@@ -274,6 +274,7 @@ export function usePendingSmsModel(
   function edit(patch: Partial<PendingSmsDraft>) {
     if (operation.current || saved.current) return;
     const next: PendingSmsDraft = { type, categoryId, amount, currency: entryCurrency.current, date, time, note, accountId, label, feeChoice, feeMethod, paymentMethod, ...patch };
+    entryCurrency.current = next.currency;
     if (next.accountId !== accountId || next.type !== type) { next.feeChoice = ""; next.feeMethod = ""; next.paymentMethod = ""; }
     const sms = list[idx];
     if (sms && !rememberPendingDraft({ familyId: sms.familyId, memberId: currentMemberId, smsId: sms.id }, next))
@@ -295,6 +296,7 @@ export function usePendingSmsModel(
       const numeric = toEn(v).replace(/[٬،,\s]/g, "");
       edit({ amount: /^\d+$/.test(numeric) && numeric.length <= 128 ? formatAmount(numeric) : v });
     },
+    setAmountCurrency: (amount: string, currency: string) => edit({ amount, currency }),
     setAccountId: (v: string) => edit({ accountId: v }),
     setFeeChoice: (v: "yes" | "no") => edit({ feeChoice: v, feeMethod: v === "no" ? "" : feeMethod }),
     setFeeMethod: (v: TransferFeeMethod | "") => edit({ feeMethod: v }),

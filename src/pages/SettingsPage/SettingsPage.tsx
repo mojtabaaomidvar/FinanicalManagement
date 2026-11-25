@@ -1,6 +1,7 @@
 import { AppPage } from "@/shared/ui/AppPage";
 import { PageActivityContext, usePageActivity } from "@/shared/lib/pageActivity";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
+import { CurrencyUnit } from "@/shared/ui/CurrencyUnit";
 /* صفحه «تنظیمات / بیشتر» — الگوی گروه‌بندی‌شده (Grouped Settings)
    ═══════════════════════════════════════════════════════════════
    پس‌زمینه خاکستری روشن، عنوان بزرگ، و چند کارت سفید جدا از هم که
@@ -36,8 +37,9 @@ import { usePwaUpdateState } from "@/app/pwaUpdate.tsx";
 import { APP_VERSION, buildId } from "@/shared/config/version";
 import { toFa } from "@/shared/lib/digits";
 import { useBackGuard } from "@/shared/lib/useBackGuard";
-import { formatAmount, parseAmountInput } from "@/shared/lib/format";
-import { fromDisplay, toDisplay } from "@/shared/lib/currency";
+import { formatAmount } from "@/shared/lib/format";
+import { toDisplay } from "@/shared/lib/currency";
+import { parseMonthlyBudgetAmount } from "@/domain/budget/budget.rules";
 import {
   transactionsToCsv,
   transactionsToExcelXml,
@@ -105,8 +107,9 @@ export function SettingsPage({
     customCategories,
     subcategories,
     cur,
+    currencyBusy,
+    changeDisplayCurrency,
     refreshData,
-    updateMember,
     onLoggedOut,
   } = useApp();
   const { show } = useToast();
@@ -145,19 +148,21 @@ export function SettingsPage({
   /* بودجه ماهانه دیگر زیرصفحه ندارد — فقط همین مودال ورود/ویرایش مبلغ */
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [budget, setBudget] = useState("");
+  const [budgetCurrency, setBudgetCurrency] = useState(cur);
   const [saving, setSaving] = useState(false);
   /* وضعیت «کلید پل پیامک» اینجا دیگر خوانده نمی‌شود: ردیف تنظیمات حالا
      رضایتِ حساب‌ها را نشان می‌دهد و خودِ کلید پل داخل SmsBridgeCard مدیریت
      می‌شود. هر دو جا خواندنش یعنی یک درخواست اضافه برای یک عددِ تکراری. */
   /* مقدار خوش‌بینانه کلید «ریال» تا وقتی پاسخ سرور برسد — وگرنه کلید
      تا پایان رفت‌وبرگشت شبکه تکان نمی‌خورد و کاربر دوباره می‌زند */
-  const [pendingRial, setPendingRial] = useState<boolean | null>(null);
 
   useEffect(() => {
+    if (budgetOpen) return;
+    setBudgetCurrency(cur);
     setBudget(
       family?.budget ? formatAmount(toDisplay(family.budget, cur)) : "",
     );
-  }, [family?.budget, cur]);
+  }, [family?.budget, cur, budgetOpen]);
 
   /* مجموع بودجهٔ دسته‌ها (پایه: تومان) — سقف ماهانه نباید از آن کمتر بماند */
   const categoryBudgetSum = useMemo(
@@ -167,11 +172,13 @@ export function SettingsPage({
 
   /** ذخیره سقف بودجه ماهانه — فقط مبلغ؛ واحد پول از کلید همین صفحه می‌آید */
   async function saveBudget() {
-    if (!family) return;
+    if (!family || saving) return;
+    const amount = parseMonthlyBudgetAmount(budget, budgetCurrency);
+    if (amount === null) { show("بودجه باید مبلغ معتبر و بدون گرد کردن به تومان کامل باشد."); return; }
     setSaving(true);
     try {
       await useCases!.setMonthlyBudget.execute(
-        fromDisplay(parseAmountInput(budget), cur),
+        amount,
       );
       await refreshData();
       setBudgetOpen(false);
@@ -188,18 +195,7 @@ export function SettingsPage({
       روی بقیه اعضای خانواده اثری ندارد. عضو به‌روزشده مستقیم در
       updateMember نشسته می‌شود چون refreshData هرگز member را تازه نمی‌کند. */
   async function toggleRial(toRial: boolean) {
-    if (pendingRial !== null) return;
-    setPendingRial(toRial);
-    try {
-      const updated = await useCases!.setCurrency.execute(
-        toRial ? "ریال" : "تومان",
-      );
-      updateMember(updated);
-    } catch (e) {
-      show((e as Error).message || "خطا در تغییر واحد پول");
-    } finally {
-      setPendingRial(null);
-    }
+    if (!currencyBusy) await changeDisplayCurrency(toRial ? "ریال" : "تومان");
   }
 
   async function logout() {
@@ -491,7 +487,7 @@ export function SettingsPage({
               تغییر می‌کرد، بازگرداندنِ پشتیبانِ یک کاربرِ ریالی مبالغ را
               ده‌برابر می‌نوشت. */}
           <p className="modal-sub" style={{ marginTop: 10 }}>
-            مبالغ CSV و Excel به <b>{currencyDisplayLabel(cur)}</b> است (همان واحدی که در نرم‌افزار
+            مبالغ CSV و Excel به <CurrencyUnit /> است (همان واحدی که در نرم‌افزار
             می‌بینید). پشتیبان JSON همیشه به تومان — ارز پایه — ذخیره می‌شود تا
             بازگردانی‌اش سالم بماند.
           </p>
@@ -542,12 +538,12 @@ export function SettingsPage({
 
   /* واحدی که همین حالا زیر کلید نوشته می‌شود — تا پاسخ سرور برسد،
      مقدار خوش‌بینانه کلید ملاک است تا متن با کلید همگام بماند */
-  const shownCur = pendingRial === null ? cur : pendingRial ? "ریال" : "تومان";
+  const shownCur = cur;
 
   /* سقفی که کاربر همین حالا در مودال تایپ کرده، از مجموع دسته‌ها کمتر است؟ */
   const budgetBelowSum =
     categoryBudgetSum > 0 &&
-    fromDisplay(parseAmountInput(budget), cur) < categoryBudgetSum;
+    (parseMonthlyBudgetAmount(budget, budgetCurrency) ?? 0) < categoryBudgetSum;
 
   /* بودجه: مقدار، یا واژه «تعیین» وقتی هنوز صفر است */
   const budgetTrailing: RowTrailing = family?.budget
@@ -681,7 +677,7 @@ export function SettingsPage({
             sub={`${shownCur}`}
             trailing={{
               type: "toggle",
-              on: pendingRial ?? cur === "ریال",
+              on: cur === "ریال",
               onChange: (next) => void toggleRial(next),
             }}
           />
@@ -852,8 +848,8 @@ export function SettingsPage({
       >
         <div className="form-grid" style={{ marginTop: 8 }}>
           <div className="form-row full">
-            <Field label={`سقف ماهانه (${currencyDisplayLabel(cur)})`}>
-              <AmountInput value={budget} onChange={setBudget} currency={cur} />
+            <Field label="سقف ماهانه">
+              <AmountInput value={budget} onChange={setBudget} currency={budgetCurrency} disabled={saving} onCurrencyChange={(value, unit) => { setBudget(value); setBudgetCurrency(unit); }} />
             </Field>
           </div>
         </div>
@@ -865,7 +861,7 @@ export function SettingsPage({
             style={{ marginTop: 6 }}
           >
             مجموع بودجه‌بندی دسته‌ها:{" "}
-            {formatAmount(toDisplay(categoryBudgetSum, cur))} {currencyDisplayLabel(cur)}
+            {formatAmount(toDisplay(categoryBudgetSum, cur))} <CurrencyUnit />
             {budgetBelowSum
               ? " — سقف واردشده از این مجموع کمتر است؛ در تب بودجه‌ها هشدار می‌گیرید."
               : ""}

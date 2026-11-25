@@ -1,4 +1,4 @@
-import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
+import { CurrencyUnit } from "@/shared/ui/CurrencyUnit";
 /* ویجت پنل خلاصه خانه — موجودی کل، دفتر ماه با مقایسه ماه گذشته،
    و متر «قابل خرج تا پایان ماه» بر پایه سقف بودجه‌ها */
 
@@ -93,7 +93,7 @@ export function HomeSummaryWidget({
         >
           <FitText>
             {balance !== null ? <>{formatSignedAmount(toDisplay(balance, cur))}
-              <span className="hp-cur">{currencyDisplayLabel(cur)}</span></>
+              <CurrencyUnit className="hp-cur" /></>
               : walletBalances.summary.status === "error" ? "موجودی دریافت نشد" : "در حال دریافت موجودی…"}
           </FitText>
         </h2>
@@ -148,7 +148,7 @@ export function HomeSummaryWidget({
             <FitText>
               {over ? "−" : ""}
               {formatAmount(toDisplay(d.cap.remaining, cur))}
-              <span className="hp-cur">{currencyDisplayLabel(cur)}</span>
+              <CurrencyUnit className="hp-cur" />
             </FitText>
           </b>
           <div
@@ -176,7 +176,7 @@ export function HomeSummaryWidget({
             </span>
           </div>
           {compareMoney(d.cap.unbudgetedSpent, "0") > 0 ? <p className="hp-note hp-unbudgeted">
-            هزینهٔ بدون بودجه: {formatAmount(toDisplay(d.cap.unbudgetedSpent, cur))} {currencyDisplayLabel(cur)}
+            هزینهٔ بدون بودجه: {formatAmount(toDisplay(d.cap.unbudgetedSpent, cur))} <CurrencyUnit />
           </p> : null}
         </div>
       ) : (

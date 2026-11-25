@@ -1,4 +1,4 @@
-import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
+import { CurrencyUnit } from "@/shared/ui/CurrencyUnit";
 /* UI مودال ورود پیامک بانکی */
 
 import { useApp } from "@/app/providers/AppProvider";
@@ -99,7 +99,7 @@ export function SmsImportFeature({
                   <b className={x.p.type!}>
                     {x.p.type === "income" ? "واریز" : "برداشت"} ·{" "}
                     {x.baseAmount == null ? formatAmount(x.p.amount!) : formatAccountAmount(x.baseAmount, cur)}
-                    <span className="cur-tag">{x.baseAmount == null ? "واحد نامشخص" : currencyDisplayLabel(cur)}</span>
+                    {x.baseAmount == null ? <span className="cur-tag">واحد نامشخص</span> : <CurrencyUnit className="cur-tag" />}
                   </b>
                   <span>
                     {x.p.date

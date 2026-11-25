@@ -4,6 +4,8 @@ export { Card } from "./Card";
 export { Modal } from "./Modal";
 export { OfflineBar } from "./OfflineBar";
 export { FitText } from "./FitText";
+export { CurrencyUnit } from "./CurrencyUnit";
+export { InputCurrencyUnit } from "./InputCurrencyUnit";
 export {
   Field,
   TextInput,

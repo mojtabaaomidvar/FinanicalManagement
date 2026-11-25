@@ -12,7 +12,7 @@ import type { Transaction } from "@/domain/transaction/transaction.types";
 import { formatLong, isoToJalali } from "@/shared/lib/jalali";
 import { useTehranDay } from "@/shared/lib/useTehranDay";
 import { formatExpressionValue } from "@/shared/ui";
-import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
+import { CurrencyUnit } from "@/shared/ui/CurrencyUnit";
 import { toDisplay } from "@/shared/lib/currency";
 import { toFa } from "@/shared/lib/digits";
 import type { TxFormModel } from "@/features/transaction-form";
@@ -108,7 +108,7 @@ export function DueRecurringWidget({ form }: { form: TxFormModel }) {
               <div className="due-info">
                 <b>{item.tx.note?.trim() || cat.name}</b>
                 <p>
-                  {item.label} · {formatExpressionValue(toDisplay(item.tx.amount, cur))} {currencyDisplayLabel(cur)}
+                  {item.label} · {formatExpressionValue(toDisplay(item.tx.amount, cur))} <CurrencyUnit />
                 </p>
               </div>
               <div className="due-actions">

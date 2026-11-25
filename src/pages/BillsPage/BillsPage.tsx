@@ -1,6 +1,7 @@
 import { AppPage } from "@/shared/ui/AppPage";
 import { addMoney } from "@/shared/lib/money";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
+import { CurrencyUnit, InputCurrencyUnit } from "@/shared/ui";
 /* §۱.۹ — صفحهٔ قبوض و شارژ.
 
    قبض = **تعهدِ پرداخت‌نشده**. چیزی که این صفحه از صفحهٔ تراکنش‌ها جدا
@@ -75,6 +76,7 @@ export function BillsPage() {
   const [editing, setEditing] = useState<Bill | null>(null);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY);
+  const [entryCurrency, setEntryCurrency] = useState(cur);
   const [activity, setActivity] = useState<"save" | "checkBalance" | "pay" | "action" | "refresh" | null>(null);
   const writing = useRef(false);
   const mounted = useRef(true);
@@ -195,6 +197,7 @@ export function BillsPage() {
   function openNew() {
     if (writing.current || unavailable) return;
     setEditing(null);
+    setEntryCurrency(cur);
     setForm({ ...EMPTY, due: formatISO(todayJ) });
     setOpen(true);
     setFormError(null);
@@ -210,6 +213,7 @@ export function BillsPage() {
       return;
     }
     setEditing(bill);
+    setEntryCurrency(cur);
     setForm({
       kind: bill.kind,
       title: bill.title,
@@ -240,7 +244,7 @@ export function BillsPage() {
       setFormError("عنوان قبض را بنویسید");
       return;
     }
-    const amount = parseBillAmount(form.amount, cur);
+    const amount = parseBillAmount(form.amount, entryCurrency);
     if (amount === null) {
       setFormError("مبلغ قبض را درست وارد کنید");
       return;
@@ -432,7 +436,7 @@ export function BillsPage() {
             </p>
             {unpaid.length ? (
               <b className="bill-summary-amount">
-                {formatExpressionValue(toDisplay(totalUnpaid, cur))} {currencyDisplayLabel(cur)}
+                {formatExpressionValue(toDisplay(totalUnpaid, cur))} <CurrencyUnit />
               </b>
             ) : null}
           </div> : null}
@@ -526,7 +530,8 @@ export function BillsPage() {
             placeholder="مثلاً برق خانه"
           />
         </Field>
-        <Field label={`مبلغ (${currencyDisplayLabel(cur)})`}>
+        <Field label="مبلغ">
+          <div className="amt-field">
           <input
             ref={amountRef}
             type="text"
@@ -537,6 +542,8 @@ export function BillsPage() {
             onChange={amountChanged}
             onKeyDown={amountKeyDown}
           />
+          <InputCurrencyUnit value={form.amount} currency={entryCurrency} disabled={busy} onChange={(amount, unit) => { patch({ amount }); setEntryCurrency(unit); }} />
+          </div>
         </Field>
         <Field label="سررسید">
           <JalaliDateInput
@@ -645,7 +652,7 @@ export function BillsPage() {
           <div className="tx-balance-result">
             <span>مانده پس از پرداخت</span>
             <b className="tx-balance-remaining" dir="ltr">{formatExpressionValue(toDisplay(balanceWarning.remaining, cur))}</b>
-            <span>{currencyDisplayLabel(cur)}</span>
+            <CurrencyUnit />
           </div>
           {payError !== null ? <p role="alert">{payError}</p> : null}
           <div className="modal-actions">
@@ -736,7 +743,7 @@ function BillRow({
         </p>
       </div>
       <div className="bill-side">
-        <b className="bill-amount">{formatExpressionValue(toDisplay(bill.amount, cur))} {currencyDisplayLabel(cur)}</b>
+        <b className="bill-amount">{formatExpressionValue(toDisplay(bill.amount, cur))} <CurrencyUnit /></b>
         <div className="bill-actions">
           {onPay ? (
             <button

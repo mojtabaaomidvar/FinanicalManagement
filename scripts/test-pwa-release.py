@@ -23,6 +23,8 @@ def sha(data):
 
 
 class PwaReleaseTests(unittest.TestCase):
+    version = "0.10.0"
+    baseline = "0.9.0"
     def setUp(self):
         directory = ROOT / ".local-test/pwa-installer-tests"
         directory.mkdir(parents=True, exist_ok=True)
@@ -33,17 +35,17 @@ class PwaReleaseTests(unittest.TestCase):
         self.web = self.root / "web"
         for part in ["release/pwa", "release/source/backend/deploy", "web", "backups", "bin"]:
             (self.root / part).mkdir(parents=True)
-        self.old = {"index.html": b"old", "sw.js": b"old-worker", "version.json": b'{"version":"0.9.0"}'}
-        self.new = {"index.html": b"new", "sw.js": b"new-worker", "version.json": b'{"version":"0.10.0"}'}
+        self.old = {"index.html": b"old", "sw.js": b"old-worker", "version.json": json.dumps({"version": self.baseline}).encode()}
+        self.new = {"index.html": b"new", "sw.js": b"new-worker", "version.json": json.dumps({"version": self.version}).encode()}
         for root, files in [(self.web, self.old), (self.release / "pwa", self.new)]:
             for name, data in files.items():
                 (root / name).write_bytes(data)
-        self.value = {"tag": "v0.10.0", "baseline_tag": "v0.9.0", "deployment_scope": "pwa-only",
+        self.value = {"tag": "v" + self.version, "baseline_tag": "v" + self.baseline, "deployment_scope": "pwa-only",
                       "database_migration_required": False,
                       "pwa_sha256": {name: sha(data) for name, data in self.new.items()},
                       "baseline_pwa_sha256": {name: sha(data) for name, data in self.old.items()}}
         self.save_manifest()
-        (self.release / "release-tag.txt").write_bytes(b"v0.10.0\n")
+        (self.release / "release-tag.txt").write_bytes(("v" + self.version + "\n").encode())
         shutil.copyfile(DEPLOY / "check-pwa-release.py", self.release / "source/backend/deploy/check-pwa-release.py")
 
     def save_manifest(self):
@@ -112,14 +114,16 @@ class PwaReleaseTests(unittest.TestCase):
 
     def installer(self, case):
         if os.name == "nt":
-            posix = subprocess.check_output([BASH, "-c", 'cygpath -u "$1"', "_", str(self.root)], text=True).strip()
+            # This temporary path is absolute and drive-qualified. Avoid a separate
+            # MSYS process just for path conversion during concurrent browser tests.
+            posix = "/" + self.root.drive[0].lower() + self.root.as_posix()[2:]
         else:
             posix = str(self.root)
         source = (DEPLOY / "install-pwa-release.sh").read_text()
         for old, new in {"web_dir=/var/www/khaneyar": f'web_dir="{posix}/web"',
                          "/var/lock/khaneyar-release.lock": posix + "/release.lock",
                          "/var/backups/khaneyar/releases": posix + "/backups",
-                         "/var/www/khaneyar-next-0.10.0": posix + "/next",
+                         "/var/www/khaneyar-next-$version": posix + "/next",
                          "[[ $EUID -eq 0 ]]": "true"}.items():
             self.assertIn(old, source)
             source = source.replace(old, new)
@@ -132,6 +136,10 @@ printf 'python %s\n' "$2" >> "$TEST_ROOT/commands.log"
 if [[ "$2" == public ]]; then
   [[ "$TEST_CASE" != public-failure ]] || exit 22
   echo 'PUBLIC VERIFIED: fictional network'; exit 0
+fi
+if [[ "$2" == api ]]; then
+  [[ "$TEST_CASE" != api-contract-failure ]] || exit 27
+  echo 'API CONTRACT VERIFIED: fictional network'; exit 0
 fi
 exec 'PYTHON' "$@"
 '''.replace("PYTHON", Path(sys.executable).as_posix()),
@@ -179,7 +187,7 @@ exec /usr/bin/mv "$@"
     def test_installer_success_and_idempotent_repeat(self):
         result = self.installer("success")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("RELEASE INSTALLED: v0.10.0", result.stdout)
+        self.assertIn("RELEASE INSTALLED: v" + self.version, result.stdout)
         self.assertEqual(checker.installed(self.release, self.web), "ALREADY")
         result = self.installer("success")
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -190,7 +198,7 @@ exec /usr/bin/mv "$@"
         for case in ["preflight-failure", "lock-failure", "backup-failure", "stage-failure", "swap-failure", "public-failure", "health-failure"]:
             with self.subTest(case=case):
                 # Each simulated failure has a fresh independent filesystem.
-                other = PwaReleaseTests()
+                other = type(self)()
                 other.setUp()
                 try:
                     result = other.installer(case)
@@ -210,6 +218,52 @@ exec /usr/bin/mv "$@"
         self.assertNotIn(b"\r", source)
         for command in [b"docker ", b"alembic ", b"systemctl ", b"nginx ", b"pg_dump", b"rm -"]:
             self.assertNotIn(command, source)
+
+
+class WalletUiPwaReleaseTests(PwaReleaseTests):
+    version = "0.12.0"
+    baseline = "0.11.0"
+
+    def test_api_contract_failure_leaves_existing_web_unchanged(self):
+        result = self.installer("api-contract-failure")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(checker.installed(self.release, self.web), "BASELINE")
+        self.assertEqual(list((self.root / "backups").iterdir()), [])
+
+    def contract_request(self, *, wrong_cors=False, cacheable=False):
+        import io
+        import urllib.error
+        calls = []
+        class Response(io.BytesIO):
+            status = 200
+            headers = {"Access-Control-Allow-Origin": "https://pwa.khaanehyar.ir"}
+        def request(request, **kwargs):
+            calls.append(request)
+            self.assertIsNone(request.data)
+            self.assertIsNone(request.get_header("Authorization"))
+            self.assertEqual(request.full_url, "https://api.khaanehyar.ir/api/v1/accounts")
+            if request.get_method() == "OPTIONS":
+                return Response(b"")
+            status = 401 if request.get_header("X-khaneyar-money-contract") else 409
+            headers = {"Access-Control-Allow-Origin": "wrong" if wrong_cors else "https://pwa.khaanehyar.ir",
+                       "Cache-Control": "public" if cacheable else "no-store"}
+            raise urllib.error.HTTPError(request.full_url, status, "fixture", headers,
+                                         io.BytesIO(b'{"error":"CLIENT_UPDATE_REQUIRED"}'))
+        return request, calls
+
+    def test_actual_api_contract_never_reads_or_writes_financial_data(self):
+        from unittest.mock import patch
+        request, calls = self.contract_request()
+        with patch.object(checker.urllib.request, "urlopen", side_effect=request):
+            checker.api_contract()
+        self.assertEqual([call.get_method() for call in calls], ["GET", "GET", "OPTIONS"])
+
+    def test_actual_api_contract_refuses_wrong_cors_and_cacheable_update_error(self):
+        from unittest.mock import patch
+        for options in [{"wrong_cors": True}, {"cacheable": True}]:
+            request, _ = self.contract_request(**options)
+            with patch.object(checker.urllib.request, "urlopen", side_effect=request), self.assertRaises(ValueError):
+                checker.api_contract()
 
 
 if __name__ == "__main__":

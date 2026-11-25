@@ -1,6 +1,6 @@
 import type { WalletBalanceState } from "../model/useWalletBalances";
 import { compareMoney, formatMoney } from "@/shared/lib/money";
-import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
+import { CurrencyUnit } from "@/shared/ui/CurrencyUnit";
 import { NegativeBalanceNotice } from "./NegativeBalanceNotice";
 
 export function WalletBalanceDisplay({ state, currency, className }: {
@@ -13,12 +13,8 @@ export function WalletBalanceDisplay({ state, currency, className }: {
   return <>
     <div className={`${className}${negative ? " is-negative" : ""}`}>
       <b dir="ltr">{formatMoney(balance.currentBalance, currency)}</b>
-      <span>{currencyDisplayLabel(currency)}</span>
+      <CurrencyUnit currency={currency} />
     </div>
-    {balance.activeReconciliationId ? <div className="section-hint">
-      <p>موجودی حاصل از تراکنش‌ها: <b dir="ltr">{formatMoney(balance.ledgerBalance, currency)}</b> {currencyDisplayLabel(currency)}</p>
-      <p>اختلاف مغایرت‌گیری: <b dir="ltr">{formatMoney(balance.discrepancy, currency)}</b> {currencyDisplayLabel(currency)}</p>
-    </div> : null}
     {negative ? <NegativeBalanceNotice /> : null}
   </>;
 }
