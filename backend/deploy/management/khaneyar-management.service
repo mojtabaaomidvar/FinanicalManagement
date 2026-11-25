@@ -1,0 +1,23 @@
+[Unit]
+Description=KhanehYar independent management panel
+After=network.target
+
+[Service]
+Type=simple
+User=khaneyar-management
+Group=khaneyar-management
+WorkingDirectory=/opt/khaneyar-management/source/backend
+ExecStart=/opt/khaneyar-management/venv/bin/python -m app.management.cli --config /etc/khaneyar-management/config.json serve
+Restart=on-failure
+RestartSec=5
+UMask=0077
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ReadWritePaths=-/etc/letsencrypt
+# The one fixed sudo helper requires setuid. Do not add NoNewPrivileges=true.
+KillMode=control-group
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

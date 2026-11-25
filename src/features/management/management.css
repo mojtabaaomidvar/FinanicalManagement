@@ -1,0 +1,170 @@
+/* نردبان مشترک خانه‌یار؛ این پنل پوسته و چرخهٔ ورود مستقل دارد. */
+.mg-app { --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-7:32px; --sp-8:44px; --sp-9:64px; --sp-10:96px; --fs-1:11.5px; --fs-2:13px; --fs-3:14px; --fs-4:16px; --fs-5:18px; --fs-6:21px; --fs-7:26px; --r-btn:8px; --r-card:12px; --r-pill:999px; --green:#244b36; --ink:#20372e; --muted:#56695c; --paper:#f4f6f2; --line:#c4cec5; --white:#fff; --nav:#213a2f; --mint:#d3e8ad; --danger:#8c3027; --sidebar:248px; --content:1200px; --auth-width:440px; --dialog-width:580px; --dur-fast:160ms; font-family:Vazirmatn,sans-serif; font-size:var(--fs-4); line-height:1.9; color:var(--ink); background:var(--paper); min-block-size:100dvh; font-feature-settings:"kern" 1,"liga" 1; text-rendering:optimizeLegibility; letter-spacing:0; }
+body { margin:0; }
+.mg-app * { box-sizing:border-box; }
+.mg-app button,.mg-app input,.mg-app select { font:inherit; }
+.mg-app h1,.mg-app h2,.mg-app h3,.mg-app p { margin:0; }
+.mg-app h1,.mg-app h2,.mg-app h3 { line-height:1.45; font-weight:600; }
+.mg-app h1 { font-size:clamp(26px,3vw,36px); }
+.mg-app h2 { font-size:var(--fs-6); }
+.mg-app h3 { font-size:var(--fs-4); }
+.mg-app p { max-inline-size:44em; }
+.mg-app button { min-block-size:var(--sp-8); border:1px solid var(--line); border-radius:var(--r-btn); padding:var(--sp-2) var(--sp-4); background:var(--white); color:var(--ink); cursor:pointer; line-height:1.75; font-size:var(--fs-3); }
+.mg-app button:disabled { opacity:.5; cursor:default; }
+.mg-app button:focus-visible,.mg-app input:focus-visible,.mg-app select:focus-visible { outline:3px solid var(--green); outline-offset:3px; }
+.mg-app .mg-primary { background:var(--green); color:var(--white); border-color:var(--green); }
+.mg-app .mg-danger { color:var(--danger); border-color:var(--danger); }
+.mg-app label { display:flex; flex-direction:column; gap:var(--sp-2); font-size:var(--fs-3); }
+.mg-app input,.mg-app select { min-block-size:var(--sp-8); border:1px solid var(--muted); border-radius:var(--r-btn); padding:var(--sp-2) var(--sp-3); background:var(--white); color:var(--ink); inline-size:100%; min-inline-size:0; }
+.mg-app input:disabled,.mg-app select:disabled { background:var(--paper); }
+.mg-app code { display:block; font-family:ui-monospace,monospace; font-size:var(--fs-2); overflow-wrap:anywhere; user-select:all; }
+.mg-app bdi { unicode-bidi:isolate; overflow-wrap:anywhere; }
+.mg-app meter { display:block; inline-size:100%; block-size:var(--sp-3); margin-block:var(--sp-2); accent-color:var(--green); }
+.mg-app meter::-webkit-meter-bar { background:#e9eee4; border:0; border-radius:var(--r-pill); }
+.mg-app meter::-webkit-meter-optimum-value { background:var(--green); border-radius:var(--r-pill); }
+.mg-muted,.mg-hint { color:var(--muted); }
+.mg-hint { display:block; font-size:var(--fs-2); line-height:1.85; }
+.mg-error { color:var(--danger); }
+/* ناوبری راست ثابت می‌ماند؛ سطح اصلی برای خواندن وضعیت خلوت است. */
+.mg-shell { display:flex; align-items:flex-start; }
+.mg-sidebar { position:sticky; inset-block-start:0; inline-size:var(--sidebar); flex-shrink:0; block-size:100dvh; background:var(--nav); color:var(--white); padding:var(--sp-7) var(--sp-5); display:flex; flex-direction:column; overflow:auto; }
+.mg-brand { display:flex; align-items:center; gap:var(--sp-3); }
+.mg-brand strong { display:block; font-size:var(--fs-5); }
+.mg-brand span { display:block; color:#c1d0c2; font-size:var(--fs-3); }
+.mg-sidebar nav { display:grid; gap:var(--sp-1); margin-block-start:var(--sp-8); }
+.mg-sidebar nav button { display:flex; align-items:center; gap:var(--sp-3); background:transparent; border-color:transparent; color:#d0decf; text-align:start; }
+.mg-sidebar nav button[aria-current] { background:var(--mint); color:var(--nav); font-weight:600; }
+.mg-sidebar-footer { display:grid; gap:var(--sp-1); margin-block-start:auto; padding-block-start:var(--sp-7); font-size:var(--fs-3); }
+.mg-sidebar-footer span { color:#c1d0c2; }
+.mg-sidebar-footer button { margin-block-start:var(--sp-3); background:transparent; border-color:#829888; color:var(--white); }
+.mg-main { inline-size:100%; min-inline-size:0; max-inline-size:var(--content); padding:var(--sp-7) var(--sp-8); }
+.mg-header { display:flex; align-items:center; justify-content:space-between; gap:var(--sp-4); margin-block:var(--sp-4) var(--sp-7); }
+.mg-header > div > span { font-size:var(--fs-2); }
+.mg-header h1 { margin-block-start:var(--sp-2); }
+.mg-header > button { flex-shrink:0; }
+.mg-footer { margin-block-start:var(--sp-8); padding-block-start:var(--sp-5); border-block-start:1px solid var(--line); font-size:var(--fs-2); color:var(--muted); }
+/* بخش‌ها با خط و فاصله دسته‌بندی می‌شوند؛ وضعیت سرویس محور نمای کلی است. */
+.mg-section { margin-block-end:var(--sp-7); padding:var(--sp-6); border:1px solid var(--line); border-radius:var(--r-card); background:var(--white); }
+.mg-section-heading { margin-block-end:var(--sp-5); }
+.mg-section-heading p { color:var(--muted); font-size:var(--fs-3); margin-block-start:var(--sp-2); }
+.mg-overview-lead { display:flex; align-items:center; justify-content:space-between; gap:var(--sp-5); padding-block:var(--sp-6) var(--sp-7); border-block-end:1px solid var(--line); }
+.mg-overview-lead h2 { font-size:var(--fs-7); margin-block:var(--sp-3); }
+.mg-overview-lead p { color:var(--muted); font-size:var(--fs-3); }
+.mg-facts { display:flex; flex-wrap:wrap; gap:var(--sp-7) var(--sp-9); margin-block:var(--sp-7); }
+.mg-facts div { display:grid; gap:var(--sp-2); }
+.mg-facts dt { color:var(--muted); font-size:var(--fs-3); }
+.mg-facts dd { margin:0; font-size:var(--fs-5); }
+.mg-resources { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--sp-7); }
+.mg-resources > div { min-inline-size:0; }
+.mg-resources > div+div { border-inline-start:1px solid var(--line); padding-inline-start:var(--sp-7); }
+.mg-resources span,.mg-resources p { color:var(--muted); font-size:var(--fs-3); }
+.mg-resources strong { display:block; font-size:var(--fs-7); margin-block:var(--sp-2); font-weight:600; }
+.mg-badge { display:inline-flex; white-space:nowrap; padding:var(--sp-1) var(--sp-3); border-radius:var(--r-pill); background:#edf0eb; color:#455944; font-size:var(--fs-2); }
+.mg-good { background:#e4eedb; color:#30522b; }
+.mg-bad { background:#f9e9e4; color:var(--danger); }
+.mg-service-list > div { display:flex; justify-content:space-between; align-items:center; gap:var(--sp-4); padding-block:var(--sp-4); }
+.mg-service-list > div+div { border-block-start:1px solid var(--line); }
+.mg-service-list strong { font-weight:500; }
+.mg-service-controls > div { display:flex; align-items:center; flex-wrap:wrap; gap:var(--sp-5); padding-block:var(--sp-5); }
+.mg-service-controls > div+div { border-block-start:1px solid var(--line); }
+.mg-service-controls > div > div:first-child { flex:1; min-inline-size:0; }
+.mg-service-controls .mg-actions { flex-basis:100%; }
+.mg-actions { display:flex; align-items:center; gap:var(--sp-2); flex-wrap:wrap; }
+.mg-section > p+.mg-actions { margin-block-start:var(--sp-5); }
+.mg-toolbar { margin-block-end:var(--sp-6); }
+/* فرم‌ها برچسب مستقل دارند و همهٔ هدف‌های لمس از نردبان فاصله پیروی می‌کنند. */
+.mg-filter { display:flex; align-items:flex-end; gap:var(--sp-3); flex-wrap:wrap; margin-block-end:var(--sp-6); }
+.mg-filter label { flex:1; max-inline-size:var(--auth-width); min-inline-size:0; }
+.mg-filter button { flex-shrink:0; }
+.mg-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--sp-5) var(--sp-6); }
+.mg-switches { margin-block-end:var(--sp-5); }
+.mg-switches label { flex-direction:row; align-items:center; justify-content:space-between; gap:var(--sp-4); padding-block:var(--sp-3); min-block-size:var(--sp-8); }
+.mg-switches label+label { border-block-start:1px solid var(--line); }
+.mg-app input[type="checkbox"] { inline-size:var(--sp-6); block-size:var(--sp-6); min-block-size:var(--sp-6); flex-shrink:0; accent-color:var(--green); }
+.mg-app .mg-check { flex-direction:row; align-items:center; min-block-size:var(--sp-8); gap:var(--sp-3); }
+.mg-log-select { max-inline-size:var(--sidebar); margin-block-end:var(--sp-6); }
+/* فهرست‌ها در موبایل به سطرهای مستقل و جدول‌ها به پیمایش محدود تبدیل می‌شوند. */
+.mg-records { list-style:none; margin:0; padding:0; }
+.mg-records > li { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:var(--sp-5); padding-block:var(--sp-5); }
+.mg-records > li+li { border-block-start:1px solid var(--line); }
+.mg-records > li > div:first-child { min-inline-size:0; }
+.mg-records p { font-size:var(--fs-3); margin-block-start:var(--sp-2); }
+.mg-records code { margin-block-start:var(--sp-2); }
+.mg-hash { max-inline-size:44em; }
+.mg-table-wrap { overflow:auto; max-inline-size:100%; }
+.mg-app table { inline-size:100%; text-align:start; border-collapse:collapse; font-size:var(--fs-3); }
+.mg-app th { color:var(--muted); font-weight:500; border-block-end:1px solid var(--line); white-space:nowrap; }
+.mg-app th,.mg-app td { padding:var(--sp-4) var(--sp-3); vertical-align:middle; }
+.mg-app td { min-inline-size:var(--sp-10); }
+.mg-app td code { white-space:nowrap; }
+/* اطلاعات و عملیات هر حساب کنار هم می‌مانند؛ در موبایل پیمایش افقی لازم نیست. */
+.mg-users { list-style:none; margin:0; padding:0; }
+.mg-users > li { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,2fr) auto; gap:var(--sp-6); align-items:center; padding-block:var(--sp-6); }
+.mg-users > li+li { border-block-start:1px solid var(--line); }
+.mg-user-ident { display:grid; gap:var(--sp-2); min-inline-size:0; }
+.mg-user-ident .mg-badge { justify-self:start; }
+.mg-users dl { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--sp-4); margin:0; font-size:var(--fs-3); }
+.mg-users dt { color:var(--muted); font-size:var(--fs-2); margin-block-end:var(--sp-2); }
+.mg-users dd { margin:0; }
+@media (max-width:760px) { .mg-users > li { grid-template-columns:minmax(0,1fr); gap:var(--sp-5); } }
+.mg-pagination { display:flex; align-items:center; justify-content:center; gap:var(--sp-5); margin-block-start:var(--sp-6); }
+/* آمار محصول فقط جمع‌ها را نشان می‌دهد؛ نمودار و جزئیات هر بخش در همان عرض صفحه می‌مانند. */
+.mg-analytics-period { max-inline-size:var(--sidebar); margin-block-end:var(--sp-6); }
+.mg-analytics-intro { display:flex; align-items:center; justify-content:space-between; gap:var(--sp-5); flex-wrap:wrap; margin-block-end:var(--sp-6); }
+.mg-analytics-intro p { color:var(--muted); font-size:var(--fs-3); }
+.mg-analytics-headline { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:var(--sp-6); padding-block:var(--sp-6); }
+.mg-analytics-headline dd { font-size:var(--fs-7); font-weight:600; }
+.mg-analytics-stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--sp-6); margin:0; }
+.mg-analytics-stats > div { min-inline-size:0; }
+.mg-analytics-stats dt { font-size:var(--fs-3); color:var(--muted); }
+.mg-analytics-stats dd { margin:var(--sp-2) 0 0; font-size:var(--fs-6); }
+.mg-analytics-trends { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--sp-7); margin-block-end:var(--sp-7); }
+.mg-analytics-chart { margin:0; min-inline-size:0; }
+.mg-analytics-chart figcaption { display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3); }
+.mg-analytics-chart figcaption strong { font-size:var(--fs-7); font-weight:600; }
+.mg-analytics-chart svg { display:block; inline-size:100%; block-size:calc(var(--sp-9) * 2); margin-block-start:var(--sp-4); color:var(--green); stroke:currentColor; }
+.mg-chart-rule { stroke:var(--line); }
+.mg-chart-dates { display:flex; justify-content:space-between; font-size:var(--fs-2); color:var(--muted); }
+.mg-analytics summary { cursor:pointer; min-block-size:var(--sp-8); padding-block:var(--sp-2); font-size:var(--fs-3); }
+.mg-analytics summary:focus-visible { outline:3px solid var(--green); outline-offset:3px; }
+.mg-analytics-daily { margin-block-start:var(--sp-6); }
+.mg-analytics-modules { list-style:none; margin:var(--sp-4) 0 var(--sp-5); padding:0; }
+.mg-analytics-modules > li { border-block-start:1px solid var(--line); padding-block:var(--sp-5); }
+.mg-module-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:var(--sp-5); }
+.mg-module-heading > dl { display:flex; gap:var(--sp-7); margin:0; }
+.mg-module-heading dt { color:var(--muted); font-size:var(--fs-2); }
+.mg-module-heading dd { margin:var(--sp-1) 0 0; font-size:var(--fs-5); }
+.mg-analytics-modules details[open] .mg-analytics-stats { padding-block:var(--sp-3) var(--sp-4); }
+.mg-analytics-insights { padding-inline-start:var(--sp-5); margin-block:var(--sp-4); }
+.mg-analytics-insights li { padding-block:var(--sp-2); font-size:var(--fs-3); }
+.mg-analytics-note { margin-block-start:var(--sp-5)!important; }
+@media (max-width:760px) { .mg-analytics-headline { grid-template-columns:repeat(2,minmax(0,1fr)); } .mg-analytics-stats { grid-template-columns:repeat(2,minmax(0,1fr)); } .mg-analytics-trends { grid-template-columns:1fr; } .mg-module-heading { align-items:flex-start; } .mg-module-heading > dl { gap:var(--sp-5); } }
+.mg-empty { color:var(--muted); padding-block:var(--sp-7); }
+.mg-log { background:var(--nav); color:#e2eddf; padding:var(--sp-5); border-radius:var(--r-btn); font-size:var(--fs-2); line-height:1.9; max-block-size:65dvh; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; }
+/* پیام‌ها و پنجرهٔ تأیید اثر عملیات را در همان نقطهٔ تصمیم نشان می‌دهند. */
+.mg-demo-banner { display:flex; align-items:center; flex-wrap:wrap; gap:var(--sp-3); padding:var(--sp-3) var(--sp-4); background:#e7eddf; border-radius:var(--r-btn); font-size:var(--fs-2); }
+.mg-demo-note { padding:var(--sp-3) var(--sp-4); background:#edf2e8; border-radius:var(--r-btn); font-size:var(--fs-3); }
+.mg-notice { padding:var(--sp-4) var(--sp-5); background:var(--white); border-inline-start:3px solid var(--green); margin-block-end:var(--sp-5); font-size:var(--fs-3); }
+.mg-notice.mg-error { border-color:var(--danger); }
+.mg-running { display:flex; align-items:center; justify-content:space-between; gap:var(--sp-4); flex-wrap:wrap; }
+.mg-state { min-block-size:calc(var(--sp-10) * 2); display:flex; flex-direction:column; justify-content:center; gap:var(--sp-3); }
+.mg-dialog { color:var(--ink); background:var(--white); border:0; border-radius:var(--r-card); padding:var(--sp-7); inline-size:min(var(--dialog-width),calc(100% - var(--sp-7))); max-block-size:calc(100dvh - var(--sp-7)); overflow:auto; box-shadow:0 var(--sp-6) var(--sp-9) #12251c30; }
+.mg-dialog::backdrop { background:#14271f90; }
+.mg-dialog form { display:grid; gap:var(--sp-5); }
+.mg-dialog p { font-size:var(--fs-3); }
+.mg-confirm-values { margin:0; }
+.mg-confirm-values > div { display:flex; flex-wrap:wrap; justify-content:space-between; gap:var(--sp-3); padding-block:var(--sp-2); font-size:var(--fs-3); }
+.mg-confirm-values dt { color:var(--muted); }
+.mg-confirm-values dd { margin:0; overflow-wrap:anywhere; }
+/* ورود مستقل با همان قلم و رنگ اصلی؛ تمرکز روی فرم احراز هویت است. */
+.mg-login { display:flex; align-items:center; justify-content:center; gap:var(--sp-10); padding:var(--sp-9) var(--sp-6); }
+.mg-login-intro { max-inline-size:var(--auth-width); }
+.mg-login-intro img { display:block; margin-block-end:var(--sp-6); }
+.mg-login-intro h1 { margin-block-end:var(--sp-4); }
+.mg-login-intro p { color:var(--muted); }
+.mg-login-intro > span { display:block; margin-block-start:var(--sp-7); font-size:var(--fs-3); color:var(--muted); }
+.mg-login-form { display:grid; gap:var(--sp-5); padding:var(--sp-7); inline-size:var(--auth-width); max-inline-size:100%; border:1px solid var(--line); border-radius:var(--r-card); background:var(--white); }
+.mg-boot { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:var(--sp-6); gap:var(--sp-6); }
+/* در عرض کم، ناوبری افقی و بخش‌های وضعیت تک‌ستونی می‌شوند. */
+@media (max-width:1000px) { .mg-main { padding:var(--sp-6); } .mg-sidebar { --sidebar:220px; padding-inline:var(--sp-4); } .mg-login { gap:var(--sp-8); } }
+@media (max-width:760px) { .mg-shell { flex-direction:column; } .mg-sidebar { position:static; inline-size:100%; block-size:auto; padding:var(--sp-5); overflow:visible; } .mg-brand { gap:var(--sp-3); } .mg-brand > div { display:flex; align-items:baseline; gap:var(--sp-2); } .mg-sidebar nav { display:flex; overflow:auto; margin-block-start:var(--sp-5); gap:var(--sp-2); padding-block-end:var(--sp-2); } .mg-sidebar nav button { flex-shrink:0; } .mg-sidebar-footer { display:flex; align-items:center; gap:var(--sp-3); padding-block-start:var(--sp-4); } .mg-sidebar-footer button { margin-block-start:0; margin-inline-start:auto; } .mg-main { padding:var(--sp-5) var(--sp-4); } .mg-header { align-items:flex-start; margin-block-end:var(--sp-6); } .mg-header > button { padding-inline:var(--sp-3); } .mg-header h1 { font-size:var(--fs-7); } .mg-header > div { min-inline-size:0; } .mg-section { padding:var(--sp-5); } .mg-overview-lead { flex-wrap:wrap; } .mg-overview-lead h2 { font-size:var(--fs-6); } .mg-facts { gap:var(--sp-6) var(--sp-7); } .mg-resources { grid-template-columns:1fr; gap:var(--sp-5); } .mg-resources > div+div { border-inline-start:0; padding-inline-start:0; border-block-start:1px solid var(--line); padding-block-start:var(--sp-5); } .mg-resources strong { font-size:var(--fs-7); } .mg-form-grid { grid-template-columns:1fr; } .mg-login { flex-direction:column; gap:var(--sp-7); align-items:stretch; padding:var(--sp-7) var(--sp-4); } .mg-login-intro > span { margin-block-start:var(--sp-4); } .mg-login-form { inline-size:100%; padding:var(--sp-6); } .mg-dialog { padding:var(--sp-6); } .mg-filter { flex-wrap:nowrap; gap:var(--sp-2); } .mg-records > li { align-items:flex-start; } }

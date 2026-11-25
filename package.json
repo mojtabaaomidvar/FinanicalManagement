@@ -4,6 +4,12 @@
   "version": "0.11.0",
   "type": "module",
   "scripts": {
+    "management:build": "tsc -b && vite build --config vite.management.config.ts",
+    "management:test": "python -m pytest -c backend/management-pytest.ini backend/management_tests",
+    "management:browser-check": "node scripts/check-management.mjs",
+    "management:preview": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/management-local.ps1",
+    "management:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/management-local.ps1 -Action Stop",
+    "management:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/management-local.ps1 -Action Check",
     "dev": "vite",
     "prebuild": "npm run copy:studio:coverage",
     "build": "tsc -b && vite build",
