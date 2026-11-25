@@ -14,13 +14,13 @@ function input(todayIso: string): DeriveInput {
       recurring: 60, bills: 0, event: Number.NaN } },
     inventory: [], shoppingLists: [], joinRequests: [],
     txs: [-1, 0, 1, 2].map((offset): Transaction => ({
-      id: String(offset), familyId: "family", memberId: "member", type: "expense", amount: 1500.25,
+      id: String(offset), familyId: "family", memberId: "member", type: "expense", amount: "1500.25",
       category: "bills", accountId: "account", toAccountId: null, subcategoryId: null,
       date: date(offset - 28), repeat: "weekly", repeatEnd: date(30), handledOccurrences: [],
       photos: [], time: null, note: "Keep user content", createdAt: "2026-11-01T00:00:00Z",
     })),
     bills: [-1, 0, 1, 2].map((offset): Bill => ({
-      id: String(offset), kind: "electricity", title: "Keep bill", amount: 2000, dueDate: date(offset),
+      id: String(offset), kind: "electricity", title: "Keep bill", amount: "2000", dueDate: date(offset),
       billNo: null, paymentNo: null, state: "unpaid", paidAt: null, paidByMemberId: null,
       transactionId: null, note: null, createdBy: "member", createdAt: "2026-11-01T00:00:00Z",
     })),

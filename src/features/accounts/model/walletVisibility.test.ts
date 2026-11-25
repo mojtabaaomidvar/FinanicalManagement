@@ -8,7 +8,7 @@ import { canViewFamilyWallets, walletItemsForViewer } from "./walletVisibility";
 
 const viewer = (role: Member["role"]) => ({ id: "self", familyId: "family", role });
 const account = (id: string, memberId: string, initialBalance: number, familyId = "family"): Account => ({
-  id, memberId, familyId, initialBalance, kind: "wallet", title: id, bank: null, cardNumber: null,
+  id, memberId, familyId, initialBalance: String(initialBalance), kind: "wallet", title: id, bank: null, cardNumber: null,
   smsEnabled: false, createdAt: "2026-11-21",
 });
 const accounts = [account("mine", "self", 100), account("other", "other", 900), account("foreign", "self", 5000, "foreign")];
@@ -34,14 +34,14 @@ describe("wallet page visibility", () => {
     expect(accounts).toHaveLength(3);
   });
   it("preserves incoming transfers from other members in personal balances and history", () => {
-    const transfer = { id: "transfer", familyId: "family", memberId: "other", type: "transfer", amount: 25,
+    const transfer = { id: "transfer", familyId: "family", memberId: "other", type: "transfer", amount: "25",
       category: "transfer", date: "2026-11-21", accountId: "other", toAccountId: "mine",
       time: null, note: null, subcategoryId: null, repeat: "none", repeatEnd: null, handledOccurrences: [],
       photos: [], createdAt: "2026-11-21" } satisfies Transaction;
     const visible = walletItemsForViewer(accounts, viewer("member"));
-    expect(accountBalances([transfer], visible)[0].balance).toBe(125);
+    expect(accountBalances([transfer], visible)[0].balance).toBe("125");
     const day = isoToJalali(transfer.date);
-    expect(wealthSeriesBetween([transfer], day, day, 100, visible)).toEqual([{ date: transfer.date, value: 125 }]);
+    expect(wealthSeriesBetween([transfer], day, day, "100", visible)).toEqual([{ date: transfer.date, value: "125" }]);
   });
   it("applies the same scope to asset rows so foreign holdings cannot enter personal wealth", () => {
     const holdings = [{ id: "mine", familyId: "family", memberId: "self", value: 50 },

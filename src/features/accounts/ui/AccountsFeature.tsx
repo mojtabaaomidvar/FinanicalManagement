@@ -7,7 +7,7 @@ import { useState } from "react";
 import { Card, Icon, Modal, TextInput } from "@/shared/ui";
 import { maskCardNumber } from "@/domain/account/account.rules";
 import type { Account } from "@/domain/account/account.types";
-import { formatAmount, formatAccountAmount } from "@/shared/lib/format";
+import { formatAmount } from "@/shared/lib/format";
 import { toFa } from "@/shared/lib/digits";
 import { toDisplay } from "@/shared/lib/currency";
 import { AddHoldingModal, HoldingsStatus } from "@/features/holdings";
@@ -20,7 +20,8 @@ import type { Holding, HoldingKind } from "@/domain/holding/holding.types";
 import type { AccountsModel } from "../model/useAccountsModel";
 import { AccountFormFeature } from "./AccountFormFeature";
 import { bankDisplayLabel } from "@/shared/lib/banks";
-import { NegativeBalanceNotice } from "./NegativeBalanceNotice";
+import { WalletBalanceDisplay } from "./WalletBalanceDisplay";
+import { WalletCorrectionFeature } from "./WalletCorrectionFeature";
 import "./AccountsFeature.css";
 
 /** جلوی باز شدن فرم ویرایش را می‌گیرد — برای دکمه‌های داخل کارت کلیک‌پذیر */
@@ -243,9 +244,20 @@ function HoldingsCard({ m }: { m: AccountsModel }) {
   );
 }
 
-export function AccountsFeature({ m, showAddAction = true }: { m: AccountsModel; showAddAction?: boolean }) {
+export function AccountsFeature({ m, showAddAction = true, onOpenTransactions }: { m: AccountsModel; showAddAction?: boolean; onOpenTransactions: (account: Account) => void }) {
+  const [correction, setCorrection] = useState<Account | null>(null);
+  const correctionAccount = correction ? m.accounts.find(account => account.id === correction.id && m.canEdit(account)) : undefined;
+  const correctionKey = JSON.stringify([m.member?.familyId, m.member?.id, m.member?.role, correctionAccount?.id]);
+  function actions(account: Account) {
+    return <div className="account-actions wallet-card-actions">
+      <button type="button" className="btn-secondary" disabled={m.locked} onClick={event => { stop(event); onOpenTransactions(account); }}>تراکنش‌ها</button>
+      {m.canEdit(account) ? <button type="button" className="btn-secondary" disabled={m.locked} onClick={event => { stop(event); setCorrection(account); }}>اصلاح موجودی</button> : null}
+    </div>;
+  }
   return (
     <div className="accounts-feature">
+      {correctionAccount ? <WalletCorrectionFeature key={correctionKey} account={correctionAccount} onClose={() => setCorrection(null)} onSaved={m.refreshAfterCorrection} /> : null}
+      <div className="accounts-toolbar"><button type="button" className="btn-secondary" onClick={m.walletBalances.refresh}>دریافت دوبارهٔ موجودی‌ها</button></div>
       <Modal open={!!m.deleting} onClose={m.closeDelete} title="بررسی حذف حساب" sheetClassName="account-delete-sheet">
         <p>{m.deleting?.title}</p>
         {m.deleteHasHistory ? <p role="status">این حساب سابقهٔ تراکنش دارد و حذف نمی‌شود؛ سابقهٔ مالی حفظ می‌شود.</p> : <>
@@ -263,7 +275,7 @@ export function AccountsFeature({ m, showAddAction = true }: { m: AccountsModel;
       {/* حساب‌های بانکی */}
       <Card title="حساب‌های بانکی">
         {m.banks.length ? (
-          m.banks.map(({ account: acc, balance }) => {
+          m.banks.map(({ account: acc }) => {
             const owner = m.members.find((x) => x.id === acc.memberId);
             return (
               <ClickableCard
@@ -286,13 +298,10 @@ export function AccountsFeature({ m, showAddAction = true }: { m: AccountsModel;
                     </p>
                     {acc.cardNumber ? <span className="account-card-number" dir="ltr">{maskCardNumber(acc.cardNumber)}</span> : null}
                   </div>
-                  <div className={`account-balance${balance < 0 ? " is-negative" : ""}`}>
-                    <b dir="ltr">{formatAccountAmount(balance, m.cur)}</b>
-                    <span>{m.cur}</span>
-                  </div>
+                  <div className="account-balance-wrap"><WalletBalanceDisplay state={m.walletBalances.rows.get(acc.id)} currency={m.cur} className="account-balance" /></div>
                 </div>
 
-                {balance < 0 ? <NegativeBalanceNotice /> : null}
+                {actions(acc)}
 
               </ClickableCard>
             );
@@ -306,7 +315,7 @@ export function AccountsFeature({ m, showAddAction = true }: { m: AccountsModel;
       <Card title="کیف‌پول‌ها">
         {m.wallets.length ? (
           <div className="wallet-flat">
-            {m.wallets.map(({ account: acc, balance }) => {
+            {m.wallets.map(({ account: acc }) => {
               const owner = m.members.find((x) => x.id === acc.memberId);
               return (
                 <ClickableCard
@@ -326,11 +335,8 @@ export function AccountsFeature({ m, showAddAction = true }: { m: AccountsModel;
                       <p>{owner?.name ?? "—"}</p>
                     </div>
                   </div>
-                  <div className={`wallet-balance${balance < 0 ? " is-negative" : ""}`}>
-                    <b dir="ltr">{formatAccountAmount(balance, m.cur)}</b>
-                    <span>{m.cur}</span>
-                  </div>
-                  {balance < 0 ? <NegativeBalanceNotice /> : null}
+                  <WalletBalanceDisplay state={m.walletBalances.rows.get(acc.id)} currency={m.cur} className="wallet-balance" />
+                  {actions(acc)}
                 </ClickableCard>
               );
             })}

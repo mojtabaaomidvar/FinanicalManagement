@@ -4,6 +4,7 @@ import type { Transaction } from "../transaction/transaction.types";
 import { isoToJalali, monthKey } from "@/shared/lib/jalali";
 import { toEn } from "@/shared/lib/digits";
 import { fromDisplay } from "@/shared/lib/currency";
+import { addMoney, compareMoney, floorMoneyPerDay, legacyIntegerMoney, moneyRatio, subtractMoney, type Money } from "@/shared/lib/money";
 
 export const MAX_CATEGORY_BUDGET = 999_999_999_999;
 export const MAX_MONTHLY_BUDGET = 9_999_999_999_999;
@@ -37,11 +38,12 @@ export interface BudgetStatus {
 
 export const BUDGET_WARN_PERCENT = 80;
 
-export function budgetStatus(budget: number, spent: number): BudgetStatus {
-  if (!budget || budget <= 0) {
+export function budgetStatus(budget: number | Money, spent: Money): BudgetStatus {
+  const cap = typeof budget === "number" ? legacyIntegerMoney(budget) : budget;
+  if (compareMoney(cap, "0") <= 0) {
     return { active: false, percent: 0, level: "ok" };
   }
-  const raw = (spent / budget) * 100;
+  const raw = moneyRatio(spent, cap) * 100;
   const percent = Math.min(Math.round(raw), 999);
   const level: BudgetLevel =
     raw > 100 ? "over" : raw > BUDGET_WARN_PERCENT ? "warn" : "ok";
@@ -53,14 +55,14 @@ export function monthCategorySpend(
   txs: Transaction[],
   jy: number,
   jm: number,
-): Map<string, number> {
+): Map<string, Money> {
   const key = monthKey(jy, jm);
-  const spend = new Map<string, number>();
+  const spend = new Map<string, Money>();
   for (const tx of txs) {
     if (tx.type !== "expense") continue;
     const d = isoToJalali(tx.date);
     if (monthKey(d[0], d[1]) !== key) continue;
-    spend.set(tx.category, (spend.get(tx.category) ?? 0) + tx.amount);
+    spend.set(tx.category, addMoney(spend.get(tx.category) ?? "0", tx.amount));
   }
   return spend;
 }
@@ -70,41 +72,41 @@ export interface SpendCapacity {
   /** حداقل یک بودجه فعال تعیین شده است */
   active: boolean;
   /** جمع سقف بودجه‌های فعال */
-  cap: number;
+  cap: Money;
   /** جمع مصرف دسته‌های بودجه‌دار در این ماه */
-  spent: number;
+  spent: Money;
   /** All expenses, including categories without an active budget. */
-  totalSpent: number;
-  unbudgetedSpent: number;
+  totalSpent: Money;
+  unbudgetedSpent: Money;
   /** cap − spent — منفی یعنی عبور از سقف */
-  remaining: number;
+  remaining: Money;
   /** درصد مصرف — سقف ۹۹۹ */
   percent: number;
   level: BudgetLevel;
   /** روزهای مانده تا پایان ماه (شامل امروز) */
   daysLeft: number;
   /** سهم روزانه باقیمانده — عبور از سقف → صفر */
-  perDay: number;
+  perDay: Money;
 }
 
 export function spendCapacity(
   budgets: { category: string; amount: number }[],
-  spend: Map<string, number>,
+  spend: Map<string, Money>,
   daysLeft: number,
 ): SpendCapacity {
-  let cap = 0;
-  let spent = 0;
+  let cap = "0";
+  let spent = "0";
   const covered = new Set<string>();
   for (const b of budgets) {
     if (!b.amount || b.amount <= 0) continue;
-    cap += b.amount;
-    spent += spend.get(b.category) ?? 0;
+    cap = addMoney(cap, legacyIntegerMoney(b.amount));
+    spent = addMoney(spent, spend.get(b.category) ?? "0");
     covered.add(b.category);
   }
-  const totalSpent = [...spend.values()].reduce((sum, amount) => sum + amount, 0);
-  const unbudgetedSpent = [...spend.entries()].reduce((sum, [category, amount]) => sum + (covered.has(category) ? 0 : amount), 0);
+  const totalSpent = addMoney(...spend.values());
+  const unbudgetedSpent = addMoney(...[...spend.entries()].map(([category, amount]) => covered.has(category) ? "0" : amount));
   const st = budgetStatus(cap, spent);
-  const remaining = cap - spent;
+  const remaining = subtractMoney(cap, spent);
   const days = Math.max(1, daysLeft);
   return {
     active: st.active,
@@ -116,6 +118,6 @@ export function spendCapacity(
     percent: st.percent,
     level: st.level,
     daysLeft: days,
-    perDay: remaining > 0 ? Math.floor(remaining / days) : 0,
+    perDay: compareMoney(remaining, "0") > 0 ? floorMoneyPerDay(remaining, days) : "0",
   };
 }

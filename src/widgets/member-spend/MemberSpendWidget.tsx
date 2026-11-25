@@ -8,6 +8,7 @@ import { MONTHS, today } from "@/shared/lib/jalali";
 import { formatAmount } from "@/shared/lib/format";
 import { toDisplay } from "@/shared/lib/currency";
 import { toFa } from "@/shared/lib/digits";
+import { addMoney, compareMoney, moneyRatio } from "@/shared/lib/money";
 
 const TOP = 4;
 
@@ -15,7 +16,7 @@ interface Row {
   key: string;
   name: string;
   avatar: string | null;
-  amount: number;
+  amount: string;
   pct: number;
   rest?: boolean;
 }
@@ -26,8 +27,8 @@ export function MemberSpendWidget() {
 
   const { rows, count } = useMemo(() => {
     const share = memberExpenseShare(txsInJalaliMonth(txs, jy, jm));
-    const total = share.reduce((s, x) => s + x.amount, 0);
-    const pctOf = (v: number) => (total ? Math.round((v / total) * 100) : 0);
+    const total = addMoney(...share.map(x => x.amount));
+    const pctOf = (v: string) => Math.round(moneyRatio(v, total) * 100);
     const list: Row[] = share.slice(0, TOP).map((x) => {
       const m = members.find((mm) => mm.id === x.memberId);
       return {
@@ -38,8 +39,8 @@ export function MemberSpendWidget() {
         pct: pctOf(x.amount),
       };
     });
-    const rest = share.slice(TOP).reduce((s, x) => s + x.amount, 0);
-    if (rest > 0) {
+    const rest = addMoney(...share.slice(TOP).map(x => x.amount));
+    if (compareMoney(rest, "0") > 0) {
       list.push({
         key: "__rest",
         name: "بقیه اعضا",

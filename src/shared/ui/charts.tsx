@@ -1,6 +1,11 @@
 /* نمودارهای Canvas — حلقه‌ای، ستونی، خطی (React، پشتیبانی Retina) */
 
 import { useEffect, useRef } from "react";
+import { addMoney, compareMoney, legacyIntegerMoney, moneyRatio } from "@/shared/lib/money";
+
+// Numeric values are legacy integer chart contracts, not account/transaction amounts.
+const exactValue = (value: string | number) => typeof value === "string" ? value : legacyIntegerMoney(value);
+const maximum = (values: (string | number)[]) => values.reduce<string>((max, value) => compareMoney(exactValue(value), max) > 0 ? exactValue(value) : max, "1");
 
 const PALETTE = [
   "--c1",
@@ -52,7 +57,7 @@ function setup(canvas: HTMLCanvasElement, w: number, h: number) {
 
 export interface DonutSlice {
   label: string;
-  value: number;
+  value: string | number;
   color: string;
 }
 
@@ -75,11 +80,11 @@ export function DonutChart({
       cy = size / 2;
     const R = size * 0.385,
       r = size * 0.26;
-    const total = data.reduce((s, d) => s + d.value, 0);
+    const total = addMoney(...data.map(d => exactValue(d.value)));
 
     ctx.clearRect(0, 0, size, size);
 
-    if (total === 0) {
+    if (compareMoney(total, "0") === 0) {
       ctx.beginPath();
       ctx.arc(cx, cy, (R + r) / 2, 0, Math.PI * 2);
       ctx.lineWidth = R - r;
@@ -91,7 +96,8 @@ export function DonutChart({
     let angle = -Math.PI / 2;
     const gap = data.length > 1 ? 0.035 : 0;
     for (const d of data) {
-      const slice = (d.value / total) * Math.PI * 2;
+      const slice = moneyRatio(exactValue(d.value), total) * Math.PI * 2;
+      if (slice <= 0) continue;
       ctx.beginPath();
       ctx.arc(cx, cy, (R + r) / 2, angle + gap / 2, angle + slice - gap / 2);
       ctx.lineWidth = R - r;
@@ -107,7 +113,7 @@ export function DonutChart({
 
 export interface BarDatum {
   label: string;
-  value: number;
+  value: string | number;
 }
 
 export function BarChart({
@@ -136,7 +142,7 @@ export function BarChart({
 
     ctx.clearRect(0, 0, width, height);
 
-    const max = Math.max(...data.map((d) => d.value), 1);
+    const max = maximum(data.map(d => d.value));
     const n = data.length;
     const slot = plotW / Math.max(n, 1);
     const barW = Math.min(slot * 0.55, 26);
@@ -153,7 +159,7 @@ export function BarChart({
 
     data.forEach((d, i) => {
       const x = padL + slot * i + (slot - barW) / 2;
-      const h = (d.value / max) * plotH;
+      const h = moneyRatio(exactValue(d.value), max) * plotH;
       const y = padT + plotH - h;
 
       const grad = ctx.createLinearGradient(0, y, 0, y + h);
@@ -182,7 +188,7 @@ export function BarChart({
 }
 
 export interface LineSeries {
-  values: number[];
+  values: (string | number)[];
   color: string;
   kind: "income" | "expense";
 }
@@ -216,7 +222,7 @@ export function LineChart({
     ctx.clearRect(0, 0, width, height);
 
     const all = series.flatMap((s) => s.values);
-    const max = Math.max(...all, 1);
+    const max = maximum(all);
 
     ctx.strokeStyle = C.grid;
     ctx.lineWidth = 1;
@@ -230,10 +236,10 @@ export function LineChart({
 
     const n = labels.length;
     const xAt = (i: number) => padL + (plotW / Math.max(n - 1, 1)) * i;
-    const yAt = (v: number) => padT + plotH - (v / max) * plotH;
+    const yAt = (v: string | number) => padT + plotH - moneyRatio(exactValue(v), max) * plotH;
 
     const exp = series.find((s) => s.kind === "expense");
-    if (exp && exp.values.some((v) => v > 0)) {
+    if (exp && exp.values.some((v) => compareMoney(exactValue(v), "0") > 0)) {
       ctx.beginPath();
       exp.values.forEach((v, i) => {
         const x = xAt(i),
@@ -264,7 +270,7 @@ export function LineChart({
       ctx.stroke();
 
       s.values.forEach((v, i) => {
-        if (v <= 0) return;
+        if (compareMoney(exactValue(v), "0") <= 0) return;
         ctx.beginPath();
         ctx.arc(xAt(i), yAt(v), 3.5, 0, Math.PI * 2);
         ctx.fillStyle = cssVar("--card");

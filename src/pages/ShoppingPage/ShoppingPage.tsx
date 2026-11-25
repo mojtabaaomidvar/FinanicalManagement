@@ -24,7 +24,7 @@ import { useToast } from "@/app/providers/ToastProvider";
 import { ShoppingSyncStatus } from "@/features/shopping-offline/ui/ShoppingSyncStatus";
 import { useOnline } from "@/shared/lib/useOnline";
 import {
-  AmountInput,
+  normalizeExpressionInput,
   Card,
   Field,
   Icon,
@@ -45,8 +45,9 @@ import {
   summarize,
 } from "@/domain/shopping/shopping.rules";
 import { toFa } from "@/shared/lib/digits";
-import { formatAmount, parseAmountInput } from "@/shared/lib/format";
-import { fromDisplay, toDisplay } from "@/shared/lib/currency";
+import { formatAmount } from "@/shared/lib/format";
+import { toDisplay } from "@/shared/lib/currency";
+import { parseShoppingPrice } from "@/domain/shopping/shopping.rules";
 
 interface ItemForm {
   title: string;
@@ -233,14 +234,15 @@ export function ShoppingPage() {
       show("تعداد باید بزرگ‌تر از صفر باشد");
       return;
     }
-    const display = parseAmountInput(itemForm.price);
+    const price = offline ? "0" : parseShoppingPrice(itemForm.price, cur);
+    if (price === null) { show("قیمت را درست وارد کنید؛ مبلغ بدون گرد کردن ثبت می‌شود"); return; }
     const input = {
       title,
       qty,
       unit: itemForm.unit.trim() || null,
       /* قیمت اختیاری است: خالی یا صفر یعنی «نگفتم»، نه «مجانی».
          نمایش → پایه (تومان)، وگرنه کاربرِ ریالی ده‌برابر ذخیره می‌کرد. */
-      price: offline ? undefined : display > 0 ? fromDisplay(display, cur) : null,
+      price: offline ? undefined : price !== "0" ? price : null,
       note: itemForm.note.trim() || null,
       inventoryItemId: itemForm.inventoryItemId || null,
     };
@@ -549,9 +551,10 @@ export function ShoppingPage() {
         {!offline ? (
           <>
             <Field label={`قیمت (${currencyDisplayLabel(cur)}) — اختیاری`}>
-              <AmountInput
+              <TextInput
+                inputMode="decimal" className="num-input" aria-label="قیمت کل قلم خرید"
                 value={itemForm.price}
-                onChange={(v) => setItemForm((f) => ({ ...f, price: v }))}
+                onChange={(v) => setItemForm((f) => ({ ...f, price: normalizeExpressionInput(v) }))}
               />
             </Field>
             <p className="form-note">

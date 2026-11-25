@@ -7,6 +7,7 @@ import { weekFlow } from "@/domain/report/report.rules";
 import { today } from "@/shared/lib/jalali";
 import { formatAmount, formatSignedAmount } from "@/shared/lib/format";
 import { toDisplay } from "@/shared/lib/currency";
+import { compareMoney, moneyRatio } from "@/shared/lib/money";
 
 export function WeeklyFlowWidget() {
   const { txs, cur } = useApp();
@@ -14,14 +15,14 @@ export function WeeklyFlowWidget() {
   const flow = useMemo(() => weekFlow(txs, today()), [txs]);
 
   /* مقیاس ستون‌ها نسبت به بزرگ‌ترین رقم هفته؛ صفر = خط نازک */
-  const max = Math.max(...flow.income, ...flow.expense, 1);
-  const h = (v: number) => `${v > 0 ? Math.max((v / max) * 100, 10) : 3}%`;
+  const max = [...flow.income, ...flow.expense].reduce((max, v) => compareMoney(v, max) > 0 ? v : max, "1");
+  const h = (v: string) => `${compareMoney(v, "0") > 0 ? Math.max(moneyRatio(v, max) * 100, 10) : 3}%`;
 
   return (
     <section className="strip">
       <div className="strip-head">
         <h3 className="strip-title">جریان هفت روز گذشته</h3>
-        <span className={`strip-net ${flow.net >= 0 ? "income" : "expense"}`}>
+        <span className={`strip-net ${compareMoney(flow.net, "0") >= 0 ? "income" : "expense"}`}>
           {formatSignedAmount(toDisplay(flow.net, cur))}
           <i>{currencyDisplayLabel(cur)}</i>
         </span>

@@ -20,6 +20,7 @@ import {
 import { normalizeExpressionInput, formatExpressionValue } from "@/shared/ui";
 import { compressImage } from "@/shared/lib/image";
 import { toDisplay } from "@/shared/lib/currency";
+import { addMoney, compareMoney, convertMoney, moneyFits, multiplyMoney } from "@/shared/lib/money";
 import { isoToJalali, today, formatISO } from "@/shared/lib/jalali";
 import { expenseBalanceWarning, type ExpenseBalanceWarning } from "./expenseBalance";
 import { occurrenceStatus, parseScheduledAmount, recurringTemplate } from "@/domain/transaction/recurring.rules";
@@ -176,6 +177,7 @@ export function useTxFormModel(
   function openEdit(tx: Transaction) {
     if (saving.current) return;
     if (tx.sourceKind === "transfer_fee") return notify("برای تغییر کارمزد، پرداخت اصلی را ویرایش کنید.");
+    if (tx.sourceKind === "wallet_correction") return notify("تراکنش اصلاح موجودی تغییرناپذیر است؛ اصلاح تازه را از کیف پول ثبت کنید.");
     generation.current += 1;
     savedTransaction.current = tx;
     setEditing(tx);
@@ -304,7 +306,7 @@ export function useTxFormModel(
     const amount = parseScheduledAmount(form.amount, entryCurrency);
     if (amount === null) return notify("لطفاً مبلغ معتبر وارد کنید");
     const baseAmount = occurrencePending && editing ? editing.amount : amount;
-    if (!Number.isFinite(baseAmount) || baseAmount <= 0) return notify("لطفاً مبلغ معتبر وارد کنید");
+    if (compareMoney(baseAmount, "0") <= 0) return notify("لطفاً مبلغ معتبر وارد کنید");
     const parsedDate = parse(form.date);
     if (!parsedDate) return notify("تاریخ تراکنش را انتخاب کنید");
 
@@ -375,7 +377,7 @@ export function useTxFormModel(
     let occurrenceHandled = occurrence === null;
     let phase: "occurrence" | "balance" | "label" | "transaction" | "receipts" = occurrence ? "occurrence" : checkingBalance ? "balance" : "label";
     let transferFeeMethod: TransferFeeMethod | null = null;
-    let transferFeeRial = 0;
+    let transferFeeRial = "0";
     try {
       if (occurrence) {
         const transactions = await useCases.listTransactions.execute();
@@ -424,15 +426,17 @@ export function useTxFormModel(
         if (bankFeePayment && (form.type === "expense" ? form.paymentMethod === "bank_transfer" : form.feeChoice === "yes")) {
           if (!form.feeMethod) return notify("نوع انتقال را انتخاب کنید.");
           transferFeeMethod = form.feeMethod;
-          const rial = Math.round(baseAmount * 10);
-          if (Math.abs(rial - baseAmount * 10) > 0.00001) return notify("مبلغ پرداخت باید عدد صحیح مثبت به ریال باشد.");
+           const rial = convertMoney(baseAmount, "ریال");
+           if (!moneyFits(rial, { scale: 0, min: "1", max: "9999999999990" })) return notify("مبلغ پرداخت باید عدد صحیح مثبت به ریال باشد.");
           transferFeeRial = await useCases.quoteTransferFee.execute(transferFeeMethod, rial);
           if (!current()) return;
         }
         if (form.type === "income") {
           setBalanceWarning(null);
         } else {
-        const warning = expenseBalanceWarning(account, transactions, baseAmount + transferFeeRial / 10, original?.id);
+        const authoritative = await useCases.walletCorrections.balance({ familyId: account.familyId, memberId: currentMemberId, accountId: account.id });
+        if (!current()) return;
+        const warning = expenseBalanceWarning(account, transactions, addMoney(baseAmount, multiplyMoney(transferFeeRial, "0.1")), original?.id, authoritative.currentBalance);
         if (warning) {
           reviewedBalance.current = null;
           writeForm(previous => ({ ...previous, accountId: "" }));

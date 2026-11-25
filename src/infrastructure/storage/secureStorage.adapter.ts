@@ -11,7 +11,8 @@
 export interface SecureStorage {
   /** False means memory fallback: it cannot safely accept an offline outbox. */
   readonly persistent?: boolean;
-  get<T>(key: string): Promise<T | null>;
+  /** Critical financial recovery must distinguish corrupt ciphertext from absence. */
+  get<T>(key: string, options?: { rejectInvalid?: boolean }): Promise<T | null>;
   set<T>(key: string, value: T): Promise<void>;
   remove(key: string): Promise<void>;
 }
@@ -121,7 +122,7 @@ export async function createSecureStorage(): Promise<SecureStorage> {
 
     return {
       persistent: true,
-      async get<T>(k: string): Promise<T | null> {
+      async get<T>(k: string, options?: { rejectInvalid?: boolean }): Promise<T | null> {
         const rec = await idbGet<EncryptedRecord>(db, k);
         if (!rec) return null;
         try {
@@ -131,8 +132,9 @@ export async function createSecureStorage(): Promise<SecureStorage> {
             rec.ct,
           );
           return JSON.parse(new TextDecoder().decode(pt)) as T;
-        } catch {
-          /* داده خراب یا کلید عوض شده → مثل نبودن */
+        } catch (error) {
+          if (options?.rejectInvalid) throw error;
+          // Non-critical existing caches retain their historical fallback.
           return null;
         }
       },

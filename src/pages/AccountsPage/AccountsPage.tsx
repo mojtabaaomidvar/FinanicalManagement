@@ -21,7 +21,12 @@ import {
   parse,
   today,
 } from "@/shared/lib/jalali";
-import { formatAccountAmount } from "@/shared/lib/format";
+import { addMoney, compareMoney, formatMoney, moneyRatio, subtractMoney } from "@/shared/lib/money";
+import { PageActivityContext } from "@/shared/lib/pageActivity";
+import { useWalletTransactionNavigation } from "@/features/accounts/model/useWalletTransactionNavigation";
+import { WalletTransactionsFeature } from "@/features/accounts/ui/WalletTransactionsFeature";
+import type { AccountsModel } from "@/features/accounts/model/useAccountsModel";
+import type { Account } from "@/domain/account/account.types";
 
 /* بازه‌های آماده نمودار دارایی — کنار دکمه سه‌نقطه (بازه دلخواه) */
 const RANGE_OPTIONS: { value: WealthRange; label: string }[] = [
@@ -31,9 +36,22 @@ const RANGE_OPTIONS: { value: WealthRange; label: string }[] = [
 ];
 
 export function AccountsPage() {
+  const m = useAccountsModel();
+  const navigation = useWalletTransactionNavigation(m.accounts);
+  return <>
+    <PageActivityContext.Provider value={navigation.active && navigation.selected === null}>
+      <div className="wallet-visit" hidden={navigation.selected !== null}><AccountsOverview key={navigation.identity} m={m} onOpenTransactions={navigation.open} /></div>
+    </PageActivityContext.Provider>
+    {navigation.visited.map(id => <PageActivityContext.Provider key={`${navigation.identity}:${id}`} value={navigation.active && navigation.selected === id}>
+      <div className="wallet-visit" hidden={navigation.selected !== id}><WalletTransactionsFeature account={m.accounts.find(account => account.id === id)} balance={m.walletBalances.rows.get(id)}
+        onBack={navigation.back} onRefresh={m.walletBalances.refresh} /></div>
+    </PageActivityContext.Provider>)}
+  </>;
+}
+
+function AccountsOverview({ m, onOpenTransactions }: { m: AccountsModel; onOpenTransactions: (account: Account) => void }) {
   const { txs } = useApp();
   const { show } = useToast();
-  const m = useAccountsModel();
   const accounts = m.accounts;
 
   const [range, setRange] = useState<WealthRange | "custom">("1m");
@@ -48,7 +66,7 @@ export function AccountsPage() {
 
   /* نمودار و فهرست حساب‌ها از همان محدودهٔ مجاز بیننده استفاده می‌کنند. */
   const initialTotal = useMemo(
-    () => accounts.reduce((s, a) => s + (a.initialBalance ?? 0), 0),
+    () => addMoney(...accounts.map(a => a.initialBalance ?? "0")),
     [accounts],
   );
 
@@ -99,24 +117,26 @@ export function AccountsPage() {
           <div className="wealth-top">
             <p className="balance-label">{m.canViewFamilyWallets ? "دارایی کل خانواده" : "دارایی کل من"}</p>
             <b
-              className={`wealth-total ${m.totalWealth < 0 ? "neg" : ""}`}
+              className={`wealth-total ${m.totalWealth !== null && compareMoney(m.totalWealth, "0") < 0 ? "neg" : ""}`}
               dir="ltr"
             >
               <FitText>
-                {m.holdings.loading || m.holdings.loadError ? /* @copy-text accounts.wealth_unavailable */ "—" : <>
-                {formatAccountAmount(m.totalWealth, m.cur)}
+                {m.totalWealth === null ? /* @copy-text accounts.wealth_unavailable */ "—" : <>
+                {formatMoney(m.totalWealth, m.cur)}
                 <span>{m.cur}</span>
                 </>}
               </FitText>
             </b>
           </div>
 
+          <p className="section-hint">عدد بالا شامل موجودی فعلی کیف پول‌ها و ارزش برآوردی دارایی‌هاست؛ نمودار فقط روند موجودی حاصل از تراکنش‌ها را نشان می‌دهد.</p>
+
           <div className="wealth-chart">
             <svg
               viewBox="0 0 340 100"
               className="wealth-svg"
               role="img"
-              aria-label="روند موجودی نقد حساب‌ها"
+               aria-label="روند موجودی حاصل از تراکنش‌های حساب‌ها"
               preserveAspectRatio="none"
             >
               <defs>
@@ -182,7 +202,7 @@ export function AccountsPage() {
         </div>
 
         {/* لیست حساب‌ها و کیف‌پول‌ها + فرم افزودن/ویرایش — کامپوننت مشترک */}
-        <AccountsFeature m={m} showAddAction={false} />
+        <AccountsFeature m={m} showAddAction={false} onOpenTransactions={onOpenTransactions} />
       </div>
 
       {/* بازه دلخواه نمودار دارایی — از طریق سه‌نقطه */}
@@ -213,7 +233,7 @@ export function AccountsPage() {
             </Field>
           </div>
           <p className="modal-sub full" style={{ gridColumn: "1 / -1" }}>
-            نمودار، موجودی نقد حساب‌ها را در این بازه نشان می‌دهد.
+            نمودار، موجودی حاصل از تراکنش‌ها را در این بازه نشان می‌دهد؛ مغایرت‌گیری گذشتهٔ نمودار را تغییر نمی‌دهد.
           </p>
         </div>
         <div className="modal-actions">
@@ -233,26 +253,26 @@ export function AccountsPage() {
 }
 
 /* مسیر SVG دارایی — خط + ناحیه گرادیانی + نقطه پایان */
-function WealthPath({ points }: { points: number[] }) {
+function WealthPath({ points }: { points: string[] }) {
   if (points.length < 2) return null;
   const w = 340;
   const h = 100;
   const pad = 6;
-  const min = Math.min(...points, 0);
-  const max = Math.max(...points, 1);
-  const span = max - min || 1;
+  const min = points.reduce((min, value) => compareMoney(value, min) < 0 ? value : min, "0");
+  const max = points.reduce((max, value) => compareMoney(value, max) > 0 ? value : max, "1");
+  const span = subtractMoney(max, min);
   const x = (i: number) => (i / (points.length - 1)) * w;
-  const y = (v: number) => pad + (1 - (v - min) / span) * (h - pad * 2);
+  const y = (v: string) => pad + (1 - moneyRatio(subtractMoney(v, min), span)) * (h - pad * 2);
   const d = points
     .map((v, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(v)}`)
     .join(" ");
   const area = `${d} L${w},${h} L0,${h} Z`;
   const last = points[points.length - 1];
-  const zeroY = y(0);
+  const zeroY = y("0");
   return (
     <>
       <path d={area} fill="url(#wealth-area)" />
-      {min < 0 ? (
+      {compareMoney(min, "0") < 0 ? (
         <line
           x1="0"
           y1={zeroY}
@@ -265,7 +285,7 @@ function WealthPath({ points }: { points: number[] }) {
       <path
         d={d}
         fill="none"
-        stroke={last >= 0 ? "var(--income)" : "var(--expense)"}
+        stroke={compareMoney(last, "0") >= 0 ? "var(--income)" : "var(--expense)"}
         strokeWidth="2.5"
         strokeLinejoin="round"
         strokeLinecap="round"
@@ -275,7 +295,7 @@ function WealthPath({ points }: { points: number[] }) {
         cy={y(last)}
         r="4"
         fill="var(--card)"
-        stroke={last >= 0 ? "var(--income)" : "var(--expense)"}
+        stroke={compareMoney(last, "0") >= 0 ? "var(--income)" : "var(--expense)"}
         strokeWidth="2"
       />
     </>

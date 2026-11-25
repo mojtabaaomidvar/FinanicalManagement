@@ -32,6 +32,33 @@
   justify-content: flex-end;
 }
 
+.wallet-visit {
+  height: 100%;
+  min-height: 0;
+}
+
+.wallet-visit[hidden] {
+  display: none !important;
+}
+
+.accounts-feature .account-actions.wallet-card-actions {
+  position: static;
+  inset: auto;
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.wallet-card-actions .btn-secondary {
+  min-height: 44px;
+}
+
+.accounts-feature .wallet-card > .section-hint {
+  grid-column: 1 / -1;
+}
+
 .accounts-feature .account-card.flat {
   margin-bottom: 0;
   padding: 12px 0;
@@ -77,6 +104,15 @@
 
 .accounts-feature .account-balance {
   max-width: 44%;
+}
+
+.accounts-feature .account-balance-wrap {
+  max-width: 44%;
+  min-width: 0;
+}
+
+.accounts-feature .account-balance-wrap .account-balance {
+  max-width: none;
 }
 
 .accounts-feature .account-balance b,

@@ -12,12 +12,13 @@ import type {
   BillState,
 } from "@/domain/bill/bill.types";
 import type { RestClient } from "@/infrastructure/api/restClient";
+import { normalizeMoney } from "@/shared/lib/money";
 
 type BillRow = {
   id: string;
   kind: string;
   title: string;
-  amount: string | number;
+  amount: string;
   due_date: string;
   bill_no: string | null;
   payment_no: string | null;
@@ -40,9 +41,7 @@ const KINDS: BillKind[] = [
   "other",
 ];
 
-/* مبلغ روی سیم می‌تواند رشته باشد (Numeric پستگرس در JSON رشته می‌شود) —
-   عیناً مثلِ مبلغِ تراکنش. Number() یک‌بار این‌جا انجام می‌شود تا هیچ
-   مصرف‌کننده‌ای مجبور نباشد حدس بزند. */
+/* Decimal text stays exact through payment and unchanged editing. */
 function mapBill(r: BillRow): Bill {
   return {
     id: r.id,
@@ -50,7 +49,7 @@ function mapBill(r: BillRow): Bill {
        نوعِ تازه‌ای اضافه کند، قبض به‌غلط «برق» نشان داده نمی‌شود. */
     kind: KINDS.includes(r.kind as BillKind) ? (r.kind as BillKind) : "other",
     title: r.title,
-    amount: Number(r.amount),
+    amount: normalizeMoney(r.amount),
     dueDate: r.due_date,
     billNo: r.bill_no ?? null,
     paymentNo: r.payment_no ?? null,
@@ -74,7 +73,7 @@ function body(input: BillInput): Record<string, unknown> {
   return {
     kind: input.kind,
     title: input.title,
-    amount: input.amount,
+    amount: normalizeMoney(input.amount),
     due_date: input.dueDate,
     bill_no: input.billNo ?? null,
     payment_no: input.paymentNo ?? null,

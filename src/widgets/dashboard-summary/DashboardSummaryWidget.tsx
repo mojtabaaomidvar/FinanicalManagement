@@ -24,6 +24,7 @@ import { formatAmount } from "@/shared/lib/format";
 import { toDisplay } from "@/shared/lib/currency";
 import { toFa } from "@/shared/lib/digits";
 import type { TxFormModel } from "@/features/transaction-form";
+import { absMoney, compareMoney, moneyRatio, subtractMoney } from "@/shared/lib/money";
 
 /** نوع نمودار هزینه ماه — انتخاب کاربر؛ در localStorage ماندگار است */
 type ChartKind = "donut" | "bar";
@@ -78,7 +79,7 @@ export function DashboardSummaryWidget({
   }));
 
   /* مانده ماه = درآمد − هزینه (خروج ماه) */
-  const monthNet = data.totals.income - data.totals.expense;
+  const monthNet = subtractMoney(data.totals.income, data.totals.expense);
 
   function switchChart(kind: ChartKind) {
     setChartKind(kind);
@@ -97,7 +98,7 @@ export function DashboardSummaryWidget({
           <p className="fin-hero-label">موجودی کل خانواده</p>
           <h2
             className="fin-hero-balance"
-            style={data.balance < 0 ? { color: "var(--danger)" } : undefined}
+            style={compareMoney(data.balance, "0") < 0 ? { color: "var(--danger)" } : undefined}
           >
             {formatAmount(toDisplay(data.balance, cur))}
             <span className="fin-hero-cur">{currencyDisplayLabel(cur)}</span>
@@ -127,9 +128,9 @@ export function DashboardSummaryWidget({
           <div className="fin-cell wide">
             <span className="fin-cell-label">مانده ماه</span>
             <b
-              className={`fin-cell-value net ${monthNet >= 0 ? "income" : "expense"}`}
+              className={`fin-cell-value net ${compareMoney(monthNet, "0") >= 0 ? "income" : "expense"}`}
             >
-              {formatAmount(toDisplay(Math.abs(monthNet), cur))}
+              {formatAmount(toDisplay(absMoney(monthNet), cur))}
               <span className="cur-tag">{currencyDisplayLabel(cur)}</span>
             </b>
           </div>
@@ -186,9 +187,7 @@ export function DashboardSummaryWidget({
                 </b>
                 <span className="pct">
                   {toFa(
-                    data.totals.expense
-                      ? Math.round((d.value / data.totals.expense) * 100)
-                      : 0,
+                    Math.round(moneyRatio(d.value, toDisplay(data.totals.expense, cur)) * 100),
                   )}
                   ٪
                 </span>

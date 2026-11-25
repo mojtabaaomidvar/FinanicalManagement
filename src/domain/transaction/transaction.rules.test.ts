@@ -11,7 +11,7 @@ const ok = (over: Partial<Parameters<typeof validateTransaction>[0]> = {}) =>
   validateTransaction({
     memberId: "m1",
     type: "expense",
-    amount: 1000,
+    amount: "1000",
     category: "food",
     date: "2025-09-06",
     ...over,
@@ -30,9 +30,9 @@ describe("validateTransaction", () => {
   it("ورودی سالم", () => expect(ok().ok).toBe(true));
 
   it("مبلغ صفر/منفی/غیرعددی → INVALID_AMOUNT", () => {
-    expect(ok({ amount: 0 }).error).toBe("INVALID_AMOUNT");
-    expect(ok({ amount: -5 }).error).toBe("INVALID_AMOUNT");
-    expect(ok({ amount: NaN }).error).toBe("INVALID_AMOUNT");
+    expect(ok({ amount: "0" }).error).toBe("INVALID_AMOUNT");
+    expect(ok({ amount: "-5" }).error).toBe("INVALID_AMOUNT");
+    expect(ok({ amount: "NaN" }).error).toBe("INVALID_AMOUNT");
   });
 
   it("دسته: ثابت، سفارشی (uuid) یا نامعتبر", () => {
@@ -117,7 +117,7 @@ const tx = (
   familyId: "f",
   memberId: "m1",
   type: "expense",
-  amount: 100,
+  amount: "100",
   category: "food",
   date,
   time,

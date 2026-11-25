@@ -12,7 +12,7 @@ describe("keyboard amount input", () => {
       expect(normalizeExpressionInput(raw)).toBe(expected);
       expect(normalizeExpressionInput(expected)).toBe(expected);
     }
-    expect(evaluateExpression(normalizeExpressionInput("1234+5678.5"))).toBe(6912.5);
+    expect(evaluateExpression(normalizeExpressionInput("1234+5678.5"))).toBe("6912.5");
   });
 
   it("maps caret positions across regrouping and retains separator affinity", () => {
@@ -24,9 +24,9 @@ describe("keyboard amount input", () => {
 
   it("accepts keyboard operators and Persian or Arabic numeric separators", () => {
     expect(normalizeExpressionInput("12/3+2*4")).toBe("۱۲÷۳+۲×۴");
-    expect(evaluateExpression(normalizeExpressionInput("12/3+2*4"))).toBe(12);
+    expect(evaluateExpression(normalizeExpressionInput("12/3+2*4"))).toBe("12");
     expect(normalizeExpressionInput("١٬٢٠٠٫٥−٠٫٥")).toBe("۱,۲۰۰.۵-۰.۵");
-    expect(evaluateExpression(normalizeExpressionInput("١٬٢٠٠٫٥−٠٫٥"))).toBe(1200);
+    expect(evaluateExpression(normalizeExpressionInput("١٬٢٠٠٫٥−٠٫٥"))).toBe("1200");
   });
 
   it("keeps unsupported text and invalid arithmetic so they cannot become another amount", () => {
@@ -37,8 +37,8 @@ describe("keyboard amount input", () => {
   });
 
   it("preserves fractional values when displaying an amount for editing or continuing calculations", () => {
-    expect(formatExpressionValue(1.75)).toBe("۱.۷۵");
-    for (const amount of [1.75, 0.0000001, 12000.5, 1 / 3]) {
+    expect(formatExpressionValue("1.75")).toBe("۱.۷۵");
+    for (const amount of ["1.75", "0.0000001", "12000.5", "0.3333333333333333", "999999999999999.9"]) {
       expect(evaluateExpression(formatExpressionValue(amount))).toBe(amount);
     }
   });
@@ -46,30 +46,48 @@ describe("keyboard amount input", () => {
 
 describe("evaluateExpression — کیپد ماشین‌حساب", () => {
   it("عدد ساده", () => {
-    expect(evaluateExpression("۱۲۳")).toBe(123);
-    expect(evaluateExpression("1,200,000")).toBe(1200000);
+    expect(evaluateExpression("۱۲۳")).toBe("123");
+    expect(evaluateExpression("1,200,000")).toBe("1200000");
   });
 
   it("چهار عمل اصلی", () => {
-    expect(evaluateExpression("۱۰+۵")).toBe(15);
-    expect(evaluateExpression("۱۰-۳")).toBe(7);
-    expect(evaluateExpression("۶×۴")).toBe(24);
-    expect(evaluateExpression("۹÷۳")).toBe(3);
+    expect(evaluateExpression("۱۰+۵")).toBe("15");
+    expect(evaluateExpression("۱۰-۳")).toBe("7");
+    expect(evaluateExpression("۶×۴")).toBe("24");
+    expect(evaluateExpression("۹÷۳")).toBe("3");
   });
 
   it("اولویت ضرب/تقسیم بر جمع/تفریق", () => {
-    expect(evaluateExpression("۲+۳×۴")).toBe(14);
-    expect(evaluateExpression("۱۰-۴÷۲")).toBe(8);
-    expect(evaluateExpression("۲×۳+۴×۵")).toBe(26);
+    expect(evaluateExpression("۲+۳×۴")).toBe("14");
+    expect(evaluateExpression("۱۰-۴÷۲")).toBe("8");
+    expect(evaluateExpression("۲×۳+۴×۵")).toBe("26");
   });
 
   it("زنجیره عملگرها", () => {
-    expect(evaluateExpression("۱+۲+۳")).toBe(6);
-    expect(evaluateExpression("۱۰۰-۲۰-۳۰")).toBe(50);
-    expect(evaluateExpression("۲×۳×۴")).toBe(24);
-    expect(evaluateExpression("-۸+۱۰")).toBe(2);
-    expect(evaluateExpression("-۲×۳+۱۰")).toBe(4);
-    expect(evaluateExpression("-۲÷۲")).toBe(-1);
+    expect(evaluateExpression("۱+۲+۳")).toBe("6");
+    expect(evaluateExpression("۱۰۰-۲۰-۳۰")).toBe("50");
+    expect(evaluateExpression("۲×۳×۴")).toBe("24");
+    expect(evaluateExpression("-۸+۱۰")).toBe("2");
+    expect(evaluateExpression("-۲×۳+۱۰")).toBe("4");
+    expect(evaluateExpression("-۲÷۲")).toBe("-1");
+  });
+
+  it("keeps large and fractional calculations exact, including rational cancellation", () => {
+    expect(evaluateExpression("999999999999999.9+0.1")).toBe("1000000000000000");
+    expect(evaluateExpression("0.1+0.2")).toBe("0.3");
+    expect(evaluateExpression("1÷3×3")).toBe("1");
+    expect(evaluateExpression("1÷3+2÷3")).toBe("1");
+    expect(evaluateExpression("1÷3-1÷3")).toBe("0");
+    expect(evaluateExpression("1÷3")).toBeNull();
+    expect(evaluateExpression("1÷8")).toBe("0.125");
+    expect(evaluateExpression("0÷3")).toBe("0");
+  });
+
+  it("returns null rather than throwing for excessive input or results", () => {
+    for (const input of ["9".repeat(129), "1+".repeat(300) + "1", "9".repeat(128) + "×10", "0÷0"]) {
+      expect(() => evaluateExpression(input)).not.toThrow();
+      expect(evaluateExpression(input)).toBeNull();
+    }
   });
 
   it("ورودی نامعتبر → null", () => {

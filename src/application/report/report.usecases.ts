@@ -23,7 +23,7 @@ export class GetDashboardUseCase {
   constructor(private readonly repo: TransactionRepository) {}
 
   async execute(all?: Transaction[]): Promise<{
-    balance: number;
+    balance: string;
     month: MonthTotals;
     monthCategorySlices: CategorySlice[];
     recent: Transaction[];

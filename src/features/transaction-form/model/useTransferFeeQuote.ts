@@ -1,17 +1,18 @@
 import { useEffect, useState } from "react";
 import type { UseCases } from "@/application/useCases";
 import type { TransferFeeMethod } from "@/domain/transaction/transaction.types";
+import { compareMoney, convertMoney, moneyFits, type Money } from "@/shared/lib/money";
 
 /** A quote belongs to one form/account/amount snapshot. Stale replies never filter a new selection. */
-export function useTransferFeeQuote(useCases: UseCases | null, scope: string, method: TransferFeeMethod | "", amount: number | null) {
-  const key = method && amount !== null && amount > 0 ? `${scope}:${method}:${amount}` : "";
-  const [result, setResult] = useState<{ key: string; useCases: UseCases; rial?: number; error?: string } | null>(null);
+export function useTransferFeeQuote(useCases: UseCases | null, scope: string, method: TransferFeeMethod | "", amount: Money | null) {
+  const key = method && amount !== null && compareMoney(amount, "0") > 0 ? `${scope}:${method}:${amount}` : "";
+  const [result, setResult] = useState<{ key: string; useCases: UseCases; rial?: Money; error?: string } | null>(null);
   useEffect(() => {
     if (!key || !method || amount === null || !useCases) return;
     let active = true;
     const timer = window.setTimeout(() => {
-      const rial = Math.round(amount * 10);
-      if (Math.abs(rial - amount * 10) > 0.00001) {
+      const rial = convertMoney(amount, "ریال");
+      if (!moneyFits(rial, { scale: 0, min: "1", max: "9999999999990" })) {
         setResult({ key, useCases, error: "مبلغ پرداخت باید عدد صحیح مثبت به ریال باشد." });
         return;
       }
@@ -24,5 +25,5 @@ export function useTransferFeeQuote(useCases: UseCases | null, scope: string, me
     return () => { active = false; window.clearTimeout(timer); };
   }, [useCases, key, method, amount]);
   const current = key && result?.key === key && result.useCases === useCases ? result : null;
-  return { rial: current?.rial ?? 0, loading: !!key && !current, error: current?.error ?? null };
+  return { rial: current?.rial ?? "0", loading: !!key && !current, error: current?.error ?? null };
 }

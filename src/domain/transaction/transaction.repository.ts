@@ -1,9 +1,10 @@
 /* اینترفیس مخزن تراکنش‌ها — پیاده‌سازی در infrastructure/repositories */
 
 import type { Transaction, TransactionInput, TransactionPhoto, RecurringUpdate, OccurrenceSettle, TransferFeeMethod } from "./transaction.types";
+import type { Money } from "@/shared/lib/money";
 
 export interface TransactionRepository {
-  quoteTransferFee?(method: TransferFeeMethod, amountRial: number): Promise<number>;
+  quoteTransferFee?(method: TransferFeeMethod, amountRial: Money): Promise<Money>;
   list(): Promise<Transaction[]>;
   add(input: TransactionInput): Promise<Transaction>;
   update(id: string, input: TransactionInput): Promise<void>;

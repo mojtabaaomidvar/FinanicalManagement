@@ -5,7 +5,9 @@ import type { PaymentMethod, Transaction, TransferFeeMethod } from "@/domain/tra
 import type { UseCases } from "@/application/useCases";
 import { smsDraftDefaults } from "@/domain/sms/sms.rules";
 import { formatAmount, liveFormatJalaliDate } from "@/shared/lib/format";
-import { fromDisplay, toDisplay } from "@/shared/lib/currency";
+import { toDisplay } from "@/shared/lib/currency";
+import { addMoney, convertMoney, moneyFits, multiplyMoney } from "@/shared/lib/money";
+import { parseScheduledAmount } from "@/domain/transaction/recurring.rules";
 import { toEn } from "@/shared/lib/digits";
 import { parse, formatISO, jalaliToIso, isoToJalali } from "@/shared/lib/jalali";
 import { categoriesFor } from "@/domain/category/category.catalog";
@@ -45,6 +47,10 @@ export function usePendingSmsModel(
   const operation = useRef(false);
   const saved = useRef<string | null>(null);
   const generation = useRef(0);
+  const identity = useRef({ useCases, currentMemberId, enabled });
+  if (identity.current.useCases !== useCases || identity.current.currentMemberId !== currentMemberId || identity.current.enabled !== enabled) {
+    identity.current = { useCases, currentMemberId, enabled };
+  }
   const readTurn = useRef(0);
   const reviewTarget = useRef<string | true | null>(null);
   const entryCurrency = useRef(currency);
@@ -54,6 +60,7 @@ export function usePendingSmsModel(
     generation.current++; readTurn.current++; operation.current = false;
     saved.current = null; knownTransactions.current = []; reviewTarget.current = null;
     setOpen(false); setList([]); setSavedId(null); setBusy(false); setLoading(false);
+    setError(null); setLoadError(null); setAmountNeedsReview(false);
     return () => { generation.current++; readTurn.current++; };
   }, [useCases, currentMemberId, enabled]);
 
@@ -68,10 +75,10 @@ export function usePendingSmsModel(
     const draftType = draft?.type ?? d.type;
     setType(original?.type === "income" ? "income" : original ? "expense" : draftType);
     setCategoryId(original?.category ?? draft?.categoryId ?? d.categoryId);
-    const baseAmount = original?.amount ?? d.amount;
-    const draftNumeric = draft ? Number(toEn(draft.amount).replace(/[٬،,\s]/g, "")) : null;
-    setAmount(draft ? draftNumeric && Number.isFinite(draftNumeric)
-      ? formatExpressionValue(toDisplay(fromDisplay(draftNumeric, draft.currency), currency)) : draft.amount
+    const baseAmount = original?.amount ?? parseScheduledAmount(d.amount, "تومان");
+    const draftAmount = draft ? parseScheduledAmount(draft.amount, draft.currency) : null;
+    setAmount(draft ? draftAmount !== null
+      ? formatExpressionValue(toDisplay(draftAmount, currency)) : draft.amount
       : baseAmount ? formatExpressionValue(toDisplay(baseAmount, currency)) : "");
     setAmountNeedsReview(d.amountNeedsReview);
     setDate(original ? formatISO(isoToJalali(original.date)) : draft?.date ?? (d.jalaliDate ? formatISO(d.jalaliDate) : ""));
@@ -91,13 +98,15 @@ export function usePendingSmsModel(
     if (options.review) reviewTarget.current = options.smsId ?? reviewTarget.current ?? true;
     const mine = ++readTurn.current;
     const currentGeneration = generation.current;
+    const currentIdentity = identity.current;
+    const current = () => currentGeneration === generation.current && currentIdentity === identity.current;
     setLoading(true);
     setLoadError(null);
     try {
       const pending = (await useCases.listPendingSms.execute()).filter(sms => !sms.memberId || sms.memberId === currentMemberId);
       const hasReceipts = pending.some(sms => readSmsReceipt({ familyId: sms.familyId, memberId: currentMemberId, smsId: sms.id }));
       const transactions = hasReceipts ? await useCases.listTransactions.execute() : [];
-      if (mine !== readTurn.current || currentGeneration !== generation.current) return;
+      if (mine !== readTurn.current || !current()) return;
       setList(pending);
       knownTransactions.current = transactions;
       const selectedId = typeof reviewTarget.current === "string" ? reviewTarget.current : undefined;
@@ -108,11 +117,11 @@ export function usePendingSmsModel(
         else { reviewTarget.current = pending[selected].id; hydrate(pending[selected]); setOpen(true); }
       } else if (!pending.length) { reviewTarget.current = null; setOpen(false); }
     } catch (e) {
-      if (mine !== readTurn.current || currentGeneration !== generation.current) return;
+      if (mine !== readTurn.current || !current()) return;
       setLoadError(e instanceof Error ? e.message : "خطا در دریافت پیامک‌ها");
       if (reviewTarget.current !== null) setOpen(true);
     } finally {
-      if (mine === readTurn.current && currentGeneration === generation.current) setLoading(false);
+      if (mine === readTurn.current && current()) setLoading(false);
     }
   }
 
@@ -139,11 +148,10 @@ export function usePendingSmsModel(
     const sms = list[idx];
     if (!enabled || !sms || operation.current || loading || loadError) return;
     const originalId = saved.current;
-    const numeric = toEn(amount).replace(/[٬،,\s]/g, "");
-    const amt = Number(numeric);
+    const amt = parseScheduledAmount(amount, entryCurrency.current);
     const parsedDate = parse(date);
     if (!originalId) {
-      if (!/^\d+(?:\.\d+)?$/.test(numeric) || !Number.isFinite(amt) || amt <= 0 || fromDisplay(amt, entryCurrency.current) <= 0) {
+      if (amt === null) {
         return setError("لطفاً مبلغ معتبر وارد کنید");
       }
       if (!accountId) return setError(accountsCount
@@ -157,7 +165,8 @@ export function usePendingSmsModel(
     setBusy(true);
     setError(null);
     const currentGeneration = generation.current;
-    const current = () => currentGeneration === generation.current;
+    const currentIdentity = identity.current;
+    const current = () => currentGeneration === generation.current && currentIdentity === identity.current;
     const scope = { familyId: sms.familyId, memberId: currentMemberId, smsId: sms.id };
     let acknowledged = false;
     let refreshedAccounts = false;
@@ -175,7 +184,7 @@ export function usePendingSmsModel(
         // Another device or an earlier response may already have completed the
         // atomic write. Ask the server for its receipt; never create a second tx.
         await useCases.recordSms.execute(sms, {
-          memberId: currentMemberId, type, amount: fromDisplay(amt, entryCurrency.current), category: categoryId,
+          memberId: currentMemberId, type, amount: amt ?? "0", category: categoryId,
           date: parsedDate ? jalaliToIso(parsedDate) : sms.date!, time: time || null, note, accountId,
         }, { transactionId: originalId ?? undefined, isCurrent: current });
         if (!current()) return;
@@ -183,27 +192,29 @@ export function usePendingSmsModel(
         return;
       }
       const account = accounts.find(item => item.id === accountId);
-      if (!originalId && (!account || account.memberId !== currentMemberId)) {
+      if (!originalId && (!account || account.memberId !== currentMemberId || account.familyId !== sms.familyId)) {
         setAccountId(""); return setError("فقط حساب‌ها و کیف‌پول‌های خودتان قابل انتخاب‌اند.");
       }
       const currentSms = pending.find(item => item.id === sms.id);
       if (currentSms?.memberId && currentSms.memberId !== currentMemberId) return setError("این پیامک متعلق به شما نیست.");
-      const baseAmount = fromDisplay(amt, entryCurrency.current);
+      const baseAmount = amt ?? "0";
       let transferFeeMethod: TransferFeeMethod | null = null;
-      let transferFeeRial = 0;
+      let transferFeeRial = "0";
       if (!originalId && type === "expense" && account?.kind === "bank") {
         if (!paymentMethod) return setError("روش پرداخت هزینه را انتخاب کنید: کارت، پرداخت آنلاین یا انتقال بانکی.");
         if (paymentMethod === "bank_transfer") {
           if (!feeMethod) return setError("نوع انتقال را انتخاب کنید.");
-          const rial = Math.round(baseAmount * 10);
-          if (Math.abs(rial - baseAmount * 10) > 0.00001) return setError("مبلغ پرداخت باید عدد صحیح مثبت به ریال باشد.");
+          const rial = convertMoney(baseAmount, "ریال");
+          if (!moneyFits(rial, { scale: 0, min: "1", max: "9999999999990" })) return setError("مبلغ پرداخت باید عدد صحیح مثبت به ریال باشد.");
           transferFeeMethod = feeMethod;
           transferFeeRial = await useCases.quoteTransferFee.execute(feeMethod, rial);
           if (!current()) return;
         }
       }
       if (!originalId && type === "expense" && account) {
-        if (expenseBalanceWarning(account, transactions, baseAmount + transferFeeRial / 10)) {
+        const authoritative = await useCases.walletCorrections.balance({ familyId: account.familyId, memberId: currentMemberId, accountId: account.id });
+        if (!current()) return;
+        if (expenseBalanceWarning(account, transactions, addMoney(baseAmount, multiplyMoney(transferFeeRial, "0.1")), undefined, authoritative.currentBalance)) {
           setAccountId("");
           return setError("موجودی این حساب برای مبلغ واردشده کافی نیست؛ حساب دیگری انتخاب کنید.");
         }
@@ -240,21 +251,23 @@ export function usePendingSmsModel(
 
   async function ignore() {
     const sms = list[idx];
-    if (!sms || operation.current || saved.current || loading || loadError) return;
+    if (!enabled || !sms || operation.current || saved.current || loading || loadError) return;
     operation.current = true;
     setBusy(true);
     setError(null);
     const currentGeneration = generation.current;
+    const currentIdentity = identity.current;
+    const current = () => currentGeneration === generation.current && currentIdentity === identity.current;
     try {
       await useCases.ignoreSms.execute(sms.id);
-      if (currentGeneration === generation.current) {
+      if (current()) {
         clearPendingDraft({ familyId: sms.familyId, memberId: currentMemberId, smsId: sms.id });
         advance();
       }
     } catch (e) {
-      if (currentGeneration === generation.current) setError(e instanceof Error ? e.message : "خطا در نادیده‌گرفتن پیامک");
+      if (current()) setError(e instanceof Error ? e.message : "خطا در نادیده‌گرفتن پیامک");
     } finally {
-      if (currentGeneration === generation.current) { operation.current = false; setBusy(false); }
+      if (current()) { operation.current = false; setBusy(false); }
     }
   }
 
@@ -280,7 +293,7 @@ export function usePendingSmsModel(
     setCategoryId: (v: string) => edit({ categoryId: v, label: "" }),
     setAmount: (v: string) => {
       const numeric = toEn(v).replace(/[٬،,\s]/g, "");
-      edit({ amount: /^\d+$/.test(numeric) ? formatAmount(Number(numeric)) : v });
+      edit({ amount: /^\d+$/.test(numeric) && numeric.length <= 128 ? formatAmount(numeric) : v });
     },
     setAccountId: (v: string) => edit({ accountId: v }),
     setFeeChoice: (v: "yes" | "no") => edit({ feeChoice: v, feeMethod: v === "no" ? "" : feeMethod }),

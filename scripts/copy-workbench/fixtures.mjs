@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { walletEndpointFixture, walletHasCorrections, walletBalanceFixture, walletCents, walletLedger, walletText } from './wallet-fixtures.mjs';
 import { parseSms } from './sms-fixture-parser.mjs';
 
 function samplePdfBytes() {
@@ -122,13 +123,15 @@ function makeData(scenario, now) {
     row(304, { member_id: actorId, type: 'transfer', amount: 300_000, category: 'transfer', date: date(-2), time: '15:00', note: 'نمونه: جابه‌جایی بین حساب‌ها', account_id: id(201), to_account_id: id(202), subcategory_id: null, repeat: 'none', repeat_end: null, handled_occurrences: [], photos: [] }),
     row(305, { member_id: id(1), type: 'expense', amount: 80_000, category: 'bills', date: date(-35), time: '09:10', note: 'نمونه: پرداخت تکرارشونده', account_id: id(201), to_account_id: null, subcategory_id: null, repeat: 'monthly', repeat_end: date(90), handled_occurrences: [], photos: [] }),
   ];
+  for (const account of accounts) account.initial_balance = walletText(walletCents(account.initial_balance));
+  for (const transaction of transactions) transaction.amount = walletText(walletCents(transaction.amount));
   const inventory = [row(501, { title: 'نمونه: برنج', unit: 'کیلوگرم', quantity: 0.5, category: 'grains', note: 'نمونه: موجودی خانه' }),
     row(502, { title: 'نمونه: روغن', unit: 'بطری', quantity: 3, category: 'oils_sauces', note: null }),
     row(503, { title: 'نمونه: شیر', unit: 'بسته', quantity: 0, category: 'refrigerated', note: null })];
   const lists = [row(510, { title: 'نمونه: خرید این هفته', items: [
-    row(511, { list_id: id(510), title: 'نمونه: برنج', qty: 2, unit: 'کیلوگرم', price: 280_000, checked: false, bought_at: null, bought_by_member_id: null, transaction_id: null, inventory_item_id: id(501), note: 'نمونه: قلم دارای قیمت' }),
+    row(511, { list_id: id(510), title: 'نمونه: برنج', qty: 2, unit: 'کیلوگرم', price: '280000', checked: false, bought_at: null, bought_by_member_id: null, transaction_id: null, inventory_item_id: id(501), note: 'نمونه: قلم دارای قیمت' }),
     row(512, { list_id: id(510), title: 'نمونه: شیر', qty: 2, unit: 'بسته', price: null, checked: false, bought_at: null, bought_by_member_id: null, transaction_id: null, inventory_item_id: id(503), note: null }),
-    row(513, { list_id: id(510), title: 'نمونه: روغن', qty: 1, unit: 'بطری', price: 120_000, checked: true, bought_at: timestamp, bought_by_member_id: actorId, transaction_id: id(302), inventory_item_id: id(502), note: null }),
+    row(513, { list_id: id(510), title: 'نمونه: روغن', qty: 1, unit: 'بطری', price: '120000', checked: true, bought_at: timestamp, bought_by_member_id: actorId, transaction_id: id(302), inventory_item_id: id(502), note: null }),
   ] }), row(514, { title: 'نمونه: فهرست بدون قلم', items: [] })];
   const tasks = [
     row(601, { title: 'نمونه: کار عقب‌افتاده', description: 'نمونه: توضیح کار خانه', assignee_id: actorId, due_date: date(-2), completed: false, completed_at: null, completed_by: null, completion_photo_url: null }),
@@ -137,10 +140,10 @@ function makeData(scenario, now) {
     row(604, { title: 'نمونه: کار انجام‌شده', description: null, assignee_id: actorId, due_date: date(-1), completed: true, completed_at: timestamp, completed_by: actorId, completion_photo_url: '/__copy/sample-image.svg' }),
     row(605, { title: 'نمونه: کار بدون موعد', description: null, assignee_id: id(4), due_date: null, completed: false, completed_at: null, completed_by: null, completion_photo_url: null }),
   ];
-  const bills = [row(701, { kind: 'electricity', title: 'نمونه: قبض عقب‌افتادهٔ برق', amount: 260_000, due_date: date(-2), state: 'unpaid', bill_no: '70000000001', payment_no: '80000000001', paid_at: null, paid_by_member_id: null, transaction_id: null, note: null }),
-    row(702, { kind: 'internet', title: 'نمونه: اینترنت خانه', amount: 450_000, due_date: date(3), state: 'unpaid', bill_no: null, payment_no: null, paid_at: null, paid_by_member_id: null, transaction_id: null, note: 'نمونه: موعد نزدیک' }),
-    row(703, { kind: 'water', title: 'نمونه: قبض پرداخت‌شدهٔ آب', amount: 180_000, due_date: date(-10), state: 'paid', bill_no: null, payment_no: null, paid_at: timestamp, paid_by_member_id: actorId, transaction_id: null, note: null }),
-    row(704, { kind: 'charge', title: 'نمونه: شارژ لغوشده', amount: 300_000, due_date: date(5), state: 'cancelled', bill_no: null, payment_no: null, paid_at: null, paid_by_member_id: null, transaction_id: null, note: null })];
+  const bills = [row(701, { kind: 'electricity', title: 'نمونه: قبض عقب‌افتادهٔ برق', amount: '260000', due_date: date(-2), state: 'unpaid', bill_no: '70000000001', payment_no: '80000000001', paid_at: null, paid_by_member_id: null, transaction_id: null, note: null }),
+    row(702, { kind: 'internet', title: 'نمونه: اینترنت خانه', amount: '450000', due_date: date(3), state: 'unpaid', bill_no: null, payment_no: null, paid_at: null, paid_by_member_id: null, transaction_id: null, note: 'نمونه: موعد نزدیک' }),
+    row(703, { kind: 'water', title: 'نمونه: قبض پرداخت‌شدهٔ آب', amount: '180000', due_date: date(-10), state: 'paid', bill_no: null, payment_no: null, paid_at: timestamp, paid_by_member_id: actorId, transaction_id: null, note: null }),
+    row(704, { kind: 'charge', title: 'نمونه: شارژ لغوشده', amount: '300000', due_date: date(5), state: 'cancelled', bill_no: null, payment_no: null, paid_at: null, paid_by_member_id: null, transaction_id: null, note: null })];
   const documents = [row(801, { title: 'نمونه: سند مشترک با اعتبار نزدیک', category: 'گارانتی', visibility: 'shared', expiry_date: date(4), reminder_enabled: true, owner_id: id(1), mime_type: 'application/pdf', file_name: 'sample-document.pdf', file_size: samplePdf.length, can_change_visibility: actorId === id(1), can_edit: isManager || actorId === id(1), can_delete: isManager || actorId === id(1) }),
     row(802, { title: 'نمونه: سند شخصی من', category: 'بیمه', visibility: 'private', expiry_date: date(-3), reminder_enabled: true, owner_id: actorId, mime_type: 'image/png', file_name: 'sample-document.png', file_size: samplePng.length, can_change_visibility: true })];
   const equipment = [row(901, { title: 'نمونه: ماشین لباس‌شویی', brand: 'برند نمونه', model: 'مدل نمونه', purchase_date: date(-400), warranty_until: date(5), warranty_document_id: id(801), service_task_id: id(603), service_due_date: date(-1), service_reminder_enabled: true }),
@@ -271,10 +274,10 @@ function newRow(session, values) {
 function normalizeCreate(session, key, body) {
   const data = session.data;
   const defaults = {
-    transactions: { member_id: data.actor.id, source_kind: null, type: 'expense', amount: 0, category: 'other', date: data.today, time: null,
+    transactions: { member_id: data.actor.id, source_kind: null, type: 'expense', amount: '0', category: 'other', date: data.today, time: null,
       note: null, account_id: null, to_account_id: null, subcategory_id: null, repeat: 'none', repeat_end: null,
       recurring_plan: null, recurring_source_id: null, recurring_due_date: null, handled_occurrences: [], photos: [] },
-    accounts: { member_id: data.actor.id, title: 'نمونه: حساب جدید', kind: 'bank', bank: null, card_number: null, initial_balance: 0, sms_enabled: false },
+    accounts: { member_id: data.actor.id, title: 'نمونه: حساب جدید', kind: 'bank', bank: null, card_number: null, initial_balance: '0', sms_enabled: false },
     tasks: { title: 'نمونه: کار جدید', description: null, assignee_id: null, due_date: null, completed: false, completed_at: null, completed_by: null, completion_photo_url: null },
     bills: { kind: 'other', title: 'نمونه: قبض جدید', amount: 0, due_date: data.today, state: 'unpaid', bill_no: null, payment_no: null, note: null, paid_at: null, paid_by_member_id: null, transaction_id: null },
     events: { member_id: data.actor.id, for_member_id: null, title: 'نمونه: مناسبت جدید', date: data.today, note: null, kind: 'event', reminder_enabled: true },
@@ -292,6 +295,8 @@ function normalizeCreate(session, key, body) {
     holdings: { member_id: data.actor.id, kind: 'currency', symbol: 'USD', name: 'نمونه: دارایی جدید', unit: 'دلار', quantity: 1, price: 0, value: 0, priced: false },
   };
   const values = clone(body || {}); delete values.base_revision; delete values.operation_id;
+  if (key === 'transactions' && values.amount != null) values.amount = walletText(walletCents(values.amount));
+  if (key === 'accounts' && values.initial_balance != null) values.initial_balance = walletText(walletCents(values.initial_balance));
   return newRow(session, { ...defaults[key], ...values });
 }
 
@@ -615,7 +620,7 @@ export function handlePreviewRequest(session, request) {
   }
   if (path === '/auth/config') return response({ otp_enabled: mode === 'otp', password_reset_enabled: true });
   if (path === '/transactions/transfer-fee' && method === 'GET') {
-    const fee = previewTransferFee(query.get('method'), Number(query.get('amount_rial')), Number(query.get('payment_count') ?? 1));
+    const fee = previewTransferFee(query.get('method'), query.get('amount_rial'), Number(query.get('payment_count') ?? 1));
     return fee == null ? error('INVALID_TRANSFER_FEE', 'نوع انتقال را انتخاب کنید.', 422) : response({ fee_rial: fee });
   }
   if (path === '/auth/pre-registered') return response({ pre_registered: mode === 'pre-registered', family_name: mode === 'pre-registered' ? data.family.name : null });
@@ -801,12 +806,13 @@ export function handlePreviewRequest(session, request) {
     if (body.item_ids && (body.item_ids.length !== items.length || items.some(item => !body.item_ids.includes(item.id))))
       return error('SHOPPING_CHANGED', 'اقلام سبد تغییر کرده‌اند؛ لیست را تازه کنید و خرید را دوباره بررسی کنید.', 409);
     const record = body.create_transaction !== false;
-    const total = record && body.amount != null ? Number(body.amount) : items.reduce((sum, item) => sum + Number(item.price || 0), 0);
-    if (body.amount != null && (!Number.isFinite(Number(body.amount)) || Number(body.amount) <= 0
-      || Math.abs(Number(body.amount) * 10 - Math.round(Number(body.amount) * 10)) > 0.00001))
+    let total;
+    try { total = record && body.amount != null ? walletCents(body.amount) : items.reduce((sum, item) => sum + walletCents(item.price ?? '0'), 0n); }
+    catch { return error('INVALID_AMOUNT', 'مبلغ فاکتور باید عدد صحیح مثبت به ریال باشد.', 422); }
+    if (body.amount != null && (total <= 0n || total % 10n !== 0n))
       return error('INVALID_AMOUNT', 'مبلغ فاکتور باید عدد صحیح مثبت به ریال باشد.', 422);
     if (body.transfer_fee_method != null && (!record || total <= 0)) return error('INVALID_TRANSFER_FEE', 'برای ثبت کارمزد، هزینهٔ خرید باید ثبت شود.', 422);
-    const values = { member_id: data.actor.id, type: 'expense', category: 'shopping', amount: total,
+    const values = { member_id: data.actor.id, type: 'expense', category: 'shopping', amount: walletText(total),
       date: body.date || data.today, account_id: body.account_id ?? null, note: list.title,
       transfer_fee_method: body.transfer_fee_method ?? null, require_available_balance: body.require_available_balance ?? false };
     if (record && total > 0) { const invalid = checkPreviewPayment(session, values); if (invalid) return invalid; }
@@ -820,7 +826,7 @@ export function handlePreviewRequest(session, request) {
       if (stock) stock.quantity = Number(stock.quantity) + Number(item.qty);
     }
     list.items = list.items.filter(item => !items.includes(item));
-    const result = { list, total, item_count: items.length, transaction_id: transaction?.id ?? null };
+    const result = { list, total: walletText(total), item_count: items.length, transaction_id: transaction?.id ?? null };
     if (key) receipts.set(key, { fingerprint, result: clone(result) });
     return response(result);
   }
@@ -914,11 +920,11 @@ export function handlePreviewRequest(session, request) {
     if (body.revision !== (row.recurring_plan?.revision ?? 0)) return error('RECURRING_CONFLICT', 'برنامهٔ تکرار تغییر کرده؛ اطلاعات را تازه کنید.', 409);
     if (action === 'recurring' && method === 'PATCH') {
       if (row.repeat === 'none' || row.source_kind) return error('NOT_FOUND', 'تراکنش تکرارشونده یافت نشد.', 404);
-      if (!Number.isFinite(Number(body.amount)) || Number(body.amount) <= 0) return error('INVALID_AMOUNT', 'مبلغ باید بزرگ‌تر از صفر باشد.', 422);
+      if (!validPreviewAmount(body.amount)) return error('INVALID_AMOUNT', 'مبلغ باید بزرگ‌تر از صفر باشد.', 422);
       if (!['none', 'weekly', 'monthly', 'yearly'].includes(body.repeat)) return error('INVALID_REPEAT', 'دورهٔ تکرار نامعتبر است.', 422);
       if (body.repeat !== 'none' && (!validIso(body.start_date) || body.start_date < data.today)) return error('INVALID_DATE', 'موعد بعدی را از امروز به بعد انتخاب کنید.', 422);
       if (body.repeat !== 'none' && (!validIso(body.repeat_end) || body.repeat_end < body.start_date)) return error('INVALID_REPEAT_END', 'تاریخ پایان تکرار پیش از تاریخ تراکنش است.', 422);
-      row.recurring_plan = { amount: Number(body.amount), category: body.category, note: String(body.note ?? '').trim(), start_date: body.start_date, revision: body.revision + 1 };
+      row.recurring_plan = { amount: walletText(walletCents(body.amount)), category: body.category, note: String(body.note ?? '').trim(), start_date: body.start_date, revision: body.revision + 1 };
       row.repeat = body.repeat; row.repeat_end = body.repeat === 'none' ? null : body.repeat_end;
       return response(row);
     }
@@ -968,6 +974,12 @@ export function handlePreviewRequest(session, request) {
       headers: { 'Content-Type': document.mime_type, 'Cache-Control': 'no-store' }, raw: true };
   }
   const segments = path.split('/').filter(Boolean), collection = collectionKeys[segments[0]];
+  if (segments[0] === 'accounts' && ['balance', 'corrections'].includes(segments[2])) {
+    if (mode === 'errors' && method === 'GET' || mode === 'save-errors' && method === 'POST') return error('SERVER', session.errorMessage || 'دریافت یا ثبت اطلاعات ممکن نشد؛ دوباره تلاش کنید.', 503);
+    if (mode === 'conflict' && method === 'POST') return error('WALLET_CONFLICT', 'موجودی تغییر کرده است؛ دوباره بررسی کنید.', 409);
+    const walletResponse = walletEndpointFixture(session, segments, method, body, response, error);
+    if (walletResponse) return { ...walletResponse, delayMs: mode === 'loading' && method === 'GET' ? 20_000 : 0 };
+  }
   if (path === '/category-budgets' && method === 'POST') {
     if (!managersOnly(session)) return error('FORBIDDEN', 'فقط مدیر خانواده مجاز است.', 403);
     const existing = data.categoryBudgets.find(item => item.category === body.category);
@@ -1049,13 +1061,14 @@ function mutateRow(session, key, itemId, method, body) {
   if (method === 'GET' || method === 'HEAD') return response(item);
   if (key === 'accounts' && item.member_id !== session.data.actor.id) return error('NOT_FOUND', 'حساب یافت نشد.', 404);
   if (key === 'transactions' && item.source_kind === 'transfer_fee' && !['GET', 'HEAD'].includes(method)) return error('SOURCE_IMMUTABLE', 'کارمزد همراه انتقال مدیریت می‌شود؛ انتقال اصلی را ویرایش یا حذف کنید.', 422);
+  if (key === 'transactions' && item.source_kind === 'wallet_correction' && !['GET', 'HEAD'].includes(method)) return error('SOURCE_IMMUTABLE', 'تراکنش اصلاح موجودی تغییرناپذیر است؛ اصلاح تازه را از کیف پول ثبت کنید.', 409);
   if (body.base_revision !== undefined && item.revision !== body.base_revision) return error('SYNC_CONFLICT', 'این مورد تغییر کرده است؛ نسخهٔ ذخیره‌شده را بررسی کنید.', 409);
   if (['children', 'pets'].includes(key) && !managersOnly(session)) return error('FORBIDDEN', 'فقط مدیر خانواده مجاز است.', 403);
   if (key === 'bills' && item.state === 'paid' && ['DELETE', 'PATCH'].includes(method)) return error('BILL_ALREADY_PAID', 'قبض پرداخت‌شده قابل تغییر نیست؛ ابتدا پرداخت را برگردانید.', 409);
   if (method === 'DELETE') {
     if (key === 'accounts') {
       if (body.confirmation !== item.title) return error('ACCOUNT_CONFIRMATION_REQUIRED', 'برای تأیید حذف، نام حساب را دقیق وارد کنید.', 422);
-      if (session.data.transactions.some(row => row.account_id === itemId || row.to_account_id === itemId)) return error('ACCOUNT_IN_USE', 'این حساب سابقهٔ تراکنش دارد و حذف نمی‌شود؛ سابقهٔ مالی حفظ می‌شود.', 409);
+      if (walletHasCorrections(session.data, itemId) || session.data.transactions.some(row => row.account_id === itemId || row.to_account_id === itemId)) return error('ACCOUNT_IN_USE', 'این حساب سابقهٔ مالی دارد و حذف نمی‌شود؛ سابقهٔ مالی حفظ می‌شود.', 409);
     }
     if (key === 'transactions' && session.data.transactions.some(row => row.recurring_source_id === itemId)) return error('RECURRING_HISTORY_EXISTS', 'این تراکنش نوبت تسویه‌شده دارد؛ تکرار را متوقف کنید تا سابقه حفظ شود.', 409);
     if (key === 'customCategories' && session.data.transactions.some(transaction => transaction.category === itemId)) {
@@ -1080,6 +1093,7 @@ function mutateRow(session, key, itemId, method, body) {
   if (method === 'PATCH' || method === 'POST') {
     const values = clone(body); delete values.base_revision; delete values.operation_id;
     if (key === 'accounts') {
+      if (values.initial_balance != null && walletCents(values.initial_balance) !== walletCents(item.initial_balance)) return error('BALANCE_CORRECTION_REQUIRED', 'موجودی را از مسیر اصلاح موجودی تغییر دهید.', 409);
       if ((values.card_number ?? null) !== item.card_number && !values.confirm_card_change) return error('ACCOUNT_CONFIRMATION_REQUIRED', 'تغییر شماره کارت را تأیید کنید.', 422);
       delete values.confirm_card_change; delete values.member_id; delete values.kind;
     }
@@ -1088,6 +1102,7 @@ function mutateRow(session, key, itemId, method, body) {
       if (values.payment_method === undefined) values.payment_method = values.type === 'expense' ? item.payment_method : null;
       const invalid = checkPreviewPayment(session, values, item);
       if (invalid) return invalid;
+      values.amount = walletText(walletCents(values.amount));
     }
     if (key === 'bills') {
       const prepared = prepareBill(values);
@@ -1096,6 +1111,7 @@ function mutateRow(session, key, itemId, method, body) {
     }
     // AccountUpdate uses null to preserve the stored opening balance.
     if (key === 'accounts' && values.initial_balance == null) delete values.initial_balance;
+    if (key === 'accounts' && values.initial_balance != null) values.initial_balance = walletText(walletCents(values.initial_balance));
     Object.assign(item, values, { revision: (item.revision || 0) + 1 });
     if (key === 'transactions') syncPreviewTransferFee(session, item);
     return response(item);
@@ -1134,10 +1150,18 @@ function previewSchedule(row) {
   }
   return dates;
 }
+function validPreviewAmount(value) {
+  try { const cents = walletCents(value); return cents > 0n && cents <= 99999999999900n; }
+  catch { return false; }
+}
+function previewRialAmount(value) {
+  const cents = walletCents(value);
+  return cents % 10n === 0n ? (cents / 10n).toString() : null;
+}
 function checkPreviewPayment(session, values, replacing) {
   const { data } = session;
   if (!managersOnly(session) && values.member_id !== data.actor.id) return error('FORBIDDEN', 'نمی‌توانید تراکنش را به عضو دیگری نسبت دهید.', 403);
-  if (!Number.isFinite(Number(values.amount)) || Number(values.amount) <= 0) return error('INVALID_AMOUNT', 'مبلغ باید بزرگ‌تر از صفر باشد.', 422);
+  if (!validPreviewAmount(values.amount)) return error('INVALID_AMOUNT', 'مبلغ باید بزرگ‌تر از صفر باشد.', 422);
   const account = data.accounts.find(item => item.id === values.account_id);
   if (!values.account_id && values.require_available_balance && data.accounts.some(item => item.member_id === data.actor.id)) return error('ACCOUNT_REQUIRED', 'حساب پرداخت یا دریافت را انتخاب کنید.', 422);
   if (values.account_id && (!account || account.member_id !== (replacing && managersOnly(session) ? replacing.member_id : data.actor.id))) return error('ACCOUNT_FORBIDDEN', 'فقط حساب‌های خودتان قابل انتخاب‌اند.', 403);
@@ -1145,33 +1169,36 @@ function checkPreviewPayment(session, values, replacing) {
   const method = values.transfer_fee_method;
   if (values.payment_method != null && (values.type !== 'expense' || !['card','online','bank_transfer'].includes(values.payment_method))) return error('INVALID_PAYMENT_METHOD', 'روش پرداخت هزینه را انتخاب کنید.', 422);
   if (['card','online'].includes(values.payment_method) && method != null) return error('INVALID_TRANSFER_FEE', 'پرداخت با کارت یا آنلاین کارمزد انتقال ندارد.', 422);
-  const fee = method == null ? 0 : previewTransferFee(method, Math.round(Number(values.amount) * 10));
+  const rial = previewRialAmount(values.amount);
+  const fee = method == null ? 0 : previewTransferFee(method, rial);
   if (method != null && (!['expense','transfer'].includes(values.type) || account?.kind !== 'bank'
     || (values.type === 'transfer' && data.accounts.find(item => item.id === values.to_account_id)?.kind !== 'bank')
-    || method === 'paya_group' || fee == null || Math.abs(Number(values.amount) * 10 - Math.round(Number(values.amount) * 10)) > 0.00001)) return error('INVALID_TRANSFER_FEE', 'نوع انتقال را انتخاب کنید.', 422);
+    || method === 'paya_group' || fee == null || rial == null)) return error('INVALID_TRANSFER_FEE', 'نوع انتقال را انتخاب کنید.', 422);
   if (account && (values.require_available_balance || method != null) && values.type !== 'income') {
-    const balance = data.transactions.filter(item => item.id !== replacing?.id && (!replacing || item.transfer_fee_for_id !== replacing.id)).reduce((sum, item) => sum
-      + (item.account_id === account.id ? Number(item.amount) * (item.type === 'income' ? 1 : -1) : 0)
-      + (item.type === 'transfer' && item.to_account_id === account.id ? Number(item.amount) : 0), Number(account.initial_balance));
-    if (balance < Number(values.amount) + fee / 10) return error('INSUFFICIENT_BALANCE', 'موجودی حساب برای این پرداخت کافی نیست.', 409);
+    const authoritative = walletBalanceFixture(data, account);
+    const balance = walletLedger(data, account, replacing) + walletCents(authoritative.discrepancy);
+    if (balance < walletCents(values.amount) + BigInt(fee) * 10n) return error('INSUFFICIENT_BALANCE', 'موجودی حساب برای این پرداخت کافی نیست.', 409);
   }
   return null;
 }
 
 // Fictional, offline preview only; production uses the authoritative Python calculator.
 function previewTransferFee(method, rial, count = 1) {
-  if (!Number.isSafeInteger(rial) || rial <= 0) return null;
+  if (rial == null || !/^\d+$/.test(String(rial)) || typeof rial === 'number' && !Number.isSafeInteger(rial)) return null;
+  const amount = BigInt(rial);
+  if (amount <= 0n || amount > 9999999999990n) return null;
+  const min = (a, b) => a < b ? a : b, max = (a, b) => a > b ? a : b;
   if (method === 'internal') return 0;
-  if (method === 'card_to_card') return 11000 + 3500 * Math.ceil(Math.max(0, rial - 10000000) / 10000000);
-  if (method === 'paya') return Math.min(120000, Math.max(4000, Math.floor((rial + 5000) / 10000)));
-  if (method === 'satna') return Math.min(500000, Math.floor((rial + 2500) / 5000));
-  if (method === 'pol') return Math.max(8000, Math.floor((rial + 2500) / 5000));
+  if (method === 'card_to_card') return Number(11000n + 3500n * ((max(0n, amount - 10000000n) + 9999999n) / 10000000n));
+  if (method === 'paya') return Number(min(120000n, max(4000n, (amount + 5000n) / 10000n)));
+  if (method === 'satna') return Number(min(500000n, (amount + 2500n) / 5000n));
+  if (method === 'pol') return Number(max(8000n, (amount + 2500n) / 5000n));
   if (method === 'paya_group' && Number.isSafeInteger(count) && count > 0) return 24000 + 2400 * count;
   return null;
 }
 function syncPreviewTransferFee(session, parent) {
   const { data } = session;
-  parent.transfer_fee_rial = parent.transfer_fee_method == null ? null : previewTransferFee(parent.transfer_fee_method, Math.round(Number(parent.amount) * 10));
+  parent.transfer_fee_rial = parent.transfer_fee_method == null ? null : previewTransferFee(parent.transfer_fee_method, previewRialAmount(parent.amount));
   const fee = data.transactions.find(row => row.transfer_fee_for_id === parent.id);
   if (!parent.transfer_fee_rial) {
     if (fee) data.transactions = data.transactions.filter(row => row.id !== fee.id);
@@ -1180,7 +1207,7 @@ function syncPreviewTransferFee(session, parent) {
   let tag = data.subcategories.find(row => row.category === 'finance' && row.name === 'کارمزد انتقال');
   if (!tag) { tag = newRow(session, { category: 'finance', name: 'کارمزد انتقال' }); data.subcategories.push(tag); }
   const values = { member_id: parent.member_id, account_id: parent.account_id, to_account_id: null, type: 'expense',
-    category: 'finance', subcategory_id: tag.id, amount: parent.transfer_fee_rial / 10, date: parent.date, time: parent.time,
+    category: 'finance', subcategory_id: tag.id, amount: walletText(BigInt(parent.transfer_fee_rial) * 10n), date: parent.date, time: parent.time,
     note: null, repeat: 'none', source_kind: 'transfer_fee', transfer_fee_for_id: parent.id };
   if (fee) Object.assign(fee, values);
   else data.transactions.push(normalizeCreate(session, 'transactions', values));
@@ -1190,10 +1217,11 @@ function prepareBill(body) {
   const title = String(body.title ?? '').trim();
   if (!['electricity', 'water', 'gas', 'internet', 'phone', 'charge', 'other'].includes(body.kind)) return error('INVALID_INPUT', 'نوع قبض نامعتبر است.', 422);
   if (!title || title.length > 120) return error('INVALID_INPUT', 'عنوان قبض باید ۱ تا ۱۲۰ کاراکتر باشد.', 422);
-  if (!Number.isFinite(Number(body.amount)) || Number(body.amount) <= 0 || Number(body.amount) > 9_999_999_999_999.99) return error('INVALID_AMOUNT', 'مبلغ قبض نامعتبر است.', 422);
+  try { const cents = walletCents(body.amount); if (cents <= 0n || cents > 999999999999999n) throw new Error(); }
+  catch { return error('INVALID_AMOUNT', 'مبلغ قبض نامعتبر است.', 422); }
   const date = new Date(body.due_date);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(body.due_date) || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== body.due_date) return error('INVALID_DATE', 'تاریخ سررسید نامعتبر است.', 422);
-  const values = { kind: body.kind, title, amount: Number(body.amount), due_date: body.due_date, note: String(body.note ?? '').trim() || null };
+  const values = { kind: body.kind, title, amount: walletText(walletCents(body.amount)), due_date: body.due_date, note: String(body.note ?? '').trim() || null };
   for (const key of ['bill_no', 'payment_no']) {
     const value = String(body[key] ?? '').replace(/[۰-۹]/g, digit => String(digit.charCodeAt(0) - 1776)).replace(/\s/g, '');
     if (value && (!/^\d+$/.test(value) || value.length > 40)) return error('INVALID_INPUT', 'شناسهٔ قبض باید فقط رقم و حداکثر ۴۰ کاراکتر باشد.', 422);

@@ -44,7 +44,8 @@
     "copy:studio:inventory-categories-check": "node scripts/check-inventory-categories.mjs",
     "copy:studio:assistant-check": "node scripts/check-household-assistant.mjs",
     "copy:studio:finance-integrity-check": "node scripts/check-finance-integrity.mjs",
-    "copy:studio:navigation-check": "node scripts/check-navigation-shell.mjs"
+    "copy:studio:navigation-check": "node scripts/check-navigation-shell.mjs",
+    "copy:studio:wallet-check": "node scripts/check-wallet-integrity.mjs"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.1",

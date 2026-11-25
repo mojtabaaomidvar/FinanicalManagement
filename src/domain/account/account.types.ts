@@ -1,5 +1,6 @@
 /* انتیتی حساب — بانکی یا کیف‌پول (نقد، پس‌انداز، سفر…) */
 
+import type { Money } from "@/shared/lib/money";
 export type AccountKind = "bank" | "wallet";
 
 export interface Account {
@@ -13,7 +14,7 @@ export interface Account {
   /** ۱۶ رقم یا null */
   cardNumber: string | null;
   /** موجودی اولیه (پایه — تومان) — تراکنش‌ها روی آن جمع می‌شوند */
-  initialBalance: number;
+  initialBalance: Money;
   /**
    * رضایت صریح کاربر برای تشخیص تراکنش از پیامک — فقط همین حساب.
    *
@@ -32,7 +33,7 @@ export interface AccountInput {
   bank?: string | null;
   cardNumber?: string | null;
   /** موجودی اولیه (پایه) — پیش‌فرض ۰؛ منفی مجاز نیست */
-  initialBalance?: number;
+  initialBalance?: Money;
 }
 
 /** ورودی ویرایش — نوع حساب و مالک تغییر نمی‌کنند */
@@ -42,12 +43,8 @@ export interface AccountPatch {
   title: string;
   bank?: string | null;
   cardNumber?: string | null;
-  /**
-   * موجودی اولیه (پایه). برخلاف افزودن، اینجا منفی هم مجاز است: کاربر
-   * «موجودی فعلی» را ویرایش می‌کند و موجودی اولیه = هدف منهای اثر
-   * تراکنش‌ها؛ اگر تراکنش‌ها از موجودی واقعی بیشتر باشند، منفی می‌شود.
-   */
-  initialBalance?: number;
+  /** Compatibility-only unchanged opening value; corrections have their own command. */
+  initialBalance?: Money;
   /** برای اعتبارسنجی الزامی‌بودن شماره کارت — از حساب موجود می‌آید */
   kind: AccountKind;
 }

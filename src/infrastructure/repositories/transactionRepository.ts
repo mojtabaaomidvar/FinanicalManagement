@@ -15,6 +15,7 @@ import type {
 import type { RestClient } from "@/infrastructure/api/restClient";
 import { AppError } from "@/shared/lib/appError";
 import { mapTransaction, type TransactionRow } from "./mappers";
+import { legacyIntegerMoney, type Money } from "@/shared/lib/money";
 
 /** بدنهٔ snake_case مشترک افزودن/ویرایش تراکنش (سازگار با اسکیمای بک‌اند). */
 export function toTransactionBody(input: TransactionInput) {
@@ -43,11 +44,11 @@ export function toTransactionBody(input: TransactionInput) {
 export class SupabaseTransactionRepository implements TransactionRepository {
   constructor(private readonly client: RestClient) {}
 
-  async quoteTransferFee(method: TransferFeeMethod, amountRial: number): Promise<number> {
+  async quoteTransferFee(method: TransferFeeMethod, amountRial: Money): Promise<Money> {
     const query = new URLSearchParams({ method, amount_rial: String(amountRial) });
     const result = await this.client.get<{ fee_rial: number }>(`/transactions/transfer-fee?${query}`);
     if (!Number.isSafeInteger(result.fee_rial) || result.fee_rial < 0) throw new AppError("SERVER", "بررسی کارمزد ممکن نشد؛ دوباره تلاش کنید.");
-    return result.fee_rial;
+    return legacyIntegerMoney(result.fee_rial);
   }
 
   async list(): Promise<Transaction[]> {

@@ -225,7 +225,7 @@ test('bill payment and reversal create and remove one linked expense without cha
   const before = structuredClone(session.data.transactions), accountId = session.data.accounts[0].id;
   const paid = request(session, '/bills/' + bill.id + '/pay', 'POST', { account_id: accountId }).body;
   const transaction = session.data.transactions.find(row => row.id === paid.transaction_id);
-  assert.equal(transaction.type, 'expense'); assert.equal(transaction.amount, bill.amount);
+  assert.equal(transaction.type, 'expense'); assert.equal(transaction.amount, String(bill.amount));
   assert.equal(transaction.category, 'bills'); assert.equal(transaction.account_id, accountId);
   assert.equal(transaction.date, session.data.today); assert.equal(transaction.note, bill.title);
   assert.equal(session.data.transactions.length, before.length + 1);
@@ -252,7 +252,7 @@ test('bill cancellation makes no expense and undo permissions match the backend'
 
 test('bill create and edit validate dates and numeric identifiers while keeping state out of the write contract', () => {
   const session = create();
-  const input = { kind: 'water', title: ' Water ', amount: 100.25, due_date: '2026-11-18', bill_no: ' ۰۰۱ ۲۳ ', payment_no: '00456', state: 'paid' };
+  const input = { kind: 'water', title: ' Water ', amount: '100.25', due_date: '2026-11-18', bill_no: ' ۰۰۱ ۲۳ ', payment_no: '00456', state: 'paid' };
   const bill = request(session, '/bills', 'POST', input).body;
   assert.equal(bill.title, 'Water'); assert.equal(bill.bill_no, '00123'); assert.equal(bill.state, 'unpaid');
   assert.equal(request(session, '/bills/' + bill.id, 'PATCH', { ...input, title: ' Edited ' }).body.title, 'Edited');
@@ -502,12 +502,15 @@ test('writes and returned DTO mutations never affect another session', () => {
   assert.equal(two.data.accounts.length, count);
 });
 
-test('account edits preserve a null opening balance while explicit zero remains a valid update', () => {
+test('account metadata preserves opening balance and rejects balance rewrites', () => {
   const session = create(); const account = request(session, '/accounts').body[0];
   const updated = request(session, '/accounts/' + account.id, 'PATCH', { title: 'Renamed account', card_number: account.card_number, initial_balance: null });
   assert.equal(updated.status, 200); assert.equal(updated.body.initial_balance, account.initial_balance);
   assert.equal(updated.body.title, 'Renamed account');
-  assert.equal(request(session, '/accounts/' + account.id, 'PATCH', { card_number: account.card_number, initial_balance: 0 }).body.initial_balance, 0);
+  const rejected = request(session, '/accounts/' + account.id, 'PATCH', { card_number: account.card_number, initial_balance: 0 });
+  assert.equal(rejected.status, 409);
+  assert.equal(rejected.body.error, 'BALANCE_CORRECTION_REQUIRED');
+  assert.equal(session.data.accounts.find(row => row.id === account.id).initial_balance, account.initial_balance);
 });
 
 test('unknown, absolute or unsupported requests fail locally without fallback', () => {

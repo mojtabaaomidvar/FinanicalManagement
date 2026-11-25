@@ -2,6 +2,7 @@
 
 import { AssistantCapabilitiesUseCase, AnalyzeHouseholdUseCase, AssistantDraftUseCase, AssistantSaveStateUseCase, ContextualHouseholdUseCase } from "./assistant/assistant.usecases";
 import type { Container } from "@/infrastructure/repositories/container";
+import { WalletCorrectionUseCase } from "./account/wallet.usecases";
 import { ListGoalsUseCase, GetGoalUseCase, AddGoalUseCase, UpdateGoalUseCase, DeleteGoalUseCase } from "./goal/goal.usecases";
 import { ListActivitiesUseCase, GetActivityUseCase, AddActivityUseCase, UpdateActivityUseCase, DeleteActivityUseCase } from "./activity/activity.usecases";
 import { ListChildrenUseCase, GetChildUseCase, AddChildUseCase, UpdateChildUseCase } from "./child/child.usecases";
@@ -306,6 +307,7 @@ export interface UseCases {
   syncBirthdays: SyncBirthdaysUseCase;
 
   listAccounts: ListAccountsUseCase;
+  walletCorrections: WalletCorrectionUseCase;
   addAccount: AddAccountUseCase;
   updateAccount: UpdateAccountUseCase;
   deleteAccount: DeleteAccountUseCase;
@@ -510,6 +512,7 @@ export function createUseCases(c: Container): UseCases {
     syncBirthdays: new SyncBirthdaysUseCase(c.repos.events),
 
     listAccounts: new ListAccountsUseCase(c.repos.accounts),
+    walletCorrections: new WalletCorrectionUseCase(c.repos.wallets, c.storage),
     addAccount: new AddAccountUseCase(c.repos.accounts),
     updateAccount: new UpdateAccountUseCase(c.repos.accounts),
     deleteAccount: new DeleteAccountUseCase(c.repos.accounts),

@@ -11,6 +11,7 @@ import { SupabaseTransactionRepository } from "./transactionRepository";
 import { SupabaseSmsRepository } from "./smsRepository";
 import { RestSmsSettingsRepository } from "./smsSettingsRepository";
 import { SupabaseAccountRepository } from "./accountRepository";
+import { RestWalletRepository } from "./walletRepository";
 import { SupabaseBridgeRepository } from "./bridgeRepository";
 import { SupabaseSubcategoryRepository } from "./subcategoryRepository";
 import { SupabaseCustomCategoryRepository } from "./customCategoryRepository";
@@ -39,6 +40,7 @@ import { RestPetRepository } from "./petRepository";
 import { RestAssistantRepository } from "./assistantRepository";
 
 export interface Repositories {
+  wallets: RestWalletRepository;
   assistant: RestAssistantRepository;
   auth: SupabaseAuthRepository;
   family: SupabaseFamilyRepository;
@@ -102,6 +104,7 @@ export function getContainer(): Promise<Container> {
           sms: new SupabaseSmsRepository(client),
           smsSettings: new RestSmsSettingsRepository(client),
           accounts: new SupabaseAccountRepository(client),
+          wallets: new RestWalletRepository(client, session),
           bridges: new SupabaseBridgeRepository(client),
           subcategories: new SupabaseSubcategoryRepository(client),
           customCategories: new SupabaseCustomCategoryRepository(client),

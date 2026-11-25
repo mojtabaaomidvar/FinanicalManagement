@@ -19,26 +19,30 @@ import { formatAccountAmount } from "@/shared/lib/format";
 import { suggestSmsAccount } from "@/domain/sms/sms-parser-account-suggestion";
 import { BankPaymentFields } from "@/features/transaction-form/ui/BankPaymentFields";
 import { useTransferFeeQuote } from "@/features/transaction-form/model/useTransferFeeQuote";
+import { addMoney, compareMoney, multiplyMoney } from "@/shared/lib/money";
+import { useWalletBalances } from "@/features/accounts/model/useWalletBalances";
+import { pendingWalletOptions, WalletAccountStatus } from "@/features/accounts/ui/WalletAccountStatus";
 
 export function PendingSmsFeature({ model: m }: { model: ReturnType<typeof usePendingSmsModel> }) {
   const { member, members, accounts, txs, subcategories, refreshData, useCases } = useApp();
   const [showAll, setShowAll] = useState(false);
   const amount = parseScheduledAmount(m.amount, m.entryCurrency);
+  const walletBalances = useWalletBalances(accounts, m.open);
   const ownCount = accounts.filter(account => account.memberId === member?.id).length;
   const bankExpense = m.type === "expense" && accounts.find(account => account.id === m.accountId)?.kind === "bank";
   const quote = useTransferFeeQuote(useCases, `${member?.id}:${m.list[m.idx]?.id}:${m.type}:${m.accountId}`,
     m.open && !m.savedId && bankExpense && m.paymentMethod === "bank_transfer" ? m.feeMethod : "", amount);
   const choices = transactionAccountChoices(accounts, txs, member?.id ?? "", amount,
-    m.type === "expense" && !m.savedId, showAll || m.type === "income" || !!m.savedId)
-    .filter(({ account, balance }) => m.savedId || m.type !== "expense" || account.kind !== "bank" || amount === null || balance >= amount + quote.rial / 10);
+    m.type === "expense" && !m.savedId, showAll || m.type === "income" || !!m.savedId, undefined, walletBalances.currentBalances)
+    .filter(({ account, balance }) => m.savedId || m.type !== "expense" || account.kind !== "bank" || amount === null || compareMoney(balance, addMoney(amount, multiplyMoney(quote.rial, "0.1"))) >= 0);
   useEffect(() => { setShowAll(false); }, [m.list[m.idx]?.id, m.type]);
   useEffect(() => {
-    if (!m.savedId && m.accountId && !choices.some(row => row.account.id === m.accountId)) m.setAccountId("");
-  }, [m.accountId, m.savedId, choices]);
+    if (!m.savedId && m.accountId && (walletBalances.summary.status === "ready" || walletBalances.rows.get(m.accountId)?.status === "ready") && !choices.some(row => row.account.id === m.accountId)) m.setAccountId("");
+  }, [m.accountId, m.savedId, choices, walletBalances.rows, walletBalances.summary.status]);
   const subsOfCategory = subcategories.filter(s => s.category === m.categoryId);
   const suggestion = suggestSmsAccount(m.raw, accounts, members, member?.id ?? "");
   const suggestionAvailable = suggestion.account && transactionAccountChoices(accounts, txs, member?.id ?? "", amount,
-    m.type === "expense", true).some(row => row.account.id === suggestion.account?.id);
+     m.type === "expense", true, undefined, walletBalances.currentBalances).some(row => row.account.id === suggestion.account?.id);
 
   return (
     <>
@@ -59,7 +63,7 @@ export function PendingSmsFeature({ model: m }: { model: ReturnType<typeof usePe
       </div> : null}
       {!m.loading && !m.loadError && m.list.length > 0 ? <>
       {m.savedId ? <p className="section-hint" role="status">رسید ثبت قبلی در این مرورگر پیدا شد؛ فقط پیوند پیامک به همان تراکنش بازیابی می‌شود.</p> : null}
-      {m.amountNeedsReview && !m.savedId ? <p className="section-hint">واحد مبلغ پیامک مشخص نیست؛ مبلغ را در واحد انتخابی وارد کنید.</p> : null}
+      {m.amountNeedsReview && !m.savedId ? <p className="section-hint">مبلغ یا واحد پیامک قابل تبدیل دقیق نیست؛ مبلغ را با بررسی متن پیامک در واحد انتخابی وارد کنید.</p> : null}
       <p className="section-hint">ثبت برای <b>{member?.name}</b></p>
       {!m.savedId && (suggestion.member || suggestion.account) ? <div className="sms-account-suggestion">
         {suggestion.member ? <p>نام احتمالی در پیامک: <b>{suggestion.member.name}</b></p> : null}
@@ -69,7 +73,7 @@ export function PendingSmsFeature({ model: m }: { model: ReturnType<typeof usePe
           <button type="button" className="btn-secondary" disabled={m.busy || !suggestionAvailable} onClick={() => {
             setShowAll(true); m.setAccountId(suggestion.account!.id);
           }}>انتخاب حساب پیشنهادی</button>
-          {!suggestionAvailable ? <p className="field-error">موجودی حساب پیشنهادی برای این هزینه کافی نیست.</p> : null}
+          {!suggestionAvailable && walletBalances.rows.get(suggestion.account.id)?.status === "ready" ? <p className="field-error">موجودی حساب پیشنهادی برای این هزینه کافی نیست.</p> : null}
         </> : null}
         <p className="section-hint">پیشنهاد را با متن پیامک بررسی کنید.</p>
       </div> : null}
@@ -157,11 +161,13 @@ export function PendingSmsFeature({ model: m }: { model: ReturnType<typeof usePe
                     value: account.id,
                     label: /* @copy-text sms.review.account_choice */ `${account.title} · ${formatAccountAmount(balance, m.entryCurrency)} ${currencyDisplayLabel(m.entryCurrency)}`,
                   })),
+                  ...pendingWalletOptions(accounts, walletBalances.rows, member?.id ?? ""),
                 ]}
               />
               {m.type === "expense" && !m.savedId ? <button type="button" className="tx-all-accounts" disabled={m.busy}
                 onClick={() => setShowAll(value => !value)}>{showAll ? "نمایش فهرست کوتاه" : "نمایش همهٔ حساب‌های من"}</button> : null}
-              {!m.savedId && !choices.length ? <p className="field-error">حساب یا کیف‌پول با موجودی کافی برای این مبلغ ندارید؛ مبلغ یا فهرست کامل حساب‌ها را بررسی کنید.</p> : null}
+              {!m.savedId ? <WalletAccountStatus summary={walletBalances.summary} onRetry={walletBalances.refresh} /> : null}
+              {!m.savedId && !choices.length && walletBalances.summary.status === "ready" ? <p className="field-error">حساب یا کیف‌پول با موجودی کافی برای این مبلغ ندارید؛ مبلغ یا فهرست کامل حساب‌ها را بررسی کنید.</p> : null}
             </Field>
             {bankExpense && !m.savedId ? <BankPaymentFields mode="expense" choice={m.feeChoice} method={m.feeMethod}
               paymentMethod={m.paymentMethod} onPaymentMethod={m.setPaymentMethod}
@@ -193,7 +199,7 @@ export function PendingSmsFeature({ model: m }: { model: ReturnType<typeof usePe
         <button
           className="btn-primary"
           type="button"
-          disabled={m.busy}
+          disabled={m.busy || (!m.savedId && !choices.some(row => row.account.id === m.accountId))}
           onClick={() => m.record(refreshData, ownCount)}
         >
           {m.busy ? "در حال رسیدگی…" : m.savedId ? "بازیابی پیوند پیامک" : "ثبت"}

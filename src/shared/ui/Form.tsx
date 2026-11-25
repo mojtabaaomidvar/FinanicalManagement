@@ -140,7 +140,7 @@ export function JalaliDateInput({ "aria-label": ariaLabel, ...props }: {
 export function Select({ "aria-label": ariaLabel, ...props }: {
   value: string;
   onChange: (v: string) => void;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; disabled?: boolean }[];
   className?: string;
   /** برای حالت «در حال ذخیره» — از انتخاب دوباره جلوگیری می‌کند */
   disabled?: boolean;
@@ -155,7 +155,7 @@ export function Select({ "aria-label": ariaLabel, ...props }: {
       onChange={(e) => props.onChange(e.target.value)}
     >
       {props.options.map((o) => (
-        <option key={o.value} value={o.value}>
+        <option key={o.value} value={o.value} disabled={o.disabled}>
           {o.label}
         </option>
       ))}

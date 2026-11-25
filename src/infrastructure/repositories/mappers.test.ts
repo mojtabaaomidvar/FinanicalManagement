@@ -56,14 +56,14 @@ describe("vehicle service finance provenance", () => {
   };
   it("retains the server source for editing rules without requiring an account", () => {
     expect(mapTransaction({ ...transaction, source_kind: "vehicle_service" })).toMatchObject({
-      sourceKind: "vehicle_service", amount: 50000, accountId: null,
+      sourceKind: "vehicle_service", amount: "50000", accountId: null,
     });
   });
   it("retains online choice distinctly from legacy absence and maps fee snapshots", () => {
     expect(mapTransaction({ ...transaction, payment_method: "online" })).toMatchObject({ paymentMethod: "online", transferFeeRial: null });
     expect(mapTransaction(transaction).paymentMethod).toBeNull();
     expect(mapTransaction({ ...transaction, payment_method: "bank_transfer", transfer_fee_method: "paya", transfer_fee_rial: 4000 }))
-      .toMatchObject({ paymentMethod: "bank_transfer", transferFeeMethod: "paya", transferFeeRial: 4000 });
+      .toMatchObject({ paymentMethod: "bank_transfer", transferFeeMethod: "paya", transferFeeRial: "4000" });
   });
   it("keeps legacy and unknown transaction sources outside service-specific rules", () => {
     expect(mapTransaction(transaction).sourceKind).toBeNull();

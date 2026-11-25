@@ -8,6 +8,26 @@
 
 import { normalizeNumeric, toFa } from "@/shared/lib/digits";
 import type { HoldingInput, HoldingKind } from "./holding.types";
+import { normalizeMoney, type Money } from "@/shared/lib/money";
+
+/** Display-only quote estimate, never an adapter for account/transaction money.
+ * Preserve the existing market value's decimal representation without rounding
+ * it to rial or pretending it is a ledger entry. No estimate is saved here.
+ */
+export function marketEstimateText(value: number): Money | null {
+  if (!Number.isFinite(value)) return null;
+  const text = String(value);
+  const [mantissa, exponent] = text.toLowerCase().split("e");
+  if (exponent === undefined) return normalizeMoney(text);
+  const negative = mantissa.startsWith("-");
+  const unsigned = negative ? mantissa.slice(1) : mantissa;
+  const [integer, fraction = ""] = unsigned.split(".");
+  const digits = integer + fraction, position = integer.length + Number(exponent);
+  const expanded = position <= 0 ? `0.${"0".repeat(-position)}${digits}`
+    : position >= digits.length ? digits + "0".repeat(position - digits.length)
+    : `${digits.slice(0, position)}.${digits.slice(position)}`;
+  try { return normalizeMoney((negative ? "-" : "") + expanded); } catch { return null; }
+}
 
 /** شش رقم اعشار — هم‌سان با ستون Numeric(18,6) */
 export const QUANTITY_DECIMALS = 6;

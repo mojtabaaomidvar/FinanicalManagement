@@ -31,7 +31,7 @@ const REST_ERROR_MAP: {
      می‌داند کدام‌یک رخ داده — نگاشتِ ثابتِ این‌سو ناچار دروغ می‌گفت. */
   keepServerMsg?: true;
 }[] = [
-  { re: /^(SYNC_CONFLICT|OFFLINE_CONFLICT|OPERATION_REUSED|MEAL_SLOT_OCCUPIED|DISH_IN_USE)$/, code: "CONFLICT", msg: "این مورد تغییر کرده است؛ نسخهٔ سرور را بررسی کنید.", keepServerMsg: true },
+  { re: /^(SYNC_CONFLICT|OFFLINE_CONFLICT|OPERATION_REUSED|OPERATION_CONFLICT|WALLET_CONFLICT|MEAL_SLOT_OCCUPIED|DISH_IN_USE)$/, code: "CONFLICT", msg: "این مورد تغییر کرده است؛ نسخهٔ سرور را بررسی کنید.", keepServerMsg: true },
   // نشست: UNAUTHORIZED/INVALID_TOKEN هم به SESSION_EXPIRED نگاشته می‌شوند تا ورود دوباره راه بیفتد
   {
     re: /SESSION_EXPIRED|UNAUTHORIZED|INVALID_TOKEN/,

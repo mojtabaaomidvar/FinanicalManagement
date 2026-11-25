@@ -1,4 +1,5 @@
 import { AppPage } from "@/shared/ui/AppPage";
+import { addMoney } from "@/shared/lib/money";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* §۱.۹ — صفحهٔ قبوض و شارژ.
 
@@ -78,8 +79,8 @@ export function BillsPage() {
   const writing = useRef(false);
   const mounted = useRef(true);
   const identity = `${member?.id ?? ""}:${family?.id ?? ""}`;
-  const identityRef = useRef(identity);
-  identityRef.current = identity;
+  const identityRef = useRef({ identity, useCases });
+  if (identityRef.current.identity !== identity || identityRef.current.useCases !== useCases) identityRef.current = { identity, useCases };
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const [notice, setNotice] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -95,6 +96,12 @@ export function BillsPage() {
   /* قبضی که منتظرِ انتخابِ حساب برای پرداخت است */
   const [paying, setPaying] = useState<Bill | null>(null);
   const [payAccount, setPayAccount] = useState("");
+  useEffect(() => {
+    writing.current = false; amountSelection.current = null;
+    setActivity(null); setOpen(false); setEditing(null); setForm(EMPTY);
+    setPaying(null); setPayAccount(""); setBalanceWarning(null);
+    setNotice(null); setFormError(null); setPayError(null);
+  }, [identity, useCases]);
 
   useLayoutEffect(() => {
     const selection = amountSelection.current;
@@ -114,8 +121,7 @@ export function BillsPage() {
     return true;
   }
   function finish(current: () => boolean) {
-    writing.current = false;
-    if (current()) setActivity(null);
+    if (current()) { writing.current = false; setActivity(null); }
   }
   function patch(values: Partial<FormState>) {
     if (writing.current) return;
@@ -182,7 +188,7 @@ export function BillsPage() {
   const unpaid = bills.filter((b) => b.state === "unpaid");
   const settled = bills.filter((b) => b.state !== "unpaid");
 
-  const totalUnpaid = unpaid.reduce((s, b) => s + b.amount, 0);
+  const totalUnpaid = addMoney(...unpaid.map(bill => bill.amount));
   const todayJ = today();
   const todayIso = jalaliToIso(todayJ);
 
@@ -325,12 +331,14 @@ export function BillsPage() {
       }
       if (payAccount) {
         const account = freshAccounts.find(item => item.id === payAccount);
-        if (!account) {
+        if (!account || account.memberId !== member!.id || account.familyId !== family?.id) {
           setBalanceWarning(null);
           setPayError("حساب انتخاب‌شده در دسترس نیست؛ حساب دیگری انتخاب کنید");
           return;
         }
-        const warning = expenseBalanceWarning(account, transactions, fresh.amount);
+        const authoritative = await useCases!.walletCorrections.balance({ familyId: account.familyId, memberId: member!.id, accountId: account.id });
+        if (!current()) return;
+        const warning = expenseBalanceWarning(account, transactions, fresh.amount, undefined, authoritative.currentBalance);
         if (warning && (!confirmBalance || !sameExpenseBalance(balanceWarning, warning))) {
           setBalanceWarning(warning);
           return;

@@ -2,7 +2,8 @@ import type { VehicleInput, VehicleServiceInput } from "./vehicle.types";
 import { toEn } from "@/shared/lib/digits";
 import { parseAmountInput } from "@/shared/lib/format";
 import { fromDisplay } from "@/shared/lib/currency";
-import { MAX_AMOUNT } from "@/domain/transaction/transaction.rules";
+// Vehicle costs retain their existing integer-only API contract.
+const MAX_AMOUNT = 999_999_999_999;
 
 export const MAX_ODOMETER = 100_000_000;
 export function isVehicleDay(value: string): boolean {

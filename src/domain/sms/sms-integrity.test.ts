@@ -8,12 +8,12 @@ import type { Transaction } from "../transaction/transaction.types";
 
 describe("financial integrity", () => {
   it.each([...CATEGORIES, ...LEGACY_CATEGORIES, ...SYSTEM_CATEGORIES])("accepts $id only for $type", category => {
-    const input = { memberId: "m", type: category.type, category: category.id, amount: 25000, date: "2026-11-24", accountId: "a", toAccountId: "b" };
+    const input = { memberId: "m", type: category.type, category: category.id, amount: "25000", date: "2026-11-24", accountId: "a", toAccountId: "b" };
     expect(validateTransaction(input).ok).toBe(true);
     expect(validateTransaction({ ...input, type: category.type === "income" ? "expense" : "income" }).error).toBe("INVALID_CATEGORY");
   });
   it("keeps an unchanged historically mismatched category editable, not newly creatable", () => {
-    const input = { memberId: "m", type: "income" as const, category: "food", amount: 1000, date: "2026-11-24" };
+    const input = { memberId: "m", type: "income" as const, category: "food", amount: "1000", date: "2026-11-24" };
     expect(validateTransaction(input).ok).toBe(false);
     expect(validateTransaction(input, input as Transaction).ok).toBe(true);
   });
@@ -34,11 +34,11 @@ describe("financial integrity", () => {
     const rawText = "برداشت مبلغ 250,000 ریال; موجودی 1,000,000; 1405/09/03-14:37:52";
     expect(parseSms(rawText)).toMatchObject({ bank: null, time: "14:37:52", amount: 250000 });
     const draft = smsDraftDefaults({ rawText, date: "2026-11-24", amount: 250000 } as BankSms, "m");
-    expect(draft).toMatchObject({ amount: 25000, note: "", time: "14:37:52", jalaliDate: [1405, 9, 3] });
+    expect(draft).toMatchObject({ amount: "25000", note: "", time: "14:37:52", jalaliDate: [1405, 9, 3] });
     expect(smsDraftDefaults({ rawText: "برداشت مبلغ 250000 ریال", date: "2026-11-24" } as BankSms, "m").jalaliDate).toBeNull();
   });
   it("rejects rollover dates and invalid manual times", () => {
-    const input = { memberId: "m", type: "income" as const, category: "ride", amount: 25000, date: "2026-11-24" };
+    const input = { memberId: "m", type: "income" as const, category: "ride", amount: "25000", date: "2026-11-24" };
     expect(validateTransaction({ ...input, date: "2026-02-30" }).error).toBe("INVALID_DATE");
     expect(validateTransaction({ ...input, time: "24:00" }).error).toBe("INVALID_TIME");
     expect(validateTransaction({ ...input, time: "14:37:52" }).ok).toBe(true);

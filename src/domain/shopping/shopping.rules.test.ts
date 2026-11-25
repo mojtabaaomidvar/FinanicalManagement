@@ -4,6 +4,7 @@ import {
   formatQty,
   liveFormatQty,
   parseQty,
+  parseShoppingPrice,
   queuedInventoryIds,
   roundQty,
   summarize,
@@ -46,17 +47,30 @@ function list(items: ShoppingItem[], id = "l1"): ShoppingList {
 }
 
 describe("sumPrice — قیمتِ نگفته صفر است، نه حذف", () => {
+  it("adds row totals exactly without multiplying quantities", () => {
+    expect(sumPrice([item({ price: "9999999999999.99", qty: 3 }), item({ price: "0.01", qty: 9 }), item({ price: "0.1" })])).toBe("10000000000000.1");
+  });
   it("فهرستِ خالی → صفر", () => {
-    expect(sumPrice([])).toBe(0);
+    expect(sumPrice([])).toBe("0");
   });
 
   it("بی‌قیمت‌ها جمع را نمی‌شکنند (NaN نمی‌دهد)", () => {
     const total = sumPrice([
-      item({ price: 50_000 }),
+      item({ price: "50000" }),
       item({ price: null }),
-      item({ price: 20_000 }),
+      item({ price: "20000" }),
     ]);
-    expect(total).toBe(70_000);
+    expect(total).toBe("70000");
+  });
+});
+
+describe("exact optional shopping price", () => {
+  it.each([["", "تومان", "0"], ["0", "تومان", "0"], ["۱", "ریال", "0.1"], ["۰٫۱", "ریال", "0.01"],
+    ["۹٬۹۹۹٬۹۹۹٬۹۹۹٬۹۹۹٫۹۹", "تومان", "9999999999999.99"]])("parses %s in %s", (raw, currency, expected) => {
+    expect(parseShoppingPrice(raw, currency)).toBe(expected);
+  });
+  it.each(["1.001", "-1", "1e3", "invalid", "10000000000000"])("rejects %s rather than rounding", raw => {
+    expect(parseShoppingPrice(raw, "تومان")).toBeNull();
   });
 });
 
@@ -64,15 +78,15 @@ describe("summarize", () => {
   it("تیک‌خورده‌ها و قیمت‌های جاافتاده را جدا می‌شمارد", () => {
     const s = summarize(
       list([
-        item({ checked: true, price: 50_000 }),
+        item({ checked: true, price: "50000" }),
         item({ checked: true, price: null }),
-        item({ checked: false, price: 99_000 }),
+        item({ checked: false, price: "99000" }),
       ]),
     );
     expect(s.pending).toBe(3);
     expect(s.checked).toBe(2);
     /* قیمتِ قلمِ تیک‌نخورده در جمعِ سبد نمی‌آید — سبد یعنی «آن‌چه برداشتم» */
-    expect(s.checkedTotal).toBe(50_000);
+    expect(s.checkedTotal).toBe("50000");
     expect(s.missingPrice).toBe(1);
   });
 
@@ -81,7 +95,7 @@ describe("summarize", () => {
     expect(s).toEqual({
       pending: 0,
       checked: 0,
-      checkedTotal: 0,
+      checkedTotal: "0",
       missingPrice: 0,
     });
   });

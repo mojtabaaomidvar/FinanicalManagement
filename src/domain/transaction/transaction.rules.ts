@@ -4,6 +4,7 @@
 import { isValidCategory } from "../category/category.catalog";
 import type { Transaction, TransactionInput, TxType } from "./transaction.types";
 import { isoToJalali } from "@/shared/lib/jalali";
+import { moneyFits } from "@/shared/lib/money";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -37,7 +38,7 @@ export interface TxValidationResult {
   error?: TxValidationCode;
 }
 
-export const MAX_AMOUNT = 999_999_999_999;
+export const MAX_AMOUNT = "999999999999";
 export const MAX_NOTE_LENGTH = 200;
 
 /** تاریخ باید میلادی ISO باشد — سال جلالی (مثل 1404) رد می‌شود */
@@ -53,11 +54,7 @@ export function validateTransaction(input: TransactionInput, existing?: Transact
   if (input.type !== "expense" && input.type !== "income" && input.type !== "transfer") {
     return { ok: false, error: "INVALID_TYPE" };
   }
-  if (
-    !Number.isFinite(input.amount) ||
-    input.amount <= 0 ||
-    input.amount > MAX_AMOUNT
-  ) {
+  if (!moneyFits(input.amount, { scale: 2, min: "0.01", max: MAX_AMOUNT })) {
     return { ok: false, error: "INVALID_AMOUNT" };
   }
   const unchangedHistory = existing && existing.type === input.type && existing.category === input.category

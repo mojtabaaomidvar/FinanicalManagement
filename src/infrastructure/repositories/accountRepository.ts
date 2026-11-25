@@ -26,7 +26,7 @@ export class SupabaseAccountRepository implements AccountRepository {
       bank: input.bank ?? null,
       card_number: input.cardNumber ?? null,
       kind: input.kind ?? "bank",
-      initial_balance: input.initialBalance ?? 0,
+      initial_balance: input.initialBalance ?? "0",
     });
     return mapAccount(row);
   }

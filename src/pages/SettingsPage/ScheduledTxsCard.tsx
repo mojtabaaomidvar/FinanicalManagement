@@ -7,6 +7,8 @@ import type { Transaction, TxRepeat } from "@/domain/transaction/transaction.typ
 import { sortTxDesc } from "@/domain/transaction/transaction.rules";
 import { parseScheduledAmount, recurringTemplate, nextPendingOccurrence } from "@/domain/transaction/recurring.rules";
 import { transactionAccountChoices } from "@/features/transaction-form/model/transactionAccounts";
+import { useWalletBalances } from "@/features/accounts/model/useWalletBalances";
+import { pendingWalletOptions, WalletAccountStatus } from "@/features/accounts/ui/WalletAccountStatus";
 import { toDisplay } from "@/shared/lib/currency";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 import { formatISO, isoToJalali, jalaliToIso, parse, today } from "@/shared/lib/jalali";
@@ -44,7 +46,8 @@ export function ScheduledTxsCard() {
   const writing = useRef(false);
   const mounted = useRef(true);
   const identity = `${member?.id ?? ""}:${family?.id ?? ""}`;
-  const identityRef = useRef(identity); identityRef.current = identity;
+  const identityRef = useRef({ identity, useCases });
+  if (identityRef.current.identity !== identity || identityRef.current.useCases !== useCases) identityRef.current = { identity, useCases };
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const [notice, setNotice] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -60,6 +63,12 @@ export function ScheduledTxsCard() {
     return { type: "expense", amount: "", category: CATEGORIES.find(item => item.type === "expense")?.id ?? "",
       note: "", date: formatISO(today()), repeat: "monthly", repeatEnd: "", currency: cur };
   }
+  useEffect(() => {
+    writing.current = false; selection.current = null;
+    setBusy(false); setOpen(false); setEditing(null); setSettling(null);
+    setSettleAccount(""); setSettleDestination(""); setAllAccounts(false);
+    setForm(empty()); setNotice(null); setFormError(null);
+  }, [identity, useCases]);
   const scheduled = useMemo(() => sortTxDesc(txs.filter(tx => tx.repeat !== "none")), [txs]);
   const catOptions = useMemo(() => form.type === "transfer" ? [{ value: "transfer", label: "انتقال" }] : [...CATEGORIES.filter(category => category.type === form.type).map(category => ({ value: category.id, label: category.name })),
     ...customCategories.filter(category => category.type === form.type).map(category => ({ value: category.id, label: category.name }))], [form.type, customCategories]);
@@ -73,7 +82,7 @@ export function ScheduledTxsCard() {
     if (!available || writing.current) return false;
     writing.current = true; setBusy(true); return true;
   }
-  function finish(current: () => boolean) { writing.current = false; if (current()) setBusy(false); }
+  function finish(current: () => boolean) { if (current()) { writing.current = false; setBusy(false); } }
   function patch(values: Partial<ScheduledForm>) {
     if (writing.current) return;
     setForm(previous => ({ ...previous, ...values })); setFormError(null);
@@ -168,24 +177,27 @@ export function ScheduledTxsCard() {
   }
 
   const settlementTemplate = settling ? recurringTemplate(settling) : null;
+  const walletBalances = useWalletBalances(accounts, !!settling);
   const settlementDue = settling ? nextPendingOccurrence(settling) : null;
   const settlementAccounts = transactionAccountChoices(accounts, txs, member?.id ?? "",
-    settlementTemplate?.amount ?? null, settlementTemplate?.type !== "income", allAccounts);
+    settlementTemplate?.amount ?? null, settlementTemplate?.type !== "income", allAccounts, undefined, walletBalances.currentBalances);
   const settlementNeedsAccount = accounts.some(account => account.memberId === member?.id);
-  const settlementDestinations = transactionAccountChoices(accounts, txs, null, null, false, allAccounts)
+  const settlementDestinations = transactionAccountChoices(accounts, txs, null, null, false, allAccounts, undefined, walletBalances.currentBalances)
     .filter(row => row.account.id !== settleAccount);
   const settleAccountAvailable = settlementAccounts.some(row => row.account.id === settleAccount);
   const settleDestinationAvailable = settlementDestinations.some(row => row.account.id === settleDestination);
   useEffect(() => {
-    if (settling && !busy && settleAccount && !settleAccountAvailable) setSettleAccount("");
-    if (settling && !busy && settleDestination && !settleDestinationAvailable) setSettleDestination("");
-  }, [settling, busy, settleAccount, settleAccountAvailable, settleDestination, settleDestinationAvailable]);
+    if (settling && !busy && settleAccount && (walletBalances.summary.status === "ready" || walletBalances.rows.get(settleAccount)?.status === "ready") && !settleAccountAvailable) setSettleAccount("");
+    if (settling && !busy && settleDestination && (walletBalances.summary.status === "ready" || walletBalances.rows.get(settleDestination)?.status === "ready") && !settleDestinationAvailable) setSettleDestination("");
+  }, [settling, busy, settleAccount, settleAccountAvailable, settleDestination, settleDestinationAvailable, walletBalances.rows, walletBalances.summary.status]);
   function openSettlement(tx: Transaction) {
     if (!available || writing.current || !canManage(tx)) return;
     setSettling(tx); setSettleAccount(""); setSettleDestination(""); setAllAccounts(false); setFormError(null);
   }
   async function settle() {
-    if (!settling || !settlementDue || !begin()) return;
+    if (!settling || !settlementDue || settlementNeedsAccount && !settleAccountAvailable
+      || settleAccount && !settleAccountAvailable || settleDestination && !settleDestinationAvailable
+      || settlementTemplate?.type === "transfer" && (!settleAccountAvailable || !settleDestinationAvailable) || !begin()) return;
     const current = currentRequest(); setFormError(null); let saved = false;
     try {
       await useCases!.settleOccurrence.execute(settling.id, { dueDate: settlementDue,
@@ -240,14 +252,15 @@ export function ScheduledTxsCard() {
         <p className="modal-sub">پرداخت امروز ثبت می‌شود؛ این نوبت دوباره ثبت نخواهد شد.</p>
         <Field label="حساب تسویه"><Select value={settleAccount} onChange={setSettleAccount} disabled={busy} aria-label="حساب تسویه"
           options={[{ value: "", label: settlementNeedsAccount ? "انتخاب حساب تسویه…" : "بدون حساب مشخص" }, ...settlementAccounts.map(({ account, balance }) => ({ value: account.id,
-            label: /* @copy-text recurring.settle_account */ `${account.title} · ${formatExpressionValue(toDisplay(balance, cur))} ${currencyDisplayLabel(cur)}` }))]} /></Field>
+            label: /* @copy-text recurring.settle_account */ `${account.title} · ${formatExpressionValue(toDisplay(balance, cur))} ${currencyDisplayLabel(cur)}` })), ...pendingWalletOptions(accounts, walletBalances.rows, member?.id ?? "")]} /></Field>
+        <WalletAccountStatus summary={walletBalances.summary} onRetry={walletBalances.refresh} />
         <button type="button" className="link-btn" disabled={busy} onClick={() => setAllAccounts(value => !value)}>{allAccounts ? "فهرست کوتاه حساب‌ها" : "نمایش همهٔ حساب‌های من"}</button>
         {settlementTemplate.type === "transfer" ? <Field label="حساب مقصد"><Select value={settleDestination} onChange={setSettleDestination} disabled={busy}
           aria-label="حساب مقصد تسویه" options={[{ value: "", label: "انتخاب حساب مقصد…" }, ...settlementDestinations
-            .map(({ account }) => ({ value: account.id, label: account.title }))]} /></Field> : null}
+            .map(({ account }) => ({ value: account.id, label: account.title })), ...pendingWalletOptions(accounts.filter(account => account.id !== settleAccount), walletBalances.rows, null)]} /></Field> : null}
         {formError !== null ? <p className="field-error" role="alert">{formError}</p> : null}
         <div className="modal-actions"><button type="button" className="btn-secondary" disabled={busy} onClick={() => setSettling(null)}>انصراف</button>
-          <button type="button" className="btn-primary" disabled={busy || (settlementNeedsAccount && !settleAccount) || (settlementTemplate.type === "transfer" && (!settleAccount || !settleDestination))}
+          <button type="button" className="btn-primary" disabled={busy || (settlementNeedsAccount && !settleAccountAvailable) || (settleAccount !== "" && !settleAccountAvailable) || (settlementTemplate.type === "transfer" && (!settleAccountAvailable || !settleDestinationAvailable))}
             onClick={() => void settle()}>{busy ? "در حال تسویه…" : "تأیید تسویه"}</button></div>
       </> : <p role="status">نوبت قابل تسویه‌ای باقی نمانده است.</p>}
     </Modal>

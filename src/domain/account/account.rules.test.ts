@@ -8,6 +8,7 @@ import {
   formatCardFa,
   digitsOf,
 } from "./account.rules";
+import { addMoney, negateMoney } from "@/shared/lib/money";
 
 const ok = (over: Partial<Parameters<typeof validateAccountInput>[0]> = {}) =>
   validateAccountInput({
@@ -43,37 +44,39 @@ describe("validateAccountInput", () => {
 
   it("کیف‌پول با موجودی اولیه معتبر است؛ منفی → INVALID_INITIAL_BALANCE", () => {
     expect(
-      ok({ kind: "wallet", cardNumber: null, initialBalance: 500_000 }).ok,
+      ok({ kind: "wallet", cardNumber: null, initialBalance: "500000" }).ok,
     ).toBe(true);
     expect(
-      ok({ kind: "wallet", cardNumber: null, initialBalance: -1 }).error,
+      ok({ kind: "wallet", cardNumber: null, initialBalance: "-1" }).error,
     ).toBe("INVALID_INITIAL_BALANCE");
   });
 
   it("rejects opening balances beyond the server bound and permits bounded negative patches", () => {
     expect(ok({ initialBalance: MAX_ACCOUNT_BALANCE }).ok).toBe(true);
-    expect(ok({ initialBalance: MAX_ACCOUNT_BALANCE + 1 }).error).toBe("INVALID_INITIAL_BALANCE");
-    for (const initialBalance of [Infinity, NaN, MAX_ACCOUNT_BALANCE + 1, -MAX_ACCOUNT_BALANCE - 1]) {
+    expect(ok({ initialBalance: addMoney(MAX_ACCOUNT_BALANCE, "1") }).error).toBe("INVALID_INITIAL_BALANCE");
+    for (const initialBalance of ["Infinity", "NaN", addMoney(MAX_ACCOUNT_BALANCE, "1"), negateMoney(addMoney(MAX_ACCOUNT_BALANCE, "1"))]) {
       expect(validateAccountPatch({ id: "a1", kind: "wallet", title: "Wallet", initialBalance }).error).toBe("INVALID_INITIAL_BALANCE");
     }
-    expect(validateAccountPatch({ id: "a1", kind: "wallet", title: "Wallet", initialBalance: -MAX_ACCOUNT_BALANCE }).ok).toBe(true);
+    expect(validateAccountPatch({ id: "a1", kind: "wallet", title: "Wallet", initialBalance: negateMoney(MAX_ACCOUNT_BALANCE) }).ok).toBe(true);
   });
 });
 
 describe("account balance input", () => {
   it("accepts grouping and each digit set with the chosen display currency", () => {
     for (const raw of ["۱٬۲۵۰", "١,٢٥٠", "1,250", "۱۲۵۰"]) {
-      expect(parseAccountBalance(raw, "تومان")).toBe(1250);
-      expect(parseAccountBalance(raw, "ریال")).toBe(125);
+      expect(parseAccountBalance(raw, "تومان")).toBe("1250");
+      expect(parseAccountBalance(raw, "ریال")).toBe("125");
     }
-    expect(parseAccountBalance("", "تومان")).toBe(0);
-    expect(parseAccountBalance("۰", "تومان")).toBe(0);
+    expect(parseAccountBalance("", "تومان")).toBe("0");
+    expect(parseAccountBalance("۰", "تومان")).toBe("0");
+    expect(parseAccountBalance("۱٫۵", "تومان")).toBe("1.5");
+    expect(parseAccountBalance("۱", "ریال")).toBe("0.1");
   });
 
   it("preserves invalid input rather than silently stripping letters, signs or decimals", () => {
-    for (const raw of [",", "12abc5", "-100", "۱٫۵", "1+2", "9".repeat(30)]) expect(parseAccountBalance(raw, "تومان")).toBeNull();
+    for (const raw of [",", "12abc5", "-100", "۱٫۵۵", "1+2", "9".repeat(30)]) expect(parseAccountBalance(raw, "تومان")).toBeNull();
     expect(parseAccountBalance(String(MAX_ACCOUNT_BALANCE), "تومان")).toBe(MAX_ACCOUNT_BALANCE);
-    expect(parseAccountBalance(String(MAX_ACCOUNT_BALANCE + 1), "تومان")).toBeNull();
+    expect(parseAccountBalance(addMoney(MAX_ACCOUNT_BALANCE, "1"), "تومان")).toBeNull();
   });
 });
 

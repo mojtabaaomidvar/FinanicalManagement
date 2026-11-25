@@ -41,7 +41,7 @@ export class AddAccountUseCase {
     return this.repo.add({
       ...input,
       cardNumber: input.cardNumber ? digitsOf(input.cardNumber) : null,
-      initialBalance: input.initialBalance ?? 0,
+      initialBalance: input.initialBalance ?? "0",
     });
   }
 }

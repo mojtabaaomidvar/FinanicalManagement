@@ -10,6 +10,7 @@ import type {
   OccurrenceSettle,
 } from "@/domain/transaction/transaction.types";
 import { AppError } from "@/shared/lib/appError";
+import { moneyFits, type Money } from "@/shared/lib/money";
 
 export class ListTransactionsUseCase {
   constructor(private readonly repo: TransactionRepository) {}
@@ -20,8 +21,8 @@ export class ListTransactionsUseCase {
 
 export class QuoteTransferFeeUseCase {
   constructor(private readonly repo: TransactionRepository) {}
-  execute(method: import("@/domain/transaction/transaction.types").TransferFeeMethod, amountRial: number): Promise<number> {
-    if (!Number.isSafeInteger(amountRial) || amountRial <= 0) throw new AppError("INVALID_TX", "مبلغ انتقال باید عدد صحیح مثبت به ریال باشد.");
+  execute(method: import("@/domain/transaction/transaction.types").TransferFeeMethod, amountRial: Money): Promise<Money> {
+    if (!moneyFits(amountRial, { scale: 0, min: "1", max: "9999999999990" })) throw new AppError("INVALID_TX", "مبلغ انتقال باید عدد صحیح مثبت به ریال باشد.");
     if (!this.repo.quoteTransferFee) throw new AppError("SERVER", "بررسی کارمزد ممکن نشد؛ دوباره تلاش کنید.");
     return this.repo.quoteTransferFee(method, amountRial);
   }

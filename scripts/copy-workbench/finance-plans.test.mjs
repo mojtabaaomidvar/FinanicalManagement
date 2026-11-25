@@ -13,7 +13,7 @@ test('future plan edits preserve actual transactions and settlement retries retu
   for (const key of ['amount', 'category', 'date', 'note', 'account_id']) assert.deepEqual(row[key], original[key]);
   const body = { due_date: '2026-11-26', revision: 1, account_id: session.data.accounts[0].id };
   const paid = request(session, path + '/settle', 'POST', body);
-  assert.equal(paid.status, 200); assert.equal(paid.body.date, '2026-11-19'); assert.equal(paid.body.amount, 1000);
+  assert.equal(paid.status, 200); assert.equal(paid.body.date, '2026-11-19'); assert.equal(paid.body.amount, '1000');
   assert.equal(paid.body.recurring_source_id, row.id); assert.equal(paid.body.repeat, 'none');
   assert.deepEqual(request(session, path + '/settle', 'POST', { ...body, revision: 0 }), paid);
   assert.equal(session.data.transactions.filter(item => item.recurring_source_id === row.id).length, 1);

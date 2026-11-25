@@ -27,7 +27,7 @@ export function BudgetCirclesWidget({ onManage }: { onManage: () => void }) {
     const spend = monthCategorySpend(txs, jy, jm);
     return budgets
       .map((b) => {
-        const spent = spend.get(b.category) ?? 0;
+        const spent = spend.get(b.category) ?? "0";
         return {
           id: b.category,
           name: resolve(b.category).name,

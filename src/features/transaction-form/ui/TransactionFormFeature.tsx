@@ -13,6 +13,9 @@ import { parseScheduledAmount } from "@/domain/transaction/recurring.rules";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 import { formatAccountAmount } from "@/shared/lib/format";
 import "./TransactionForm.css";
+import { addMoney, compareMoney, multiplyMoney } from "@/shared/lib/money";
+import { useWalletBalances } from "@/features/accounts/model/useWalletBalances";
+import { pendingWalletOptions, WalletAccountStatus } from "@/features/accounts/ui/WalletAccountStatus";
 
 const QUICK_LABELS: Record<"expense" | "income", { value: string; label: string }[]> = {
   expense: [
@@ -57,6 +60,7 @@ export function TransactionFormFeature({ form: m, onImported }: {
   const isTransfer = m.form.type === "transfer";
   const locked = m.busy || m.occurrencePending;
   const amount = parseScheduledAmount(m.form.amount, m.entryCurrency);
+  const walletBalances = useWalletBalances(accounts, m.open);
   const ownerId = m.editing && !m.recurringOccurrence ? m.editing.memberId : member?.id ?? "";
   const sourceAccount = accounts.find(account => account.id === m.form.accountId);
   const destinationAccount = accounts.find(account => account.id === m.form.toAccountId);
@@ -65,8 +69,8 @@ export function TransactionFormFeature({ form: m, onImported }: {
   const quote = useTransferFeeQuote(useCases, `${ownerId}:${m.open}:${m.form.type}:${m.form.accountId}:${m.form.toAccountId}`,
     m.open && ((bankTransfer && m.form.feeChoice === "yes") || (bankExpense && m.form.paymentMethod === "bank_transfer")) ? m.form.feeMethod : "", amount);
   const choices = transactionAccountChoices(accounts, txs, ownerId, amount, m.form.type !== "income", showAll || m.form.type === "income",
-    m.editing?.id).filter(({ account, balance }) => m.form.type === "income" || account.kind !== "bank" || amount === null || balance >= amount + quote.rial / 10);
-  const destinations = transactionAccountChoices(accounts, txs, null, null, false, showAll)
+    m.editing?.id, walletBalances.currentBalances).filter(({ account, balance }) => m.form.type === "income" || account.kind !== "bank" || amount === null || compareMoney(balance, addMoney(amount, multiplyMoney(quote.rial, "0.1"))) >= 0);
+  const destinations = transactionAccountChoices(accounts, txs, null, null, false, showAll, undefined, walletBalances.currentBalances)
     .filter(row => row.account.id !== m.form.accountId);
   const cats = useMemo(() => {
     if (isTransfer) return [];
@@ -107,17 +111,17 @@ export function TransactionFormFeature({ form: m, onImported }: {
   }, [m.receiptError]);
   const accountAvailable = choices.some(row => row.account.id === m.form.accountId);
   useEffect(() => {
-    if (m.open && !locked && m.form.accountId && !accountAvailable) m.setForm(previous => ({ ...previous, accountId: "" }));
-  }, [m.open, locked, m.form.accountId, accountAvailable]);
+    if (m.open && !locked && m.form.accountId && (walletBalances.summary.status === "ready" || walletBalances.rows.get(m.form.accountId)?.status === "ready") && !accountAvailable) m.setForm(previous => ({ ...previous, accountId: "" }));
+  }, [m.open, locked, m.form.accountId, accountAvailable, walletBalances.rows, walletBalances.summary.status]);
   const destinationAvailable = destinations.some(row => row.account.id === m.form.toAccountId);
   useEffect(() => {
     if (m.open && !locked && isTransfer && (sourceAccount?.kind === "wallet" || destinationAccount?.kind === "wallet")
       && (m.form.feeChoice || m.form.feeMethod)) m.setForm(previous => ({ ...previous, feeChoice: "", feeMethod: "" }));
   }, [m.open, locked, isTransfer, sourceAccount?.kind, destinationAccount?.kind, m.form.feeChoice, m.form.feeMethod]);
   useEffect(() => {
-    if (m.open && !locked && isTransfer && m.form.toAccountId && !destinationAvailable)
+    if (m.open && !locked && isTransfer && m.form.toAccountId && (walletBalances.summary.status === "ready" || walletBalances.rows.get(m.form.toAccountId)?.status === "ready") && !destinationAvailable)
       m.setForm(previous => ({ ...previous, toAccountId: "" }));
-  }, [m.open, locked, isTransfer, m.form.toAccountId, destinationAvailable]);
+  }, [m.open, locked, isTransfer, m.form.toAccountId, destinationAvailable, walletBalances.rows, walletBalances.summary.status]);
   function changeAmount(raw: string, start: number, end = start) {
     const formatted = normalizeExpressionInput(raw);
     selection.current = { start: expressionInputCaret(raw, formatted, start), end: expressionInputCaret(raw, formatted, end) };
@@ -173,12 +177,13 @@ export function TransactionFormFeature({ form: m, onImported }: {
         <div className="tx-simple-account">
           <label>{isTransfer ? "از حساب" : m.form.type === "income" ? "واریز به" : "پرداخت از"}
             <Select aria-label={isTransfer ? "حساب مبدأ" : "حساب تراکنش"} value={m.form.accountId} onChange={accountId => m.setForm(previous => ({ ...previous, accountId }))}
-              options={[{ value: "", label: m.serviceExpense || m.recurringOccurrence ? "بدون حساب مشخص" : "انتخاب حساب…" }, ...accountOptions(choices)]} />
+              options={[{ value: "", label: m.serviceExpense || m.recurringOccurrence ? "بدون حساب مشخص" : "انتخاب حساب…" }, ...accountOptions(choices), ...pendingWalletOptions(accounts, walletBalances.rows, ownerId)]} />
           </label>
-          {!choices.length ? <p className="tx-simple-hint" role="status">حساب یا کیف‌پول قابل انتخابی نیست؛ مبلغ و موجودی یا فهرست همهٔ حساب‌ها را بررسی کنید.</p> : null}
+          <WalletAccountStatus summary={walletBalances.summary} onRetry={walletBalances.refresh} />
+          {!choices.length && walletBalances.summary.status === "ready" ? <p className="tx-simple-hint" role="status">حساب یا کیف‌پول قابل انتخابی نیست؛ مبلغ و موجودی یا فهرست همهٔ حساب‌ها را بررسی کنید.</p> : null}
           {isTransfer ? <label>به حساب<Select aria-label="حساب مقصد" value={m.form.toAccountId}
             onChange={toAccountId => m.setForm(previous => ({ ...previous, toAccountId }))}
-            options={[{ value: "", label: "انتخاب حساب مقصد…" }, ...accountOptions(destinations)]} /></label> : null}
+            options={[{ value: "", label: "انتخاب حساب مقصد…" }, ...accountOptions(destinations), ...pendingWalletOptions(accounts.filter(account => account.id !== m.form.accountId), walletBalances.rows, null)]} /></label> : null}
           {m.form.type !== "income" ? <button type="button" className="tx-all-accounts" aria-expanded={showAll} onClick={() => setShowAll(value => !value)}>
             {showAll ? "فهرست کوتاه حساب‌ها" : "نمایش همهٔ حساب‌های من"}
           </button> : null}

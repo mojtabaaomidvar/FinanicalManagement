@@ -10,7 +10,7 @@ import { toFa } from "@/shared/lib/digits";
 import { formatAmount, formatSignedAmount } from "@/shared/lib/format";
 import { toDisplay } from "@/shared/lib/currency";
 import { txsInJalaliMonth } from "@/domain/transaction/transaction.rules";
-import { accountBalances, monthTotals, totalCashBalance } from "@/domain/report/report.rules";
+import { monthTotals } from "@/domain/report/report.rules";
 import { monthCategorySpend } from "@/domain/budget/budget.rules";
 import { findDollar } from "@/domain/market/market.rules";
 import { totalPending } from "@/domain/shopping/shopping.rules";
@@ -29,6 +29,9 @@ import { HomeModules } from "./HomeModules";
 import { useHomePreferences } from "./useHomePreferences";
 import { useHomeToday } from "./useHomeToday";
 import "./HubPage.css";
+import { addMoney } from "@/shared/lib/money";
+import { useWalletBalances } from "@/features/accounts/model/useWalletBalances";
+import { summarizeWalletBalances } from "@/features/accounts/model/walletBalanceSummary";
 
 export function HubPage({
   onNav,
@@ -65,6 +68,9 @@ export function HubPage({
   } = useApp();
   const online = useOnline();
   const restricted = !online || shoppingSync.offline || offlineSession;
+  const walletBalances = useWalletBalances(accounts, !restricted);
+  const personalWallets = accounts.filter(account => account.familyId === family?.id && account.memberId === member?.id && account.kind === "wallet");
+  const personalWalletBalance = summarizeWalletBalances(personalWallets.map(account => account.id), walletBalances.rows);
   const homePreferences = useHomePreferences({ memberId: member?.id, familyId: family?.id, useCases, restricted });
   const { todayIso, todayJ } = useHomeToday();
   const overviewData = {
@@ -96,7 +102,6 @@ export function HubPage({
     const totals = monthTotals(monthTxs);
     const spend = monthCategorySpend(txs, jy, jm);
     const unpaid = bills.filter((b) => b.state === "unpaid");
-    const walletBalances = accountBalances(txs, accounts.filter(account => account.memberId === member?.id && account.kind === "wallet"));
     /* نزدیک‌ترین رویداد معتبر؛ برنامهٔ انجام‌شده یا لغوشده در خلاصه نمی‌آید. */
     const nextEv = events.filter((e) => (e.kind !== "activity" || e.activityStatus === "planned")
       && cmp(isoToJalali(e.date), now) >= 0).sort((a, b) => a.date.localeCompare(b.date))[0];
@@ -112,12 +117,10 @@ export function HubPage({
     return {
       monthCount: monthTxs.length,
       monthExpense: totals.expense,
-      balance: totalCashBalance(txs, accounts),
-      wallets: { count: walletBalances.length, balance: walletBalances.reduce((sum, row) => sum + row.balance, 0) },
       budget: { limit: budgets.reduce((sum, budget) => sum + budget.amount, 0),
-        spent: budgets.reduce((sum, budget) => sum + (spend.get(budget.category) ?? 0), 0) },
+        spent: addMoney(...budgets.map(budget => spend.get(budget.category) ?? "0")) },
       unpaidBills: unpaid.length,
-      unpaidTotal: unpaid.reduce((s, b) => s + b.amount, 0),
+      unpaidTotal: addMoney(...unpaid.map(bill => bill.amount)),
       nextEvent: nextEv?.title ?? null,
       nextEventDays,
       /* §۱.۸ — اقلامِ نخریده در همهٔ لیست‌ها، و اقلامِ زیرِ آستانهٔ انبار */
@@ -127,7 +130,7 @@ export function HubPage({
     };
   }, [txs, accounts, budgets, bills, events, shoppingLists, inventory, todayIso, member?.id]);
 
-  const money = (n: number) => `${formatSignedAmount(toDisplay(n, cur))} ${currencyDisplayLabel(cur)}`;
+  const money = (n: string | number) => `${formatSignedAmount(toDisplay(n, cur))} ${currencyDisplayLabel(cur)}`;
 
   /* زیرنویس زنده‌ی هر کاشی فعال */
   const liveSub: Record<string, string> = {
@@ -136,7 +139,8 @@ export function HubPage({
       ? `${toFa(stats.monthCount)} تراکنش در این ماه`
       : "هنوز تراکنشی ثبت نشده",
     accounts: accounts.length
-      ? `${toFa(accounts.length)} حساب · ${money(stats.balance)}`
+      ? walletBalances.summary.status === "ready" ? `${toFa(accounts.length)} حساب · ${money(walletBalances.summary.balance)}`
+        : walletBalances.summary.status === "error" ? "موجودی حساب‌ها دریافت نشد" : "در حال دریافت موجودی حساب‌ها…"
       : "حساب یا کارت اضافه کن",
     budgets: budgets.length
       ? `${toFa(budgets.length)} بودجه‌ی فعال`
@@ -213,11 +217,11 @@ export function HubPage({
         </div>
       </header>
 
-      {view === "dashboard" ? <HomeBillboard wallets={stats.wallets} budget={stats.budget}
+      {view === "dashboard" ? <HomeBillboard wallets={{ count: personalWallets.length, ...personalWalletBalance }} budget={stats.budget}
         dues={{ overdue: overview.overdue.length, today: overview.today.length, upcoming: overview.upcoming.length }}
         currency={cur} loading={loading} incomplete={incomplete} offline={restricted}
         onTransaction={onAddTransaction} onAccounts={() => onNav("accounts")} onBudgets={() => onNav("budgets")}
-        onRetry={onRetry} onDues={() => {
+        onRetry={() => { walletBalances.refresh(); onRetry(); }} onDues={() => {
           const title = document.getElementById("home-overview-title");
           title?.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
           title?.focus({ preventScroll: true });

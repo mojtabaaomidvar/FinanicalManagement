@@ -4,13 +4,15 @@ import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 import { useEffect, useId, useMemo, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useTxListModel, type TxAdvFilter, type TxRange } from "../model/useTxListModel";
-import { Modal, Segmented } from "@/shared/ui";
-import { isoToJalali, formatISO } from "@/shared/lib/jalali";
+import { Modal, Segmented, Field, JalaliDateInput } from "@/shared/ui";
+import { isoToJalali, formatISO, parse, jalaliToIso } from "@/shared/lib/jalali";
+import { validTransactionDateRange } from "../model/transactionFilters";
 import { formatAmount } from "@/shared/lib/format";
 import { toDisplay } from "@/shared/lib/currency";
 import { toFa } from "@/shared/lib/digits";
 import type { Transaction } from "@/domain/transaction/transaction.types";
 import { transactionFeeAmount } from "@/domain/transaction/transaction.presentation";
+import { addMoney } from "@/shared/lib/money";
 import type { TxFormModel } from "@/features/transaction-form";
 import { buildCategoryResolver } from "@/domain/category/resolve";
 import {
@@ -21,10 +23,12 @@ export function TransactionListFeature({
   form,
   initialSearch = "",
   filterSignal = 0,
+  fixedAccountId = "",
 }: {
   form: TxFormModel;
   initialSearch?: string;
   filterSignal?: number;
+  fixedAccountId?: string;
 }) {
   const {
     txs,
@@ -38,16 +42,22 @@ export function TransactionListFeature({
     () => buildCategoryResolver(customCategories),
     [customCategories],
   );
-  const m = useTxListModel(txs, members, resolve, initialSearch, cur, subcategories);
+  const m = useTxListModel(txs, members, resolve, initialSearch, cur, subcategories, fixedAccountId);
   useEffect(() => { if (initialSearch) m.setSearch(initialSearch); }, [initialSearch]);
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterDraft, setFilterDraft] = useState<TxAdvFilter>(m.adv);
+  const [draftFrom, setDraftFrom] = useState("");
+  const [draftTo, setDraftTo] = useState("");
+  const [dateError, setDateError] = useState<string | null>(null);
   const rangeId = useId();
   const accountId = useId();
   const categoryId = useId();
 
   function openFilters() {
     setFilterDraft({ ...m.adv });
+    setDraftFrom(m.adv.fromDate ? formatISO(isoToJalali(m.adv.fromDate)) : "");
+    setDraftTo(m.adv.toDate ? formatISO(isoToJalali(m.adv.toDate)) : "");
+    setDateError(null);
     setFilterOpen(true);
   }
 
@@ -55,6 +65,23 @@ export function TransactionListFeature({
     m.setSearch("");
     m.setFilter("all");
     m.setAdv({ range: "all", accountId: "", categoryId: "" });
+  }
+
+  function applyFilters() {
+    const from = draftFrom.trim() ? parse(draftFrom) : null;
+    const to = draftTo.trim() ? parse(draftTo) : null;
+    if ((draftFrom.trim() && !from) || (draftTo.trim() && !to)) {
+      setDateError("تاریخ معتبر انتخاب کنید");
+      return;
+    }
+    const fromDate = from ? jalaliToIso(from) : "";
+    const toDate = to ? jalaliToIso(to) : "";
+    if (!validTransactionDateRange(fromDate, toDate)) {
+      setDateError("تاریخ شروع نباید بعد از تاریخ پایان باشد");
+      return;
+    }
+    m.setAdv({ ...filterDraft, accountId: fixedAccountId ? "" : filterDraft.accountId, fromDate, toDate });
+    setFilterOpen(false);
   }
 
   /* سیگنال باز شدن فیلتر از هدر خانه */
@@ -121,7 +148,7 @@ export function TransactionListFeature({
         />
       </div>
 
-      {m.totalTransferFees > 0 || m.adv.hasTransferFee ? <p className="tx-simple-hint" role="status">
+      {m.totalTransferFees !== "0" || m.adv.hasTransferFee ? <p className="tx-simple-hint" role="status">
         مجموع کارمزد انتقال: {formatAmount(toDisplay(m.totalTransferFees, cur))} {currencyDisplayLabel(cur)}
       </p> : null}
 
@@ -133,14 +160,14 @@ export function TransactionListFeature({
                 {g.weekday}
                 <span className="day-sum">
                   ·{" "}
-                  {g.income ? (
+                  {g.income !== "0" ? (
                     <span style={{ color: "var(--income)" }}>
                       {formatAmount(toDisplay(g.income, cur))}
                       <span className="cur-tag">{currencyDisplayLabel(cur)}</span>
                     </span>
                   ) : null}
-                  {g.income && g.expense ? " · " : ""}
-                  {g.expense ? (
+                  {g.income !== "0" && g.expense !== "0" ? " · " : ""}
+                  {g.expense !== "0" ? (
                     <span style={{ color: "var(--expense)" }}>
                       {formatAmount(toDisplay(g.expense, cur))}
                       <span className="cur-tag">{currencyDisplayLabel(cur)}</span>
@@ -159,6 +186,7 @@ export function TransactionListFeature({
                     fromAccountName={accountNameOf(t.accountId)}
                     toAccountName={accountNameOf(t.toAccountId)}
                     resolve={resolve}
+                    accountScope={fixedAccountId || m.adv.accountId}
                     onClick={() => form.openEdit(t)}
                   />
                 ))}
@@ -200,7 +228,7 @@ export function TransactionListFeature({
               />
             </div>
           </div>
-          <div className="form-row full">
+          {!fixedAccountId ? <div className="form-row full">
             <label htmlFor={accountId} className="form-label">حساب</label>
             <select
               id={accountId}
@@ -215,7 +243,7 @@ export function TransactionListFeature({
                 </option>
               ))}
             </select>
-          </div>
+          </div> : <p className="modal-sub">فقط تراکنش‌های همین کیف پول نمایش داده می‌شوند؛ پاک‌کردن فیلترها حساب را تغییر نمی‌دهد.</p>}
           <div className="form-row full">
             <label htmlFor={categoryId} className="form-label">دسته‌بندی</label>
             <select
@@ -255,22 +283,30 @@ export function TransactionListFeature({
               فقط تراکنش‌های دارای کارمزد انتقال
             </label>
           </div>
+          <div className="form-row full">
+            <Field label="از تاریخ (شامل این روز)">
+              <JalaliDateInput value={draftFrom} onChange={value => { setDraftFrom(value); setDateError(null); }} aria-label="تاریخ شروع تراکنش‌ها" />
+            </Field>
+          </div>
+          <div className="form-row full">
+            <Field label="تا تاریخ (شامل این روز)">
+              <JalaliDateInput value={draftTo} onChange={value => { setDraftTo(value); setDateError(null); }} aria-label="تاریخ پایان تراکنش‌ها" />
+            </Field>
+          </div>
+          {dateError !== null ? <p className="field-error" role="alert">{dateError}</p> : null}
         </div>
         <div className="modal-actions">
           <button
             type="button"
             className="btn-secondary"
-            onClick={() => setFilterDraft({ range: "all", accountId: "", categoryId: "" })}
+            onClick={() => { setFilterDraft({ range: "all", accountId: "", categoryId: "" }); setDraftFrom(""); setDraftTo(""); setDateError(null); }}
           >
             حذف فیلترها
           </button>
           <button type="button" className="btn-secondary" onClick={() => setFilterOpen(false)}>
             انصراف
           </button>
-          <button type="button" className="btn-primary" onClick={() => {
-            m.setAdv({ ...filterDraft });
-            setFilterOpen(false);
-          }}>
+          <button type="button" className="btn-primary" onClick={applyFilters}>
             اعمال
           </button>
         </div>
@@ -288,6 +324,7 @@ export function TxRow({
   toAccountName,
   resolve,
   onClick,
+  accountScope = "",
 }: {
   tx: Transaction;
   currency: string;
@@ -297,11 +334,12 @@ export function TxRow({
   toAccountName?: string | null;
   resolve?: ReturnType<typeof buildCategoryResolver>;
   onClick: () => void;
+  accountScope?: string;
 }) {
   const cat = resolve ? resolve(tx.category) : { name: tx.category, icon: "i-more" };
   const sub = subcategoryName ? ` (${subcategoryName})` : "";
   const isTransfer = tx.type === "transfer";
-  const feeAmount = tx.sourceKind === "transfer_fee" ? 0 : transactionFeeAmount(tx);
+  const feeAmount = tx.sourceKind === "transfer_fee" || (accountScope && tx.accountId !== accountScope) ? "0" : transactionFeeAmount(tx);
 
   /* عنوان انتقال: از حساب مبدأ به مقصد */
   const title = isTransfer
@@ -345,10 +383,10 @@ export function TxRow({
           ) : null}
         </h4>
         <p>{subtitle}</p>
-        {feeAmount > 0 ? <p>
+        {feeAmount !== "0" ? <p>
           کارمزد انتقال: {formatAmount(toDisplay(feeAmount, currency))} {currencyDisplayLabel(currency)}
           <br />
-          جمع برداشت از حساب: {formatAmount(toDisplay(tx.amount + feeAmount, currency))} {currencyDisplayLabel(currency)}
+          جمع برداشت از حساب: {formatAmount(toDisplay(addMoney(tx.amount, feeAmount), currency))} {currencyDisplayLabel(currency)}
         </p> : null}
       </div>
       <div className={`tx-amount ${tx.type}`}>

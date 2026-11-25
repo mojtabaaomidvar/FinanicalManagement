@@ -10,12 +10,10 @@ import { bankOfCard, bankDisplayLabel, cardMatchesBank } from "@/shared/lib/bank
 import { digitsOf, formatCardFa, parseAccountBalance } from "@/domain/account/account.rules";
 import type { Account, AccountKind } from "@/domain/account/account.types";
 import { accountBalances } from "@/domain/report/report.rules";
-import { balanceAdjustCategory } from "@/domain/category/category.catalog";
-import { formatAmount, nowTime } from "@/shared/lib/format";
-import { toDisplay } from "@/shared/lib/currency";
-import { MAX_AMOUNT } from "@/domain/transaction/transaction.rules";
-import { jalaliToIso, today } from "@/shared/lib/jalali";
 import { canViewFamilyWallets, walletItemsForViewer } from "./walletVisibility";
+import { useWalletBalances } from "./useWalletBalances";
+import { addMoney, negateMoney, type Money } from "@/shared/lib/money";
+import { marketEstimateText } from "@/domain/holding/holding.rules";
 
 export const WALLET_PRESETS = [
   "کیف پول نقدی",
@@ -31,7 +29,7 @@ interface FormState {
   title: string;
   bank: string;
   cardNo: string;
-  /** رشته‌ی نمایشی فارسی و بدون علامت؛ در افزودن = موجودی اولیه، در ویرایش = موجودی فعلی */
+  /** Opening balance only; metadata edits never read or write this field. */
   balance: string;
   /** علامت موجودی جدا نگه داشته می‌شود چون ورودی مبلغ فقط رقم می‌پذیرد
       (parseAmountInput هر چیز غیر رقم را حذف می‌کند و منها گم می‌شد) */
@@ -72,10 +70,6 @@ export function useAccountsModel() {
   const writing = useRef(false);
   const smsWriting = useRef(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const [reviewedBalance, setReviewedBalance] = useState<number | null>(null);
-  /* تأیید صریح کاربر برای تغییر دستی موجودی */
-  const [balanceAck, setBalanceAck] = useState(false);
-  const [balanceTouched, setBalanceTouched] = useState(false);
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
   /* کلید تشخیص تراکنش از پیامک — وضعیتش از خود حساب می‌آید و مودال فقط
      آینه‌ی آن است. از فرم جدا نگه داشته می‌شود چون «ذخیره»ی فرم نباید
@@ -98,19 +92,20 @@ export function useAccountsModel() {
     () => walletItemsForViewer(accounts, member),
     [accounts, member?.id, member?.familyId, member?.role],
   );
+  const walletBalances = useWalletBalances(visibleAccounts);
   const balances = useMemo(
     () => accountBalances(txs, visibleAccounts),
     [txs, visibleAccounts],
   );
   const balanceOf = useMemo(() => {
-    const m = new Map<string, number>();
+    const m = new Map<string, Money>();
     for (const b of balances) m.set(b.account.id, b.balance);
     return m;
   }, [balances]);
 
   /* جمع نقد حساب‌ها و کیف‌پول‌ها — همان چیزی که نمودار روند رسم می‌کند */
   const cashWealth = useMemo(
-    () => balances.reduce((s, b) => s + b.balance, 0),
+    () => addMoney(...balances.map(b => b.balance)),
     [balances],
   );
 
@@ -143,7 +138,22 @@ export function useAccountsModel() {
 
      پس اگر روزی نمودار با عدد بالای همان کارت جور در نیامد، این باگ
      نیست. با ذخیره‌ی اسنپ‌شات روزانه‌ی قیمت می‌شود درستش کرد. */
-  const totalWealth = cashWealth + holdings.total;
+  // A missing authoritative wallet must never look like a zero balance.
+  const currentCashWealth = useMemo(() => {
+    const amounts: Money[] = [];
+    for (const account of visibleAccounts) {
+      const state = walletBalances.rows.get(account.id);
+      if (state?.status !== "ready") return null;
+      amounts.push(state.value.currentBalance);
+    }
+    return addMoney(...amounts);
+  }, [visibleAccounts, walletBalances.rows]);
+  const totalWealth = useMemo(() => {
+    if (currentCashWealth === null || holdings.loading || holdings.loadError) return null;
+    const estimates = visibleHoldings.filter(item => item.priced).map(item => marketEstimateText(item.value));
+    if (estimates.some(value => value === null)) return null;
+    return addMoney(currentCashWealth, ...estimates as Money[]);
+  }, [currentCashWealth, visibleHoldings, holdings.loading, holdings.loadError]);
 
   const banks = balances.filter((b) => b.account.kind !== "wallet");
   const wallets = balances.filter((b) => b.account.kind === "wallet");
@@ -174,33 +184,15 @@ export function useAccountsModel() {
     return "";
   }, [form.cardNo, form.bank, form.kind]);
 
-  /* موجودی فعلی حساب در حال ویرایش، به واحد پایه */
-  const editingBalance = editing ? (reviewedBalance ?? balanceOf.get(editing.id) ?? 0) : 0;
   const parsedBalance = parseAccountBalance(form.balance, cur);
-  const targetBalance = parsedBalance === null ? null : form.negative ? -parsedBalance : parsedBalance;
-
-  /** کاربر عدد موجودی را دست زده؟ — تعیین‌کننده‌ی نمایش هشدار
-      مقایسه با علامت انجام می‌شود؛ وگرنه موجودی منفی همان لحظه‌ی
-      باز شدن فرم «تغییر کرده» به نظر می‌رسید و ذخیره آن را مثبت می‌کرد. */
-  const balanceChanged = useMemo(() => {
-    if (!editing || !balanceTouched || targetBalance === null) return false;
-    return targetBalance !== editingBalance;
-  }, [editing, targetBalance, editingBalance, balanceTouched]);
-
-  /* اگر کاربر عدد را به مقدار اولیه برگرداند، تأیید قبلی باید باطل شود */
-  useEffect(() => {
-    if (!balanceChanged && balanceAck) setBalanceAck(false);
-  }, [balanceChanged, balanceAck]);
+  const targetBalance = parsedBalance === null ? null : form.negative ? negateMoney(parsedBalance) : parsedBalance;
 
   function openNew(kind: AccountKind, title = "") {
     if (writing.current || smsWriting.current) return;
     setNotice(null);
-    setReviewedBalance(null);
     setEditing(null);
     setForm({ ...EMPTY, kind, title, memberId: member?.id ?? "" });
     setCardChangeAck(false);
-    setBalanceAck(false);
-    setBalanceTouched(false);
     /* حساب تازه هنوز شناسه‌ای ندارد، پس کلید پیامک اینجا معنا ندارد */
     setSmsOn(false);
     setOpen(true);
@@ -210,10 +202,6 @@ export function useAccountsModel() {
     if (writing.current || smsWriting.current || !canEdit(acc)) return;
     setRevealed(new Set());
     setNotice(null);
-    setReviewedBalance(null);
-    /* موجودی فعلی (نه اولیه) — چیزی که کاربر روی کارت می‌بیند.
-       با ارقام فارسی و جداکنندهٔ هزار، مثل بقیه‌ی فیلدهای مبلغ. */
-    const shown = Math.round(toDisplay(balanceOf.get(acc.id) ?? 0, cur));
     setEditing(acc);
     setForm({
       memberId: acc.memberId,
@@ -221,12 +209,10 @@ export function useAccountsModel() {
       title: acc.title,
       bank: acc.bank ?? "",
       cardNo: acc.cardNumber ?? "",
-      balance: shown === 0 ? "" : formatAmount(shown),
-      negative: (balanceOf.get(acc.id) ?? 0) < 0,
+      balance: "",
+      negative: false,
     });
-    setBalanceAck(false);
     setCardChangeAck(false);
-    setBalanceTouched(false);
     setSmsOn(acc.smsEnabled);
     setOpen(true);
   }
@@ -239,28 +225,12 @@ export function useAccountsModel() {
   function finishClose() {
     setOpen(false);
     setEditing(null);
-    setBalanceAck(false);
-    setBalanceTouched(false);
     setSmsOn(false);
-    /* اگر کلید پیامک عوض شده بود، تازه‌سازی تا همین‌جا عقب انداخته شده.
-       چرا نه همان لحظه‌ی زدن کلید: refreshData موجودی‌ها را از نو می‌سازد،
-       ولی فیلدِ «موجودی فعلی»ِ فرم دوباره پر نمی‌شود. پس اگر عضو دیگری
-       همان لحظه تراکنشی ثبت کرده باشد، عدد داخل فرم ناگهان «تغییر کرده»
-       به نظر می‌رسد و «ذخیره» یک تراکنشِ «تغییر دستی موجودی» می‌سازد که
-       تراکنش آن عضو را بی‌صدا خنثی می‌کند. */
+    // SMS consent is saved independently; refresh after closing metadata.
     if (smsDirty.current) {
       smsDirty.current = false;
       void refreshData();
     }
-  }
-
-  /** تغییر علامت موجودی (فقط در حالت ویرایش معنا دارد) */
-  function setNegative(v: boolean) {
-    if (writing.current || smsWriting.current) return;
-    setBalanceTouched(true);
-    setBalanceAck(false);
-    setNotice(null);
-    setForm((f) => ({ ...f, negative: v }));
   }
 
   function patch(p: Partial<FormState>) {
@@ -268,10 +238,6 @@ export function useAccountsModel() {
     setNotice(null);
     if (p.cardNo !== undefined || p.bank !== undefined) setCardChangeAck(false);
     if (p.kind === "wallet") p.memberId = member?.id ?? "";
-    if (p.balance !== undefined) {
-      setBalanceTouched(true);
-      setBalanceAck(false);
-    }
     setForm((f) => ({ ...f, ...p }));
   }
 
@@ -322,48 +288,18 @@ export function useAccountsModel() {
   async function save() {
     if (!useCases || !open || writing.current || smsWriting.current) return;
     if (binError) return notify(binError);
-    if (targetBalance === null) return notify("موجودی معتبر وارد کنید");
+    if (!editing && targetBalance === null) return notify("موجودی معتبر وارد کنید");
     if (editing && !canEdit(editing)) return notify("فقط صاحب حساب می‌تواند آن را تغییر دهد");
     if (cardChanged && !cardChangeAck) return notify("تغییر شماره کارت را تأیید کنید");
-
-    /* تغییر موجودی تراکنش اصلاحی می‌سازد و نیاز به تأیید همان مبلغ دارد. */
-    if (editing && balanceChanged && !balanceAck) {
-      return notify("تأیید تغییر موجودی را بزنید");
-    }
 
     writing.current = true;
     setBusy(true);
     setNotice(null);
     const current = currentRequest();
-    let metadataSaved = false;
     let committed = false;
     try {
       if (editing) {
-        let delta = targetBalance - editingBalance;
-        if (balanceChanged) {
-          const [freshAccounts, freshTransactions] = await Promise.all([
-            useCases.listAccounts.execute(),
-            useCases.listTransactions.execute(),
-          ]);
-          if (!current()) return;
-          if (!freshAccounts.some(account => account.id === editing.id)) {
-            return notify("این حساب در دسترس نیست؛ فهرست حساب‌ها را تازه کنید");
-          }
-          const currentBalance = accountBalances(freshTransactions, freshAccounts).find(row => row.account.id === editing.id)!.balance;
-          if (currentBalance !== editingBalance) {
-            setReviewedBalance(currentBalance);
-            setBalanceAck(false);
-            return notify("موجودی حساب تغییر کرده؛ مبلغ اصلاح را دوباره بررسی و تأیید کنید");
-          }
-          delta = targetBalance - currentBalance;
-          if (Math.abs(delta) > MAX_AMOUNT) return notify("مبلغ اصلاح موجودی از سقف مجاز تراکنش بیشتر است");
-        }
-        /* فیلدهای متنی حساب ذخیره می‌شوند؛ «موجودی اولیه» دست نمی‌خورد.
-           تغییر موجودی دیگر initialBalance را بازنویسی نمی‌کند — به‌جایش
-           یک تراکنش «تغییر دستی موجودی» به تاریخ/ساعت همین لحظه ثبت
-           می‌شود تا در فهرست تراکنش‌ها، گزارش‌ها و موجودی دیده شود. چون
-           موجودی = اولیه + اثر تراکنش‌ها، افزودن تراکنشی به‌اندازهٔ تفاوت،
-           موجودی را دقیقاً به عدد هدف می‌رساند. */
+        // Metadata only. Financial corrections use their atomic command/receipt.
         await useCases.updateAccount.execute({
           id: editing.id,
           confirmCardChange: cardChangeAck,
@@ -374,25 +310,6 @@ export function useAccountsModel() {
             editing.kind === "bank" ? form.cardNo.trim() || null : null,
         });
         if (!current()) return;
-        metadataSaved = true;
-
-        if (balanceChanged) {
-          /* هدف به واحد پایه تبدیل می‌شود؛ گردکردن ماندهٔ فعلی، بخشی از
-             موجودی منفی اعشاری را پس از اصلاح در حساب باقی می‌گذارد. */
-          if (delta !== 0) {
-            await useCases.addTransaction.execute({
-              memberId: editing.memberId || member?.id || "",
-              type: delta >= 0 ? "income" : "expense",
-              amount: Math.abs(delta),
-              category: balanceAdjustCategory(delta),
-              date: jalaliToIso(today()),
-              time: nowTime(),
-              accountId: editing.id,
-              note: null,
-            });
-            if (!current()) return;
-          }
-        }
       } else {
         await useCases.addAccount.execute({
           memberId: form.memberId || member?.id || "",
@@ -400,7 +317,7 @@ export function useAccountsModel() {
           kind: form.kind,
           bank: form.kind === "bank" ? form.bank || null : null,
           cardNumber: form.kind === "bank" ? form.cardNo.trim() || null : null,
-          initialBalance: targetBalance,
+          initialBalance: targetBalance!,
         });
         if (!current()) return;
       }
@@ -413,7 +330,6 @@ export function useAccountsModel() {
     } catch (e) {
       if (!current()) return;
       if (committed) show("حساب ذخیره شد؛ اطلاعات صفحه تازه نشد. صفحه را بازخوانی کنید");
-      else if (metadataSaved) notify("اطلاعات حساب ذخیره شد، اما اصلاح موجودی انجام نشد؛ دوباره تلاش کنید");
       else notify((e as Error).message || "خطا در ذخیره");
     } finally {
       if (current()) { writing.current = false; setBusy(false); }
@@ -468,9 +384,16 @@ export function useAccountsModel() {
     member,
     cur,
     balances,
+    walletBalances,
+    refreshAfterCorrection: () => {
+      walletBalances.refresh();
+      const current = currentRequest();
+      void refreshData().catch(() => { if (current()) show("اصلاح ثبت شد؛ فهرست تراکنش‌ها تازه نشد. صفحه را بازخوانی کنید."); });
+    },
     banks,
     wallets,
     cashWealth,
+    currentCashWealth,
     totalWealth,
     holdings,
     balanceOf,
@@ -494,11 +417,6 @@ export function useAccountsModel() {
     smsOn,
     smsBusy,
     toggleSms,
-    balanceChanged,
-    editingBalance,
-    balanceAck,
-    setBalanceAck,
-    setNegative,
     openNew,
     openEdit,
     close,

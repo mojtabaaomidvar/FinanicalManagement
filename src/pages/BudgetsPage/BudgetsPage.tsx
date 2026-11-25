@@ -1,4 +1,5 @@
 import { AppPage } from "@/shared/ui/AppPage";
+import { absMoney, compareMoney, legacyBudgetInteger, legacyIntegerMoney, subtractMoney } from "@/shared/lib/money";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* صفحه بودجه‌بندی — بودجه ماهانه هر دسته هزینه + مصرف ماه جاری
    ───────────────────────────────────────────────────────────
@@ -150,13 +151,14 @@ export function BudgetsPage() {
   }, [budgets, spend, jy, jm, jd]);
 
   /* از سقف رد شده‌ایم؟ (مثلاً سقف را در تنظیمات پایین آورده‌اند) */
-  const overCap = monthlyCap > 0 && totals.budgetSum > monthlyCap;
+  const budgetTotalLegacy = legacyBudgetInteger(totals.budgetSum);
+  const overCap = monthlyCap > 0 && compareMoney(totals.budgetSum, legacyIntegerMoney(monthlyCap)) > 0;
   const rows = expenseCats.filter(cat => {
     const budget = budgetMap.get(cat.id)?.amount ?? 0;
-    const spent = spend.get(cat.id) ?? 0;
+    const spent = spend.get(cat.id) ?? "0";
     if (filter === "budgeted" && budget <= 0) return false;
     if (filter === "none" && budget > 0) return false;
-    if (filter === "over" && (budget <= 0 || spent <= budget)) return false;
+    if (filter === "over" && (budget <= 0 || compareMoney(spent, legacyIntegerMoney(budget)) <= 0)) return false;
     return cat.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
   }).sort((a, b) => Number(budgetMap.has(b.id)) - Number(budgetMap.has(a.id)));
 
@@ -167,7 +169,7 @@ export function BudgetsPage() {
     setOverflow(null);
     setNotice("");
     setDeleteConfirm(false);
-    setSnapshot({ amount: b?.amount ?? 0, cap: monthlyCap, total: totals.budgetSum });
+    setSnapshot({ amount: b?.amount ?? 0, cap: monthlyCap, total: budgetTotalLegacy });
     setEditing(cat);
   }
 
@@ -278,7 +280,7 @@ export function BudgetsPage() {
     let capSaved = false;
     const current = currentRequest();
     try {
-      await useCases!.setMonthlyBudget.execute(totals.budgetSum, { budget: monthlyCap, total: totals.budgetSum });
+      await useCases!.setMonthlyBudget.execute(budgetTotalLegacy, { budget: monthlyCap, total: budgetTotalLegacy });
       if (!current()) return;
       capSaved = true;
       show("سقف بودجه ماهانه با مجموع دسته‌ها هماهنگ شد");
@@ -324,7 +326,7 @@ export function BudgetsPage() {
   function openCap() {
     if (!canManage || writing.current || budgetDataStatus !== "ready") return;
     setCapStr(formatAmount(toDisplay(monthlyCap, currency)));
-    setCapSnapshot({ budget: monthlyCap, total: totals.budgetSum });
+    setCapSnapshot({ budget: monthlyCap, total: budgetTotalLegacy });
     setCapNotice(""); setCapOpen(true);
   }
 
@@ -386,10 +388,10 @@ export function BudgetsPage() {
                 <span>بودجهٔ دسته‌ها</span>
                 <b>
                   <FitText>
-                    {totals.budgetSum
+                    {totals.budgetSum !== "0"
                       ? formatAmount(toDisplay(totals.budgetSum, currency))
                       : "—"}
-                    {totals.budgetSum ? (
+                    {totals.budgetSum !== "0" ? (
                       <span className="cur-tag">{currencyDisplayLabel(currency)}</span>
                     ) : null}
                   </FitText>
@@ -406,19 +408,19 @@ export function BudgetsPage() {
               </div>
               <div>
                 <span>
-                  {totals.remaining >= 0 ? "باقی‌مانده" : "مصرف بیش از بودجه"}
+                  {compareMoney(totals.remaining, "0") >= 0 ? "باقی‌مانده" : "مصرف بیش از بودجه"}
                 </span>
-                <b className={!totals.active ? undefined : totals.remaining >= 0 ? "income" : "expense"}>
+                <b className={!totals.active ? undefined : compareMoney(totals.remaining, "0") >= 0 ? "income" : "expense"}>
                   <FitText>
                     {totals.active ? formatAmount(
-                      toDisplay(Math.abs(totals.remaining), currency),
+                      toDisplay(absMoney(totals.remaining), currency),
                     ) : "—"}
                     {totals.active ? <span className="cur-tag">{currencyDisplayLabel(currency)}</span> : null}
                   </FitText>
                 </b>
               </div>
             </div>
-            {totals.unbudgetedSpent > 0 ? <p className="budget-unbudgeted">
+            {compareMoney(totals.unbudgetedSpent, "0") > 0 ? <p className="budget-unbudgeted">
               هزینهٔ بدون بودجه: {formatAmount(toDisplay(totals.unbudgetedSpent, currency))} {currencyDisplayLabel(currency)}
             </p> : null}
             <p className="budget-reset-hint">
@@ -457,7 +459,7 @@ export function BudgetsPage() {
             <p className="budget-cap">
               بودجه ماهانه: {formatAmount(toDisplay(monthlyCap, currency))}{" "}
               {currencyDisplayLabel(currency)} —{" "}
-              {formatAmount(toDisplay(monthlyCap - totals.budgetSum, currency))}{" "}
+              {formatAmount(toDisplay(subtractMoney(legacyIntegerMoney(monthlyCap), totals.budgetSum), currency))}{" "}
               {currencyDisplayLabel(currency)} از آن هنوز دسته بندی نشده است.
             </p>
           )
@@ -480,9 +482,9 @@ export function BudgetsPage() {
           {rows.length === 0 ? <p className="budget-empty" role="status">دسته‌ای با این جست‌وجو و فیلتر پیدا نشد.</p> : null}
           {rows.map((cat) => {
             const b = budgetMap.get(cat.id);
-            const spent = spend.get(cat.id) ?? 0;
+            const spent = spend.get(cat.id) ?? "0";
             const st = budgetStatus(b?.amount ?? 0, spent);
-            const remaining = (b?.amount ?? 0) - spent;
+            const remaining = subtractMoney(legacyIntegerMoney(b?.amount ?? 0), spent);
 
             return (
               <button
@@ -529,10 +531,10 @@ export function BudgetsPage() {
                     </div>
                     <div className="budget-row-foot">
                       <span>{toFa(st.percent)}٪ مصرف‌شده</span>
-                      <span className={remaining >= 0 ? "income" : "expense"}>
-                        {remaining >= 0
+                      <span className={compareMoney(remaining, "0") >= 0 ? "income" : "expense"}>
+                        {compareMoney(remaining, "0") >= 0
                           ? `${formatAmount(toDisplay(remaining, currency))} ${currencyDisplayLabel(currency)} باقی‌مانده`
-                          : `${formatAmount(toDisplay(-remaining, currency))} ${currencyDisplayLabel(currency)} بیشتر از بودجه`}
+                          : `${formatAmount(toDisplay(absMoney(remaining), currency))} ${currencyDisplayLabel(currency)} بیشتر از بودجه`}
                       </span>
                     </div>
                   </>

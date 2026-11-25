@@ -17,6 +17,7 @@ import { toFa } from "@/shared/lib/digits";
 import { toDisplay } from "@/shared/lib/currency";
 import { formatAmount, formatPercent } from "@/shared/lib/format";
 import { buildCategoryResolver } from "@/domain/category/resolve";
+import { moneyRatio } from "@/shared/lib/money";
 
 export function MonthlyReportPanelWidget() {
   const { txs, cur, members, customCategories } = useApp();
@@ -122,9 +123,7 @@ export function MonthlyReportPanelWidget() {
           {report.cats.length ? (
             report.cats.map((c, i) => {
               const color = C.palette[i % C.palette.length];
-              const pct = report.total
-                ? Math.round((c.value / report.total) * 100)
-                : 0;
+              const pct = Math.round(moneyRatio(c.value, report.total) * 100);
               return (
                 <div className="cat-row" key={c.id}>
                   <div className="cat-row-top">
@@ -166,9 +165,7 @@ export function MonthlyReportPanelWidget() {
           <div className="member-share">
             {report.shares.map((s, i) => {
               const m = members.find((x) => x.id === s.memberId);
-              const pct = report.total
-                ? Math.round((s.amount / report.total) * 100)
-                : 0;
+              const pct = Math.round(moneyRatio(s.amount, report.total) * 100);
               const color = C.palette[i % C.palette.length];
               return (
                 <div className="member-share-row" key={s.memberId}>

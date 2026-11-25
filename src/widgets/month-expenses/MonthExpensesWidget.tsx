@@ -11,6 +11,7 @@ import { MONTHS, today } from "@/shared/lib/jalali";
 import { formatAmount } from "@/shared/lib/format";
 import { toDisplay } from "@/shared/lib/currency";
 import { toFa } from "@/shared/lib/digits";
+import { addMoney, compareMoney, moneyRatio } from "@/shared/lib/money";
 
 /** نوع نمودار هزینه ماه — انتخاب کاربر؛ در localStorage ماندگار است */
 type ChartKind = "donut" | "bar";
@@ -56,10 +57,8 @@ export function MonthExpensesWidget() {
     value: toDisplay(c.value, cur),
     color: C.palette[i % C.palette.length],
   }));
-  const restValue = data.cats
-    .slice(TOP)
-    .reduce((s, c) => s + toDisplay(c.value, cur), 0);
-  if (restValue > 0) {
+  const restValue = addMoney(...data.cats.slice(TOP).map(c => toDisplay(c.value, cur)));
+  if (compareMoney(restValue, "0") > 0) {
     slices.push({ label: "بقیه", value: restValue, color: C.text3 });
   }
 
@@ -126,7 +125,7 @@ export function MonthExpensesWidget() {
               </b>
               <span className="pct">
                 {toFa(
-                  totalExpense ? Math.round((d.value / totalExpense) * 100) : 0,
+                  Math.round(moneyRatio(d.value, totalExpense) * 100),
                 )}
                 ٪
               </span>

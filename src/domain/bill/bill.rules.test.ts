@@ -2,16 +2,19 @@ import { describe, expect, it } from "vitest";
 import { isBillOverdue, MAX_BILL_AMOUNT, normalizeBillNumber, parseBillAmount, validateBillInput } from "./bill.rules";
 import type { BillInput } from "./bill.types";
 
-const input: BillInput = { kind: "water", title: "Water", amount: 1200.25, dueDate: "2026-11-18" };
+const input: BillInput = { kind: "water", title: "Water", amount: "1200.25", dueDate: "2026-11-18" };
 
 describe("bill amounts and identifiers", () => {
-  it.each(["", "-1200", "۱۲+۵", "12abc", "12/0", "1e3", "Infinity", "0", "0.001", String(MAX_BILL_AMOUNT + 1)])("rejects unsupported or out of range input: %j", raw => {
+  it.each(["", "-1200", "۱۲+۵", "12abc", "12/0", "1e3", "Infinity", "0", "0.001", "10000000000000"])("rejects unsupported or out of range input: %j", raw => {
     expect(parseBillAmount(raw, "تومان")).toBeNull();
   });
   it("groups and converts Persian/Arabic digits without losing stored fractions", () => {
-    expect(parseBillAmount("۱٬۲۰۰٫۲۵", "تومان")).toBe(1200.25);
-    expect(parseBillAmount("١٢٬٠٠٢٫٥", "ریال")).toBe(1200.25);
-    expect(parseBillAmount("1", "ریال")).toBe(0.1);
+    expect(parseBillAmount("۱٬۲۰۰٫۲۵", "تومان")).toBe("1200.25");
+    expect(parseBillAmount("١٢٬٠٠٢٫٥", "ریال")).toBe("1200.25");
+    expect(parseBillAmount("1", "ریال")).toBe("0.1");
+    expect(parseBillAmount("0.1", "ریال")).toBe("0.01");
+    expect(parseBillAmount(MAX_BILL_AMOUNT, "تومان")).toBe(MAX_BILL_AMOUNT);
+    expect(parseBillAmount("1.001", "تومان")).toBeNull();
   });
   it("keeps identifiers as text with leading zeroes", () => {
     expect(normalizeBillNumber(" ۰۰۱ ۲٣ ")).toBe("00123");
@@ -24,7 +27,7 @@ describe("bill amounts and identifiers", () => {
   });
   it("accepts the existing bill contract and protects numeric limits", () => {
     expect(validateBillInput(input)).toBeNull();
-    expect(validateBillInput({ ...input, amount: NaN })).toBe("amount");
+    expect(validateBillInput({ ...input, amount: "NaN" })).toBe("amount");
     expect(validateBillInput({ ...input, title: "x".repeat(121) })).toBe("title");
   });
 });

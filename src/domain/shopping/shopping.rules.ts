@@ -6,6 +6,7 @@
 
 import type { ShoppingItem, ShoppingList } from "./shopping.types";
 import { normalizeNumeric, toFa } from "@/shared/lib/digits";
+import { addMoney, moneyFits, parseMoneyInput, type Money } from "@/shared/lib/money";
 
 /** دو رقمِ اعشار — هم‌سان با ستون‌های `Numeric(10, 2)`ِ خرید و انبار. */
 export const QTY_DECIMALS = 2;
@@ -91,8 +92,15 @@ export function checkedOf(list: ShoppingList): ShoppingItem[] {
  *
  *  صفرشدنِ جمع یعنی «هیچ قیمتی وارد نشده»، و در آن حالت بستنِ سفر عمداً
  *  تراکنشی نمی‌سازد (سرور هم همین کار را می‌کند). */
-export function sumPrice(items: ShoppingItem[]): number {
-  return items.reduce((s, i) => s + (i.price ?? 0), 0);
+export function sumPrice(items: ShoppingItem[]): Money {
+  return addMoney(...items.map(item => item.price ?? "0"));
+}
+
+/** A row total, not a unit price. Empty/zero remains explicitly unspecified. */
+export function parseShoppingPrice(raw: string, currency: string): Money | null {
+  if (!raw.trim()) return "0";
+  const amount = parseMoneyInput(raw, currency);
+  return amount !== null && moneyFits(amount, { scale: 2, min: "0", max: "9999999999999.99" }) ? amount : null;
 }
 
 export interface ListSummary {
@@ -101,7 +109,7 @@ export interface ListSummary {
   /** از آن‌ها، چندتا تیک خورده‌اند */
   checked: number;
   /** تومان — جمعِ قیمتِ تیک‌خورده‌ها */
-  checkedTotal: number;
+  checkedTotal: Money;
   /** چندتا از تیک‌خورده‌ها قیمت ندارند (برای هشدارِ «جمع ناقص است») */
   missingPrice: number;
 }

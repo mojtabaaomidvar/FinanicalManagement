@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { toTransactionBody } from "./transactionRepository";
 import type { TransactionInput } from "@/domain/transaction/transaction.types";
 
-const input: TransactionInput = { memberId: "self", type: "expense", category: "food", amount: 1000, date: "2026-11-24" };
+const input: TransactionInput = { memberId: "self", type: "expense", category: "food", amount: "1000", date: "2026-11-24" };
 describe("payment wire contract", () => {
   it("sends explicit online choice and fee removal on edit", () => {
     expect(toTransactionBody({ ...input, paymentMethod: "online", transferFeeMethod: null }))

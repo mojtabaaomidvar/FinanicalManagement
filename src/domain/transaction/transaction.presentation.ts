@@ -1,4 +1,5 @@
 import type { Transaction } from "./transaction.types";
+import { addMoney, multiplyMoney, type Money } from "@/shared/lib/money";
 
 /** Keep raw ledger rows for balances/reports. Collapse only linked fees in UI lists.
  * An orphaned historical fee is not hidden: otherwise its information would vanish.
@@ -9,13 +10,13 @@ export function visibleTransactions(txs: Transaction[]): Transaction[] {
 }
 
 /** Domain amounts are in toman; the server's fee snapshot is in rial. */
-export function transactionFeeAmount(tx: Transaction): number {
-  return tx.sourceKind === "transfer_fee" ? tx.amount : (tx.transferFeeRial ?? 0) / 10;
+export function transactionFeeAmount(tx: Transaction): Money {
+  return tx.sourceKind === "transfer_fee" ? tx.amount : multiplyMoney(tx.transferFeeRial ?? "0", "0.1");
 }
 
 /** A destination-account view must not claim the source-account's fee expense. */
-export function transactionExpenseAmount(tx: Transaction, accountId = ""): number {
-  const fee = !accountId || tx.accountId === accountId ? transactionFeeAmount(tx) : 0;
+export function transactionExpenseAmount(tx: Transaction, accountId = ""): Money {
+  const fee = !accountId || tx.accountId === accountId ? transactionFeeAmount(tx) : "0";
   if (tx.sourceKind === "transfer_fee") return fee;
-  return (tx.type === "expense" ? tx.amount : 0) + fee;
+  return addMoney(tx.type === "expense" ? tx.amount : "0", fee);
 }

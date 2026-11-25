@@ -1,5 +1,6 @@
 /* انتیتی تراکنش و ورودی آن */
 
+import type { Money } from "@/shared/lib/money";
 export type TxType = "expense" | "income" | "transfer";
 export type TransferFeeMethod = "internal" | "card_to_card" | "paya" | "satna" | "pol";
 export type PaymentMethod = "card" | "online" | "bank_transfer";
@@ -22,20 +23,20 @@ export interface TransactionPhoto {
 }
 
 export interface Transaction {
-  recurringPlan?: { amount: number; category: string; note: string | null; startDate: string | null; revision: number } | null;
+  recurringPlan?: { amount: Money; category: string; note: string | null; startDate: string | null; revision: number } | null;
   recurringSourceId?: string | null;
   recurringDueDate?: string | null;
   id: string;
   /** Server-assigned provenance survives removal of the originating vehicle. */
-  sourceKind?: "vehicle_service" | "transfer_fee" | null;
+  sourceKind?: "vehicle_service" | "transfer_fee" | "wallet_correction" | null;
   transferFeeMethod?: TransferFeeMethod | null;
   paymentMethod?: PaymentMethod | null;
-  transferFeeRial?: number | null;
+  transferFeeRial?: Money | null;
   transferFeeForId?: string | null;
   familyId: string;
   memberId: string;
   type: TxType;
-  amount: number;
+  amount: Money;
   category: string;
   /** تاریخ میلادی ISO — "YYYY-MM-DD" */
   date: string;
@@ -65,7 +66,7 @@ export interface TransactionInput {
   requireAvailableBalance?: boolean;
   memberId: string;
   type: TxType;
-  amount: number;
+  amount: Money;
   category: string;
   /** "YYYY-MM-DD" میلادی */
   date: string;
@@ -85,7 +86,7 @@ export interface TransactionInput {
 }
 
 export interface RecurringUpdate {
-  amount: number; category: string; note: string | null; startDate: string;
+  amount: Money; category: string; note: string | null; startDate: string;
   repeat: TxRepeat; repeatEnd: string | null; revision: number;
 }
 export interface OccurrenceSettle {

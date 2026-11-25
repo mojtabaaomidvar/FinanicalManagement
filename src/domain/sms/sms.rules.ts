@@ -7,11 +7,12 @@ import type { TransactionInput } from "../transaction/transaction.types";
 import { normalizeSms, parseSms } from "@/shared/lib/sms-parser";
 import { formatAmount } from "@/shared/lib/format";
 import { jalaliToIso } from "@/shared/lib/jalali";
+import { divideMoney, legacyIntegerMoney, normalizeMoney, type Money } from "@/shared/lib/money";
 
 export interface SmsDraftDefaults {
   type: SmsTxType;
   categoryId: string;
-  amount: number;
+  amount: Money;
   memberId: string;
   /** ورودی تاریخ جلالی کاربر-friendly: "۱۴۰۴/۰۶/۱۵" */
   jalaliDate: [number, number, number] | null;
@@ -21,15 +22,18 @@ export interface SmsDraftDefaults {
 }
 
 /** SMS rows retain the original numeric unit; only transaction drafts use toman. */
-export function smsAmountInToman(rawText: string, amount: number | null): number | null {
-  if (amount == null || !Number.isFinite(amount) || amount <= 0) return null;
+export function smsAmountInToman(rawText: string, amount: number | null): Money | null {
+  // Numeric SMS contracts cannot reconstruct unsafe/fractional source numbers.
+  // Such drafts require explicit review instead of silently losing precision.
+  if (amount == null || !Number.isSafeInteger(amount) || amount <= 0) return null;
+  const exact = legacyIntegerMoney(amount);
   const text = normalizeSms(rawText).replace(/[٬،]/g, ",");
   const matchingUnits = [...text.matchAll(/(\d[\d,]*(?:\.\d+)?)\s*(ریال|تومان)/g)]
-    .filter(match => Number(match[1].replace(/,/g, "")) === amount)
+    .filter(match => { try { return normalizeMoney(match[1].replace(/,/g, "")) === exact; } catch { return false; } })
     .map(match => match[2]);
   const units = new Set(matchingUnits.length ? matchingUnits : text.match(/ریال|تومان/g) ?? []);
   if (units.size !== 1) return null;
-  return units.has("ریال") ? amount / 10 : amount;
+  return units.has("ریال") ? divideMoney(exact, "10") : exact;
 }
 
 /**
@@ -56,7 +60,7 @@ export function smsDraftDefaults(
   return {
     type,
     categoryId,
-    amount: amount ?? 0,
+    amount: amount ?? "0",
     memberId: sms.memberId ?? currentMemberId,
     jalaliDate,
     time: parsed?.time ?? null,
@@ -82,7 +86,7 @@ export function smsSummary(sms: BankSms): string {
 export function draftToTransactionInput(d: {
   type: SmsTxType;
   categoryId: string;
-  amount: number;
+  amount: string;
   memberId: string;
   jalaliDate: [number, number, number];
   note: string;

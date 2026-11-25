@@ -3,9 +3,7 @@
    نام‌گذاری بدون پیشوند «Supabase» چون از ابتدا REST-محور است (همان قاعدهٔ
    billRepository و notificationRepository).
 
-   عدد روی سیم می‌تواند **رشته** باشد: ستون‌های Numeric پستگرس در JSON
-   رشته می‌شوند. `Number()` یک‌بار همین‌جا انجام می‌شود تا هیچ مصرف‌کننده‌ای
-   مجبور نباشد حدس بزند — عیناً مثلِ مبلغِ تراکنش و قبض. */
+   Monetary strings remain exact. Numeric conversion is only for quantities. */
 
 import type {
   InventoryRepository,
@@ -21,6 +19,7 @@ import type {
   TripResult,
 } from "@/domain/shopping/shopping.types";
 import type { RestClient } from "@/infrastructure/api/restClient";
+import { normalizeMoney, type Money } from "@/shared/lib/money";
 
 type ItemRow = {
   id: string;
@@ -28,7 +27,7 @@ type ItemRow = {
   title: string;
   qty: string | number;
   unit: string | null;
-  price: string | number | null;
+  price: Money | null;
   checked: boolean;
   bought_at: string | null;
   bought_by_member_id: string | null;
@@ -49,7 +48,7 @@ type ListRow = {
 
 type TripRow = {
   list: ListRow;
-  total: string | number;
+  total: Money;
   item_count: number;
   transaction_id: string | null;
 };
@@ -76,10 +75,8 @@ function num(value: string | number | null | undefined): number {
 /* قیمت فرق دارد: `null` معنا دارد («قیمت نگفتم») و نباید به صفر بیفتد،
    وگرنه «قیمت نگفتم» با «مجانی» قاطی می‌شد و هشدارِ «جمع ناقص است» از
    کار می‌افتاد. */
-function priceOrNull(value: string | number | null | undefined): number | null {
-  if (value === null || value === undefined || value === "") return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
+function priceOrNull(value: Money | null | undefined): Money | null {
+  return value == null ? null : normalizeMoney(value);
 }
 
 function mapItem(r: ItemRow): ShoppingItem {
@@ -130,7 +127,7 @@ function itemBody(input: ShoppingItemInput): Record<string, unknown> {
     title: input.title,
     qty: input.qty ?? null,
     unit: input.unit ?? null,
-    price: input.price ?? null,
+    price: input.price == null ? null : normalizeMoney(input.price),
     note: input.note ?? null,
     inventory_item_id: input.inventoryItemId ?? null,
   };
@@ -215,7 +212,7 @@ export class RestShoppingRepository implements ShoppingRepository {
     );
     return {
       list: mapList(row.list),
-      total: num(row.total),
+      total: normalizeMoney(row.total),
       itemCount: Number(row.item_count) || 0,
       transactionId: row.transaction_id ?? null,
     };

@@ -146,7 +146,7 @@ describe("pendingOccurrences", () => {
   });
 });
 
-const recurring: Transaction = { id: "schedule", familyId: "family", memberId: "member", type: "expense", amount: 1200.25,
+const recurring: Transaction = { id: "schedule", familyId: "family", memberId: "member", type: "expense", amount: "1200.25",
   category: "bills", date: iso([1404, 6, 31]), time: "10:30", note: "My rent", accountId: "account", toAccountId: null,
   subcategoryId: "label", repeat: "monthly", repeatEnd: iso([1405, 6, 31]), handledOccurrences: [iso([1404, 7, 30])],
   photos: [{ id: "receipt", url: "/receipt.png", caption: "Keep" }], createdAt: "now" };
@@ -156,8 +156,8 @@ describe("scheduled finances", () => {
     expect(parseScheduledAmount(amount, "تومان")).toBeNull();
   });
   it("preserves grouped Persian and Arabic amounts and currency fractions", () => {
-    expect(parseScheduledAmount("۱٬۲۰۰٫۲۵", "تومان")).toBe(1200.25);
-    expect(parseScheduledAmount("١٢٬٠٠٢٫٥", "ریال")).toBe(1200.25);
+    expect(parseScheduledAmount("۱٬۲۰۰٫۲۵", "تومان")).toBe("1200.25");
+    expect(parseScheduledAmount("١٢٬٠٠٢٫٥", "ریال")).toBe("1200.25");
   });
   it("stops only repetition while preserving every input financial field", () => {
     const before = structuredClone(recurring), input = stoppedRecurringInput(recurring);

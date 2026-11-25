@@ -4,6 +4,8 @@
    یعنی ردیفی که هم‌زمان «نداریمش» و «۲ تا داریم» را بگوید. دلیلِ کامل و
    بقیهٔ تصمیم‌ها در `backend/alembic/versions/0011_shopping.py` مستند است. */
 
+import type { Money } from "@/shared/lib/money";
+
 export interface ShoppingItem {
   id: string;
   listId: string;
@@ -12,7 +14,7 @@ export interface ShoppingItem {
   qty: number;
   unit: string | null;
   /** تومان — قیمتِ **کلِ همین سطر**، نه قیمتِ واحد. null یعنی «نگفتم». */
-  price: number | null;
+  price: Money | null;
   /** «در سبد است» — هنوز خرجی ثبت نشده */
   checked: boolean;
   /** ISO با T — میلادی. پر بودنش یعنی سفرِ خرید بسته شده. */
@@ -41,7 +43,7 @@ export interface ShoppingItemInput {
   qty?: number | null;
   unit?: string | null;
   /** تومان؛ صفر یا خالی یعنی «قیمت نگفتم» */
-  price?: number | null;
+  price?: Money | null;
   note?: string | null;
   inventoryItemId?: string | null;
 }
@@ -59,7 +61,7 @@ export interface TripResult {
   /** لیست پس از بستنِ سفر — خریده‌شده‌ها دیگر در آن نیستند */
   list: ShoppingList;
   /** تومان — جمعِ قیمتِ اقلامِ بسته‌شده */
-  total: number;
+  total: Money;
   itemCount: number;
   /** null یعنی تراکنشی ساخته نشد (جمع صفر بود یا کاربر نخواست) */
   transactionId: string | null;

@@ -18,6 +18,7 @@ import {
   type JDate,
 } from "@/shared/lib/jalali";
 import { toEn } from "@/shared/lib/digits";
+import { addMoney, compareMoney, moneyRatio, subtractMoney, type Money } from "@/shared/lib/money";
 import type {
   CategorySlice,
   DailyExpense,
@@ -30,17 +31,17 @@ import type {
 export function sumByType(
   list: Transaction[],
   type: Transaction["type"],
-): number {
-  return list.filter((t) => t.type === type).reduce((s, t) => s + t.amount, 0);
+): Money {
+  return addMoney(...list.filter((t) => t.type === type).map(t => t.amount));
 }
 
 /* موجودی کل = جمع درآمد − جمع هزینه (انتقال جابه‌جایی است، نه تغییر دارایی) */
-export function totalBalance(list: Transaction[]): number {
+export function totalBalance(list: Transaction[]): Money {
   return list.reduce((s, t) => {
-    if (t.type === "income") return s + t.amount;
-    if (t.type === "expense") return s - t.amount;
+    if (t.type === "income") return addMoney(s, t.amount);
+    if (t.type === "expense") return subtractMoney(s, t.amount);
     return s;
-  }, 0);
+  }, "0");
 }
 
 /* جمع ماه: درآمد + هزینه */
@@ -54,9 +55,9 @@ export function monthTotals(list: Transaction[]): MonthTotals {
 /* درصد تغییر نسبت به بازه قبل — مبنای صفر قابل مقایسه نیست (null)
    گرد کردن روی «اندازه» انجام می‌شود تا کاهش و افزایش هم‌اندازه، عدد یکسان بدهند
    (Math.round(-62.5) در جاوااسکریپت −۶۲ می‌شود، نه −۶۳) */
-export function deltaPercent(current: number, previous: number): number | null {
-  if (!previous) return null;
-  const raw = ((current - previous) / previous) * 100;
+export function deltaPercent(current: Money, previous: Money): number | null {
+  if (compareMoney(previous, "0") === 0) return null;
+  const raw = moneyRatio(subtractMoney(current, previous), previous) * 100;
   return Math.sign(raw) * Math.round(Math.abs(raw));
 }
 
@@ -66,23 +67,23 @@ export function categoryBreakdown(
   list: Transaction[],
   resolve: CategoryResolver = categoryById,
 ): CategorySlice[] {
-  const map = new Map<string, number>();
+  const map = new Map<string, Money>();
   for (const t of list) {
     if (t.type !== "expense") continue;
-    map.set(t.category, (map.get(t.category) ?? 0) + t.amount);
+    map.set(t.category, addMoney(map.get(t.category) ?? "0", t.amount));
   }
   return [...map.entries()]
     .map(([id, value]) => ({ ...resolve(id), value }))
-    .sort((a, b) => b.value - a.value);
+    .sort((a, b) => compareMoney(b.value, a.value));
 }
 
 /* هزینه روزانه یک ماه جلالی — مرتب بر اساس روز */
 export function dailyExpenses(list: Transaction[]): DailyExpense[] {
-  const map = new Map<number, number>();
+  const map = new Map<number, Money>();
   for (const t of list) {
     if (t.type !== "expense") continue;
     const d = isoToJalali(t.date)[2];
-    map.set(d, (map.get(d) ?? 0) + t.amount);
+    map.set(d, addMoney(map.get(d) ?? "0", t.amount));
   }
   return [...map.entries()]
     .map(([day, value]) => ({ day, value }))
@@ -96,8 +97,8 @@ export function sixMonthSeries(
   jm: number,
 ): SixMonthSeries {
   const labels: string[] = [];
-  const income: number[] = [];
-  const expense: number[] = [];
+  const income: Money[] = [];
+  const expense: Money[] = [];
   let [py, pm] = [jy, jm];
   for (let i = 0; i < 6; i++) {
     const m = monthsIn(py, pm);
@@ -126,23 +127,23 @@ export function weekFlow(list: Transaction[], end: JDate): WeekFlow {
     idxOf.set(jalaliToIso(d), 6 - i);
     labels.push(shortWeekday(d));
   }
-  const income = new Array<number>(7).fill(0);
-  const expense = new Array<number>(7).fill(0);
+  const income = new Array<Money>(7).fill("0");
+  const expense = new Array<Money>(7).fill("0");
   for (const t of list) {
     const idx = idxOf.get(t.date);
     if (idx === undefined) continue;
-    if (t.type === "income") income[idx] += t.amount;
-    else if (t.type === "expense") expense[idx] += t.amount;
+    if (t.type === "income") income[idx] = addMoney(income[idx], t.amount);
+    else if (t.type === "expense") expense[idx] = addMoney(expense[idx], t.amount);
   }
-  const totalIn = income.reduce((s, v) => s + v, 0);
-  const totalOut = expense.reduce((s, v) => s + v, 0);
+  const totalIn = addMoney(...income);
+  const totalOut = addMoney(...expense);
   return {
     labels,
     income,
     expense,
     totalIn,
     totalOut,
-    net: totalIn - totalOut,
+    net: subtractMoney(totalIn, totalOut),
   };
 }
 
@@ -151,30 +152,30 @@ export function accountBalances(
   list: Transaction[],
   accounts: import("../account/account.types").Account[],
 ): import("./report.types").AccountBalance[] {
-  const map = new Map<string, number>(
-    accounts.map((a) => [a.id, a.initialBalance ?? 0]),
+  const map = new Map<string, Money>(
+    accounts.map((a) => [a.id, a.initialBalance ?? "0"]),
   );
   for (const t of list) {
     if (t.accountId && map.has(t.accountId)) {
       const cur = map.get(t.accountId)!;
-      if (t.type === "income") map.set(t.accountId, cur + t.amount);
+      if (t.type === "income") map.set(t.accountId, addMoney(cur, t.amount));
       else if (t.type === "expense" || t.type === "transfer")
-        map.set(t.accountId, cur - t.amount);
+        map.set(t.accountId, subtractMoney(cur, t.amount));
     }
     if (t.type === "transfer" && t.toAccountId && map.has(t.toAccountId)) {
       const cur = map.get(t.toAccountId)!;
-      map.set(t.toAccountId, cur + t.amount);
+      map.set(t.toAccountId, addMoney(cur, t.amount));
     }
   }
-  return accounts.map((a) => ({ account: a, balance: map.get(a.id) ?? 0 }));
+  return accounts.map((a) => ({ account: a, balance: map.get(a.id) ?? "0" }));
 }
 
 /** Cash held in known accounts; unassigned transactions and market assets are separate. */
 export function totalCashBalance(
   list: Transaction[],
   accounts: import("../account/account.types").Account[],
-): number {
-  return accountBalances(list, accounts).reduce((sum, row) => sum + row.balance, 0);
+): Money {
+  return addMoney(...accountBalances(list, accounts).map(row => row.balance));
 }
 
 /* سری تجمعی روزانه؛ با accounts فقط اثر تراکنش روی حساب‌های موجود محاسبه می‌شود. */
@@ -182,7 +183,7 @@ export function wealthSeries(
   list: Transaction[],
   range: import("./report.types").WealthRange,
   end: JDate,
-  initial = 0,
+  initial: Money = "0",
   accounts?: Account[],
 ): import("./report.types").WealthPoint[] {
   /* مرتب‌سازی صعودی بر اساس تاریخ */
@@ -213,7 +214,7 @@ export function wealthSeriesBetween(
   list: Transaction[],
   from: JDate,
   to: JDate,
-  initial = 0,
+  initial: Money = "0",
   accounts?: Account[],
 ): import("./report.types").WealthPoint[] {
   const sorted = [...list].sort((a, b) =>
@@ -233,7 +234,7 @@ function wealthSeriesDays(
   sorted: Transaction[],
   days: number,
   end: JDate,
-  initial: number,
+  initial: Money,
   accounts?: Account[],
 ): import("./report.types").WealthPoint[] {
   const points: import("./report.types").WealthPoint[] = [];
@@ -246,10 +247,10 @@ function wealthSeriesDays(
     while (idx < sorted.length && sorted[idx].date <= iso) {
       const t = sorted[idx];
       if (!accountIds || (t.accountId && accountIds.has(t.accountId))) {
-        if (t.type === "income") wealth += t.amount;
-        else if (t.type === "expense" || (accountIds && t.type === "transfer")) wealth -= t.amount;
+        if (t.type === "income") wealth = addMoney(wealth, t.amount);
+        else if (t.type === "expense" || (accountIds && t.type === "transfer")) wealth = subtractMoney(wealth, t.amount);
       }
-      if (accountIds && t.type === "transfer" && t.toAccountId && accountIds.has(t.toAccountId)) wealth += t.amount;
+      if (accountIds && t.type === "transfer" && t.toAccountId && accountIds.has(t.toAccountId)) wealth = addMoney(wealth, t.amount);
       idx++;
     }
     points.push({ date: iso, value: wealth });
@@ -260,15 +261,15 @@ function wealthSeriesDays(
 /* سهم اعضا از هزینه‌های یک ماه — نزولی */
 export function memberExpenseShare(
   list: Transaction[],
-): { memberId: string; amount: number }[] {
-  const map = new Map<string, number>();
+): { memberId: string; amount: Money }[] {
+  const map = new Map<string, Money>();
   for (const t of list) {
     if (t.type !== "expense") continue;
-    map.set(t.memberId, (map.get(t.memberId) ?? 0) + t.amount);
+    map.set(t.memberId, addMoney(map.get(t.memberId) ?? "0", t.amount));
   }
   return [...map.entries()]
     .map(([memberId, amount]) => ({ memberId, amount }))
-    .sort((a, b) => b.amount - a.amount);
+    .sort((a, b) => compareMoney(b.amount, a.amount));
 }
 
 /* جستجو: یادداشت، دسته، نام عضو، مبلغ، تاریخ جلالی */
@@ -289,7 +290,7 @@ export function searchTransactions(
   query: string,
   memberNameOf: (memberId: string) => string,
   resolve: CategoryResolver = categoryById,
-  amountOf: (transaction: Transaction) => number = transaction => transaction.amount,
+  amountOf: (transaction: Transaction) => Money = transaction => transaction.amount,
   labelOf: (transaction: Transaction) => string = () => "",
 ): Transaction[] {
   const q = normalizeTransactionSearch(query);
@@ -305,7 +306,7 @@ export function searchTransactions(
       " " +
       memberNameOf(t.memberId) +
       " " +
-      amountOf(t).toLocaleString("en-US", { maximumSignificantDigits: 21 }) +
+      amountOf(t) +
       " " +
       formatISO(isoToJalali(t.date));
     return normalizeTransactionSearch(hay).includes(q);

@@ -8,6 +8,7 @@ import type {
   MembershipState,
 } from "@/domain/family/family.types";
 import type { Transaction } from "@/domain/transaction/transaction.types";
+import { legacyIntegerMoney, normalizeMoney } from "@/shared/lib/money";
 
 /* ── ردیف‌های خام PostgREST ── */
 
@@ -44,7 +45,7 @@ export interface TransactionRow {
   transfer_fee_method?: Transaction["transferFeeMethod"];
   transfer_fee_rial?: number | null;
   transfer_fee_for_id?: string | null;
-  recurring_plan?: { amount: number | string; category: string; note: string | null; start_date: string | null; revision: number } | null;
+  recurring_plan?: { amount: string; category: string; note: string | null; start_date: string | null; revision: number } | null;
   recurring_source_id?: string | null;
   recurring_due_date?: string | null;
   id: string;
@@ -52,7 +53,7 @@ export interface TransactionRow {
   family_id: string;
   member_id: string;
   type: "expense" | "income" | "transfer";
-  amount: string | number;
+  amount: string;
   category: string;
   date: string;
   time: string | null;
@@ -171,19 +172,19 @@ export function mapJoinRequest(r: JoinRequestRow): JoinRequest {
 
 export function mapTransaction(r: TransactionRow): Transaction {
   return {
-    recurringPlan: r.recurring_plan ? { ...r.recurring_plan, amount: +r.recurring_plan.amount, startDate: r.recurring_plan.start_date } : null,
+    recurringPlan: r.recurring_plan ? { ...r.recurring_plan, amount: normalizeMoney(r.recurring_plan.amount), startDate: r.recurring_plan.start_date } : null,
     recurringSourceId: r.recurring_source_id ?? null,
     recurringDueDate: r.recurring_due_date ?? null,
     id: r.id,
-    sourceKind: r.source_kind === "vehicle_service" || r.source_kind === "transfer_fee" ? r.source_kind : null,
+    sourceKind: r.source_kind === "vehicle_service" || r.source_kind === "transfer_fee" || r.source_kind === "wallet_correction" ? r.source_kind : null,
     transferFeeMethod: r.transfer_fee_method ?? null,
     paymentMethod: r.payment_method ?? null,
-    transferFeeRial: r.transfer_fee_rial ?? null,
+    transferFeeRial: r.transfer_fee_rial == null ? null : legacyIntegerMoney(r.transfer_fee_rial),
     transferFeeForId: r.transfer_fee_for_id ?? null,
     familyId: r.family_id,
     memberId: r.member_id,
     type: r.type,
-    amount: +r.amount,
+    amount: normalizeMoney(r.amount),
     category: r.category,
     date: r.date,
     time: r.time ?? null,
@@ -256,7 +257,7 @@ export interface AccountRow {
   kind?: "bank" | "wallet" | null;
   bank: string | null;
   card_number: string | null;
-  initial_balance?: string | number | null;
+  initial_balance?: string | null;
   /* رضایت تشخیص پیامک — سرور قدیمی نفرستد، false پیش‌فرض */
   sms_enabled?: boolean | null;
   created_at: string;
@@ -273,7 +274,7 @@ export function mapAccount(
     kind: r.kind === "wallet" ? "wallet" : "bank",
     bank: r.bank,
     cardNumber: r.card_number,
-    initialBalance: Number(r.initial_balance ?? 0),
+    initialBalance: normalizeMoney(r.initial_balance ?? "0"),
     smsEnabled: r.sms_enabled === true,
     createdAt: r.created_at,
   };

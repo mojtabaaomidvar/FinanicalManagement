@@ -5,6 +5,8 @@
 
 /** نوعِ قبض. «charge» شارژِ ساختمان است — موجودیتِ جدا نشد چون تفاوتش
  *  مبلغِ ثابت و نداشتنِ شناسهٔ قبض است و هر دو اختیاری‌اند. */
+import type { Money } from "@/shared/lib/money";
+
 export type BillKind =
   | "electricity"
   | "water"
@@ -31,7 +33,7 @@ export interface Bill {
   kind: BillKind;
   title: string;
   /** تومان — واحدِ پایه، عیناً مثلِ Transaction.amount (§۶) */
-  amount: number;
+  amount: Money;
   /** "YYYY-MM-DD" **میلادی** — جلالی فقط در نمایش */
   dueDate: string;
   /** شناسهٔ قبض / شناسهٔ پرداختِ ایرانی — رشته می‌ماند چون صفرِ ابتدایی دارند */
@@ -52,7 +54,7 @@ export interface BillInput {
   kind: BillKind;
   title: string;
   /** تومان */
-  amount: number;
+  amount: Money;
   /** "YYYY-MM-DD" میلادی */
   dueDate: string;
   billNo?: string | null;

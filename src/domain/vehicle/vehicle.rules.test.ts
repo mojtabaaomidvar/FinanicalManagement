@@ -57,9 +57,10 @@ describe("vehicle completion and financial input", () => {
     expect(vehicleServiceError({ ...service, costAmount: 100000, accountId: null }, 50000, today)).toBe("");
   });
   it("uses Finance's amount ceiling for both currency conversion and service validation", () => {
-    expect(serviceCost(String(MAX_AMOUNT), "تومان")).toBe(MAX_AMOUNT);
-    expect(serviceCost(String(MAX_AMOUNT * 10), "ریال")).toBe(MAX_AMOUNT);
-    expect(() => serviceCost(String(MAX_AMOUNT + 1), "تومان")).toThrow();
-    expect(vehicleServiceError({ ...service, costAmount: MAX_AMOUNT + 1 }, 50000, today)).not.toBe("");
+    const legacyCeiling = Number(MAX_AMOUNT);
+    expect(serviceCost(MAX_AMOUNT, "تومان")).toBe(legacyCeiling);
+    expect(serviceCost(String(legacyCeiling * 10), "ریال")).toBe(legacyCeiling);
+    expect(() => serviceCost(String(legacyCeiling + 1), "تومان")).toThrow();
+    expect(vehicleServiceError({ ...service, costAmount: legacyCeiling + 1 }, 50000, today)).not.toBe("");
   });
 });

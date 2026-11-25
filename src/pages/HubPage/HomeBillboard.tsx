@@ -7,6 +7,7 @@ import { Icon } from "@/shared/ui";
 import { HomeBillboardArt, type BillboardSection } from "./HomeBillboardArt";
 import { usePageActivity } from "@/shared/lib/pageActivity";
 import "./HomeBillboard.css";
+import { compareMoney, legacyIntegerMoney, moneyRatio, subtractMoney } from "@/shared/lib/money";
 
 const sections: { id: BillboardSection; label: string; icon: string }[] = [
   { id: "transaction", label: "ثبت تراکنش", icon: "i-receipt" },
@@ -17,7 +18,7 @@ const sections: { id: BillboardSection; label: string; icon: string }[] = [
 
 export function HomeBillboard({ wallets, budget, dues, currency, loading, incomplete, offline,
   onTransaction, onAccounts, onBudgets, onDues, onRetry }: {
-  wallets: { count: number; balance: number }; budget: { limit: number; spent: number };
+   wallets: { count: number; balance: string | null; status?: "ready" | "loading" | "error"; reconciled?: boolean }; budget: { limit: number; spent: string };
   dues: { overdue: number; today: number; upcoming: number }; currency: string;
   loading: boolean; incomplete: boolean; offline: boolean;
   onTransaction: (type: TxType) => void; onAccounts: () => void; onBudgets: () => void;
@@ -36,7 +37,9 @@ export function HomeBillboard({ wallets, budget, dues, currency, loading, incomp
   const [covered, setCovered] = useState(false), [hidden, setHidden] = useState(document.hidden);
   const unavailable = loading || incomplete || offline;
   const dueCount = dues.overdue + dues.today + dues.upcoming;
-  const budgetUsage = budget.limit > 0 ? Math.round(budget.spent / budget.limit * 100) : 0;
+  const budgetCap = legacyIntegerMoney(budget.limit);
+  const budgetUsage = budget.limit > 0 ? Math.round(moneyRatio(budget.spent, budgetCap) * 100) : 0;
+  const budgetRemaining = compareMoney(budget.spent, budgetCap) > 0 ? "0" : subtractMoney(budgetCap, budget.spent);
   const wrap = (index: number) => (index + sections.length) % sections.length;
   const width = deck.current?.clientWidth || 360;
   const progress = Math.min(1, Math.abs(motion.offset) / width);
@@ -109,7 +112,7 @@ export function HomeBillboard({ wallets, budget, dues, currency, loading, incomp
     if (current.current.phase !== "idle" || gesture.current) return;
     setMotion({ index, offset: 0, direction: 1, phase: "idle" });
   }
-  function amount(value: number) {
+  function amount(value: string | number) {
     return <span className="home-billboard-amount"><bdi>{formatAccountAmount(value, currency)}</bdi>
       <small>{currencyDisplayLabel(currency)}</small></span>;
   }
@@ -147,19 +150,23 @@ export function HomeBillboard({ wallets, budget, dues, currency, loading, incomp
             <p className="home-billboard-description">از حساب بانکی یا کیف‌پول نقدی؛ هر پرداخت و دریافت را ثبت کن.</p>
           </> : active === "wallets" ? <>
             <h2>موجودی کیف‌پول‌های من</h2>
-            {!unavailable ? <>
+            {!unavailable && wallets.balance !== null ? <>
               {amount(wallets.balance)}
               <p className="home-billboard-description">{wallets.count
                 ? /* @copy-text home.billboard.wallet_count */ `${toFa(wallets.count)} کیف‌پول نقدی، با موجودی به‌روز`
                 : "کیف‌پول نقدی خودت را بساز و پول نقدت را هم حساب کن."}</p>
-            </> : null}
+               {wallets.reconciled ? <p className="home-billboard-description">موجودی شامل اصلاح‌های مغایرت‌گیری است.</p> : null}
+             </> : !unavailable ? <div role="status" className="home-billboard-description">
+               {wallets.status === "error" ? <><p>موجودی کیف‌پول‌ها دریافت نشد.</p><button type="button" onClick={onRetry}>تلاش دوباره</button></>
+                 : <p>در حال دریافت موجودی کیف‌پول‌ها…</p>}
+             </div> : null}
           </> : active === "budget" ? <>
-            <h2>{unavailable ? "بودجهٔ این ماه" : budget.limit ? budget.spent > budget.limit ? "خرج از سقف بودجه گذشته"
+             <h2>{unavailable ? "بودجهٔ این ماه" : budget.limit ? compareMoney(budget.spent, budgetCap) > 0 ? "خرج از سقف بودجه گذشته"
               : budgetUsage >= 80 ? "بودجه به سقف نزدیک است" : "بودجهٔ باقی‌ماندهٔ این ماه" : "برای خرج ماه سقف بگذار"}</h2>
             {!unavailable && budget.limit > 0 ? <>
-              {amount(Math.max(0, budget.limit - budget.spent))}
+               {amount(budgetRemaining)}
               <progress className="home-billboard-progress" aria-label="مصرف بودجهٔ دسته‌ها"
-                max={budget.limit} value={Math.min(budget.spent, budget.limit)} />
+                 max={100} value={Math.min(budgetUsage, 100)} />
               <p className="home-billboard-description">{/* @copy-text home.billboard.budget_usage */ `${toFa(budgetUsage)}٪ از بودجهٔ دسته‌ها مصرف شده است.`}</p>
             </> : !unavailable ? <p className="home-billboard-description">برای دسته‌های هزینه بودجه تعیین کن و مصرف این ماه را ببین.</p> : null}
           </> : <>

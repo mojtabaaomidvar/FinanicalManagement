@@ -18,7 +18,7 @@ const task = (patch: Partial<Task> = {}): Task => ({
   createdBy: "member-1", revision: 1, createdAt: stamp, updatedAt: stamp, ...patch,
 });
 const bill = (patch: Partial<Bill> = {}): Bill => ({
-  id: "bill-1", kind: "electricity", title: "قبض برق", amount: 1000, dueDate: "2026-11-15",
+  id: "bill-1", kind: "electricity", title: "قبض برق", amount: "1000", dueDate: "2026-11-15",
   billNo: null, paymentNo: null, state: "unpaid", paidAt: null, paidByMemberId: null,
   transactionId: null, note: null, createdBy: "member-1", createdAt: stamp, ...patch,
 });

@@ -1,19 +1,23 @@
 /* قالب‌بندی مبالغ و اعداد برای نمایش فارسی */
 
 import { toFa, toEn } from "./digits";
+import { absMoney, formatMoney, type Money } from "./money";
 
 /* ۱۲۳۴۵۶۷ → "۱,۲۳۴,۵۶۷" (بدون علامت — مثبت/منفی را رنگ نشان می‌دهد) */
-export function formatAmount(n: number): string {
+export function formatAmount(n: number | Money): string {
+  if (typeof n === "string") return formatMoney(absMoney(n), "تومان");
   return toFa(Math.round(Math.abs(n)).toLocaleString("en-US"));
 }
 
 /** Account balances must show their sign, including fractional negative amounts. */
-export function formatSignedAmount(n: number): string {
+export function formatSignedAmount(n: number | Money): string {
+  if (typeof n === "string") return formatMoney(n, "تومان");
   return toFa(n.toLocaleString("en-US", { maximumFractionDigits: 2 }));
 }
 
 /** Preserve rial precision; the chosen toman display rounds only the presentation. */
-export function formatAccountAmount(amountInToman: number, currency: string): string {
+export function formatAccountAmount(amountInToman: number | Money, currency: string): string {
+  if (typeof amountInToman === "string") return formatMoney(amountInToman, currency);
   const displayed = currency === "ریال" ? amountInToman * 10 : Math.round(amountInToman);
   return toFa(displayed.toLocaleString("en-US", { maximumFractionDigits: currency === "ریال" ? 2 : 0 }));
 }

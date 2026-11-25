@@ -22,17 +22,13 @@ import {
 } from "@/shared/lib/jalali";
 import type { TxRepeat } from "./transaction.types";
 import type { Transaction, TransactionInput } from "./transaction.types";
-import { currencyFactor } from "@/shared/lib/currency";
-import { toEn } from "@/shared/lib/digits";
+import { moneyFits, parseMoneyInput, type Money } from "@/shared/lib/money";
 import { MAX_AMOUNT } from "./transaction.rules";
 
 /** Parse the complete amount without dropping invalid characters. */
-export function parseScheduledAmount(raw: string, currency: string): number | null {
-  const normalized = toEn(raw).replace(/[,٬،]/g, "").replace(/٫/g, ".").trim();
-  if (!/^\d+(?:\.\d+)?$/.test(normalized)) return null;
-  const base = Number(normalized) / currencyFactor(currency);
-  const amount = Math.round(base * 100) / 100;
-  return Number.isFinite(base) && base <= MAX_AMOUNT && amount > 0 ? amount : null;
+export function parseScheduledAmount(raw: string, currency: string): Money | null {
+  const amount = parseMoneyInput(raw, currency);
+  return amount !== null && moneyFits(amount, { scale: 2, min: "0.01", max: MAX_AMOUNT }) ? amount : null;
 }
 
 /** Stopping future reminders preserves the existing financial transaction. */

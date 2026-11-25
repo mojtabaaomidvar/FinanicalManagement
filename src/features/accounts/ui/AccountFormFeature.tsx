@@ -1,5 +1,4 @@
-/* فرم افزودن و ویرایش کارت/کیف‌پول — یک مودال برای هر دو حالت.
-   فیلد ویرایش، موجودی فعلی است؛ تفاوت با تراکنش اصلاحی ثبت می‌شود. */
+/* Opening balance belongs to creation; editing changes metadata only. */
 
 import { useId, useLayoutEffect, useRef, type ChangeEvent, type KeyboardEvent } from "react";
 
@@ -14,7 +13,6 @@ import {
   normalizeExpressionInput,
 } from "@/shared/ui";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
-import { formatAccountAmount } from "@/shared/lib/format";
 import { BANK_OPTIONS, bankDisplayLabel } from "@/shared/lib/banks";
 import type { AccountKind } from "@/domain/account/account.types";
 import type { AccountsModel } from "../model/useAccountsModel";
@@ -171,9 +169,9 @@ export function AccountFormFeature({ m }: { m: AccountsModel }) {
           </>
         ) : null}
 
-        <div className="form-row full">
+        {!editing ? <div className="form-row full">
           <div className="form-row">
-            <label htmlFor={balanceId}>{editing ? "موجودی فعلی" : "موجودی اولیه (اختیاری)"}</label>
+            <label htmlFor={balanceId}>موجودی اولیه (اختیاری)</label>
             <div className="amt-field">
               <input
                 id={balanceId}
@@ -190,52 +188,13 @@ export function AccountFormFeature({ m }: { m: AccountsModel }) {
               <span className="cur-suffix">{currencyDisplayLabel(m.cur)}</span>
             </div>
           </div>
-          {/* ورودی مبلغ فقط رقم می‌پذیرد، پس علامت را جدا می‌گیریم؛
-              بدون این، موجودی منفی هنگام ویرایش مثبت می‌شد. */}
-          {editing ? (
-            <label className="bal-sign">
-              <input
-                type="checkbox"
-                checked={m.form.negative}
-                onChange={(e) => m.setNegative(e.target.checked)}
-              />
-              <span>موجودی منفی است (بدهکار)</span>
-            </label>
-          ) : null}
-        </div>
+        </div> : <p className="modal-sub full">این فرم فقط اطلاعات حساب را تغییر می‌دهد. برای تغییر موجودی، دکمهٔ «اصلاح موجودی» روی کارت را بزنید.</p>}
 
         {/* هشدار ویرایش دستی موجودی */}
         {m.cardChanged ? <label className="bal-warn-ack full">
           <input type="checkbox" checked={m.cardChangeAck} onChange={event => m.setCardChangeAck(event.target.checked)} />
           <span>تغییر شماره کارت این حساب را بررسی و تأیید می‌کنم</span>
         </label> : null}
-        {editing && m.balanceChanged ? (
-          <div className="bal-warn" style={{ gridColumn: "1 / -1" }}>
-            <div className="bal-warn-head">
-              <svg>
-                <use href="#i-alert" />
-              </svg>
-              <b>این یک درآمد یا هزینهٔ واقعی نیست</b>
-            </div>
-            <p>
-              تفاوت با عنوان «تغییر دستی موجودی» ثبت می‌شود و در گزارش‌ها دیده
-              می‌شود. درآمد یا هزینهٔ واقعی را با تراکنش عادی ثبت کنید.
-            </p>
-            <p className="account-reviewed-balance">
-              <span>موجودی ثبت‌شده:</span>{" "}
-              <b dir="ltr">{formatAccountAmount(m.editingBalance, m.cur)}</b>{" "}
-              <span>{currencyDisplayLabel(m.cur)}</span>
-            </p>
-            <label className="bal-warn-ack">
-              <input
-                type="checkbox"
-                checked={m.balanceAck}
-                onChange={(e) => m.setBalanceAck(e.target.checked)}
-              />
-              <span>می‌دانم و تأیید می‌کنم</span>
-            </label>
-          </div>
-        ) : null}
 
       </fieldset>
 
@@ -256,7 +215,7 @@ export function AccountFormFeature({ m }: { m: AccountsModel }) {
         <button
           className="btn-primary"
           disabled={
-            m.locked || (editing !== null && m.balanceChanged && !m.balanceAck) || (m.cardChanged && !m.cardChangeAck)
+            m.locked || (m.cardChanged && !m.cardChangeAck)
           }
           onClick={m.save}
         >
