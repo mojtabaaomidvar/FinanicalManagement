@@ -6,6 +6,7 @@ import base64
 import contextlib
 import importlib.util
 import io
+import inspect
 import json
 import os
 import tempfile
@@ -18,6 +19,16 @@ spec = importlib.util.spec_from_file_location(
 )
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
+
+
+class LegacyReleaseScopeTest(unittest.TestCase):
+    def test_support_installer_does_not_grant_functions_from_later_migrations(self):
+        # This helper is deliberately pinned to the support release, not head.
+        # Run without an application environment or a database connection.
+        source = inspect.getsource(module.migrate)
+        self.assertIn('command.upgrade(Config("alembic.ini"), "0029")', source)
+        self.assertNotIn("wallet_ledger_balance", source)
+        self.assertNotIn("wallet_account_has_transactions", source)
 
 
 class ReleaseSettingsTest(unittest.TestCase):
