@@ -13,6 +13,7 @@ from app import __version__
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.errors import AppError
+from app.core.financial_contract import FinancialContractMiddleware, MONEY_CONTRACT_HEADER
 from app.core.logging import configure_logging
 from app.services import support as support_service
 from app.services import usage as usage_service
@@ -45,13 +46,15 @@ def create_app() -> FastAPI:
         openapi_url=None if settings.is_production else "/openapi.json",
     )
 
+    # CORS must wrap the contract gate so old clients can read update errors.
+    app.add_middleware(FinancialContractMiddleware)
     # CORS بسته — فقط منشأهای مشخص (رفع D-5؛ بدون '*')
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins_list,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type"],
+        allow_headers=["Authorization", "Content-Type", MONEY_CONTRACT_HEADER],
     )
 
     @app.middleware("http")

@@ -199,7 +199,7 @@ def client(clean_tables: None) -> Iterator[Any]:
 
     from app.main import app
 
-    with TestClient(app) as c:
+    with TestClient(app, headers={"X-Khaneyar-Money-Contract": "decimal-v1"}) as c:
         yield c
 
 

@@ -376,7 +376,10 @@ export class RestClient {
       : await this.tokenProvider.getToken();
 
     const multipart = body instanceof FormData;
-    const headers: Record<string, string> = { Accept: accept };
+    const headers: Record<string, string> = {
+      Accept: accept,
+      "X-Khaneyar-Money-Contract": "decimal-v1",
+    };
     if (body !== undefined && !multipart) headers["Content-Type"] = "application/json";
     if (token) headers.Authorization = `Bearer ${token}`;
 
