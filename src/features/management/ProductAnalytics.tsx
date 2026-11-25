@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { managementApi as api } from "./api";
 import type { AnalyticsDays, AnalyticsModule, AnalyticsPoint, ModuleCounts, ProductReport } from "./analytics.types";
 
-const moduleLabels: Record<AnalyticsModule, string> = {
+export const moduleLabels: Record<AnalyticsModule, string> = {
   dashboard: "داشبورد مالی", transactions: "تراکنش‌ها", accounts: "کیف پول‌ها", budgets: "بودجه‌ها",
   bills: "قبوض و شارژ", reports: "گزارش‌ها", calendar: "تقویم و مناسبت‌ها", shopping: "لیست خرید",
   inventory: "انبار خانه", tasks: "کارهای خانه", documents: "اسناد خانه", meals: "برنامهٔ غذایی",

@@ -5,6 +5,7 @@ import { actionDescriptions, actionLabels, auditLabels, environmentLabels, flagL
   pageLabels, roleLabels, secretKeys, sensitiveOperations, serviceLabels, stateLabels, type Page } from "./labels";
 import mark from "../../../public/khaneyar-mark.png";
 import { ProductAnalytics } from "./ProductAnalytics";
+import { ManagementDashboard } from "./ManagementDashboard";
 import "./management.css";
 
 const number = (value: number, digits = 0) => value.toLocaleString("fa-IR", { maximumFractionDigits: digits });
@@ -48,6 +49,7 @@ function Section({ title, note, children }: { title: string; note?: string; chil
 }
 function Icon({ page }: { page: Page }) {
   const paths: Record<Page, string> = {
+    dashboard: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 21v-4 M18 21v-8 M22 21v-6",
     overview: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
     analytics: "M4 20V10 M10 20V4 M16 20v-7 M22 20H2",
     server: "M3 3h18v7H3z M3 14h18v7H3z M7 6.5h.1 M7 17.5h.1",
@@ -259,7 +261,7 @@ export function ManagementPanel() {
   const [bootError, setBootError] = useState("");
   const [retry, setRetry] = useState(0);
   const [mode, setMode] = useState<Session["mode"]>("production");
-  const [page, setPage] = useState<Page>("overview");
+  const [page, setPage] = useState<Page>("dashboard");
   const [refresh, setRefresh] = useState(0);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -271,7 +273,7 @@ export function ManagementPanel() {
   const expire = useCallback(() => {
     generation.current += 1;
     api.setSession(null); setSession(null); setPlan(null); setDownload(null); setActiveJob(null); setPreparing(false);
-    setNotice("نشست مدیریت پایان یافته است؛ دوباره وارد شوید."); setError(""); setPage("overview");
+    setNotice("نشست مدیریت پایان یافته است؛ دوباره وارد شوید."); setError(""); setPage("dashboard");
   }, []);
   const ready = useCallback((value: Session) => { api.setSession(value); setSession(value); setMode(value.mode); setNotice(""); setError(""); }, []);
   useEffect(() => {
@@ -327,6 +329,7 @@ export function ManagementPanel() {
   const props: Props = { refresh, role: session.role, act: operation => void act(operation), busy: preparing || Boolean(activeJob) };
   let content: ReactNode;
   switch (page) {
+    case "dashboard": content = <ManagementDashboard refresh={refresh} navigate={setPage} />; break;
     case "overview": content = <OverviewPage {...props} />; break;
     case "analytics": content = <ProductAnalytics refresh={refresh} />; break;
     case "server": content = <ServerPage {...props} />; break;

@@ -33,7 +33,7 @@ const server = spawn(python, ['-X', 'utf8', '-m', 'app.management.cli', '--confi
 let serverErrors = ''; server.stderr.on('data', chunk => { serverErrors += chunk; });
 let browser;
 const results = { checks: [], screenshots: [], consoleErrors: [], pageErrors: [], externalRequests: [] };
-const labels = ['نمای کلی', 'آمار و بهبود محصول', 'سرور و سرویس‌ها', 'کاربران', 'تنظیمات برنامه', 'پشتیبان‌ها', 'نسخه‌ها', 'لاگ سرویس‌ها', 'مدیران و دسترسی‌ها', 'سابقهٔ عملیات'];
+const labels = ['داشبورد', 'نمای کلی', 'آمار و بهبود محصول', 'سرور و سرویس‌ها', 'کاربران', 'تنظیمات برنامه', 'پشتیبان‌ها', 'نسخه‌ها', 'لاگ سرویس‌ها', 'مدیران و دسترسی‌ها', 'سابقهٔ عملیات'];
 const delay = ms => new Promise(done => setTimeout(done, ms));
 try {
   let ready = false;
@@ -63,8 +63,9 @@ try {
   await page.getByLabel('نام کاربری', { exact: true }).fill('admin');
   await page.getByLabel('رمز حساب مدیریت', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'ورود به مدیریت', exact: true }).click();
-  await page.getByRole('heading', { name: 'خانه‌یار در دسترس است', exact: true }).waitFor();
-  results.checks.push('Independent cookie login and overview under /management/');
+  await page.getByRole('heading', { name: 'داشبورد', exact: true, level: 1 }).waitFor();
+  await page.getByText('خانواده‌های عضو', { exact: true }).waitFor();
+  results.checks.push('Independent cookie login and dashboard under /management/');
   async function navigate(label) {
     await page.getByRole('navigation').getByRole('button', { name: label, exact: true }).click();
     await page.waitForFunction(() => document.querySelectorAll('.mg-state[role=status]').length === 0);
@@ -96,8 +97,32 @@ try {
       await screenshot(`page-${index}-${width}`);
     }
   }
-  results.checks.push('All ten pages at 360 and 1440 pixels without body overflow');
+  results.checks.push('All eleven pages at 360 and 1440 pixels without body overflow');
   await page.setViewportSize({ width: 360, height: 900 });
+  await navigate('داشبورد');
+  for (const days of [7, 90]) {
+    await page.getByLabel('بازهٔ داشبورد', { exact: true }).selectOption(String(days));
+    await page.waitForFunction(days => document.querySelectorAll('.mg-dash-chart tbody tr').length === days * 2, days);
+  }
+  const expectedDashboard = await (await ownerContext.request.get(origin + '/management/api/state/analytics?days=90')).json();
+  const activity = page.locator('.mg-dash-chart').filter({ has: page.getByRole('heading', { name: 'روند استفاده', exact: true }) });
+  assert.equal(await activity.locator('.mg-dash-chart-total strong').innerText(), expectedDashboard.usage.requests.toLocaleString('fa-IR'));
+  await activity.getByRole('combobox').selectOption('opens');
+  assert.equal(await activity.locator('.mg-dash-chart-total strong').innerText(), expectedDashboard.usage.opens.toLocaleString('fa-IR'));
+  await activity.getByRole('combobox').selectOption('errors');
+  assert.equal(await activity.locator('.mg-dash-chart-total strong').innerText(), expectedDashboard.errors.total.toLocaleString('fa-IR'));
+  const slider = activity.getByRole('slider');
+  await slider.focus(); await slider.press('Home');
+  assert.equal(await slider.inputValue(), '0');
+  await slider.press('End'); assert.equal(await slider.inputValue(), '89');
+  await page.getByLabel('معیار رتبه‌بندی بخش‌ها', { exact: true }).selectOption('opens');
+  assert.ok(await page.locator('.mg-dash-ranking > li').count() > 0);
+  await page.getByRole('button', { name: 'جزئیات سلامت و منابع', exact: true }).click();
+  await page.getByRole('heading', { name: 'نمای کلی', exact: true, level: 1 }).waitFor();
+  await navigate('داشبورد');
+  await page.getByRole('button', { name: 'گزارش کامل و دریافت آمار', exact: true }).click();
+  await page.getByRole('heading', { name: 'آمار و بهبود محصول', exact: true, level: 1 }).waitFor();
+  results.checks.push('Dashboard periods, exact chart totals, keyboard date selection, ranking and detail navigation');
   await navigate('آمار و بهبود محصول');
   for (const days of [7, 90]) {
     await page.getByLabel('بازهٔ آمار', { exact: true }).selectOption(String(days));
@@ -188,7 +213,8 @@ try {
   assert.equal(login.status(), 200);
   const viewerSession = await login.json();
   const viewerPage = await viewerContext.newPage(); await viewerPage.goto(origin);
-  await viewerPage.getByRole('heading', { name: 'خانه‌یار در دسترس است', exact: true }).waitFor();
+  await viewerPage.getByRole('heading', { name: 'داشبورد', exact: true, level: 1 }).waitFor();
+  await viewerPage.getByText('خانواده‌های عضو', { exact: true }).waitFor();
   assert.equal(await viewerPage.getByRole('button', { name: 'مدیران و دسترسی‌ها', exact: true }).count(), 0);
   assert.equal(await viewerPage.getByRole('button', { name: 'ساخت پشتیبان کامل', exact: true }).count(), 0);
   const viewerAnalytics = await viewerContext.request.get(origin + '/management/api/state/analytics?days=7');
@@ -223,13 +249,14 @@ try {
   const recoveryPage = await recoveryContext.newPage();
   recoveryPage.on('pageerror', error => results.pageErrors.push(error.message));
   await recoveryPage.goto(origin);
-  await recoveryPage.locator('.mg-state[role=status]').waitFor();
+  await recoveryPage.getByText('در حال بررسی سلامت سرور…', { exact: true }).waitFor();
   releaseLoading();
-  await recoveryPage.getByText('دریافت اطلاعات کامل نشد', { exact: true }).waitFor();
+  await recoveryPage.getByText('دریافت این بخش کامل نشد', { exact: true }).waitFor();
+  await recoveryPage.getByRole('heading', { name: 'رشد خانواده و ثبت‌نام', exact: true }).waitFor();
   const failureScreenshot = resolve(output, 'failure-360.png');
   await recoveryPage.screenshot({ path: failureScreenshot, fullPage: true }); results.screenshots.push(failureScreenshot);
   await recoveryPage.getByRole('button', { name: 'بررسی دوباره', exact: true }).click();
-  await recoveryPage.getByRole('heading', { name: 'خانه‌یار در دسترس است', exact: true }).waitFor();
+  await recoveryPage.getByRole('heading', { name: 'وضعیت فعلی سرور', exact: true }).waitFor();
   const observed = await (await recoveryContext.request.get(origin + '/management/api/state/analytics?days=30')).json();
   const unmeasured = structuredClone(observed);
   unmeasured.measurement.usage_available = false;
@@ -261,6 +288,37 @@ try {
   await recoveryPage.getByRole('button', { name: 'بررسی دوباره', exact: true }).click();
   await recoveryPage.getByText('وضعیت حساب‌ها و ثبت‌نام', { exact: true }).waitFor();
   results.checks.push('Analytics missing, empty and failure states without fabricated zeros');
+  analyticsVariant = structuredClone(unmeasured);
+  await recoveryPage.getByRole('navigation').getByRole('button', { name: 'داشبورد', exact: true }).click();
+  await recoveryPage.getByText('داده‌ای برای این نمودار در دسترس نیست؛ مقدار ناموجود صفر محسوب نمی‌شود.', { exact: true }).waitFor();
+  await recoveryPage.getByRole('heading', { name: 'وضعیت فعلی سرور', exact: true }).waitFor();
+  assert.equal(await recoveryPage.locator('.mg-dash-ranking li').count(), 0);
+  const missingScreenshot = resolve(output, 'dashboard-unmeasured-360.png');
+  await recoveryPage.screenshot({ path: missingScreenshot, fullPage: true }); results.screenshots.push(missingScreenshot);
+  analyticsVariant = structuredClone(observed);
+  analyticsVariant.modules.forEach(row => { row.opens = row.creates = row.updates = row.completes = row.deletes = 0; });
+  analyticsVariant.usage = { opens: 0, requests: 0 };
+  analyticsVariant.daily.forEach(point => { point.families_created = point.registrations_completed = point.opens = point.requests = point.errors = 0; });
+  analyticsVariant.snapshot.active_accounts = analyticsVariant.snapshot.pending_accounts = analyticsVariant.snapshot.inactive_accounts = analyticsVariant.snapshot.registered_accounts = 0;
+  await recoveryPage.getByRole('button', { name: 'بررسی دوباره', exact: true }).click();
+  await recoveryPage.getByText('حساب ثبت‌نام‌کامل برای نمایش وجود ندارد.', { exact: true }).waitFor();
+  assert.equal(await recoveryPage.locator('.mg-dash-chart-total strong').first().innerText(), '۰');
+  const emptyScreenshot = resolve(output, 'dashboard-empty-360.png');
+  await recoveryPage.screenshot({ path: emptyScreenshot, fullPage: true }); results.screenshots.push(emptyScreenshot);
+  analyticsVariant = structuredClone(observed);
+  analyticsVariant.daily[1].requests = null;
+  await recoveryPage.getByRole('button', { name: 'بررسی دوباره', exact: true }).click();
+  await recoveryPage.getByText('دادهٔ بعضی روزها موجود نیست؛ نمودار در آن روزها قطع و جمع بازه نامشخص است.', { exact: true }).waitFor();
+  assert.equal(await recoveryPage.locator('.mg-dash-chart[data-field="requests"] .mg-dash-line').count(), 2);
+  analyticsVariant = 'failure';
+  await recoveryPage.getByRole('button', { name: 'بررسی دوباره', exact: true }).click();
+  await recoveryPage.getByText('دریافت این بخش کامل نشد', { exact: true }).waitFor();
+  await recoveryPage.getByRole('heading', { name: 'وضعیت فعلی سرور', exact: true }).waitFor();
+  assert.equal(await recoveryPage.locator('.mg-dash-kpis').count(), 0);
+  analyticsVariant = observed;
+  await recoveryPage.getByRole('button', { name: 'بررسی دوباره', exact: true }).click();
+  await recoveryPage.getByText('خانواده‌های عضو', { exact: true }).waitFor();
+  results.checks.push('Dashboard partial failures, measured zero, missing counters and gaps without stale totals');
   await recoveryContext.route('**/management/api/state/users*', route => route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: 'UNAUTHORIZED', message: 'نشست نمونه پایان یافته است.' }) }));
   await recoveryPage.getByRole('navigation').getByRole('button', { name: 'کاربران', exact: true }).click();
   await recoveryPage.getByRole('heading', { name: 'ورود به پنل مدیریت', exact: true }).waitFor();

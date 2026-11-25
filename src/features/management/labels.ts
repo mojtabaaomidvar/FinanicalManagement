@@ -1,6 +1,7 @@
 import type { OperationKind, Role } from "./api";
 
 export const pageLabels = {
+  dashboard: "داشبورد",
   overview: "نمای کلی", analytics: "آمار و بهبود محصول", server: "سرور و سرویس‌ها", users: "کاربران", settings: "تنظیمات برنامه",
   backups: "پشتیبان‌ها", releases: "نسخه‌ها", logs: "لاگ سرویس‌ها", accounts: "مدیران و دسترسی‌ها", history: "سابقهٔ عملیات",
 };
