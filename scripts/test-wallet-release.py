@@ -1,6 +1,7 @@
 """Temporary-file installer acceptance; Docker/network commands are explicit doubles."""
 import hashlib
 import importlib.util
+import io
 import json
 import os
 import shutil
@@ -8,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import urllib.error
 from pathlib import Path
 from unittest.mock import patch
 
@@ -100,6 +102,50 @@ class WalletReleaseTests(unittest.TestCase):
                     checker.manifest(self.release)
                 self.value[key] = original
         self.save_manifest()
+
+    def public_request(self, *, changed_pwa=False, wrong_cors=False, wrong_code=False):
+        calls = []
+        class Response(io.BytesIO):
+            status = 200
+            headers = {"Access-Control-Allow-Origin": "https://pwa.khaanehyar.ir"}
+        def request(request, **kwargs):
+            calls.append(request)
+            if request.full_url.startswith("https://pwa.khaanehyar.ir/"):
+                name = request.full_url.split("/", 3)[3].split("?", 1)[0]
+                return Response(b"changed" if changed_pwa else self.new[name])
+            self.assertEqual(request.full_url, "https://api.khaanehyar.ir/api/v1/accounts")
+            self.assertIsNone(request.data)
+            self.assertIsNone(request.get_header("Authorization"))
+            headers = {"Access-Control-Allow-Origin": "wrong" if wrong_cors else "https://pwa.khaanehyar.ir"}
+            if request.get_method() == "OPTIONS":
+                response = Response(b"")
+                response.headers = headers
+                return response
+            new_client = any(key.lower() == "x-khaneyar-money-contract" for key in request.headers)
+            status = 401 if new_client else 409
+            body = b'{"error":"WRONG"}' if wrong_code else b'{"error":"CLIENT_UPDATE_REQUIRED"}'
+            raise urllib.error.HTTPError(request.full_url, status, "fixture", headers, io.BytesIO(body))
+        return request, calls
+
+    def test_actual_public_verifier_hashes_and_http_error_paths(self):
+        request, calls = self.public_request()
+        with patch.object(checker.urllib.request, "urlopen", side_effect=request):
+            checker.public(self.release)
+        self.assertEqual(len(calls), len(self.new) + 3)
+        self.assertNotIn("urllib", checker.public.__code__.co_varnames)
+
+    def test_actual_public_verifier_refuses_changed_pwa_before_api(self):
+        request, calls = self.public_request(changed_pwa=True)
+        with patch.object(checker.urllib.request, "urlopen", side_effect=request), self.assertRaisesRegex(ValueError, "checksum differs"):
+            checker.public(self.release)
+        self.assertEqual(len(calls), 1)
+
+    def test_actual_public_verifier_refuses_cors_or_update_code_drift(self):
+        for option in ({"wrong_cors": True}, {"wrong_code": True}):
+            with self.subTest(option=option):
+                request, _ = self.public_request(**option)
+                with patch.object(checker.urllib.request, "urlopen", side_effect=request), self.assertRaises(ValueError):
+                    checker.public(self.release)
 
     def installer(self, case):
         posix = subprocess.check_output([BASH, "-c", 'cygpath -u "$1"', "_", str(self.root)], text=True).strip() if os.name == "nt" else str(self.root)
