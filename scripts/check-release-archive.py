@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
@@ -43,9 +44,11 @@ def main() -> None:
             raise RuntimeError("Unexpected temporary test directory.")
         path = Path(temporary) / "install-release.sh"
         path.write_bytes(installer)
+        environment = os.environ.copy()
+        environment["RELEASE_ARCHIVE_CHECK_INSTALLER"] = path.as_posix()
         result = subprocess.run(
-            [args.bash, path.as_posix()], cwd=temporary, capture_output=True, text=True,
-            timeout=10, check=False,
+            [args.bash, "-c", 'exec "$RELEASE_ARCHIVE_CHECK_INSTALLER"'], env=environment,
+            cwd=temporary, capture_output=True, text=True, timeout=45, check=False,
         )
         if result.returncode == 0 or "Pass the extracted release directory" not in result.stderr:
             raise RuntimeError("Packaged installer failed its runtime preflight: " + result.stderr)

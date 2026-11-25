@@ -121,23 +121,29 @@ def main():
     manifest_bytes = (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode()
     (OUTPUT / "validation.json").write_bytes(manifest_bytes)
     artifact = OUTPUT / ("khaneyar-" + TAG + ".tgz")
-    assert not artifact.exists(), "Existing release artifact is immutable; inspect before retry."
     with tempfile.TemporaryDirectory(prefix="pwa-package-", dir=OUTPUT) as directory:
         staging = Path(directory)
-        for name, content in {**files, **{"pwa/" + name: content for name, content in pwa.items()}}.items():
+        packaged_files = {**files, **{"pwa/" + name: content for name, content in pwa.items()},
+                          "validation.json": manifest_bytes, "release-tag.txt": (TAG + "\n").encode()}
+        for name, content in packaged_files.items():
             path = staging / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(content)
-        (staging / "validation.json").write_bytes(manifest_bytes)
-        (staging / "release-tag.txt").write_bytes((TAG + "\n").encode())
         subprocess.run([sys.executable, str(staging / "source/backend/deploy/check-pwa-release.py"), "incoming", str(staging)], check=True)
-        with tarfile.open(artifact, "w:gz") as archive:
-            for item in entries:
-                archive.addfile(item, io.BytesIO(files[item.name]) if item.isfile() else None)
-            for path in sorted((staging / "pwa").rglob("*")):
-                archive.add(path, arcname="pwa/" + path.relative_to(staging / "pwa").as_posix(), recursive=False)
-            for name in ("validation.json", "release-tag.txt"):
-                archive.add(staging / name, arcname=name)
+        if artifact.exists():
+            with tarfile.open(artifact) as existing:
+                members = existing.getmembers()
+                assert all(item.isfile() or item.isdir() for item in members), "Existing archive has unsafe entry types."
+                actual = {item.name: existing.extractfile(item).read() for item in members if item.isfile()}
+            assert actual == packaged_files, "Existing release archive has different source/PWA/manifest bytes. Preserved."
+        else:
+            with tarfile.open(artifact, "w:gz") as archive:
+                for item in entries:
+                    archive.addfile(item, io.BytesIO(files[item.name]) if item.isfile() else None)
+                for path in sorted((staging / "pwa").rglob("*")):
+                    archive.add(path, arcname="pwa/" + path.relative_to(staging / "pwa").as_posix(), recursive=False)
+                for name in ("validation.json", "release-tag.txt"):
+                    archive.add(staging / name, arcname=name)
     digest = sha(artifact.read_bytes())
     wrapper = f'''#!/usr/bin/env bash
 set -Eeuo pipefail
