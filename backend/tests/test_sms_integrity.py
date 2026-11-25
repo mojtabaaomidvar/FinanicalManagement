@@ -97,7 +97,7 @@ def test_atomic_record_replay_notes_and_tombstone(client, home_a):
     transaction = expect_status(record(client, home_a, sms["id"], fields), 200).json()
     assert transaction["time"] == "14:37:52" and transaction["note"] == "شرح دلخواه"
     replay = expect_status(record(client, home_a, sms["id"], {**fields, "amount": 9999999}), 200).json()
-    assert replay["id"] == transaction["id"] and replay["amount"] == 25000
+    assert replay["id"] == transaction["id"] and replay["amount"] == "25000"
     assert len(client.get(API + "/transactions", headers=home_a.h).json()) == 1
     stored = client.get(API + "/sms", headers=home_a.h).json()[0]
     assert stored["transaction_id"] == transaction["id"] and stored["status"] == "recorded"
@@ -330,3 +330,5 @@ def test_additive_migration_preserves_existing_sms_and_transactions(client, home
                    for row in after["sms_messages"])
     finally:
         command.upgrade(cfg, "head")
+        from tests.conftest import grant_test_application_access
+        grant_test_application_access(database)

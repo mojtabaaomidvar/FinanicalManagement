@@ -141,6 +141,8 @@ def migrate(check_only: bool, generated_key: bool) -> None:
                 "GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO " + role_name
             )
             connection.exec_driver_sql("GRANT EXECUTE ON FUNCTION public.support_record_counts() TO " + role_name)
+            connection.exec_driver_sql("GRANT EXECUTE ON FUNCTION public.wallet_ledger_balance(uuid,uuid) TO " + role_name)
+            connection.exec_driver_sql("GRANT EXECUTE ON FUNCTION public.wallet_account_has_transactions(uuid) TO " + role_name)
             revision = connection.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()

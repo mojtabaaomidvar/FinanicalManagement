@@ -383,7 +383,7 @@ def test_service_cost_is_one_finance_expense_with_server_owned_origin(client, ho
     assert expense["source_kind"] == "vehicle_service" and expense["member_id"] == home_a.member_id
     assert expense["date"] == body["performed_on"] and expense["repeat"] == "none"
     assert expense["repeat_end"] is None and expense["account_id"] == account
-    assert expense["amount"] == 1250000.25 and len(expense["note"]) == 200
+    assert expense["amount"] == "1250000.25" and len(expense["note"]) == 200
     assert len(result["record"]["description"]) == 900
     assert result["record"]["cost_amount"] == "1250000.25"
     assert result["record"]["cost_status"] == "recorded"

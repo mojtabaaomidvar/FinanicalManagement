@@ -24,7 +24,7 @@ def test_expense_fee_uses_exact_rials_and_keeps_the_original_expense(client, hom
     source = account(client, home_a, balance=amount + fee_rial / 10 + 100)
     body = expense(home_a, source, amount=amount, transfer_fee_method=method, note="خرید تست")
     parent = expect_status(client.post(f"{API}/transactions", headers=home_a.h, json=body), 201).json()
-    assert (parent["type"], parent["amount"], parent["category"], parent["account_id"], parent["note"]) == ("expense", amount, "food", source["id"], "خرید تست")
+    assert (parent["type"], parent["amount"], parent["category"], parent["account_id"], parent["note"]) == ("expense", str(amount), "food", source["id"], "خرید تست")
     assert parent["to_account_id"] is None and parent["transfer_fee_rial"] == fee_rial
     expenses = rows(client, home_a)
     if fee_rial == 0:
@@ -32,7 +32,9 @@ def test_expense_fee_uses_exact_rials_and_keeps_the_original_expense(client, hom
         return
     fee = next(row for row in expenses if row["source_kind"] == "transfer_fee")
     assert len(expenses) == 2
-    assert (fee["amount"], fee["category"], fee["member_id"], fee["account_id"], fee["transfer_fee_for_id"]) == (fee_rial / 10, "finance", home_a.member_id, source["id"], parent["id"])
+    from decimal import Decimal
+    from app.schemas.wallet import decimal_text
+    assert (fee["amount"], fee["category"], fee["member_id"], fee["account_id"], fee["transfer_fee_for_id"]) == (decimal_text(Decimal(fee_rial) / 10), "finance", home_a.member_id, source["id"], parent["id"])
     assert fee["repeat"] == "none" and fee["note"] is None and not fee["photos"]
     tag = next(row for row in client.get(f"{API}/subcategories", headers=home_a.h).json() if row["id"] == fee["subcategory_id"])
     assert tag["category"] == "finance" and tag["name"] == "کارمزد انتقال"
@@ -60,7 +62,7 @@ def test_update_omission_and_delete_manage_one_linked_fee(client, home_a):
     for _ in range(2):
         expect_status(client.patch(f"{API}/transactions/{parent['id']}", headers=home_a.h, json=changed), 204)
     fee = next(row for row in rows(client, home_a) if row["source_kind"] == "transfer_fee")
-    assert fee["id"] == old_fee["id"] and fee["amount"] == 400 and fee["account_id"] == replacement["id"]
+    assert fee["id"] == old_fee["id"] and fee["amount"] == "400" and fee["account_id"] == replacement["id"]
     expect_status(client.patch(f"{API}/transactions/{fee['id']}", headers=home_a.h, json=changed), 422)
     expect_status(client.delete(f"{API}/transactions/{fee['id']}", headers=home_a.h), 422)
     expect_status(client.delete(f"{API}/transactions/{parent['id']}", headers=home_a.h), 204)

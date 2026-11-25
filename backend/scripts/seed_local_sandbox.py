@@ -62,6 +62,8 @@ def seed() -> None:
             db.execute(text("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO khaneyar_sandbox"))
             db.execute(text("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO khaneyar_sandbox"))
             db.execute(text("GRANT EXECUTE ON FUNCTION public.support_record_counts() TO khaneyar_sandbox"))
+            db.execute(text("GRANT EXECUTE ON FUNCTION public.wallet_ledger_balance(uuid,uuid) TO khaneyar_sandbox"))
+            db.execute(text("GRANT EXECUTE ON FUNCTION public.wallet_account_has_transactions(uuid) TO khaneyar_sandbox"))
             after = fingerprint(db)
             if before and before != after:
                 raise SandboxError("Existing manual records changed during migration; initialization stopped.")

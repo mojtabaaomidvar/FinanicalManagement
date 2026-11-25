@@ -552,6 +552,8 @@ def complete_trip(
     صفرتومانی در گزارش‌ها فقط نوفه بود (و `transactions._prepare` هم
     مبلغِ صفر را رد می‌کند).
     """
+    from app.db.financial_lock import lock_financial_family
+    lock_financial_family(db, actor.family_id)
     parent = _get_list(db, actor, list_id)
     items = [i for i in _pending_of(db, actor, parent.id) if i.checked]
     if not items:

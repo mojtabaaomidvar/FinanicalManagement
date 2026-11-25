@@ -2,22 +2,23 @@
 
 معادل add/update/delete_account قدیمی با همان کدهای خطا. هم‌خوانی ۶ رقم اول
 کارت (BIN) با بانک انتخاب‌شده عیناً حفظ شده است. نوع حساب (kind) هنگام ویرایش
-تغییرناپذیر است؛ ویرایش موجودی منفی هم می‌پذیرد (کلاینت «موجودی فعلی» را ویرایش
-می‌کند و موجودی اولیه ممکن است منفی شود).
+تغییرناپذیر است؛ ویرایش مشخصات مبلغ را تغییر نمی‌دهد. اصلاح موجودی مسیر اتمی
+و سابقهٔ مستقل خود را دارد.
 """
 
 from __future__ import annotations
 
 import re
 import uuid
+from decimal import Decimal
 
-from sqlalchemy import or_, select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
+from app.db.financial_lock import lock_financial_family
 from app.models.account import Account
 from app.models.family import Member
-from app.models.transaction import Transaction
 from app.schemas.data import AccountCreate, AccountUpdate
 from app.services.bank_catalog import card_matches_bank
 from app.services.common import is_admin, to_uuid
@@ -62,6 +63,7 @@ def _valid_title(title: str | None) -> str:
 
 # ── افزودن / ویرایش / حذف ────────────────────────────────────
 def create(db: Session, actor: Member, req: AccountCreate) -> Account:
+    lock_financial_family(db, actor.family_id)
     family_id = actor.family_id
     kind = (req.kind or "").strip() or "bank"
     if kind not in ("bank", "wallet"):
@@ -85,8 +87,8 @@ def create(db: Session, actor: Member, req: AccountCreate) -> Account:
             "FORBIDDEN", "فقط برای خودتان حساب بسازید؛ مدیر می‌تواند برای فرزند حساب اضافه کند.", 403
         )
 
-    initial = req.initial_balance if req.initial_balance is not None else 0
-    if initial < 0 or initial > _MAX_BALANCE:
+    initial = req.initial_balance if req.initial_balance is not None else Decimal(0)
+    if not initial.is_finite() or initial < 0 or initial > _MAX_BALANCE or initial * 10 != (initial * 10).to_integral_value():
         raise AppError("INVALID_INITIAL_BALANCE", "موجودی اولیه نامعتبر است.", 422)
 
     card = _normalize_card(req.card_number)
@@ -110,6 +112,7 @@ def create(db: Session, actor: Member, req: AccountCreate) -> Account:
 
 
 def update(db: Session, actor: Member, account_id: uuid.UUID, req: AccountUpdate) -> Account:
+    lock_financial_family(db, actor.family_id)
     # حساب فقط در اختیار صاحب آن است؛ مالکیت تا پایان ویرایش قفل می‌شود.
     stmt = select(Account).where(Account.id == account_id, Account.family_id == actor.family_id)
     stmt = stmt.where(Account.member_id == actor.id)
@@ -119,8 +122,10 @@ def update(db: Session, actor: Member, account_id: uuid.UUID, req: AccountUpdate
 
     title = _valid_title(req.title)
     initial = req.initial_balance if req.initial_balance is not None else row.initial_balance
-    if initial < -_MAX_BALANCE or initial > _MAX_BALANCE:
+    if not initial.is_finite() or initial < -_MAX_BALANCE or initial > _MAX_BALANCE or initial * 10 != (initial * 10).to_integral_value():
         raise AppError("INVALID_INITIAL_BALANCE", "موجودی نامعتبر است.", 422)
+    if initial != row.initial_balance:
+        raise AppError("BALANCE_CORRECTION_REQUIRED", "برای تغییر موجودی از اصلاح موجودی استفاده کنید؛ ویرایش مشخصات مبلغ را تغییر نمی‌دهد.", 409)
 
     card = _normalize_card(req.card_number)
     if card != row.card_number and not req.confirm_card_change:
@@ -142,6 +147,7 @@ def delete(
     db: Session, actor: Member, account_id: uuid.UUID, confirmation: str | None = None
 ) -> None:
     """Only its owner may delete an unused account after confirming its current name."""
+    lock_financial_family(db, actor.family_id)
     stmt = select(Account).where(Account.id == account_id, Account.family_id == actor.family_id)
     stmt = stmt.where(Account.member_id == actor.id)
     row = db.execute(stmt.with_for_update()).scalar_one_or_none()
@@ -151,17 +157,10 @@ def delete(
         raise AppError(
             "ACCOUNT_CONFIRMATION_REQUIRED", "برای تأیید حذف، نام حساب را دقیق وارد کنید.", 422
         )
-    if (
-        db.scalar(
-            select(Transaction.id)
-            .where(
-                Transaction.family_id == actor.family_id,
-                or_(Transaction.account_id == row.id, Transaction.to_account_id == row.id),
-            )
-            .limit(1)
-        )
-        is not None
-    ):
+    from app.services.wallet_corrections import list_history
+    if list_history(db, actor, account_id):
+        raise AppError("ACCOUNT_IN_USE", "این حساب سابقهٔ اصلاح موجودی دارد و حذف نمی‌شود.", 409)
+    if db.scalar(text("SELECT public.wallet_account_has_transactions(:aid)"), {"aid": account_id}):
         raise AppError(
             "ACCOUNT_IN_USE", "این حساب سابقهٔ تراکنش دارد و حذف نمی‌شود؛ سابقهٔ مالی حفظ می‌شود.", 409
         )

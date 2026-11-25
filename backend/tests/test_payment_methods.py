@@ -31,7 +31,7 @@ def test_switch_transfer_expense_to_online_removes_only_linked_fee(client, home_
     fields = payment(home_a, bank["id"], payment_method="bank_transfer", transfer_fee_method="paya", note="my payment")
     parent = expect_status(client.post(API + "/transactions", headers=home_a.h, json=fields), 201).json()
     original_fee = next(row for row in rows(client, home_a) if row["source_kind"] == "transfer_fee")
-    assert original_fee["transfer_fee_for_id"] == parent["id"] and original_fee["amount"] == 400
+    assert original_fee["transfer_fee_for_id"] == parent["id"] and original_fee["amount"] == "400"
     for method in ["online", "card"]:
         expect_status(client.patch(API + f'/transactions/{parent["id"]}', headers=home_a.h,
                                   json={**fields, "payment_method": method, "transfer_fee_method": None}), 204)
@@ -81,6 +81,8 @@ def test_payment_method_migration_does_not_invent_choices_or_rewrite_old_fees(cl
         command.upgrade(cfg, "head")
     finally:
         command.upgrade(cfg, "head")
+        from tests.conftest import grant_test_application_access
+        grant_test_application_access(database)
     assert rows(client, home_a) == before
     assert next(row for row in before if row["id"] == parent["id"])["payment_method"] is None
     with database.connect() as conn:

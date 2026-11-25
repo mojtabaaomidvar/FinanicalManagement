@@ -57,7 +57,7 @@ def test_fee_is_one_source_expense_update_retry_and_cascade(client, home_a):
     parent = expect_status(client.post(f"{API}/transactions", headers=home_a.h, json=body), 201).json()
     fee = next(row for row in rows(client, home_a) if row["source_kind"] == "transfer_fee")
     assert parent["transfer_fee_rial"] == 11000
-    assert (fee["amount"], fee["category"], fee["account_id"], fee["transfer_fee_for_id"]) == (1100, "finance", source["id"], parent["id"])
+    assert (fee["amount"], fee["category"], fee["account_id"], fee["transfer_fee_for_id"]) == ("1100", "finance", source["id"], parent["id"])
     tag = next(row for row in client.get(f"{API}/subcategories", headers=home_a.h).json() if row["id"] == fee["subcategory_id"])
     assert tag["name"] == "کارمزد انتقال" and tag["category"] == "finance"
     for _ in range(2): expect_status(client.patch(f"{API}/transactions/{parent['id']}", headers=home_a.h, json=body), 204)
@@ -79,7 +79,7 @@ def test_fee_updates_source_date_and_method_and_can_be_removed(client, home_a):
     changed = {**body, "amount": 500_000, "account_id": replacement["id"], "date": "2026-11-18", "transfer_fee_method": "paya"}
     expect_status(client.patch(f"{API}/transactions/{parent['id']}", headers=home_a.h, json=changed), 204)
     fee = next(row for row in rows(client, home_a) if row["source_kind"] == "transfer_fee")
-    assert (fee["amount"], fee["account_id"], fee["date"]) == (400, replacement["id"], "2026-11-18")
+    assert (fee["amount"], fee["account_id"], fee["date"]) == ("400", replacement["id"], "2026-11-18")
     expect_status(client.patch(f"{API}/transactions/{parent['id']}", headers=home_a.h, json={**changed, "transfer_fee_method": None}), 204)
     assert len(rows(client, home_a)) == 1 and rows(client, home_a)[0]["transfer_fee_rial"] is None
 
@@ -151,7 +151,8 @@ def test_authenticated_quote_and_exact_rial_account_roundtrip(client, home_a):
     expect_status(client.get(f"{API}/transactions/transfer-fee?method=paya&amount_rial=1.2", headers=home_a.h), 422)
     expect_status(client.get(f"{API}/transactions/transfer-fee?method=internal&amount_rial=1"), 401)
     row = account(client, home_a, 1499.9, kind="wallet")
-    assert row["initial_balance"] == 1499.9
-    expect_status(client.patch(f"{API}/accounts/{row['id']}", headers=home_a.h, json={"title": row["title"], "initial_balance": 1500.1}), 200)
+    assert row["initial_balance"] == "1499.9"
+    expect_status(client.patch(f"{API}/accounts/{row['id']}", headers=home_a.h, json={"title": row["title"], "initial_balance": "1500.1"}), 409)
+    expect_status(client.patch(f"{API}/accounts/{row['id']}", headers=home_a.h, json={"title": row["title"], "initial_balance": "1499.9"}), 200)
     saved = next(item for item in client.get(f"{API}/accounts", headers=home_a.h).json() if item["id"] == row["id"])
-    assert saved["initial_balance"] == 1500.1
+    assert saved["initial_balance"] == "1499.9"

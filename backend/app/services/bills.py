@@ -204,6 +204,8 @@ def pay(db: Session, actor: Member, bill_id: uuid.UUID, req: BillPay) -> BillOut
 
     رابطهٔ `Bill ↕ Finance`ِ §۴.۷ و تصمیمِ مالک: یک منبعِ حقیقت برای پول.
     """
+    from app.db.financial_lock import lock_financial_family
+    lock_financial_family(db, actor.family_id)
     row = _get(db, actor, bill_id)
     if row.state == "paid":
         raise AppError("BILL_ALREADY_PAID", "این قبض قبلاً پرداخت شده است.", 409)
@@ -244,6 +246,8 @@ def unpay(db: Session, actor: Member, bill_id: uuid.UUID) -> BillOut:
     در گزارش داشت که نمی‌دانست از کجا آمده، و قبض هم دوباره طلبکار می‌شد —
     یعنی همان پول دو بار شمرده می‌شد. هر دو در یک commit.
     """
+    from app.db.financial_lock import lock_financial_family
+    lock_financial_family(db, actor.family_id)
     row = _get(db, actor, bill_id)
     if row.state != "paid":
         raise AppError("BILL_NOT_PAID", "این قبض پرداخت نشده است.", 409)

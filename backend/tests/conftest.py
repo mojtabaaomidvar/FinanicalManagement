@@ -147,16 +147,23 @@ def database() -> Iterator[Any]:
     command.upgrade(cfg, "head")
     migration_engine = create_engine(MIGRATION_URL, hide_parameters=True)
     try:
-        with migration_engine.begin() as connection:
-            role = connection.dialect.identifier_preparer.quote(TEST_URL.username)
-            connection.exec_driver_sql("GRANT USAGE, CREATE ON SCHEMA public TO " + role)
-            connection.exec_driver_sql("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO " + role)
-            connection.exec_driver_sql("GRANT TRUNCATE ON ALL TABLES IN SCHEMA public TO " + role)
-            connection.exec_driver_sql("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO " + role)
-            connection.exec_driver_sql("GRANT EXECUTE ON FUNCTION public.support_record_counts() TO " + role)
+        grant_test_application_access(migration_engine)
         yield migration_engine
     finally:
         migration_engine.dispose()
+
+
+def grant_test_application_access(database: Any) -> None:
+    """Regrant after tests that replace tables/functions by downgrade + upgrade."""
+    with database.begin() as connection:
+        role = connection.dialect.identifier_preparer.quote(TEST_URL.username)
+        connection.exec_driver_sql("GRANT USAGE, CREATE ON SCHEMA public TO " + role)
+        connection.exec_driver_sql("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO " + role)
+        connection.exec_driver_sql("GRANT TRUNCATE ON ALL TABLES IN SCHEMA public TO " + role)
+        connection.exec_driver_sql("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO " + role)
+        connection.exec_driver_sql("GRANT EXECUTE ON FUNCTION public.support_record_counts() TO " + role)
+        connection.exec_driver_sql("GRANT EXECUTE ON FUNCTION public.wallet_ledger_balance(uuid,uuid) TO " + role)
+        connection.exec_driver_sql("GRANT EXECUTE ON FUNCTION public.wallet_account_has_transactions(uuid) TO " + role)
 
 
 @pytest.fixture(autouse=True)

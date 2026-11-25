@@ -34,12 +34,15 @@ class Transaction(Base):
     __table_args__ = (
         UniqueConstraint("id", "family_id", name="uq_transactions_id_family"),
         CheckConstraint(
-            "source_kind IS NULL OR source_kind IN ('vehicle_service','transfer_fee')", name="transaction_source_kind"
+            "source_kind IS NULL OR source_kind IN ('vehicle_service','transfer_fee','wallet_correction')", name="transaction_source_kind"
         ),
         CheckConstraint(
             "source_kind IS NULL OR (source_kind='vehicle_service' AND type='expense' AND category='transport' "
             "AND repeat='none' AND repeat_end IS NULL) OR (source_kind='transfer_fee' AND type='expense' "
-            "AND category='finance' AND repeat='none' AND repeat_end IS NULL AND transfer_fee_for_id IS NOT NULL)",
+            "AND category='finance' AND repeat='none' AND repeat_end IS NULL AND transfer_fee_for_id IS NOT NULL) "
+            "OR (source_kind='wallet_correction' AND ((type='income' AND category='adjust-i') OR (type='expense' AND category='adjust-e')) "
+            "AND repeat='none' AND repeat_end IS NULL AND account_id IS NOT NULL AND to_account_id IS NULL "
+            "AND transfer_fee_method IS NULL AND payment_method IS NULL)",
             name="transaction_source_shape",
         ),
         # D-7 FIX: افزودن 'transfer' به قید نوع

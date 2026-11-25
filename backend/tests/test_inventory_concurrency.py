@@ -59,6 +59,7 @@ def test_checkout_preserves_a_concurrent_inventory_change(client, raw_sql, home_
 
 def test_two_checkouts_lock_shared_stock_in_one_order(client, home_a, monkeypatch):
     from app.services import inventory
+    from app.db import financial_lock
     first = new_stock(client, home_a, title="برنج", quantity=1)
     second = new_stock(client, home_a, title="شیر", quantity=2)
     listings = []
@@ -69,16 +70,25 @@ def test_two_checkouts_lock_shared_stock_in_one_order(client, home_a, monkeypatc
             expect_status(check(client, home_a, item["id"]), 200)
         listings.append(listing)
     gate = Barrier(2)
-    original = inventory.lock_items_uncommitted
+    original_lock = financial_lock.lock_financial_family
     def together(*args):
+        # Synchronize BEFORE the family financial lock. Waiting for a second
+        # checkout after acquiring it would deadlock the test's own barrier.
         gate.wait(timeout=10)
-        original(*args)
-    monkeypatch.setattr(inventory, "lock_items_uncommitted", together)
+        original_lock(*args)
+    monkeypatch.setattr(financial_lock, "lock_financial_family", together)
+    original_items = inventory.lock_items_uncommitted
+    requested_sets = []
+    def lock_items(db, family_id, ids):
+        requested_sets.append({str(item_id) for item_id in ids})
+        original_items(db, family_id, ids)
+    monkeypatch.setattr(inventory, "lock_items_uncommitted", lock_items)
     with ThreadPoolExecutor(max_workers=2) as pool:
         futures = [pool.submit(complete, client, home_a, listing["id"], create_transaction=False) for listing in listings]
         for future in futures: expect_status(future.result(timeout=15), 200)
     quantities = {row["id"]: Decimal(row["quantity"]) for row in stock_of(client, home_a)}
     assert quantities[first["id"]] == 2 and quantities[second["id"]] == 3
+    assert requested_sets == [{first["id"], second["id"]}] * 2
     assert txs_of(client, home_a) == []
 
 

@@ -150,6 +150,8 @@ def set_sms_status(
 
 
 def record_sms(db: Session, actor: Member, sms_id: uuid.UUID, req: SmsRecord) -> Transaction:
+    from app.db.financial_lock import lock_financial_family
+    lock_financial_family(db, actor.family_id)
     row = db.scalar(select(SmsMessage).where(SmsMessage.id == sms_id, _own_sms(actor)))
     if row is None:
         raise AppError("NOT_FOUND", "پیامک یافت نشد.", 404)

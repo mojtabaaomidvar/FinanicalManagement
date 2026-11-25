@@ -4,10 +4,8 @@
 - سازندهٔ صریح `.of(model)` هر فیلد را دستی می‌سازد؛ هرگز ستون ناخواسته‌ای درز نمی‌کند.
 - نام فیلدها دقیقاً snake_case ستون‌های دیتابیس‌اند تا با ردیف‌های `mappers.ts`
   فرانت (فاز ۹) مو‌به‌مو بخوانند و نگاشت بدون تغییر بماند.
-- مبالغ (Numeric) مثل `FamilyOut.budget` به‌صورت «عدد» (float) سریال می‌شوند تا با
-  انتظار فعلی کلاینت (`+r.amount`) سازگار بمانند. محدودهٔ دقیق float64 (تا ۲^۵۳)
-  برای مبالغ ریالی خانواده کافی است؛ اگر روزی دقت بانکی لازم شد، کل قرارداد پول
-  یک‌جا به رشته/واحد خرد تغییر می‌کند (تصمیم جداگانه).
+ - موجودی حساب، مبلغ تراکنش و برنامهٔ تکرار رشتهٔ اعشاری دقیق‌اند؛
+   دیگر خروجی‌های قدیمی در مرزهای جداگانهٔ خود باقی می‌مانند.
 - تاریخ‌های «فقط-تاریخ» (میلادی) به رشتهٔ 'YYYY-MM-DD' و `created_at` به ISO سریال می‌شوند.
 """
 
@@ -19,6 +17,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field, field_serializer, model_validator
+from app.schemas.wallet import decimal_text
 
 if TYPE_CHECKING:  # فقط تایپ؛ وابستگی زمان‌اجرا به مدل‌ها ایجاد نمی‌کند
     from app.models.account import Account
@@ -59,8 +58,8 @@ class AccountOut(BaseModel):
     sms_enabled: bool = False
 
     @field_serializer("initial_balance")
-    def _ser_initial_balance(self, v: Decimal) -> float:
-        return float(v)
+    def _ser_initial_balance(self, v: Decimal) -> str:
+        return decimal_text(v)
 
     @classmethod
     def of(cls, a: Account) -> AccountOut:
@@ -99,8 +98,8 @@ class RecurringPlanOut(BaseModel):
     revision: int
 
     @field_serializer("amount")
-    def _ser_amount(self, value: Decimal) -> float:
-        return float(value)
+    def _ser_amount(self, value: Decimal) -> str:
+        return decimal_text(value)
 
 
 class TransactionOut(BaseModel):
@@ -131,8 +130,8 @@ class TransactionOut(BaseModel):
     recurring_due_date: str | None = None
 
     @field_serializer("amount")
-    def _ser_amount(self, v: Decimal) -> float:
-        return float(v)
+    def _ser_amount(self, v: Decimal) -> str:
+        return decimal_text(v)
 
     @classmethod
     def of(cls, t: Transaction, photos: list[TransactionPhoto]) -> TransactionOut:

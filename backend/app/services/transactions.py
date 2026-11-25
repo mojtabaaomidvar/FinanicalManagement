@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert
 
 from app.core.errors import AppError
+from app.db.financial_lock import lock_financial_family
 from app.models.account import Account
 from app.models.category import CustomCategory, Subcategory
 from app.models.family import Member
@@ -79,7 +80,7 @@ def _prepare(db: Session, family_id: uuid.UUID, req: TransactionWrite, *, replac
     """قواعد سمت سرور را اعمال و مقادیر نرمال‌شدهٔ ستون‌ها را برمی‌گرداند."""
     if req.type not in _TYPES:
         raise AppError("INVALID_TYPE", "نوع تراکنش نامعتبر است.", 422)
-    if req.amount is None or not req.amount.is_finite() or req.amount <= 0 or req.amount > 999999999999:
+    if req.amount is None or not req.amount.is_finite() or req.amount <= 0 or req.amount > 999999999999 or req.amount * 100 != (req.amount * 100).to_integral_value():
         raise AppError("INVALID_AMOUNT", "مبلغ باید بزرگ‌تر از صفر باشد.", 422)
     category = (req.category or "").strip()
     if not category:
@@ -223,7 +224,7 @@ def create_uncommitted(
     family_id: uuid.UUID,
     req: TransactionWrite,
     *,
-    source_kind: Literal["vehicle_service"] | None = None,
+    source_kind: Literal["vehicle_service", "wallet_correction"] | None = None,
     actor: Member | None = None,
 ) -> Transaction:
     """تراکنش را می‌سازد و `flush` می‌کند — **بدون commit**.
@@ -241,6 +242,7 @@ def create_uncommitted(
     همهٔ اعتبارسنجی‌ها از `_prepare` می‌آید، پس هیچ قاعده‌ای دوباره نوشته
     نمی‌شود: یک موتورِ قاعده، یک commit.
     """
+    lock_financial_family(db, family_id)
     values = _prepare(db, family_id, req)
     if actor is not None:
         _check_payment_account(db, actor, values, req.require_available_balance or values["transfer_fee_method"] is not None)
@@ -288,6 +290,7 @@ def create(
 
 def update(db: Session, actor: Member, tx_id: uuid.UUID, req: TransactionWrite) -> None:
     """ویرایش: مدیر هر تراکنش خانواده؛ عضو فقط تراکنش خودش، بدون تغییر عضو منتسب."""
+    lock_financial_family(db, actor.family_id)
     is_family_admin = is_admin(actor)
     stmt = select(Transaction).where(
         Transaction.id == tx_id, Transaction.family_id == actor.family_id
@@ -300,6 +303,7 @@ def update(db: Session, actor: Member, tx_id: uuid.UUID, req: TransactionWrite) 
         raise AppError("NOT_FOUND", "تراکنش یافت نشد.", 404)
 
     _require_source_access(actor, row)
+    _require_no_correction_link(db, row)
     if row.source_kind == "transfer_fee":
         raise AppError("SOURCE_IMMUTABLE", "کارمزد همراه پرداخت مدیریت می‌شود؛ پرداخت اصلی را ویرایش یا حذف کنید.", 422)
     if "transfer_fee_method" not in req.model_fields_set and req.type in ("expense", "transfer"):
@@ -345,6 +349,7 @@ def delete_uncommitted(db: Session, actor: Member, tx_id: uuid.UUID) -> None:
     خودش از همین عبور می‌کند، تا دو نسخهٔ مجوز وجود نداشته باشد.
     امروز تنها مصرف‌کنندهٔ بیرونی‌اش `services/bills.unpay` است.
     """
+    lock_financial_family(db, actor.family_id)
     stmt = select(Transaction).where(
         Transaction.id == tx_id, Transaction.family_id == actor.family_id
     )
@@ -354,6 +359,7 @@ def delete_uncommitted(db: Session, actor: Member, tx_id: uuid.UUID) -> None:
     if row is None:
         raise AppError("NOT_FOUND", "تراکنش یافت نشد.", 404)
     _require_source_access(actor, row)
+    _require_no_correction_link(db, row)
     if row.source_kind == "transfer_fee":
         raise AppError("SOURCE_IMMUTABLE", "کارمزد همراه پرداخت مدیریت می‌شود؛ پرداخت اصلی را ویرایش یا حذف کنید.", 422)
     if (
@@ -405,6 +411,11 @@ def _sync_transfer_fee(db: Session, parent: Transaction) -> None:
     fee.note = None
 
 
+def _require_no_correction_link(db: Session, row: Transaction) -> None:
+    if row.source_kind == "wallet_correction":
+        raise AppError("SOURCE_IMMUTABLE", "تراکنش اصلاح موجودی بخشی از سابقهٔ اصلاح است؛ اصلاح تازه ثبت کنید.", 422)
+
+
 def delete(db: Session, actor: Member, tx_id: uuid.UUID) -> None:
     """حذف: مدیر هر تراکنش خانواده؛ عضو فقط تراکنش خودش."""
     delete_uncommitted(db, actor, tx_id)
@@ -437,6 +448,8 @@ def _check_payment_account(
     *,
     replacing: Transaction | None = None,
 ) -> None:
+    from app.db.document_scope import bind_member
+    bind_member(db, actor.id)
     if not is_admin(actor) and values["member_id"] != actor.id:
         raise AppError("FORBIDDEN", "نمی‌توانید تراکنش را به عضو دیگری نسبت دهید.", 403)
     account_id = values["account_id"]
@@ -456,6 +469,8 @@ def _check_payment_account(
             raise AppError("ACCOUNT_REQUIRED", "حساب پرداخت یا دریافت را انتخاب کنید.", 422)
         return
     ids = {account_id}
+    if replacing is not None:
+        ids.update(aid for aid in (replacing.account_id, replacing.to_account_id) if aid is not None)
     if values["to_account_id"] is not None:
         ids.add(values["to_account_id"])
     rows = list(
@@ -475,25 +490,15 @@ def _check_payment_account(
         raise AppError("ACCOUNT_FORBIDDEN", "فقط حساب‌های خودتان قابل انتخاب‌اند.", 403)
     if not require_balance or values["type"] == "income":
         return
-    transactions = db.scalars(
-        select(Transaction).where(
-            Transaction.family_id == actor.family_id,
-            or_(Transaction.account_id == account_id, Transaction.to_account_id == account_id),
-        )
-    )
-    balance = account.initial_balance
-    for transaction in transactions:
-        if replacing is not None and (transaction.id == replacing.id or transaction.transfer_fee_for_id == replacing.id):
-            continue
-        if transaction.account_id == account_id:
-            balance += transaction.amount if transaction.type == "income" else -transaction.amount
-        if transaction.type == "transfer" and transaction.to_account_id == account_id:
-            balance += transaction.amount
+    from app.services.wallet_corrections import current_balance, ledger_balance
+    ledger = ledger_balance(db, account, excluding=replacing.id if replacing else None)
+    balance = current_balance(db, account, ledger)
     if balance < values["amount"] + Decimal(values.get("transfer_fee_rial") or 0) / 10:
         raise AppError("INSUFFICIENT_BALANCE", "موجودی این حساب برای مبلغ واردشده کافی نیست.", 409)
 
 
 def _recurring_row(db: Session, actor: Member, tx_id: uuid.UUID) -> Transaction:
+    lock_financial_family(db, actor.family_id)
     query = select(Transaction).where(
         Transaction.id == tx_id, Transaction.family_id == actor.family_id
     )

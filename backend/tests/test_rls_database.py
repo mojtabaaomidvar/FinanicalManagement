@@ -81,6 +81,7 @@ PROTECTED: tuple[str, ...] = (
     "transaction_photos",
     "transactions",
     "vehicles",
+    "wallet_corrections",
 )
 
 # جدول‌هایی که ستون family_id دارند ولی «عمداً» بیرون از RLS مانده‌اند.
@@ -151,6 +152,10 @@ def _populate(client: Any, who: Actor) -> None:
     وگرنه «شاهدِ مثبت» پایینِ فایل قرمز می‌شود.
     """
     acc = make_account(client, who, "حسابِ سنجشِ RLS")
+    from tests.test_wallet_corrections import balance, correct
+    snapshot = balance(client, who, {"id": acc})
+    corrected, _ = correct(client, who, {"id": acc}, snapshot["current_balance"])
+    assert corrected.status_code == 201, corrected.text
     tx = make_transaction(client, who)
     make_event(client, who, "رویدادِ سنجشِ RLS")
     make_holding(client, who)
@@ -386,6 +391,20 @@ def test_protected_tables_have_a_fail_closed_family_policy(raw_sql: Any, table: 
     ).all()
 
     assert rows, f"جدول «{table}» هیچ پالیسی‌ای ندارد — با RLSِ روشن یعنی کلاً بسته، نه ایزوله."
+
+    if table == "wallet_corrections":
+        # Immutable receipts deliberately have separate read/insert policies,
+        # and no UPDATE or DELETE policy. FOR ALL would loosen that contract.
+        assert {row[0]: row[2] for row in rows} == {
+            "wallet_correction_read": "SELECT", "wallet_correction_create": "INSERT",
+        }
+        read = next(row for row in rows if row[2] == "SELECT")
+        create = next(row for row in rows if row[2] == "INSERT")
+        for predicate in [read[3], create[4]]:
+            for part in (*PREDICATE_PARTS, "app.document_member_id", "membership_state", "status"):
+                assert part.casefold() in predicate.casefold()
+        assert read[1] == create[1] == "PERMISSIVE"
+        return
 
     name = ("assistant_execution_scope" if table == "assistant_execution_receipts"
             else f"{table}{POLICY_SUFFIX}")

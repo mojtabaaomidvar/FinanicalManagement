@@ -107,6 +107,8 @@ def complete_service(
     max_records: int,
     limit_message: str,
 ) -> tuple[Target, MaintenanceRecord, bool]:
+    from app.db.financial_lock import lock_financial_family
+    lock_financial_family(db, actor.family_id)
     description = clean_opt_text(body.description, 1000, "شرح سرویس")
     if not description:
         raise AppError("INVALID_INPUT", "شرح سرویس را بنویسید.", 422)

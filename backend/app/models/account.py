@@ -8,6 +8,7 @@ from decimal import Decimal
 
 from sqlalchemy import (
     Boolean,
+    BigInteger,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -46,6 +47,7 @@ class Account(Base):
     initial_balance: Mapped[Decimal] = mapped_column(
         Numeric(19, 1), nullable=False, server_default=text("0")
     )
+    balance_revision: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default=text("0"))
     # رضایت صریح کاربر برای تشخیص تراکنش از پیامک — فقط همین حساب.
     # پیش‌فرض false؛ هیچ حسابی بدون انتخاب کاربر مشمول نمی‌شود.
     sms_enabled: Mapped[bool] = mapped_column(

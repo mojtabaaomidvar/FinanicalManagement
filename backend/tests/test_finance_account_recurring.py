@@ -242,7 +242,7 @@ def test_future_edit_preserves_original_and_paid_transaction_then_settles_early(
         assert changed[field] == tx[field]
     assert next(row for row in rows(client, home_a) if row["id"] == paid["id"]) == paid
     assert changed["recurring_plan"] == {
-        "amount": 20000,
+        "amount": "20000",
         "category": "home",
         "note": "آینده",
         "start_date": "2026-11-26",
@@ -261,7 +261,7 @@ def test_future_edit_preserves_original_and_paid_transaction_then_settles_early(
         early["date"],
         early["repeat"],
         early["subcategory_id"],
-    ) == (20000, "home", "آینده", "2026-11-19", "none", None)
+    ) == ("20000", "home", "آینده", "2026-11-19", "none", None)
     assert early["recurring_due_date"] == "2026-11-26" and early["recurring_source_id"] == tx["id"]
     # Even an old revision retry resolves to the same committed payment.
     assert (
