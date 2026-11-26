@@ -145,13 +145,22 @@ class DemoDriver:
             from app.management.analytics import demo_analytics
 
             return demo_analytics(state["users"], arguments.get("days", 30))
+        if section == "ai-analytics":
+            from app.management.ai_analytics import demo_ai_analytics
+
+            return demo_ai_analytics(state["users"], arguments.get("days", 30))
         if section == "overview":
+            from app.management.versions import installed_web_version
+
             api_running = state["services"][0]["state"] == "running"
             db_running = state["services"][1]["state"] == "running"
             return {
                 "api": "available" if api_running else "unavailable",
                 "database": "available" if db_running else "unavailable",
                 "version": state["version"],
+                "api_version": "0.1.0",
+                "software_version": state["version"],
+                "management_version": installed_web_version(self.config.web_root),
                 "cpu_load": 0.38,
                 "cpu_cores": 2,
                 "memory_total": 2 * 1024**3,
@@ -174,18 +183,33 @@ class DemoDriver:
             offset = int(arguments.get("offset", 0))
             return {"items": items[offset : offset + 25], "total": len(items), "offset": offset}
         if section == "settings":
+            from app.core.feature_policy import FEATURES
+
             return {
                 "flags": state["flags"],
                 "environment": state["environment"],
                 "revision": self.revision(state),
                 "runtime_supported": True,
+                "feature_controls_supported": True,
+                "ai_controls_supported": True,
+                "ai_configuration_applied": True,
+                "runtime_applied": True,
+                "features": {
+                    name: state.get("features", {}).get(name, "enabled") for name in FEATURES
+                },
             }
         if section == "backups":
+            offset = int(arguments.get("offset", 0))
+            if not 0 <= offset <= 1_000_000:
+                from app.management.contracts import ManagementError
+
+                raise ManagementError("INVALID_OFFSET", "شمارهٔ صفحهٔ گزارش معتبر نیست.", 422)
+            items = [
+                {key: value for key, value in item.items() if key != "snapshot"}
+                for item in state["backups"]
+            ]
             return {
-                "items": [
-                    {key: value for key, value in item.items() if key != "snapshot"}
-                    for item in state["backups"]
-                ],
+                "items": items[offset : offset + 100], "total": len(items), "offset": offset,
                 "scheduled": state["scheduled"],
             }
         if section == "releases":
@@ -239,6 +263,9 @@ class DemoDriver:
                 from app.management.contracts import SECRET_KEYS
 
                 for key, value in operation.values.items():
+                    if key.startswith("feature_"):
+                        state.setdefault("features", {})[key.removeprefix("feature_")] = value
+                        continue
                     (state["flags"] if key in state["flags"] else state["environment"])[key] = (
                         bool(value) if key in SECRET_KEYS else value
                     )

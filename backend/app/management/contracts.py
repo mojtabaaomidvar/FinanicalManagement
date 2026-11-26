@@ -8,6 +8,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.core.feature_policy import FEATURE_KEYS, FEATURE_STATES
+
 Role = Literal["owner", "operator", "viewer"]
 Kind = Literal[
     "service.start",
@@ -36,9 +38,23 @@ ENV_KEYS = SECRET_KEYS | {
     "SMS_TEMPLATE",
     "AI_SMS_MODEL",
     "AI_SMS_GATEWAY_URL",
+    "AI_CONNECTION_MODE", "AI_SMS_TIMEOUT_SECONDS", "AI_MAX_OUTPUT_TOKENS",
+    "AI_REQUESTS_PER_DAY", "AI_FAMILY_REQUESTS_PER_DAY", "AI_MAX_CONCURRENT",
+}
+AI_CONTROL_KEYS = {
+    "AI_CONNECTION_MODE", "AI_SMS_TIMEOUT_SECONDS", "AI_MAX_OUTPUT_TOKENS",
+    "AI_REQUESTS_PER_DAY", "AI_FAMILY_REQUESTS_PER_DAY", "AI_MAX_CONCURRENT",
+}
+AI_NUMERIC_BOUNDS = {
+    "AI_SMS_TIMEOUT_SECONDS": (1, 25), "AI_MAX_OUTPUT_TOKENS": (256, 8192),
+    "AI_REQUESTS_PER_DAY": (0, 1_000_000), "AI_FAMILY_REQUESTS_PER_DAY": (0, 100_000),
+    "AI_MAX_CONCURRENT": (0, 64),
 }
 FLAG_KEYS = {"maintenance", "registration_enabled", "assistant_enabled", "otp_enabled"}
-READS = {"overview", "services", "users", "settings", "backups", "releases", "logs", "analytics"}
+READS = {
+    "overview", "services", "users", "settings", "backups", "releases", "logs", "analytics",
+    "ai-analytics",
+}
 
 
 class ManagementError(Exception):
@@ -51,7 +67,7 @@ class Operation(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     kind: Kind
     target: str = Field(default="", max_length=100)
-    values: dict[str, str | bool] = Field(default_factory=dict, max_length=20)
+    values: dict[str, str | bool] = Field(default_factory=dict, max_length=64)
     expected: str = Field(default="", max_length=64)
 
     @model_validator(mode="after")
@@ -84,11 +100,14 @@ class Operation(BaseModel):
             )
         elif self.kind == "settings.update":
             valid = (
-                not self.target and bool(self.values) and set(self.values) <= ENV_KEYS | FLAG_KEYS
+                not self.target and bool(self.values)
+                and set(self.values) <= ENV_KEYS | FLAG_KEYS | FEATURE_KEYS
             )
             for key, value in self.values.items():
                 if key in FLAG_KEYS:
                     valid = valid and type(value) is bool
+                elif key in FEATURE_KEYS:
+                    valid = valid and isinstance(value, str) and value in FEATURE_STATES
                 else:
                     valid = (
                         valid
@@ -98,6 +117,15 @@ class Operation(BaseModel):
                     )
                     if isinstance(value, str) and any(c in value for c in "\"'`$\\"):
                         valid = False
+                    if key in AI_NUMERIC_BOUNDS:
+                        lower, upper = AI_NUMERIC_BOUNDS[key]
+                        valid = (valid and isinstance(value, str) and value.isascii()
+                                 and value.isdigit() and len(value) <= 7
+                                 and lower <= int(value) <= upper)
+                    if key == "AI_CONNECTION_MODE":
+                        valid = valid and value in {"auto", "direct", "gateway", "disabled"}
+                    if key == "AI_SMS_MODEL":
+                        valid = valid and bool(re.fullmatch(r"[A-Za-z0-9._-]{1,100}", str(value)))
             provider = self.values.get("SMS_PROVIDER", "")
             valid = valid and provider in {"", "kavenegar"}
             gateway = self.values.get("AI_SMS_GATEWAY_URL", "")
@@ -112,6 +140,7 @@ class Operation(BaseModel):
                     and not url.username
                     and not url.password
                     and not url.fragment
+                    and not url.query
                 )
         else:
             valid = not self.target and not self.values

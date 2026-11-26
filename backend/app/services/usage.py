@@ -1,8 +1,9 @@
 """Anonymous module counters. No identity, request body, amount or event log."""
 
-from datetime import datetime, timedelta, timezone
 import logging
 import re
+from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta
 from typing import get_args
 from zoneinfo import ZoneInfo
 
@@ -11,11 +12,12 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
-from app.models.support import SupportUsageCounter
-from app.schemas.support import SupportUsage, SupportModuleUsage, SupportRecordCounts, UsageModule
+from app.models.support import SupportAiCounter, SupportUsageCounter
+from app.schemas.support import SupportModuleUsage, SupportRecordCounts, SupportUsage, UsageModule
 from app.services.clock import utcnow
 
 MODULES = get_args(UsageModule)
+AI_STAGES = frozenset({"sms", "assistant_analyze", "assistant_plan", "assistant_report"})
 logger = logging.getLogger(__name__)
 RESOURCE_MODULE = {
     "transactions": "transactions", "accounts": "accounts", "category-budgets": "budgets",
@@ -28,6 +30,9 @@ RESOURCE_MODULE = {
 
 
 def successful_operation(path: str, method: str) -> tuple[str, str] | None:
+    if path == "/api/v1/shopping/offline/mutations":
+        # The validated route supplies a fixed semantic classification to middleware.
+        return None
     if method not in {"POST", "PATCH", "DELETE"} or path == "/api/v1/events/sync-birthdays":
         return None
     match = re.fullmatch(r"/api/v1/([a-z-]+)(?:/(.*))?", path)
@@ -47,7 +52,9 @@ def successful_operation(path: str, method: str) -> tuple[str, str] | None:
 def record(module: str, action: str) -> None:
     if module not in MODULES or action not in {"open", "create", "update", "complete", "delete"}:
         return
-    hour = utcnow().astimezone(ZoneInfo("Asia/Tehran")).replace(minute=0, second=0, microsecond=0).astimezone(timezone.utc)
+    hour = utcnow().astimezone(ZoneInfo("Asia/Tehran")).replace(
+        minute=0, second=0, microsecond=0,
+    ).astimezone(UTC)
     try:
         with SessionLocal() as db:
             statement = insert(SupportUsageCounter).values(hour=hour, module=module, action=action, count=1)
@@ -58,6 +65,89 @@ def record(module: str, action: str) -> None:
     except Exception:
         # Analytics must never alter the original financial result or log its data.
         logger.warning("Usage counter unavailable")
+
+
+def record_ai(
+    stage: str,
+    status: str,
+    *,
+    input_tokens: int | None = None,
+    output_tokens: int | None = None,
+) -> None:
+    """Record one provider call without identity, prompt, response or content."""
+    if stage not in AI_STAGES or status not in {"success", "failure"}:
+        return
+    from app.services.sms_ai_provider import token_count
+
+    input_tokens, output_tokens = token_count(input_tokens), token_count(output_tokens)
+    input_value, output_value = input_tokens or 0, output_tokens or 0
+    input_known, output_known = int(input_tokens is not None), int(output_tokens is not None)
+    hour = utcnow().astimezone(ZoneInfo("Asia/Tehran")).replace(
+        minute=0, second=0, microsecond=0
+    ).astimezone(UTC)
+    try:
+        with SessionLocal() as db:
+            statement = insert(SupportAiCounter).values(
+                hour=hour,
+                stage=stage,
+                status=status,
+                requests=1,
+                input_tokens=input_value,
+                output_tokens=output_value,
+                input_token_requests=input_known,
+                output_token_requests=output_known,
+            )
+            db.execute(statement.on_conflict_do_update(
+                index_elements=[
+                    SupportAiCounter.hour, SupportAiCounter.stage, SupportAiCounter.status,
+                ],
+                set_={
+                    "requests": SupportAiCounter.requests + 1,
+                    "input_tokens": SupportAiCounter.input_tokens + input_value,
+                    "output_tokens": SupportAiCounter.output_tokens + output_value,
+                    "input_token_requests": SupportAiCounter.input_token_requests + input_known,
+                    "output_token_requests": SupportAiCounter.output_token_requests + output_known,
+                },
+            ))
+            db.commit()
+    except Exception:
+        logger.warning("AI usage counter unavailable")
+
+
+@contextmanager
+def measure_ai(stage: str):
+    from app.services.sms_ai_provider import capture_ai_usage
+    from app.services.ai_controls import release_call, reserve_call
+
+    lease = None
+
+    def before_attempt():
+        nonlocal lease
+        lease = reserve_call()
+
+    with capture_ai_usage(before_attempt) as usage:
+        status = "failure"
+        try:
+            yield
+            status = "success"
+        finally:
+            release_call(lease)
+            if usage.attempted:
+                record_ai(
+                    stage, status, input_tokens=usage.input_tokens, output_tokens=usage.output_tokens,
+                )
+
+
+def offline_operation(kind: str) -> tuple[str, str] | None:
+    entity, _, action = kind.partition(".")
+    module = {
+        "list": "shopping", "item": "shopping", "inventory": "inventory", "task": "tasks",
+    }.get(entity)
+    if module is None or action not in {
+        "create", "update", "delete", "check", "adjust", "complete",
+    }:
+        return None
+    return module, "update" if action in {"check", "adjust"} else action
 
 
 def report(db: Session, days: int) -> SupportUsage:

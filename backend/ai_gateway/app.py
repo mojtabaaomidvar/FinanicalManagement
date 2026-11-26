@@ -30,7 +30,13 @@ from app.services.household_ai_protocol import (
     build_household_messages,
 )
 from app.services.sms_ai_protocol import GatewayAnalyzeIn, build_messages
-from app.services.sms_ai_provider import provider_error, request_deepseek, request_deepseek_json
+from app.services.sms_ai_provider import (
+    ai_usage_headers,
+    capture_ai_usage,
+    provider_error,
+    request_deepseek,
+    request_deepseek_json,
+)
 
 MAX_REQUEST_BYTES = 256 * 1024
 PRIVATE_PATH = "/v1/sms/analyze"
@@ -53,7 +59,8 @@ def error_response(code: str, *, status: int | None = None) -> JSONResponse:
     error = provider_error(code)
     return JSONResponse(
         {"error": error.code, "message": error.message},
-        status_code=status or error.http_status, headers=NO_STORE,
+        status_code=status or error.http_status,
+        headers={**NO_STORE, "X-AI-Usage-Version": "1", "X-AI-Attempted": "0"},
     )
 
 
@@ -138,7 +145,8 @@ def create_app(config: GatewaySettings | None = None) -> FastAPI:
     async def application_error(_request, error: AppError):
         return JSONResponse(
             {"error": error.code, "message": error.message},
-            status_code=error.http_status, headers=NO_STORE,
+            status_code=error.http_status,
+            headers={**NO_STORE, "X-AI-Usage-Version": "1", "X-AI-Attempted": "0"},
         )
 
     @app.exception_handler(RequestValidationError)
@@ -150,28 +158,38 @@ def create_app(config: GatewaySettings | None = None) -> FastAPI:
     def health():
         return JSONResponse({"status": "ok", "service": "sms-ai-gateway"}, headers=NO_STORE)
 
+    def infer(messages, schema=None, *, sms=False):
+        limits.enter()
+        with capture_ai_usage() as usage:
+            try:
+                transport = request_deepseek if sms else request_deepseek_json
+                result = transport(messages, api_key=config.deepseek_api_key,
+                                   model=config.ai_sms_model, timeout=config.ai_sms_timeout_seconds)
+                if sms and (
+                    not isinstance(result, dict) or not isinstance(result.get("transactions"), list)
+                    or len(result["transactions"]) > 80
+                ):
+                    raise provider_error("AI_INVALID_RESULT")
+                if schema is not None:
+                    try:
+                        result = schema.model_validate(result)
+                    except ValidationError:
+                        raise provider_error("AI_INVALID_RESULT") from None
+                encoded = result.model_dump_json() if schema else json.dumps(
+                    result, ensure_ascii=False, default=str,
+                )
+                return Response(encoded, media_type="application/json",
+                                headers={**NO_STORE, **ai_usage_headers(usage)})
+            except AppError as error:
+                return JSONResponse({"error": error.code, "message": error.message},
+                                    status_code=error.http_status,
+                                    headers={**NO_STORE, **ai_usage_headers(usage)})
+            finally:
+                limits.slots.release()
+
     @app.post(PRIVATE_PATH)
     def analyze(body: GatewayAnalyzeIn):
-        limits.enter()
-        try:
-            result = request_deepseek(
-                build_messages([item.model_dump() for item in body.items]),
-                api_key=config.deepseek_api_key,
-                model=config.ai_sms_model,
-                timeout=config.ai_sms_timeout_seconds,
-            )
-            if (
-                not isinstance(result, dict) or not isinstance(result.get("transactions"), list)
-                or len(result["transactions"]) > 80
-            ):
-                raise provider_error("AI_INVALID_RESULT")
-            # Keep decimal amounts exact across the additional HTTP hop.
-            return Response(
-                json.dumps(result, ensure_ascii=False, default=str),
-                media_type="application/json", headers=NO_STORE,
-            )
-        finally:
-            limits.slots.release()
+        return infer(build_messages([item.model_dump() for item in body.items]), sms=True)
 
     @app.get("/v1/assistant/capabilities")
     def household_capabilities():
@@ -182,37 +200,10 @@ def create_app(config: GatewaySettings | None = None) -> FastAPI:
 
     @app.post("/v1/assistant/analyze")
     def household_analyze(body: GatewayHouseholdIn):
-        limits.enter()
-        try:
-            result = request_deepseek_json(
-                build_household_messages(body), api_key=config.deepseek_api_key,
-                model=config.ai_sms_model, timeout=config.ai_sms_timeout_seconds,
-            )
-            try:
-                result = HouseholdResult.model_validate(result)
-            except ValidationError:
-                raise provider_error("AI_INVALID_RESULT") from None
-            return Response(
-                result.model_dump_json(), media_type="application/json", headers=NO_STORE,
-            )
-        finally:
-            limits.slots.release()
+        return infer(build_household_messages(body), HouseholdResult)
 
     def contextual(body, schema):
-        limits.enter()
-        try:
-            result = request_deepseek_json(
-                build_context_messages(body), api_key=config.deepseek_api_key,
-                model=config.ai_sms_model, timeout=config.ai_sms_timeout_seconds,
-            )
-            try:
-                result = schema.model_validate(result)
-            except ValidationError:
-                raise provider_error("AI_INVALID_RESULT") from None
-            return Response(result.model_dump_json(), media_type="application/json",
-                            headers=NO_STORE)
-        finally:
-            limits.slots.release()
+        return infer(build_context_messages(body), schema)
 
     @app.post("/v1/assistant/plan")
     def contextual_plan(body: ContextPlanIn):

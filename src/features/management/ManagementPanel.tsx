@@ -2,9 +2,14 @@ import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNod
 import { managementApi as api, type Account, type Audit, type Backup, type Credential, type Job, type Operation,
   type Overview, type Plan, type Release, type Role, type Service, type Session, type Settings, type User } from "./api";
 import { actionDescriptions, actionLabels, auditLabels, environmentLabels, flagLabels, ownerOperations,
-  pageLabels, roleLabels, secretKeys, sensitiveOperations, serviceLabels, stateLabels, type Page } from "./labels";
+  featureLabels, pageLabels, roleLabels, secretKeys, sensitiveOperations, serviceLabels, stateLabels, type Page } from "./labels";
 import mark from "../../../public/khaneyar-mark.png";
 import { ProductAnalytics } from "./ProductAnalytics";
+import { InstalledVersions } from "./InstalledVersions";
+import { ConnectionSettings, FeatureSettings, settingsValues } from "./SettingsFields";
+import { ConfigurationImport } from "./ConfigurationImport";
+import { ReportsExport } from "./ReportsExport";
+import type { AnalyticsDays } from "./analytics.types";
 import { ManagementDashboard } from "./ManagementDashboard";
 import "./management.css";
 
@@ -76,7 +81,7 @@ function OverviewPage({ refresh, role, act, busy }: Props) {
   const pct = (used: number, total: number) => Math.round(used / total * 100);
   return <State {...resource}>{data && <>
     <div className="mg-overview-lead"><div><span className="mg-muted">وضعیت همین لحظه</span><h2>{data.api === "available" && data.database === "available" ? "خانه‌یار در دسترس است" : "سرویس‌ها به بررسی نیاز دارند"}</h2><p>آخرین بررسی: {date(data.checked_at)}</p></div><Badge state={data.api} /></div>
-    <dl className="mg-facts"><div><dt>نسخهٔ برنامه</dt><dd><bdi dir="ltr">{data.version || "—"}</bdi></dd></div><div><dt>زمان روشن‌بودن سرور</dt><dd>{number(Math.floor(data.uptime_seconds / 86400))} روز</dd></div><div><dt>پایگاه داده</dt><dd><Badge state={data.database} /></dd></div></dl>
+    <dl className="mg-facts"><InstalledVersions data={data} /><div><dt>زمان روشن‌بودن سرور</dt><dd>{number(Math.floor(data.uptime_seconds / 86400))} روز</dd></div><div><dt>پایگاه داده</dt><dd><Badge state={data.database} /></dd></div></dl>
     <Section title="منابع سرور" note="مقادیر از میزبان سرویس‌ها خوانده می‌شوند."><div className="mg-resources"><div><span>بار پردازنده</span><strong>{number(data.cpu_load, 2)}</strong><p>{number(data.cpu_cores)} هستهٔ پردازشی</p></div>{[{ label: "حافظهٔ رم", used: data.memory_used, total: data.memory_total }, { label: "فضای دیسک", used: data.disk_used, total: data.disk_total }].map(item => <div key={item.label}><span>{item.label}</span><strong>{number(pct(item.used, item.total))}٪</strong><meter min={0} max={100} value={pct(item.used, item.total)} aria-label={item.label} /><p>{bytes(item.used)} از {bytes(item.total)}</p></div>)}</div></Section>
     <Section title="سرویس‌ها"><div className="mg-service-list">{data.services.map(item => <div key={item.id}><strong>{serviceLabels[item.id]}</strong><Badge state={item.state} /></div>)}</div></Section>
     <div className="mg-actions"><Action {...{ role, act, busy }} operation={{ kind: "backup.create" }}>ساخت پشتیبان کامل</Action><Action {...{ role, act, busy }} operation={{ kind: "nginx.reload" }}>بررسی و بارگذاری وب‌سرور</Action></div>
@@ -112,13 +117,15 @@ function UsersPage(props: Props) {
 }
 
 function SettingsForm({ data, ...props }: Props & { data: Settings }) {
-  const [values, setValues] = useState<Record<string, string | boolean>>({ ...data.flags, ...Object.fromEntries(Object.entries(data.environment).filter(([key]) => !secretKeys.has(key))) });
+  const [values, setValues] = useState<Record<string, string | boolean>>(settingsValues(data));
   const [dirty, setDirty] = useState<Set<string>>(new Set());
   const update = (key: string, value: string | boolean) => { setValues(previous => ({ ...previous, [key]: value })); setDirty(previous => new Set(previous).add(key)); };
   return <form onSubmit={event => { event.preventDefault(); props.act({ kind: "settings.update", values: Object.fromEntries([...dirty].map(key => [key, values[key]])) }); }}>
     <Section title="دسترسی و وضعیت برنامه">{!data.runtime_supported && <p className="mg-error" role="status">کنترل تعمیرات، ثبت‌نام و دستیار پس از نصب نسخهٔ سازگار برنامه و فعال‌کردن اتصال مدیریت در دسترس است.</p>}<div className="mg-switches">{Object.entries(flagLabels).map(([key, label]) => <label key={key}><span>{label}</span><input type="checkbox" checked={Boolean(values[key])} onChange={event => update(key, event.target.checked)} disabled={props.role === "viewer" || (!data.runtime_supported && key !== "otp_enabled")} /></label>)}</div><p className="mg-muted">حالت تعمیرات، دسترسی کاربران به برنامه را موقتاً متوقف می‌کند. فعال‌کردن کد ورود به درگاه پیامکِ تنظیم‌شده نیاز دارد.</p></Section>
-    <Section title="پیامک و دستیار" note="کلیدهای ذخیره‌شده نمایش داده نمی‌شوند. فیلدهای بدون تغییر حفظ می‌شوند."><div className="mg-form-grid">{Object.entries(environmentLabels).map(([key, label]) => <label key={key}>{label}{secretKeys.has(key) ? <><input type="password" autoComplete="new-password" value={String(values[key] ?? "")} onChange={e => update(key, e.target.value)} disabled={props.role === "viewer"} placeholder={data.environment[key] ? "کلید تنظیم شده؛ برای تغییر بنویسید" : "کلیدی تنظیم نشده است"} dir="ltr" /><span className="mg-hint">{data.environment[key] ? "کلید فعلی موجود است." : "این اتصال هنوز کلید ندارد."}</span></> : key === "SMS_PROVIDER" ? <select value={String(values[key] ?? "")} onChange={e => update(key, e.target.value)} disabled={props.role === "viewer"}><option value="">غیرفعال</option><option value="kavenegar">کاوه‌نگار</option></select> : <input type={key === "AI_SMS_GATEWAY_URL" ? "url" : "text"} maxLength={1024} value={String(values[key] ?? "")} onChange={e => update(key, e.target.value)} disabled={props.role === "viewer"} dir="ltr" />}</label>)}</div></Section>
-    {props.role !== "viewer" && <button className="mg-primary" disabled={!dirty.size || props.busy}>بررسی و ذخیرهٔ تغییرها</button>}
+    <FeatureSettings {...{ data, values, update }} readOnly={props.role === "viewer"} />
+    {props.role !== "viewer" && <ConfigurationImport {...{ data, values, update }} disabled={props.busy} />}
+    <ConnectionSettings {...{ data, values, update }} readOnly={props.role === "viewer"} />
+    {props.role !== "viewer" && <div className="mg-actions"><button className="mg-primary" disabled={!dirty.size || props.busy}>بررسی و ذخیرهٔ تغییرها</button><button type="button" disabled={!dirty.size || props.busy} onClick={() => { setValues(settingsValues(data)); setDirty(new Set()); }}>لغو تغییرهای ذخیره‌نشده</button></div>}
   </form>;
 }
 function SettingsPage(props: Props) {
@@ -236,7 +243,23 @@ function ConfirmDialog({ plan, download, session, close, done }: { plan: Plan | 
     } catch (e) { setError(errorMessage(e)); setPassword(""); setCode(""); }
     finally { setBusy(false); }
   }
-  return <dialog ref={dialog} className="mg-dialog" aria-labelledby="mg-confirm-title" onCancel={event => { event.preventDefault(); if (!busy) close(); }}><form onSubmit={execute}><h2 id="mg-confirm-title">{operation ? actionLabels[operation.kind] : "دریافت پشتیبان"}</h2><p>{operation ? actionDescriptions[operation.kind] : "این فایل شامل اطلاعات برنامه و کلیدهای بازیابی است؛ آن را در محل خصوصی نگه دارید."}</p>{session.mode === "demo" && <p className="mg-demo-note">محیط آزمایشی است؛ این عملیات روی سرور واقعی اجرا نمی‌شود.</p>}{(operation?.target || download) && <code dir="ltr">{operation?.target || download}</code>}{operation?.values && <dl className="mg-confirm-values">{Object.entries(operation.values).map(([key, value]) => <div key={key}><dt>{flagLabels[key] ?? environmentLabels[key] ?? (key === "enabled" ? "پشتیبان روزانه" : key)}</dt><dd>{secretKeys.has(key) ? "کلید تازه دریافت شده است." : typeof value === "boolean" ? value ? "فعال" : "غیرفعال" : <bdi dir="ltr">{value || "—"}</bdi>}</dd></div>)}</dl>}{sensitive && <label>برای تأیید، مقدار زیر را دوباره بنویسید:<code dir="ltr">{target}</code><input required autoComplete="off" value={confirmation} onChange={e => setConfirmation(e.target.value)} dir="ltr" /></label>}<CredentialFields {...{ password, setPassword, code, setCode, mfa: session.mfa }} /><label className="mg-check"><input type="checkbox" checked={accepted} required onChange={e => setAccepted(e.target.checked)} />اثر این عملیات را بررسی کرده‌ام.</label>{error && <p className="mg-error" role="alert">{error}</p>}<div className="mg-actions"><button className={sensitive ? "mg-danger" : "mg-primary"} disabled={busy || !accepted || (sensitive && confirmation !== target)}>{busy ? "در حال ثبت درخواست…" : download ? "دریافت فایل" : "تأیید و اجرا"}</button><button type="button" disabled={busy} onClick={close}>انصراف</button></div></form></dialog>;
+  const featureStateLabels: Record<string, string> = { enabled: "فعال", read_only: "فقط‌خواندنی", disabled: "غیرفعال" };
+  return <dialog ref={dialog} className="mg-dialog" aria-labelledby="mg-confirm-title" onCancel={event => { event.preventDefault(); if (!busy) close(); }}><form onSubmit={execute}>
+    <h2 id="mg-confirm-title">{operation ? actionLabels[operation.kind] : "دریافت پشتیبان"}</h2>
+    <p>{operation ? actionDescriptions[operation.kind] : "این فایل شامل اطلاعات برنامه و کلیدهای بازیابی است؛ آن را در محل خصوصی نگه دارید."}</p>
+    {session.mode === "demo" && <p className="mg-demo-note">محیط آزمایشی است؛ این عملیات روی سرور واقعی اجرا نمی‌شود.</p>}
+    {(operation?.target || download) && <code dir="ltr">{operation?.target || download}</code>}
+    {operation?.values && <dl className="mg-confirm-values">{Object.entries(operation.values).map(([key, value]) => <div key={key}>
+      <dt>{flagLabels[key] ?? environmentLabels[key] ?? featureLabels[key.replace(/^feature_/, "")] ?? (key === "enabled" ? "پشتیبان روزانه" : key)}</dt>
+      <dd>{secretKeys.has(key) ? "کلید تازه دریافت شده است." : typeof value === "boolean" ? value ? "فعال" : "غیرفعال"
+        : key.startsWith("feature_") ? featureStateLabels[value] : <bdi dir="ltr">{value || "—"}</bdi>}</dd>
+    </div>)}</dl>}
+    {sensitive && <label>برای تأیید، مقدار زیر را دوباره بنویسید:<code dir="ltr">{target}</code><input required autoComplete="off" value={confirmation} onChange={e => setConfirmation(e.target.value)} dir="ltr" /></label>}
+    <CredentialFields {...{ password, setPassword, code, setCode, mfa: session.mfa }} />
+    <label className="mg-check"><input type="checkbox" checked={accepted} required onChange={e => setAccepted(e.target.checked)} />اثر این عملیات را بررسی کرده‌ام.</label>
+    {error && <p className="mg-error" role="alert">{error}</p>}
+    <div className="mg-actions"><button className={sensitive ? "mg-danger" : "mg-primary"} disabled={busy || !accepted || (sensitive && confirmation !== target)}>{busy ? "در حال ثبت درخواست…" : download ? "دریافت فایل" : "تأیید و اجرا"}</button><button type="button" disabled={busy} onClick={close}>انصراف</button></div>
+  </form></dialog>;
 }
 
 function LoginPage({ mode, ready, notice }: { mode: Session["mode"]; ready: (session: Session) => void; notice: string }) {
@@ -262,6 +285,7 @@ export function ManagementPanel() {
   const [retry, setRetry] = useState(0);
   const [mode, setMode] = useState<Session["mode"]>("production");
   const [page, setPage] = useState<Page>("dashboard");
+  const [reportDays, setReportDays] = useState<AnalyticsDays>(30);
   const [refresh, setRefresh] = useState(0);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -329,9 +353,9 @@ export function ManagementPanel() {
   const props: Props = { refresh, role: session.role, act: operation => void act(operation), busy: preparing || Boolean(activeJob) };
   let content: ReactNode;
   switch (page) {
-    case "dashboard": content = <ManagementDashboard refresh={refresh} navigate={setPage} />; break;
+    case "dashboard": content = <ManagementDashboard refresh={refresh} navigate={setPage} days={reportDays} changeDays={setReportDays} />; break;
     case "overview": content = <OverviewPage {...props} />; break;
-    case "analytics": content = <ProductAnalytics refresh={refresh} />; break;
+    case "analytics": content = <ProductAnalytics refresh={refresh} days={reportDays} changeDays={setReportDays} />; break;
     case "server": content = <ServerPage {...props} />; break;
     case "users": content = <UsersPage {...props} />; break;
     case "settings": content = <SettingsPage {...props} />; break;
@@ -341,5 +365,6 @@ export function ManagementPanel() {
     case "accounts": content = <AccountsPage {...props} session={session} changed={() => setRefresh(value => value + 1)} />; break;
     case "history": content = <HistoryPage {...props} />; break;
   }
+  if (page !== "settings") content = <><ReportsExport key={page + reportDays} page={page} role={session.role} days={reportDays} changeDays={setReportDays} />{content}</>;
   return <main className="mg-app mg-shell" dir="rtl"><aside className="mg-sidebar"><div className="mg-brand"><img src={mark} width="44" height="44" alt="خانه‌یار" /><div><strong>مدیریت</strong><span>خانه‌یار</span></div></div><nav aria-label="بخش‌های مدیریت">{(Object.entries(pageLabels) as [Page, string][]).filter(([key]) => (key !== "accounts" || session.role === "owner") && (key !== "logs" || session.role !== "viewer")).map(([key, label]) => <button key={key} aria-current={page === key ? "page" : undefined} onClick={() => { setPage(key); setError(""); setNotice(""); }}><Icon page={key} />{label}</button>)}</nav><div className="mg-sidebar-footer"><strong><bdi dir="ltr">{session.username}</bdi></strong><span>{roleLabels[session.role]}</span><button disabled={preparing} onClick={() => void logout()}>خروج از پنل</button></div></aside><div className="mg-main">{mode === "demo" && <div className="mg-demo-banner"><strong>محیط آزمایشی محلی</strong><span>اطلاعات نمونه است؛ عملیات روی سرور واقعی اجرا نمی‌شود.</span></div>}<header className="mg-header"><div><span className="mg-muted">خانه‌یار / مدیریت سامانه</span><h1>{pageLabels[page]}</h1></div><button disabled={preparing} onClick={() => { setRefresh(value => value + 1); setError(""); }}>بررسی دوباره</button></header>{error && <div className="mg-notice mg-error" role="alert">{error}</div>}{notice && <div className="mg-notice" role="status">{notice}</div>}{preparing && <div className="mg-notice" role="status">در حال بررسی مقدمات عملیات…</div>}{activeJob && <div className="mg-notice mg-running" role="status"><span>{actionLabels[activeJob.operation.kind]} · {stateLabels[activeJob.status]}</span><button onClick={() => setPage("history")}>مشاهدهٔ سابقه</button></div>}<div key={session.username + page}>{content}</div><footer className="mg-footer">پنل مستقل مدیریت سرور و نرم‌افزار خانه‌یار</footer></div>{(plan || download) && <ConfirmDialog {...{ plan, download, session }} close={() => { setPlan(null); setDownload(null); }} done={job => { setPlan(null); setDownload(null); setNotice(job ? "درخواست ثبت شد؛ نتیجه در سابقهٔ عملیات نمایش داده می‌شود." : "فایل پشتیبان برای دریافت آماده شد."); if (job) setActiveJob(job); setRefresh(value => value + 1); }} />}</main>;
 }

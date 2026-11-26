@@ -103,12 +103,17 @@ class Store:
             )
             db.execute("DELETE FROM sessions WHERE expires < ?", (time.time(),))
 
-    def jobs(self):
+    def jobs_page(self, offset: int = 0, limit: int = 100):
         with self.connect() as db:
-            return [
-                self.job_out(row)
-                for row in db.execute("SELECT * FROM jobs ORDER BY created DESC LIMIT 100")
-            ]
+            total = db.execute("SELECT count(*) FROM jobs").fetchone()[0]
+            items = [self.job_out(row) for row in db.execute(
+                "SELECT * FROM jobs ORDER BY created DESC,id DESC LIMIT ? OFFSET ?",
+                (limit, offset),
+            )]
+            return {"items": items, "total": total, "offset": offset}
+
+    def jobs(self):
+        return self.jobs_page()["items"]
 
     @staticmethod
     def job_out(row):

@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.errors import AppError
+from app.core.feature_policy import feature_state, require_feature
 from app.models.family import Member
 from app.models.shopping import InventoryItem, ShoppingItem, ShoppingList
 from app.models.shopping_sync import ShoppingSyncReceipt
@@ -92,7 +93,7 @@ def snapshot(db: Session, actor: Member) -> OfflineSnapshot:
         )
     )
     stock.sort(key=lambda row: (row.title, str(row.id)))
-    return OfflineSnapshot(
+    result = OfflineSnapshot(
         lists=[
             OfflineListOut(
                 id=str(row.id),
@@ -120,6 +121,14 @@ def snapshot(db: Session, actor: Member) -> OfflineSnapshot:
         tasks=tasks.list_for_family(db, actor),
         task_notification_prefs=_task_notification_prefs(actor),
     )
+    if feature_state("shopping") == "disabled":
+        result.lists = []
+    if feature_state("inventory") == "disabled":
+        result.inventory = []
+    if feature_state("tasks") == "disabled":
+        result.tasks = []
+        result.task_notification_prefs.tasks_enabled = False
+    return result
 
 
 def _conflict(message: str = "این مورد روی سرور تغییر کرده است؛ تغییر آفلاین اعمال نشد."):
@@ -291,6 +300,10 @@ def mutate(db: Session, actor: Member, req: OfflineMutation) -> OfflineMutationR
         return _result(db, actor, receipt, True)
 
     try:
+        module = {"list": "shopping", "item": "shopping", "inventory": "inventory", "task": "tasks"}[
+            req.kind.partition(".")[0]
+        ]
+        require_feature(module, write=True)
         data = req.data()
         row = (
             _create(db, actor, req, data)

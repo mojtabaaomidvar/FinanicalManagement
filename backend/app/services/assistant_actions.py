@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.config import settings
 from app.core.errors import AppError
+from app.core.feature_policy import require_feature
 from app.db.document_scope import bind_member, clear_member
 from app.models.assistant_execution import AssistantExecutionReceipt
 from app.models.meal import MealEntry
@@ -47,14 +48,16 @@ def _stock_hash(db, actor, *, lock=False):
 
 def _check_evidence(db, actor, expected):
     if "dish_id" in expected:
+        require_feature("meals")
         dish = meals._get_dish(db, actor, uuid.UUID(expected["dish_id"]), lock=True)
         if dish.revision != expected["dish_revision"]:
             raise AppError("AI_CONTEXT_CHANGED",
                            "اطلاعات غذا تغییر کرده است؛ دوباره بررسی کنید.", 409)
-    if ("stock_hash" in expected
-            and _stock_hash(db, actor, lock=True) != expected["stock_hash"]):
-        raise AppError("AI_CONTEXT_CHANGED",
-                       "موجودی ثبت‌شده تغییر کرده است؛ تغییرها را دوباره بررسی کنید.", 409)
+    if "stock_hash" in expected:
+        require_feature("inventory")
+        if _stock_hash(db, actor, lock=True) != expected["stock_hash"]:
+            raise AppError("AI_CONTEXT_CHANGED",
+                           "موجودی ثبت‌شده تغییر کرده است؛ تغییرها را دوباره بررسی کنید.", 409)
 
 
 def sign_payload(actor, payload: dict):
@@ -130,6 +133,8 @@ def prepare(db, actor, body: PrepareActionIn):
     candidate = next((item for item in report["actions"] if item["id"] == body.action_id), None)
     if candidate is None:
         raise AppError("AI_REVIEW_INVALID", "این پیشنهاد معتبر نیست؛ دوباره بررسی کنید.", 422)
+    require_feature({"shopping_list": "shopping", "shopping_item": "shopping",
+                     "task": "tasks", "meal_entry": "meals"}[candidate["kind"]], write=True)
     # Shopping checkout takes its destination before inventory; use that same
     # order, so freshness checks do not introduce a lock inversion.
     if candidate["kind"] == "shopping_item" and body.list_id is not None:
@@ -174,6 +179,8 @@ def execute(db, actor, token: str):
             raise AppError("AI_REVIEW_EXPIRED",
                            "زمان تأیید گذشته است؛ تغییرها را دوباره بررسی کنید.", 409)
         kind, values = payload["kind"], payload["values"]
+        require_feature({"shopping_list": "shopping", "shopping_item": "shopping",
+                         "task": "tasks", "meal_entry": "meals"}[kind], write=True)
         if kind == "shopping_item":
             shopping._get_list(db, actor, uuid.UUID(values["list_id"]))
         _check_evidence(db, actor, payload["expected"])

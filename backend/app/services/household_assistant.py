@@ -15,6 +15,7 @@ from pydantic import ValidationError
 from app.core.config import settings
 from app.core.errors import AppError
 from app.services import sms_assistant
+from app.services.ai_controls import connection_mode, family_calls
 from app.services.financial_text import normalize_financial_text
 from app.services.household_ai_protocol import (
     KINDS,
@@ -28,8 +29,15 @@ from app.services.household_ai_protocol import (
 )
 from app.services.jalali import to_jalali
 from app.services.member_age import today_tehran
-from app.services.sms_ai_provider import ERRORS, provider_error, request_deepseek_json
+from app.services.sms_ai_provider import (
+    ERRORS,
+    ai_attempt_started,
+    capture_gateway_usage,
+    provider_error,
+    request_deepseek_json,
+)
 from app.services.sms_parser import extract_date, normalize_sms
+from app.services.usage import measure_ai
 
 # @copy-text assistant.invalid_result
 INVALID_RESULT = "نتیجهٔ دستیار قابل‌استفاده نبود؛ متن را بررسی و دوباره تلاش کنید."
@@ -56,14 +64,19 @@ def _base_url() -> str:
 
 
 def _gateway_request(path: str, body: dict | None = None) -> dict:
+    url = _base_url() + path
     try:
+        if body is not None:
+            ai_attempt_started()
         response = httpx.request(
-            "GET" if body is None else "POST", _base_url() + path,
+            "GET" if body is None else "POST", url,
             headers={"Authorization": "Bearer " + settings.ai_sms_gateway_token.strip()},
             **({"json": body} if body is not None else {}),
             timeout=5 if body is None else settings.ai_sms_timeout_seconds + 5,
             follow_redirects=False,
         )
+        if body is not None:
+            capture_gateway_usage(response.headers)
         if response.status_code == 404:
             raise AppError("AI_ASSISTANT_UPGRADE_REQUIRED", UPGRADE_REQUIRED, 503)
         if response.status_code in {401, 403}:
@@ -85,7 +98,9 @@ def _gateway_request(path: str, body: dict | None = None) -> dict:
 
 
 def capabilities() -> dict:
-    if settings.ai_sms_gateway_url.strip():
+    if settings.ai_connection_mode == "disabled":
+        return {"status": "unavailable", "protocol_version": None, "kinds": []}
+    if connection_mode() == "gateway":
         try:
             result = _gateway_request("/v1/assistant/capabilities")
             if (not isinstance(result, dict) or type(result.get("protocol_version")) is not int
@@ -154,6 +169,7 @@ def require_nonfinancial_registration(text: str, scope: str = "auto") -> None:
         raise AppError("AI_FINANCE_DISABLED", "دستیار در ثبت تراکنش مالی نقشی ندارد؛ از بخش تراکنش‌ها استفاده کنید.", 422)
 
 
+@family_calls
 def analyze(db, actor, text: str, scope: str) -> dict:
     require_nonfinancial_registration(text, scope)
     if not text.strip():
@@ -164,19 +180,21 @@ def analyze(db, actor, text: str, scope: str) -> dict:
     masked, aliases, exact_hits = sms_assistant._mask_text(text, accounts)
     masked = normalize_financial_text(masked)
     body = GatewayHouseholdIn(text=masked, scope=scope, account_aliases=list(aliases))
-    if settings.ai_sms_gateway_url.strip():
-        payload = _gateway_request("/v1/assistant/analyze", body.model_dump())
-    elif settings.deepseek_api_key.strip():
-        try:
-            payload = request_deepseek_json(
-                build_household_messages(body), api_key=settings.deepseek_api_key,
-                model=settings.ai_sms_model, timeout=settings.ai_sms_timeout_seconds,
-            )
-        except AppError as error:
-            raise AppError(error.code, CONNECTION_FAILED, error.http_status) from None
-    else:
-        raise AppError("AI_GATEWAY_NOT_CONFIGURED", CONNECTION_FAILED, 503)
-    return ground_result(payload, masked, aliases, exact_hits, accounts, reference, scope)
+    with measure_ai("assistant_analyze"):
+        if connection_mode() == "gateway":
+            payload = _gateway_request("/v1/assistant/analyze", body.model_dump())
+        elif settings.deepseek_api_key.strip():
+            try:
+                payload = request_deepseek_json(
+                    build_household_messages(body), api_key=settings.deepseek_api_key,
+                    model=settings.ai_sms_model, timeout=settings.ai_sms_timeout_seconds,
+                    max_output_tokens=settings.ai_max_output_tokens,
+                )
+            except AppError as error:
+                raise AppError(error.code, CONNECTION_FAILED, error.http_status) from None
+        else:
+            raise AppError("AI_GATEWAY_NOT_CONFIGURED", CONNECTION_FAILED, 503)
+        return ground_result(payload, masked, aliases, exact_hits, accounts, reference, scope)
 
 
 def ground_result(payload, masked, aliases, exact_hits, accounts, reference, scope="auto"):

@@ -22,17 +22,18 @@ SQLAlchemy در محیطِ وارسیِ من نصب نیست، پس یک `ORDER 
 from __future__ import annotations
 
 import uuid
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
+from app.core.feature_policy import require_feature
 from app.models.family import Member
 from app.models.shopping import InventoryItem
 from app.schemas.data import InventoryOut, InventoryWrite
-from app.services.clock import utcnow
 from app.services import inventory_catalog
+from app.services.clock import utcnow
 from app.services.common import to_uuid
 
 _MAX_TITLE = 120
@@ -270,6 +271,7 @@ def bump_uncommitted(
     ).scalar_one_or_none()
     if row is None:
         return
+    require_feature("inventory", write=True)
     nxt = row.quantity + delta
     if nxt < 0:
         nxt = Decimal(0)

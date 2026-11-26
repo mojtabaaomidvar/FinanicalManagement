@@ -116,6 +116,8 @@ bash /path/to/reviewed-source/backend/deploy/management/install-management.sh \
 
 ## بررسی توسعه
 
+تغییرهای ساخت محلی `0.3.0-dev` شامل آمار مستقل AI، اصلاح طبقه‌بندی آفلاین، پیکربندی امکانات، سقف مصرف و تفکیک نسخه‌ها در [گزارش ۲۶ نوامبر](ai-usage-offline-controls-2026-11-26.md) ثبت شده‌اند. این ساخت هنوز انتشار یا نصب تولید نیست؛ به‌روزرسانی وبِ `0.2.0` برای انتقال این تغییرهای بک‌اند کافی نیست.
+
 ```powershell
 npm run management:test
 npm run management:build

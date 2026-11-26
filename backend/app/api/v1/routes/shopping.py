@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_tenant_member
@@ -44,7 +44,7 @@ from app.schemas.data import (
 )
 from app.schemas.offline_shopping import OfflineMutation, OfflineMutationResult, OfflineSnapshot
 from app.schemas.shopping_batch import ShoppingBatchRequest, ShoppingBatchResult
-from app.services import offline_shopping
+from app.services import offline_shopping, usage
 from app.services import shopping as shopping_service
 
 router = APIRouter(tags=["shopping"])
@@ -61,10 +61,13 @@ def offline_snapshot(
 @router.post("/shopping/offline/mutations", response_model=OfflineMutationResult)
 def offline_mutation(
     body: OfflineMutation,
+    request: Request,
     member: Member = Depends(get_tenant_member),
     db: Session = Depends(get_db),
 ) -> OfflineMutationResult:
-    return offline_shopping.mutate(db, member, body)
+    result = offline_shopping.mutate(db, member, body)
+    request.state.usage_operation = usage.offline_operation(body.kind)
+    return result
 
 
 @router.get("/shopping/lists", response_model=list[ShoppingListOut])

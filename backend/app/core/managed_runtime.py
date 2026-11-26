@@ -8,8 +8,11 @@ from pathlib import Path
 
 from starlette.responses import JSONResponse
 
+from app.core.errors import AppError
+from app.core.feature_policy import FEATURE_KEYS, FEATURE_STATES, RESOURCE_FEATURE, require_feature
 
-def read_flags() -> dict[str, bool]:
+
+def read_flags() -> dict[str, bool | str]:
     filename = os.environ.get("KHANEYAR_RUNTIME_FILE", "")
     if not filename:
         return {}
@@ -18,8 +21,11 @@ def read_flags() -> dict[str, bool]:
         raise ValueError("Managed runtime file is unavailable")
     flags = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(flags, dict) or any(
-        key not in {"maintenance", "registration_enabled", "assistant_enabled"}
-        or type(value) is not bool
+        not (
+            key in {"maintenance", "registration_enabled", "assistant_enabled"}
+            and type(value) is bool
+            or key in FEATURE_KEYS and isinstance(value, str) and value in FEATURE_STATES
+        )
         for key, value in flags.items()
     ):
         raise ValueError("Invalid managed runtime settings")
@@ -85,4 +91,19 @@ class ManagedRuntimeMiddleware:
             return await JSONResponse(
                 error, status_code=503, headers={"Cache-Control": "no-store", "Retry-After": "60"}
             )(scope, receive, send)
+        resource = path.removeprefix("/api/v1/").partition("/")[0]
+        module = RESOURCE_FEATURE.get(resource)
+        if path.startswith("/api/v1/sms/assistant"):
+            module = "assistant"
+        # This validated service classifies all three offline domains itself.
+        if path in {"/api/v1/shopping/offline", "/api/v1/shopping/offline/mutations"}:
+            module = None
+        if module:
+            try:
+                require_feature(module, write=scope["method"] not in {"GET", "HEAD"}, flags=flags)
+            except AppError as exc:
+                return await JSONResponse(
+                    {"error": exc.code, "message": exc.message}, status_code=exc.http_status,
+                    headers={"Cache-Control": "no-store", "Retry-After": "60"},
+                )(scope, receive, send)
         return await self.app(scope, receive, send)

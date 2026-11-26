@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { managementApi as api, type Overview } from "./api";
+import { InstalledVersions } from "./InstalledVersions";
 import type { AnalyticsDays, ProductReport } from "./analytics.types";
 import type { Page } from "./labels";
 import { serviceLabels, stateLabels } from "./labels";
@@ -34,7 +35,7 @@ function HostSnapshot({ data, navigate }: { data: Overview; navigate: (page: Pag
   return <section className="mg-dash-host mg-section"><div className="mg-dash-heading"><h2>وضعیت فعلی سرور</h2>
     <span className={`mg-badge ${ready ? "mg-good" : "mg-bad"}`}>{ready ? "در دسترس" : "نیازمند بررسی"}</span></div>
     <p className="mg-hint">آخرین بررسی: {date}</p>
-    <dl className="mg-dash-host-facts"><div><dt>نسخهٔ برنامه</dt><dd><bdi dir="ltr">{data.version || "—"}</bdi></dd></div>
+    <dl className="mg-dash-host-facts"><InstalledVersions data={data} />
       <div><dt>زمان روشن‌بودن</dt><dd>{formatCount(Math.floor(data.uptime_seconds / 86400))} روز</dd></div></dl>
     <dl className="mg-dash-load"><dt>بار پردازنده</dt><dd>{data.cpu_load.toLocaleString("fa-IR", { maximumFractionDigits: 2 })}</dd></dl>
     <p className="mg-hint">میانگین یک دقیقه، در کنار {formatCount(data.cpu_cores)} هسته؛ این عدد درصد مصرف نیست.</p>
@@ -57,13 +58,12 @@ function HostSnapshot({ data, navigate }: { data: Overview; navigate: (page: Pag
   </section>;
 }
 
-export function ManagementDashboard({ refresh, navigate }: { refresh: number; navigate: (page: Page) => void }) {
-  const [days, setDays] = useState<AnalyticsDays>(30);
+export function ManagementDashboard({ refresh, navigate, days, changeDays }: { refresh: number; navigate: (page: Page) => void; days: AnalyticsDays; changeDays: (days: AnalyticsDays) => void }) {
   const host = useDashboardResource<Overview>("/state/overview", refresh);
   const product = useDashboardResource<ProductReport>(`/state/analytics?days=${days}`, refresh);
   const report = product?.data;
   return <div className="mg-dashboard"><div className="mg-dash-toolbar"><p>رشد خانه‌یار، استفاده از بخش‌ها و سلامت سرویس‌ها در یک نگاه.</p>
-    <label><span id="mg-dashboard-period">بازهٔ داشبورد</span><select aria-labelledby="mg-dashboard-period" value={days} onChange={event => setDays(Number(event.target.value) as AnalyticsDays)}>
+    <label><span id="mg-dashboard-period">بازهٔ داشبورد</span><select aria-labelledby="mg-dashboard-period" value={days} onChange={event => changeDays(Number(event.target.value) as AnalyticsDays)}>
       <option value={7}>۷ روز اخیر</option><option value={30}>۳۰ روز اخیر</option><option value={90}>۹۰ روز اخیر</option>
     </select></label></div>
     <div className="mg-dash-layout"><div className="mg-dash-product">

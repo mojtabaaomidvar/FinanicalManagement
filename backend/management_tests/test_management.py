@@ -345,6 +345,66 @@ def test_interrupted_jobs_are_not_replayed(config):
     assert store.jobs()[0]["status"] == "interrupted"
 
 
+def test_management_history_exports_have_bounded_complete_pages(config):
+    application = create_app(config)
+    identity.create_account(application.state.store, "owner", PASSWORD, "owner", production=False)
+    with application.state.store.connect() as db:
+        created = time.time()
+        db.executemany(
+            "INSERT INTO jobs VALUES (?,?,?,?,?,'succeeded','{}',?,?)",
+            [
+                (str(uuid4()), "owner", "owner", str(uuid4()),
+                 json.dumps({"kind": "backup.verify"}), created - index, created - index)
+                for index in range(205)
+            ],
+        )
+        db.executemany(
+            "INSERT INTO audit(actor,event,detail,created) VALUES (?,?,?,?)",
+            [("owner", "session.login", "{}", created - index) for index in range(203)],
+        )
+    with TestClient(application, base_url=ORIGIN) as connection:
+        sign_in(connection)
+        for route in ("/jobs", "/audit"):
+            first = connection.get(PREFIX + route + "?offset=0")
+            second = connection.get(PREFIX + route + "?offset=100")
+            third = connection.get(PREFIX + route + "?offset=200")
+            assert first.status_code == second.status_code == third.status_code == 200
+            first_data, second_data, third_data = first.json(), second.json(), third.json()
+            assert first_data["offset"] == 0 and len(first_data["items"]) == 100
+            assert second_data["offset"] == 100 and len(second_data["items"]) == 100
+            assert third_data["offset"] == 200 and len(third_data["items"]) == 5
+            assert first_data["total"] == second_data["total"] == third_data["total"] == 205
+            ids = [
+                row["id"]
+                for data in (first_data, second_data, third_data)
+                for row in data["items"]
+            ]
+            assert len(ids) == len(set(ids)) == 205
+        for invalid in ("-1", "1000001", "not-a-number"):
+            assert connection.get(PREFIX + f"/jobs?offset={invalid}").status_code == 422
+            assert connection.get(PREFIX + f"/audit?offset={invalid}").status_code == 422
+
+
+def test_backup_inventory_exports_every_bounded_page(config):
+    host = Host(config)
+    backup_dir = config.backup_dir
+    for index in range(205):
+        backup_id = f"backup-{index:03d}"
+        folder = backup_dir / backup_id
+        folder.mkdir(parents=True)
+        (folder / "manifest.json").write_text(json.dumps({
+            "id": backup_id, "created_at": index, "image": "sha256:test", "bytes": index,
+        }))
+    host.run = lambda *_args, **_kwargs: b"disabled"
+    for offset, expected_size in ((0, 100), (100, 100), (200, 5)):
+        result = host.read("backups", {"offset": offset})
+        assert len(result["items"]) == expected_size
+        assert result["total"] == 205 and result["offset"] == offset
+        assert result["scheduled"] is False
+    with pytest.raises(ManagementError, match="INVALID_OFFSET"):
+        host.read("backups", {"offset": 1_000_001})
+
+
 @pytest.mark.parametrize(
     "payload",
     [
@@ -635,3 +695,141 @@ def test_without_runtime_integration_existing_app_behavior_is_preserved(
     monkeypatch.delenv("KHANEYAR_RUNTIME_FILE")
     path.unlink()
     assert connection.get("/api/v1/accounts").status_code == 200
+
+
+@pytest.mark.parametrize("module", ["tasks", "inventory", "shopping", "transactions", "meals"])
+def test_feature_read_only_and_disable_are_server_enforced(runtime_client, module):
+    connection, path = runtime_client
+    path.write_text(json.dumps({"feature_" + module: "read_only"}))
+    assert connection.get("/api/v1/" + module).status_code == 200
+    assert connection.post("/api/v1/" + module).status_code == 503
+    path.write_text(json.dumps({"feature_" + module: "disabled"}))
+    assert connection.get("/api/v1/" + module).status_code == 503
+    assert connection.post("/api/v1/auth/logout").status_code == 200
+    assert connection.get("/api/v1/support/session").status_code == 200
+
+
+@pytest.mark.parametrize("values", [
+    {"feature_tasks": "enabled"}, {"feature_inventory": "read_only"},
+    {"AI_REQUESTS_PER_DAY": "0", "AI_FAMILY_REQUESTS_PER_DAY": "20"},
+    {"AI_MAX_CONCURRENT": "2", "AI_MAX_OUTPUT_TOKENS": "1800"},
+    {"AI_CONNECTION_MODE": "direct", "AI_SMS_TIMEOUT_SECONDS": "25"},
+])
+def test_advanced_settings_have_a_finite_contract(values):
+    assert Operation(kind="settings.update", values=values).values == values
+
+
+@pytest.mark.parametrize("values", [
+    {"feature_tasks": "false"}, {"feature_unknown": "enabled"},
+    {"AI_REQUESTS_PER_DAY": "-1"}, {"AI_MAX_CONCURRENT": "65"},
+    {"AI_MAX_OUTPUT_TOKENS": "999999999"}, {"AI_SMS_TIMEOUT_SECONDS": "26"},
+    {"AI_FAMILY_REQUESTS_PER_DAY": True}, {"AI_CONNECTION_MODE": "unimplemented-provider"},
+])
+def test_invalid_advanced_settings_fail_before_any_write(values):
+    with pytest.raises(ValidationError):
+        Operation(kind="settings.update", values=values)
+
+
+def test_feature_and_limit_settings_persist_without_secret_echo(client, app):
+    sign_in(client)
+    values = {"feature_tasks": "read_only", "AI_CONNECTION_MODE": "direct",
+              "AI_REQUESTS_PER_DAY": "10", "DEEPSEEK_API_KEY": "synthetic-private-key"}
+    prepared = plan(client, {"kind": "settings.update", "values": values})
+    assert "synthetic-private-key" not in json.dumps(prepared)
+    assert execute(client, prepared).status_code == 200
+    drain(app)
+    value = client.get(PREFIX + "/state/settings").json()
+    assert value["features"]["tasks"] == "read_only"
+    assert value["environment"]["AI_REQUESTS_PER_DAY"] == "10"
+    assert value["environment"]["DEEPSEEK_API_KEY"] is True
+    assert "synthetic-private-key" not in json.dumps(value)
+
+
+@pytest.fixture
+def controlled_host(config, monkeypatch):
+    host = Host(config)
+    config.deploy_dir.mkdir()
+    (config.deploy_dir / ".env").write_text(
+        "DEEPSEEK_API_KEY=synthetic-private-key\nFILE_SIGNING_SECRET=synthetic-signing-key\n",
+    )
+    host.runtime.parent.mkdir()
+    host.runtime.write_text("{}")
+    monkeypatch.setattr(host, "revision", lambda: "a" * 64)
+    monkeypatch.setattr(host, "sql", lambda statement, parameters=None: "true" if "to_regclass" in statement else "f")
+    monkeypatch.setattr(host, "compose", lambda *args, **kwargs: b"")
+    monkeypatch.setattr(host, "check_api", lambda: None)
+
+    def status():
+        from app.core.feature_policy import ai_configuration_revision
+
+        flags = json.loads(host.runtime.read_text())
+        return {"managed_runtime": "v1", "feature_controls": "v1", "ai_controls": "v1",
+                "ai_configuration_revision": ai_configuration_revision(host.env(), "synthetic-signing-key"),
+                "runtime_revision": hashlib.sha256(json.dumps(
+                    flags, sort_keys=True, separators=(",", ":"),
+                ).encode()).hexdigest()}
+
+    monkeypatch.setattr(host, "control_status", status)
+    return host
+
+
+def test_host_verifies_applied_feature_policy_and_masks_saved_secrets(controlled_host):
+    host = controlled_host
+    host.update_settings(Operation(kind="settings.update", expected="a" * 64, values={
+        "feature_tasks": "read_only", "AI_REQUESTS_PER_DAY": "20", "AI_CONNECTION_MODE": "direct",
+    }))
+    saved = host.read("settings", {})
+    assert saved["runtime_applied"] is True
+    assert saved["features"]["tasks"] == "read_only"
+    assert saved["environment"]["AI_REQUESTS_PER_DAY"] == "20"
+    assert saved["environment"]["DEEPSEEK_API_KEY"] is True
+    assert "synthetic-private-key" not in json.dumps(saved)
+
+
+def test_host_refuses_unsupported_feature_control_before_writing(controlled_host, monkeypatch):
+    host = controlled_host
+    before = host.runtime.read_bytes()
+    monkeypatch.setattr(host, "control_status", lambda: {})
+    with pytest.raises(ManagementError, match="CONTROLS_UPGRADE_REQUIRED"):
+        host.update_settings(Operation(kind="settings.update", expected="a" * 64,
+                                       values={"feature_tasks": "disabled"}))
+    assert host.runtime.read_bytes() == before
+
+
+def test_host_rolls_back_when_saved_policy_is_not_acknowledged(controlled_host, monkeypatch):
+    host = controlled_host
+    before = host.runtime.read_bytes()
+    env_before = (host.deploy / ".env").read_bytes()
+    monkeypatch.setattr(host, "control_status", lambda: {
+        "managed_runtime": "v1", "feature_controls": "v1", "runtime_revision": "wrong",
+    })
+    with pytest.raises(ManagementError, match="SETTINGS_NOT_APPLIED"):
+        host.update_settings(Operation(kind="settings.update", expected="a" * 64,
+                                       values={"feature_tasks": "disabled"}))
+    assert host.runtime.read_bytes() == before
+    assert (host.deploy / ".env").read_bytes() == env_before
+
+
+def test_host_rolls_back_unacknowledged_ai_configuration(controlled_host, monkeypatch):
+    host = controlled_host
+    before = (host.deploy / ".env").read_bytes()
+    monkeypatch.setattr(host, "control_status", lambda: {
+        "managed_runtime": "v1", "ai_controls": "v1", "ai_configuration_revision": "wrong",
+    })
+    with pytest.raises(ManagementError, match="AI_SETTINGS_NOT_APPLIED"):
+        host.update_settings(Operation(kind="settings.update", expected="a" * 64,
+                                       values={"AI_CONNECTION_MODE": "direct"}))
+    assert (host.deploy / ".env").read_bytes() == before
+
+
+def test_ai_configuration_acknowledgement_contains_no_secret():
+    from app.core.feature_policy import ai_configuration_revision
+
+    values = {"DEEPSEEK_API_KEY": "private-key-one", "AI_SMS_TIMEOUT_SECONDS": "25"}
+    first = ai_configuration_revision(values, "synthetic-signing-key")
+    assert len(first) == 64 and "private" not in first
+    assert ai_configuration_revision({**values, "AI_SMS_TIMEOUT_SECONDS": "25.0"},
+                                     "synthetic-signing-key") == first
+    assert ai_configuration_revision({**values, "DEEPSEEK_API_KEY": "private-key-two"},
+                                     "synthetic-signing-key") != first
+    assert ai_configuration_revision(values, "") == ""

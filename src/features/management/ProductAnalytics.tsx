@@ -1,24 +1,13 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { managementApi as api } from "./api";
-import type { AnalyticsDays, AnalyticsModule, AnalyticsPoint, ModuleCounts, ProductReport } from "./analytics.types";
-
-export const moduleLabels: Record<AnalyticsModule, string> = {
-  dashboard: "داشبورد مالی", transactions: "تراکنش‌ها", accounts: "کیف پول‌ها", budgets: "بودجه‌ها",
-  bills: "قبوض و شارژ", reports: "گزارش‌ها", calendar: "تقویم و مناسبت‌ها", shopping: "لیست خرید",
-  inventory: "انبار خانه", tasks: "کارهای خانه", documents: "اسناد خانه", meals: "برنامهٔ غذایی",
-  equipment: "وسایل خانه", vehicles: "خودرو", goals: "اهداف و آرزوها", activities: "برنامه‌های خانوادگی",
-  children: "فرزندان", pets: "حیوانات خانگی", market: "بازار", settings: "تنظیمات", notifications: "اعلان‌ها",
-};
+import { AiAnalytics } from "./AiAnalytics";
+import type { AnalyticsDays, AnalyticsPoint, ModuleCounts, ProductReport } from "./analytics.types";
+import { moduleLabels, recordLabels } from "./report.labels";
+export { moduleLabels } from "./report.labels";
 const number = (value: number) => value.toLocaleString("fa-IR");
 const day = (value: string) => new Intl.DateTimeFormat("fa-IR", { month: "short", day: "numeric", timeZone: "Asia/Tehran" }).format(new Date(value + "T12:00:00+03:30"));
 const date = (value: string) => new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Tehran" }).format(new Date(value));
 const requests = (row: ModuleCounts) => row.creates + row.updates + row.completes + row.deletes;
-const recordLabels: Record<keyof ProductReport["record_inventory"], string> = {
-  wallets: "کیف پول و حساب", budget_limits: "سقف بودجهٔ ثبت‌شده", bills: "قبض ثبت‌شده", inventory_items: "قلم انبار",
-  shopping_items: "قلم خرید", meal_dishes: "غذای ثبت‌شده", meal_entries: "وعدهٔ برنامه‌ریزی‌شده", equipment: "وسیلهٔ خانه",
-  vehicles: "خودروی ثبت‌شده", maintenance_records: "سابقهٔ سرویس", calendar_events: "رویداد تقویم",
-  goals: "هدف و آرزو", pets: "پروفایل حیوان خانگی", bank_messages: "پیامک بانکی دریافت‌شده",
-};
 
 function Section({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
   return <section className="mg-section"><div className="mg-section-heading"><h2>{title}</h2>{note && <p>{note}</p>}</div>{children}</section>;
@@ -139,7 +128,7 @@ function Report({ report }: { report: ProductReport }) {
       <p>این گزارش از شمارنده‌های کلی و تعداد رکوردها ساخته می‌شود. نام، شماره، شناسهٔ کاربر یا خانواده، متن پیامک، مبالغ، محتوای سند و اطلاعات دستگاه در گزارش یا فایل خروجی قرار نمی‌گیرند.</p>
       <ul className="mg-analytics-insights"><li>بازدید سایت معرفی و تعداد کلیک دانلود، فعلاً شمارنده ندارند.</li>
         <li>کاربران فعال یکتا، نرخ بازگشت و زمان استفاده از داده‌های فعلی قابل محاسبه نیستند.</li>
-        <li>آمار مستقل استفاده از دستیار هنوز ثبت نمی‌شود.</li>
+        <li>گزارش مصرف AI جداگانه نمایش داده می‌شود؛ پذیرش و اجرای پیشنهادهای دستیار هنوز اندازه‌گیری نمی‌شوند.</li>
         <li>روند ساخت خانواده و تکمیل ثبت‌نام از رکوردهای موجود به دست می‌آید؛ موارد حذف‌شده و تاریخچهٔ ثبت‌نشده در آن نیستند.</li>
         <li>ورود موفق با استفادهٔ روزانه یکسان نیست؛ حسابی که وارد می‌ماند ممکن است بدون ورود دوباره از برنامه استفاده کند.</li>
       </ul><p className="mg-hint">آخرین بررسی: {date(report.checked_at)}</p>
@@ -147,8 +136,7 @@ function Report({ report }: { report: ProductReport }) {
   </>;
 }
 
-export function ProductAnalytics({ refresh }: { refresh: number }) {
-  const [days, setDays] = useState<AnalyticsDays>(30);
+export function ProductAnalytics({ refresh, days, changeDays }: { refresh: number; days: AnalyticsDays; changeDays: (days: AnalyticsDays) => void }) {
   const [report, setReport] = useState<ProductReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -160,9 +148,10 @@ export function ProductAnalytics({ refresh }: { refresh: number }) {
       .finally(() => { if (current) setLoading(false); });
     return () => { current = false; };
   }, [days, refresh]);
-  return <div className="mg-analytics"><label className="mg-analytics-period"><span id="mg-analytics-period-label">بازهٔ آمار</span><select aria-labelledby="mg-analytics-period-label" value={days} onChange={event => setDays(Number(event.target.value) as AnalyticsDays)}>
+  return <div className="mg-analytics"><label className="mg-analytics-period"><span id="mg-analytics-period-label">بازهٔ آمار</span><select aria-labelledby="mg-analytics-period-label" value={days} onChange={event => changeDays(Number(event.target.value) as AnalyticsDays)}>
     <option value={7}>۷ روز اخیر</option><option value={30}>۳۰ روز اخیر</option><option value={90}>۹۰ روز اخیر</option>
   </select></label>{loading ? <div className="mg-state" role="status">در حال دریافت آمار تجمیعی…</div>
     : error ? <div className="mg-state mg-error" role="alert"><strong>گزارش آماری دریافت نشد</strong><p>{error}</p><p>با دکمهٔ «بررسی دوباره» دوباره تلاش کنید.</p></div>
-      : report && <Report key={days + ":" + report.checked_at} report={report} />}</div>;
+      : report && <Report key={days + ":" + report.checked_at} report={report} />}
+    <AiAnalytics days={days} refresh={refresh} /></div>;
 }

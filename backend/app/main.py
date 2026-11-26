@@ -13,8 +13,9 @@ from app import __version__
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.errors import AppError
-from app.core.financial_contract import FinancialContractMiddleware, MONEY_CONTRACT_HEADER
+from app.core.financial_contract import MONEY_CONTRACT_HEADER, FinancialContractMiddleware
 from app.core.logging import configure_logging
+from app.core.managed_runtime import ManagedRuntimeMiddleware
 from app.services import support as support_service
 from app.services import usage as usage_service
 
@@ -47,6 +48,7 @@ def create_app() -> FastAPI:
     )
 
     # CORS must wrap the contract gate so old clients can read update errors.
+    app.add_middleware(ManagedRuntimeMiddleware)
     app.add_middleware(FinancialContractMiddleware)
     # CORS بسته — فقط منشأهای مشخص (رفع D-5؛ بدون '*')
     app.add_middleware(
@@ -69,7 +71,7 @@ def create_app() -> FastAPI:
             from starlette.concurrency import run_in_threadpool
             await run_in_threadpool(support_service.record_error, request.url.path, response.status_code)
         if 200 <= response.status_code < 300:
-            operation = usage_service.successful_operation(request.url.path, request.method)
+            operation = getattr(request.state, "usage_operation", None) or usage_service.successful_operation(request.url.path, request.method)
             if operation:
                 from starlette.concurrency import run_in_threadpool
                 await run_in_threadpool(usage_service.record, *operation)

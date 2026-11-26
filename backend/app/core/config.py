@@ -6,6 +6,9 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Literal
+
+from pydantic import Field
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -84,6 +87,11 @@ class Settings(BaseSettings):
     ai_sms_gateway_token: str = ""
     ai_sms_model: str = "deepseek-flash"
     ai_sms_timeout_seconds: float = 25.0
+    ai_connection_mode: Literal["auto", "direct", "gateway", "disabled"] = "auto"
+    ai_requests_per_day: int = Field(default=0, ge=0, le=1_000_000)
+    ai_family_requests_per_day: int = Field(default=0, ge=0, le=100_000)
+    ai_max_concurrent: int = Field(default=0, ge=0, le=64)
+    ai_max_output_tokens: int = Field(default=1800, ge=256, le=8192)
 
     # ── بازیابیِ رمز (§9.5) ────────────────────────────────
     # چرا جدا از otp_ttl_seconds؟ ۵ دقیقه برای «پیامک را ببین، به نرم‌افزار برگرد،

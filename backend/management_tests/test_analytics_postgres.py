@@ -14,6 +14,7 @@ from uuid import uuid4
 import pytest
 
 from app.management.analytics import read_analytics
+from app.management.ai_analytics import read_ai_analytics
 
 NOW = datetime(2026, 11, 25, 8, 42, tzinfo=UTC)
 PRIVATE = "private-financial-and-document-content"
@@ -250,6 +251,28 @@ def test_real_sql_tehran_boundaries_counts_and_privacy(sql):
         assert private not in encoded
     assert sql("SELECT count(*) FROM support_usage_counters;") == "6"
     assert sql("SELECT count(*) FROM members;") == "6"
+
+
+def test_real_ai_sql_missing_empty_partial_and_existing_report_preserved(sql):
+    before = read_analytics(sql, 7, NOW)
+    assert read_ai_analytics(sql, 7, NOW)["totals"] is None
+    sql("""CREATE TABLE support_ai_counters (
+        hour timestamptz, stage text, status text, requests bigint,
+        input_tokens bigint, output_tokens bigint, input_token_requests bigint, output_token_requests bigint);
+    """)
+    assert read_ai_analytics(sql, 7, NOW)["totals"]["requests"] == 0
+    sql("""INSERT INTO support_ai_counters VALUES
+        ('2026-11-18T20:29:59Z','sms','success',100,100,100,100,100),
+        ('2026-11-18T20:30:00Z','sms','success',2,10,0,1,1),
+        ('2026-11-25T07:30:00Z','assistant_plan','failure',1,0,0,0,0),
+        ('2026-11-25T08:42:00Z','sms','success',200,200,200,200,200);
+    """)
+    report = read_ai_analytics(sql, 7, NOW)
+    assert report["totals"] == {"requests": 3, "successes": 2, "failures": 1,
+                                "input_tokens": 10, "output_tokens": 0,
+                                "input_token_requests": 1, "output_token_requests": 1}
+    assert read_analytics(sql, 7, NOW) == before
+    assert sql("SELECT count(*) FROM support_ai_counters;") == "4"
 
 
 def test_real_sql_missing_counters_are_not_zero(sql):

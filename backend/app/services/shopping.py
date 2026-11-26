@@ -39,6 +39,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
+from app.core.feature_policy import require_feature
 from app.models.family import Member
 from app.models.shopping import InventoryItem, ShoppingItem, ShoppingList
 from app.models.shopping_sync import ShoppingSyncReceipt
@@ -218,6 +219,7 @@ def list_for_family(db: Session, actor: Member) -> list[ShoppingListOut]:
 
 # ── لیست‌ها ──────────────────────────────────────────────────
 def create_list_row(db: Session, actor: Member, req: ShoppingListWrite) -> ShoppingList:
+    require_feature("shopping", write=True)
     title = inventory_service.clean_title(req.title, "نام لیست")
     count = len(
         list(
@@ -435,6 +437,7 @@ def ensure_missing(
             )
         return _batch_result(receipt, prepared, True)
 
+    require_feature("shopping", write=True)
     parent = _get_list(db, actor, list_id)
     pending = _pending_of(db, actor, parent.id)
     existing = {item.title: item for item in _sort_items(pending)}

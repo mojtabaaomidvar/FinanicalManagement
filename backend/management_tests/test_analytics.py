@@ -179,12 +179,13 @@ def application(tmp_path):
 
 
 @pytest.mark.parametrize("role", ["owner", "operator", "viewer"])
+@pytest.mark.parametrize("section", ["analytics", "ai-analytics"])
 def test_analytics_requires_management_auth_and_is_available_to_all_management_roles(
-    application, role
+    application, role, section
 ):
     create_account(application.state.store, role, PASSWORD, role, production=False)
     with TestClient(application, base_url=ORIGIN) as client:
-        assert client.get("/management/api/state/analytics").status_code == 401
+        assert client.get(f"/management/api/state/{section}").status_code == 401
         login = client.post(
             "/management/api/login",
             json={"username": role, "password": PASSWORD},
@@ -193,7 +194,7 @@ def test_analytics_requires_management_auth_and_is_available_to_all_management_r
         assert login.status_code == 200
         before = application.state.driver.path.read_bytes()
         for days in (7, 30, 90):
-            result = client.get(f"/management/api/state/analytics?days={days}")
+            result = client.get(f"/management/api/state/{section}?days={days}")
             assert result.status_code == 200, result.text
             assert result.json()["days"] == days
             assert result.headers["cache-control"] == "no-store"

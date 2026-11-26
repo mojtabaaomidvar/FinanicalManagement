@@ -1,0 +1,22 @@
+{
+  "release": "management-v0.3.0",
+  "recorded_date": "2026-11-27",
+  "isolated_postgres_regressions_passed": 60,
+  "management_tests_passed": 136,
+  "installer_filesystem_and_lifecycle_tests_passed": 15,
+  "browser_checks_passed": 21,
+  "browser_screenshots": 33,
+  "browser_console_errors": 0,
+  "browser_external_requests": 0,
+  "editable_ui_texts_covered": 5967,
+  "management_production_build": "passed",
+  "bootstrap_bash_syntax": "passed",
+  "private_values_scan": "passed",
+  "linux_docker_systemd_execution": "not performed locally; explicit test doubles used",
+  "production_installation": "not performed by agent; owner executes in VNC",
+  "browser_evidence": ".local-test/management-browser/2026-11-26T21-26-11-901Z",
+  "postgres_command": "python scripts/test-ai-analytics-isolated.py tests/test_management_analytics_release.py tests/test_ai_usage.py tests/test_ai_controls.py tests/test_shopping_offline.py",
+  "installer_command": "python scripts/test-management-analytics-release.py",
+  "management_command": "npm run management:test",
+  "browser_command": "npm run management:browser-check"
+}

@@ -11,6 +11,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.config import settings
 from app.core.errors import AppError
+from app.core.feature_policy import require_feature
 from app.models.family import Member
 from app.models.task import Task
 from app.schemas.tasks import TaskOut, TaskWrite
@@ -83,6 +84,7 @@ def prepare(db: Session, actor: Member, body: TaskWrite) -> dict:
 def create_row(
     db: Session, actor: Member, body: TaskWrite, entity_id: uuid.UUID | None = None
 ) -> Task:
+    require_feature("tasks", write=True)
     row = Task(
         id=entity_id or uuid.uuid4(),
         family_id=actor.family_id,
@@ -94,6 +96,7 @@ def create_row(
 
 
 def change_row(db: Session, actor: Member, row: Task, action: str, data: dict) -> Task | None:
+    require_feature("tasks", write=True)
     assert_permission(actor, row, action)
     if action == "delete":
         db.delete(row)

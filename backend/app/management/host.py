@@ -17,7 +17,20 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from urllib.request import Request, urlopen
 
-from app.management.contracts import ENV_KEYS, SECRET_KEYS, Config, ManagementError, Operation
+from app.core.feature_policy import (
+    AI_ENV_DEFAULTS,
+    FEATURE_KEYS,
+    FEATURES,
+    ai_configuration_revision,
+)
+from app.management.contracts import (
+    AI_CONTROL_KEYS,
+    ENV_KEYS,
+    SECRET_KEYS,
+    Config,
+    ManagementError,
+    Operation,
+)
 
 DOCKER = "/usr/bin/docker"
 SYSTEMCTL = "/usr/bin/systemctl"
@@ -196,6 +209,10 @@ class Host:
         return result
 
     def read(self, section: str, arguments: dict):
+        if section == "ai-analytics":
+            from app.management.ai_analytics import read_ai_analytics
+
+            return read_ai_analytics(self.sql, arguments.get("days", 30))
         if section == "analytics":
             from app.management.analytics import read_analytics
 
@@ -203,6 +220,8 @@ class Host:
         if section == "services":
             return {"items": self.services()}
         if section == "overview":
+            from app.management.versions import installed_web_version
+
             memory = {}
             for line in Path("/proc/meminfo").read_text().splitlines():
                 key, value = line.split(":", 1)
@@ -228,6 +247,9 @@ class Host:
                 "api": probe,
                 "database": database,
                 "version": version,
+                "api_version": version,
+                "software_version": installed_web_version(self.config.web_dir),
+                "management_version": installed_web_version(self.config.web_root),
                 "cpu_load": os.getloadavg()[0],
                 "cpu_cores": os.cpu_count() or 1,
                 "memory_total": memory["MemTotal"],
@@ -269,6 +291,12 @@ class Host:
         if section == "settings":
             env = self.env()
             flags = json.loads(self.runtime.read_text()) if self.runtime.exists() else {}
+            health = self.control_status()
+            applied = health.get("runtime_revision") == hashlib.sha256(
+                json.dumps(flags, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest()
+            features = {name: flags.get("feature_" + name, "enabled") for name in FEATURES}
+            ai_revision = ai_configuration_revision(env, env.get("FILE_SIGNING_SECRET", ""))
             flags.update(
                 {"otp_enabled": self.sql("SELECT otp_enabled FROM app_settings WHERE id=1;") == "t"}
             )
@@ -277,9 +305,16 @@ class Host:
                     "maintenance": False,
                     "registration_enabled": True,
                     "assistant_enabled": True,
-                    **flags,
+                    **{key: value for key, value in flags.items() if key not in FEATURE_KEYS},
                 },
-                "runtime_supported": self.runtime_supported(),
+                "runtime_supported": health.get("managed_runtime") == "v1",
+                "feature_controls_supported": health.get("feature_controls") == "v1",
+                "ai_controls_supported": health.get("ai_controls") == "v1",
+                "ai_configuration_applied": (
+                    bool(ai_revision) and health.get("ai_configuration_revision") == ai_revision
+                ),
+                "runtime_applied": applied,
+                "features": features,
                 "environment": {
                     key: bool(env.get(key)) if key in SECRET_KEYS else env.get(key, "")
                     for key in sorted(ENV_KEYS)
@@ -287,6 +322,9 @@ class Host:
                 "revision": self.revision(),
             }
         if section == "backups":
+            offset = int(arguments.get("offset", 0))
+            if not 0 <= offset <= 1_000_000:
+                raise ManagementError("INVALID_OFFSET", "شمارهٔ صفحهٔ گزارش معتبر نیست.", 422)
             items = []
             self.config.backup_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
             for path in sorted(self.config.backup_dir.glob("*/manifest.json"), reverse=True):
@@ -306,7 +344,8 @@ class Host:
                 .strip()
                 == "enabled"
             )
-            return {"items": items[:100], "scheduled": enabled}
+            return {"items": items[offset : offset + 100], "total": len(items),
+                    "offset": offset, "scheduled": enabled}
         if section == "releases":
             self.config.release_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
             items = []
@@ -685,11 +724,15 @@ class Host:
         )
 
     def runtime_supported(self):
+        return self.control_status().get("managed_runtime") == "v1"
+
+    def control_status(self):
         try:
             with urlopen("http://127.0.0.1:8000/api/v1/healthz", timeout=3) as response:
-                return json.load(response).get("managed_runtime") == "v1"
+                result = json.load(response)
+                return result if isinstance(result, dict) else {}
         except Exception:
-            return False
+            return {}
 
     def write_env(self, updates: dict[str, str]):
         path = self.deploy / ".env"
@@ -706,6 +749,19 @@ class Host:
                 "STALE_PLAN", "تنظیمات هم‌زمان تغییر کرده است؛ پیش‌نمایش تازه بگیرید.", 409
             )
         values = operation.values
+        health = self.control_status()
+        runtime_keys = FEATURE_KEYS | {
+            "maintenance", "registration_enabled", "assistant_enabled",
+        }
+        if (
+            FEATURE_KEYS.intersection(values) and health.get("feature_controls") != "v1"
+            or set(AI_ENV_DEFAULTS).intersection(values) and health.get("ai_controls") != "v1"
+        ):
+            raise ManagementError(
+                "CONTROLS_UPGRADE_REQUIRED",
+                "این کنترل روی API نصب‌شده پشتیبانی نمی‌شود؛ ابتدا نسخهٔ سازگار برنامه را نصب کنید.",
+                409,
+            )
         if (
             any(
                 key in values
@@ -720,6 +776,31 @@ class Host:
                 409,
             )
         merged = {**self.env(), **{key: value for key, value in values.items() if key in ENV_KEYS}}
+        if AI_CONTROL_KEYS.intersection(values):
+            mode = merged.get("AI_CONNECTION_MODE", "auto")
+            direct = mode == "direct" or mode == "auto" and not merged.get("AI_SMS_GATEWAY_URL")
+            if mode != "disabled" and (
+                direct and not merged.get("DEEPSEEK_API_KEY")
+                or not direct and not (
+                    merged.get("AI_SMS_GATEWAY_URL") and merged.get("AI_SMS_GATEWAY_TOKEN")
+                )
+            ):
+                raise ManagementError(
+                    "AI_CONFIGURATION_INCOMPLETE",
+                    "پیش از انتخاب این اتصال، نشانی و کلیدهای لازم را تنظیم کنید.", 409,
+                )
+            if any(int(merged.get(key) or "0") for key in {
+                "AI_REQUESTS_PER_DAY", "AI_FAMILY_REQUESTS_PER_DAY", "AI_MAX_CONCURRENT",
+            }):
+                installed = self.sql(
+                    "SELECT (to_regclass('public.ai_daily_allowances') IS NOT NULL "
+                    "AND to_regclass('public.ai_capacity_leases') IS NOT NULL)::text;",
+                )
+                if installed != "true":
+                    raise ManagementError(
+                        "AI_CAPACITY_MIGRATION_REQUIRED",
+                        "جدول‌های سقف مصرف نصب نشده‌اند؛ ابتدا مهاجرت نسخه را اجرا کنید.", 409,
+                    )
         if values.get("otp_enabled") and not (
             merged.get("SMS_PROVIDER") == "kavenegar" and merged.get("SMS_API_KEY")
         ):
@@ -738,7 +819,7 @@ class Host:
                 {
                     key: value
                     for key, value in values.items()
-                    if key in {"maintenance", "registration_enabled", "assistant_enabled"}
+                    if key in runtime_keys
                 }
             )
             atomic_write(self.runtime, json.dumps(flags).encode(), 0o644)
@@ -752,6 +833,28 @@ class Host:
                     "up", "-d", "--no-deps", "--force-recreate", "--no-build", "api", timeout=120
                 )
                 self.check_api()
+            if runtime_keys.intersection(values):
+                expected_revision = hashlib.sha256(
+                    json.dumps(flags, sort_keys=True, separators=(",", ":")).encode()
+                ).hexdigest()
+                if self.control_status().get("runtime_revision") != expected_revision:
+                    raise ManagementError(
+                        "SETTINGS_NOT_APPLIED",
+                        "اتصال اعمال تنظیمات تأیید نشد؛ مقادیر قبلی بازگردانده شدند.", 409,
+                    )
+            if set(AI_ENV_DEFAULTS).intersection(values):
+                acknowledgement = ai_configuration_revision(
+                    merged, merged.get("FILE_SIGNING_SECRET", ""),
+                )
+                if (
+                    not acknowledgement
+                    or self.control_status().get("ai_configuration_revision") != acknowledgement
+                ):
+                    raise ManagementError(
+                        "AI_SETTINGS_NOT_APPLIED",
+                        "اعمال تنظیمات هوش مصنوعی در API تأیید نشد؛ مقادیر قبلی بازگردانده شدند.",
+                        409,
+                    )
         except Exception:
             atomic_write(self.deploy / ".env", old_env)
             atomic_write(self.runtime, old_runtime, 0o644)

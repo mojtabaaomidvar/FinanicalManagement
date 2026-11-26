@@ -47,6 +47,16 @@ export const flagLabels: Record<string, string> = {
 export const environmentLabels: Record<string, string> = {
   SMS_PROVIDER: "درگاه پیامک", SMS_API_KEY: "کلید درگاه پیامک", SMS_SENDER: "فرستندهٔ پیامک", SMS_TEMPLATE: "قالب کد پیامکی",
   DEEPSEEK_API_KEY: "کلید سرویس هوش مصنوعی", AI_SMS_MODEL: "مدل دستیار", AI_SMS_GATEWAY_URL: "نشانی درگاه دستیار", AI_SMS_GATEWAY_TOKEN: "کلید اتصال درگاه دستیار",
+  AI_CONNECTION_MODE: "روش اتصال هوش مصنوعی", AI_SMS_TIMEOUT_SECONDS: "زمان انتظار پاسخ، به ثانیه",
+  AI_REQUESTS_PER_DAY: "سقف روزانهٔ کل فراخوانی‌ها", AI_FAMILY_REQUESTS_PER_DAY: "سقف روزانهٔ هر خانواده",
+  AI_MAX_CONCURRENT: "سقف فراخوانی هم‌زمان", AI_MAX_OUTPUT_TOKENS: "سقف توکن خروجی اتصال مستقیم",
+};
+export const featureLabels: Record<string, string> = {
+  transactions: "تراکنش‌ها", accounts: "حساب‌ها و کیف پول", budgets: "بودجه", bills: "قبض‌ها",
+  calendar: "تقویم", shopping: "خرید", inventory: "انبار", tasks: "کارهای خانه", documents: "اسناد",
+  meals: "برنامهٔ غذایی", equipment: "وسایل خانه", vehicles: "خودرو", goals: "اهداف و آرزوها",
+  activities: "برنامه‌های خانوادگی", children: "فرزندان", pets: "حیوانات خانگی", market: "بازار",
+  assistant: "دستیار",
 };
 export const secretKeys = new Set(["SMS_API_KEY", "DEEPSEEK_API_KEY", "AI_SMS_GATEWAY_TOKEN"]);
 export const ownerOperations = new Set<OperationKind>(["backup.restore", "release.install", "host.reboot", "host.cancel_reboot"]);

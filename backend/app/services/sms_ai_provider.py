@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Callable
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass
 from decimal import Decimal
 
 import httpx
@@ -11,6 +15,70 @@ import httpx
 from app.core.errors import AppError
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class AiCallUsage:
+    attempted: bool = False
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    before_attempt: Callable[[], None] | None = None
+
+
+_call_usage: ContextVar[AiCallUsage | None] = ContextVar("ai_call_usage", default=None)
+
+
+@contextmanager
+def capture_ai_usage(before_attempt: Callable[[], None] | None = None):
+    """Request-local numeric metadata only; also usable by the database-free gateway."""
+    usage = AiCallUsage(before_attempt=before_attempt)
+    token = _call_usage.set(usage)
+    try:
+        yield usage
+    finally:
+        _call_usage.reset(token)
+
+
+def token_count(value: object) -> int | None:
+    return value if type(value) is int and 0 <= value <= 2**63 - 1 else None
+
+
+def ai_attempt_started() -> None:
+    if (usage := _call_usage.get()) is not None:
+        if not usage.attempted and usage.before_attempt is not None:
+            usage.before_attempt()
+        usage.attempted = True
+
+
+def capture_token_counts(input_tokens: object, output_tokens: object) -> None:
+    if (usage := _call_usage.get()) is not None:
+        usage.input_tokens = token_count(input_tokens)
+        usage.output_tokens = token_count(output_tokens)
+
+
+def ai_usage_headers(usage: AiCallUsage) -> dict[str, str]:
+    headers = {"X-AI-Usage-Version": "1", "X-AI-Attempted": str(int(usage.attempted))}
+    for name, value in (("Input", usage.input_tokens), ("Output", usage.output_tokens)):
+        if value is not None:
+            headers[f"X-AI-{name}-Tokens"] = str(value)
+    return headers
+
+
+def capture_gateway_usage(headers) -> None:
+    if headers.get("X-AI-Usage-Version") != "1":
+        return  # Released gateways without numeric metadata have unknown token usage.
+
+    if headers.get("X-AI-Attempted") == "0":
+        if (usage := _call_usage.get()) is not None:
+            usage.attempted = False
+            usage.input_tokens = usage.output_tokens = None
+        return
+
+    def count(name):
+        raw = headers.get(name, "")
+        return int(raw) if len(raw) <= 19 and raw.isascii() and raw.isdigit() else None
+
+    capture_token_counts(count("X-AI-Input-Tokens"), count("X-AI-Output-Tokens"))
 
 # @copy-text sms.assistant.not_configured
 NOT_CONFIGURED = "دستیار پیامک برای این نسخه تنظیم نشده است."
@@ -76,11 +144,13 @@ def reject_nonfinite(_value: str) -> None:
 
 
 def request_deepseek_json(
-    messages: list[dict[str, str]], *, api_key: str, model: str, timeout: float
+    messages: list[dict[str, str]], *, api_key: str, model: str, timeout: float,
+    max_output_tokens: int = 1800,
 ) -> dict:
     if not api_key.strip():
         raise provider_error("AI_NOT_CONFIGURED")
     try:
+        ai_attempt_started()
         response = httpx.post(
             "https://api.deepseek.com/chat/completions",
             headers={
@@ -93,14 +163,21 @@ def request_deepseek_json(
                 "temperature": 0,
                 "thinking": {"type": "disabled"},
                 "stream": False,
-                "max_tokens": 1800,
+                "max_tokens": max_output_tokens,
                 "response_format": {"type": "json_object"},
             },
             timeout=timeout,
             follow_redirects=False,
         )
+        # Preserve reported usage even when content is invalid or the provider rejects a call.
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = None
+        reported = payload.get("usage") if isinstance(payload, dict) else None
+        if isinstance(reported, dict):
+            capture_token_counts(reported.get("prompt_tokens"), reported.get("completion_tokens"))
         response.raise_for_status()
-        payload = response.json()
         choice = payload["choices"][0]
         content = choice["message"]["content"]
         if (
@@ -138,9 +215,13 @@ def request_deepseek_json(
 
 def request_deepseek(
     messages: list[dict[str, str]], *, api_key: str, model: str, timeout: float,
+    max_output_tokens: int = 1800,
 ) -> dict:
     """Retain the released SMS contract; household routes validate their own schema."""
-    result = request_deepseek_json(messages, api_key=api_key, model=model, timeout=timeout)
+    result = request_deepseek_json(
+        messages, api_key=api_key, model=model, timeout=timeout,
+        max_output_tokens=max_output_tokens,
+    )
     if not isinstance(result.get("transactions"), list) or len(result["transactions"]) > 80:
         logger.warning("SMS assistant provider request failed reason=invalid_response")
         raise provider_error("AI_INVALID_RESULT")

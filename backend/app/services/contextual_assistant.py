@@ -9,8 +9,10 @@ from pydantic import ValidationError
 
 from app.core.config import settings
 from app.core.errors import AppError
+from app.core.feature_policy import require_feature
 from app.services import household_assistant as legacy
 from app.services import sms_assistant
+from app.services.ai_controls import connection_mode, family_calls
 from app.services.financial_text import normalize_financial_text
 from app.services.household_ai_protocol import (
     ContextPlan,
@@ -28,22 +30,28 @@ from app.services.household_context import (
 )
 from app.services.member_age import today_tehran
 from app.services.sms_ai_provider import request_deepseek_json
+from app.services.usage import measure_ai
 
 
 def _infer(body, schema, path):
-    if settings.ai_sms_gateway_url.strip():
-        payload = legacy._gateway_request(path, body.model_dump())
-    elif settings.deepseek_api_key.strip():
-        payload = request_deepseek_json(
-            build_context_messages(body), api_key=settings.deepseek_api_key,
-            model=settings.ai_sms_model, timeout=settings.ai_sms_timeout_seconds,
-        )
-    else:
-        raise AppError("AI_GATEWAY_NOT_CONFIGURED", legacy.CONNECTION_FAILED, 503)
-    try:
-        return schema.model_validate(payload)
-    except ValidationError:
-        raise AppError("AI_INVALID_RESULT", legacy.INVALID_RESULT, 502) from None
+    stage = {
+        "/v1/assistant/plan": "assistant_plan", "/v1/assistant/report": "assistant_report",
+    }[path]
+    with measure_ai(stage):
+        if connection_mode() == "gateway":
+            payload = legacy._gateway_request(path, body.model_dump())
+        elif settings.deepseek_api_key.strip():
+            payload = request_deepseek_json(
+                build_context_messages(body), api_key=settings.deepseek_api_key,
+                model=settings.ai_sms_model, timeout=settings.ai_sms_timeout_seconds,
+                max_output_tokens=settings.ai_max_output_tokens,
+            )
+        else:
+            raise AppError("AI_GATEWAY_NOT_CONFIGURED", legacy.CONNECTION_FAILED, 503)
+        try:
+            return schema.model_validate(payload)
+        except ValidationError:
+            raise AppError("AI_INVALID_RESULT", legacy.INVALID_RESULT, 502) from None
 
 
 def _report_context(facts, actions, context):
@@ -65,6 +73,7 @@ def _report_context(facts, actions, context):
     return encoded
 
 
+@family_calls
 def analyze(db, actor, text: str):
     legacy.require_nonfinancial_registration(text)
     if not text.strip():
@@ -90,6 +99,8 @@ def analyze(db, actor, text: str):
         {"proposals": [item.model_dump() for item in plan.proposals]},
         masked, aliases, hits, accounts, reference,
     )
+    for section in sections:
+        require_feature(section)
     context = read_context(db, actor, sections, terms, reference)
     declared_missing = bool(re.search(r"نداریم|تمام شده|تموم شده|نیاز داریم", masked))
     facts = build_facts(context, terms, declared_missing=declared_missing)

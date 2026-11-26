@@ -26,6 +26,35 @@ async function command(arguments_) {
   const [code] = await once(child, 'exit');
   assert.equal(code, 0, text);
 }
+async function inspectWorkbook(path) {
+  const script = `from zipfile import ZipFile
+from xml.etree import ElementTree as ET
+import json, sys
+with ZipFile(sys.argv[1]) as archive:
+    assert archive.testzip() is None
+    names = {item.filename for item in archive.infolist()}
+    assert {"[Content_Types].xml", "_rels/.rels", "xl/workbook.xml", "xl/_rels/workbook.xml.rels", "xl/styles.xml"} <= names
+    for name in names:
+        if name.endswith((".xml", ".rels")):
+            ET.fromstring(archive.read(name))
+    ns = {"x": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    book = ET.fromstring(archive.read("xl/workbook.xml"))
+    sheets = [sheet.attrib["name"] for sheet in book.findall("x:sheets/x:sheet", ns)]
+    result = {"sheets": sheets, "rows": {}, "formula_cells": 0}
+    for index, name in enumerate(sheets, 1):
+        sheet = ET.fromstring(archive.read(f"xl/worksheets/sheet{index}.xml"))
+        rows = sheet.findall("x:sheetData/x:row", ns)
+        result["rows"][name] = len(rows) - 1
+        result["formula_cells"] += len(sheet.findall(".//x:f", ns))
+print(json.dumps(result, ensure_ascii=False))`;
+  const child = spawn(python, ['-X', 'utf8', '-c', script, path], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let stdout = '', stderr = '';
+  child.stdout.on('data', chunk => { stdout += chunk; });
+  child.stderr.on('data', chunk => { stderr += chunk; });
+  const [code] = await once(child, 'exit');
+  assert.equal(code, 0, stderr);
+  return JSON.parse(stdout);
+}
 await command(['init', '--credentials-file', resolve(output, 'access.txt')]);
 const access = await readFile(resolve(output, 'access.txt'), 'utf8');
 const password = /^Password: (.+)$/m.exec(access)[1];
@@ -126,7 +155,7 @@ try {
   await navigate('آمار و بهبود محصول');
   for (const days of [7, 90]) {
     await page.getByLabel('بازهٔ آمار', { exact: true }).selectOption(String(days));
-    await page.waitForFunction(days => document.querySelectorAll('.mg-analytics-daily tbody tr').length === days, days);
+    await page.waitForFunction(days => document.querySelector('.mg-analytics-daily')?.querySelectorAll('tbody tr').length === days, days);
   }
   await page.getByRole('button', { name: 'نمایش همهٔ بخش‌ها، همراه شمارنده‌های صفر', exact: true }).click();
   assert.equal(await page.locator('.mg-analytics-modules > li').count(), 21);
@@ -147,7 +176,50 @@ try {
     assert.ok(!JSON.stringify(aggregate).includes(forbidden));
   }
   results.checks.push('Analytics periods, module details and aggregate-only JSON export');
+  const productExcelDownload = page.waitForEvent('download');
+  await page.getByLabel('بازهٔ آماری فایل اکسل', { exact: true }).selectOption('90');
+  await page.getByRole('button', { name: 'دریافت اکسل این بخش', exact: true }).click();
+  const productExcelPath = resolve(output, 'product-report.xlsx');
+  const productExcel = await productExcelDownload;
+  assert.ok(productExcel.suggestedFilename().endsWith('.xlsx'));
+  await productExcel.saveAs(productExcelPath);
+  const productWorkbook = await inspectWorkbook(productExcelPath);
+  assert.ok(productWorkbook.sheets.includes('راهنمای فایل'));
+  assert.ok(productWorkbook.sheets.includes('پوشش اندازه‌گیری'));
+  assert.ok(productWorkbook.sheets.includes('همهٔ مسیرهای AI'));
+  assert.equal(productWorkbook.rows['روند روزانه'], 90);
+  assert.equal(productWorkbook.formula_cells, 0);
+  results.checks.push('Excel download opens with all rows, separate AI reporting, missing states and zero formulas');
+  const aiCard = page.getByRole('region', { name: 'مصرف هوش مصنوعی', exact: true });
+  await aiCard.getByText('فراخوانی سرویس AI', { exact: true }).waitFor();
+  const aiExpected = await (await ownerContext.request.get(origin + '/management/api/state/ai-analytics?days=90')).json();
+  assert.equal(await aiCard.locator('dt').filter({ hasText: /^فراخوانی سرویس AI$/ }).locator('..').locator('dd').innerText(), aiExpected.totals.requests.toLocaleString('fa-IR'));
+  await aiCard.getByText('جزئیات فراخوانی‌های هوش مصنوعی', { exact: true }).click();
+  assert.equal(await aiCard.locator('tbody tr').count(), 4);
+  const aiDownloadPromise = page.waitForEvent('download');
+  await aiCard.getByRole('button', { name: 'دریافت گزارش تجمیعی AI', exact: true }).click();
+  const aiFile = resolve(output, 'ai-aggregate.json');
+  await (await aiDownloadPromise).saveAs(aiFile);
+  const aiExport = JSON.parse(await readFile(aiFile, 'utf8'));
+  assert.equal(aiExport.days, 90);
+  assert.deepEqual(aiExport.totals, aiExpected.totals);
+  assert.deepEqual(aiExport.stages, aiExpected.stages);
+  for (const forbidden of ['family_id', 'member_id', 'prompt', 'response', 'ddc41176-861c-44c5-a67a-ff0aba53ee80']) {
+    assert.ok(!JSON.stringify(aiExport).includes(forbidden));
+  }
+  for (const width of [360, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await screenshot(`ai-analytics-${width}`);
+  }
+  await page.setViewportSize({ width: 360, height: 900 });
+  results.checks.push('AI totals, stage details and separate aggregate export preserve the original export');
   await navigate('نمای کلی');
+  for (const label of ['نسخهٔ برنامه', 'نسخهٔ اعلامی API', 'نسخهٔ پنل مدیریت']) {
+    await page.getByText(label, { exact: true }).waitFor();
+  }
+  assert.equal(await page.locator('dt').filter({ hasText: /^نسخهٔ برنامه$/ }).locator('..').locator('dd').innerText(), '0.6.0');
+  assert.equal(await page.locator('dt').filter({ hasText: /^نسخهٔ اعلامی API$/ }).locator('..').locator('dd').innerText(), '0.1.0');
+  results.checks.push('Installed app, reported API and management versions are independently labeled');
   await page.getByRole('button', { name: 'ساخت پشتیبان کامل', exact: true }).click();
   await confirm();
   await navigate('پشتیبان‌ها');
@@ -170,6 +242,61 @@ try {
   await page.getByLabel('ثبت‌نام و پیوستن حساب تازه', { exact: true }).waitFor();
   assert.equal(await page.getByLabel('ثبت‌نام و پیوستن حساب تازه', { exact: true }).isChecked(), false);
   results.checks.push('Runtime settings preview, confirmation and persisted result');
+
+  await page.getByLabel('کارهای خانه', { exact: true }).selectOption('read_only');
+  await page.getByLabel('روش اتصال هوش مصنوعی', { exact: true }).selectOption('direct');
+  await page.getByLabel('سقف روزانهٔ کل فراخوانی‌ها', { exact: true }).fill('20');
+  await page.getByLabel('سقف روزانهٔ هر خانواده', { exact: true }).fill('4');
+  await page.getByLabel(/^کلید سرویس هوش مصنوعی/).fill('browser-synthetic-private-key');
+  await page.getByRole('button', { name: 'بررسی و ذخیرهٔ تغییرها', exact: true }).click();
+  const settingsDialog = page.getByRole('dialog');
+  await settingsDialog.waitFor();
+  assert.ok(!(await settingsDialog.innerText()).includes('browser-synthetic-private-key'));
+  await settingsDialog.getByText('کارهای خانه', { exact: true }).waitFor();
+  await settingsDialog.getByText('فقط‌خواندنی', { exact: true }).waitFor();
+  await confirm();
+  await page.getByLabel('کارهای خانه', { exact: true }).waitFor();
+  assert.equal(await page.getByLabel('کارهای خانه', { exact: true }).inputValue(), 'read_only');
+  assert.equal(await page.getByLabel('سقف روزانهٔ هر خانواده', { exact: true }).inputValue(), '4');
+  const savedConfiguration = await (await ownerContext.request.get(origin + '/management/api/state/settings')).json();
+  assert.equal(savedConfiguration.environment.DEEPSEEK_API_KEY, true);
+  assert.ok(!JSON.stringify(savedConfiguration).includes('browser-synthetic-private-key'));
+  await page.getByLabel('کارهای خانه', { exact: true }).selectOption('disabled');
+  await page.getByRole('button', { name: 'لغو تغییرهای ذخیره‌نشده', exact: true }).click();
+  assert.equal(await page.getByLabel('کارهای خانه', { exact: true }).inputValue(), 'read_only');
+  assert.equal(await page.getByRole('button', { name: 'بررسی و ذخیرهٔ تغییرها', exact: true }).isDisabled(), true);
+  await screenshot('feature-and-ai-controls-360');
+  results.checks.push('Feature policy and AI configuration confirmation, persistence, secret masking and cancel');
+
+  await page.getByLabel('فرستندهٔ پیامک', { exact: true }).fill('sender-before-import');
+  const importPanel = page.getByRole('region', { name: 'ورود تنظیمات پیامک و AI از فایل', exact: true });
+  await importPanel.locator('input[type=file]').setInputFiles({
+    name: 'custom-ai-settings.json', mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify({ AI_CONNECTION_MODE: 'direct', AI_SMS_MODEL: 'custom-model-from-file',
+      AI_MAX_OUTPUT_TOKENS: 4096, SMS_PROVIDER: 'kavenegar', SMS_API_KEY: 'browser-import-secret', SMS_SENDER: '' })),
+  });
+  const importPreview = importPanel.getByRole('region', { name: 'پیش‌نمایش ورود تنظیمات', exact: true });
+  await importPreview.waitFor();
+  assert.ok(!(await importPreview.innerText()).includes('browser-import-secret'));
+  assert.ok((await importPreview.innerText()).includes('کلید تازه؛ نمایش داده نمی‌شود.'));
+  await importPanel.getByRole('button', { name: 'افزودن تنظیمات انتخاب‌شده به فرم', exact: true }).click();
+  assert.equal(await page.getByLabel('روش اتصال هوش مصنوعی', { exact: true }).inputValue(), 'direct');
+  assert.equal(await page.getByLabel('مدل دستیار', { exact: true }).inputValue(), 'custom-model-from-file');
+  assert.equal(await page.getByLabel('سقف توکن خروجی اتصال مستقیم', { exact: true }).inputValue(), '4096');
+  assert.equal(await page.getByLabel('فرستندهٔ پیامک', { exact: true }).inputValue(), 'sender-before-import');
+  assert.equal(await page.getByLabel('کلید درگاه پیامک', { exact: true }).inputValue(), 'browser-import-secret');
+  await page.getByRole('button', { name: 'بررسی و ذخیرهٔ تغییرها', exact: true }).click();
+  const importConfirm = page.getByRole('dialog');
+  await importConfirm.waitFor();
+  assert.ok(!(await importConfirm.innerText()).includes('browser-import-secret'));
+  await confirm();
+  const importedSettings = await (await ownerContext.request.get(origin + '/management/api/state/settings')).json();
+  assert.equal(importedSettings.environment.AI_SMS_MODEL, 'custom-model-from-file');
+  assert.equal(importedSettings.environment.AI_MAX_OUTPUT_TOKENS, '4096');
+  assert.equal(importedSettings.environment.SMS_API_KEY, true);
+  assert.equal(importedSettings.environment.SMS_SENDER, 'sender-before-import');
+  assert.ok(!JSON.stringify(importedSettings).includes('browser-import-secret'));
+  results.checks.push('Custom JSON settings import, blank preservation, secret masking and explicit save');
 
   await navigate('کاربران');
   await page.getByRole('button', { name: 'تعلیق', exact: true }).click(); await confirm();
@@ -199,6 +326,18 @@ try {
   await page.getByText('0.6.0', { exact: true }).waitFor();
   results.checks.push('Restore snapshot and automatic safety backup');
 
+  await navigate('آمار و بهبود محصول');
+  const allExcelDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'دریافت اکسل همهٔ گزارش‌ها', exact: true }).click();
+  const allExcelPath = resolve(output, 'all-reports.xlsx');
+  await (await allExcelDownload).saveAs(allExcelPath);
+  const allWorkbook = await inspectWorkbook(allExcelPath);
+  for (const sheet of ['کاربران', 'پشتیبان‌ها', 'نسخه‌ها', 'عملیات', 'سابقهٔ دسترسی', 'مدیران', 'راهنمای فایل']) {
+    assert.ok(allWorkbook.sheets.includes(sheet), `Missing Excel sheet: ${sheet}`);
+  }
+  assert.equal(allWorkbook.formula_cells, 0);
+  results.checks.push('All-report Excel includes paged history, backups, releases and role-authorized sections');
+
   await navigate('مدیران و دسترسی‌ها');
   await page.getByRole('button', { name: 'افزودن مدیر', exact: true }).click();
   const account = page.getByRole('dialog'); await account.waitFor();
@@ -217,6 +356,10 @@ try {
   await viewerPage.getByText('خانواده‌های عضو', { exact: true }).waitFor();
   assert.equal(await viewerPage.getByRole('button', { name: 'مدیران و دسترسی‌ها', exact: true }).count(), 0);
   assert.equal(await viewerPage.getByRole('button', { name: 'ساخت پشتیبان کامل', exact: true }).count(), 0);
+  await viewerPage.getByRole('navigation').getByRole('button', { name: 'تنظیمات برنامه', exact: true }).click();
+  await viewerPage.getByLabel('کارهای خانه', { exact: true }).waitFor();
+  assert.equal(await viewerPage.getByLabel('کارهای خانه', { exact: true }).isDisabled(), true);
+  assert.equal(await viewerPage.getByLabel('سقف روزانهٔ هر خانواده', { exact: true }).isDisabled(), true);
   const viewerAnalytics = await viewerContext.request.get(origin + '/management/api/state/analytics?days=7');
   assert.equal(viewerAnalytics.status(), 200);
   assert.equal((await viewerAnalytics.json()).days, 7);
@@ -288,6 +431,32 @@ try {
   await recoveryPage.getByRole('button', { name: 'بررسی دوباره', exact: true }).click();
   await recoveryPage.getByText('وضعیت حساب‌ها و ثبت‌نام', { exact: true }).waitFor();
   results.checks.push('Analytics missing, empty and failure states without fabricated zeros');
+  const observedAi = await (await recoveryContext.request.get(origin + '/management/api/state/ai-analytics?days=30')).json();
+  let aiVariant = { ...observedAi, available: false, first_counter: null, totals: null, stages: null };
+  await recoveryContext.route('**/management/api/state/ai-analytics?*', async route => {
+    if (aiVariant === 'failure') await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'TEST_AI_REPORT', message: 'گزارش نمونهٔ هوش مصنوعی موقتاً در دسترس نیست.' }) });
+    else await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(aiVariant) });
+  });
+  const recoveryAi = recoveryPage.getByRole('region', { name: 'مصرف هوش مصنوعی', exact: true });
+  await recoveryPage.getByRole('button', { name: 'بررسی دوباره', exact: true }).click();
+  await recoveryAi.getByText('شمارندهٔ هوش مصنوعی روی این نسخه نصب نشده است؛ مصرف نامعلوم صفر نمایش داده نمی‌شود.', { exact: true }).waitFor();
+  aiVariant = structuredClone(observedAi);
+  for (const row of [aiVariant.totals, ...aiVariant.stages]) {
+    for (const key of Object.keys(row)) if (key !== 'stage') row[key] = key === 'input_tokens' || key === 'output_tokens' ? null : 0;
+  }
+  aiVariant.first_counter = null;
+  await recoveryPage.getByRole('button', { name: 'بررسی دوباره', exact: true }).click();
+  await recoveryAi.getByText('هنوز فراخوانی‌ای در این شمارنده ثبت نشده است؛ تاریخچهٔ قبل از نصب بازسازی نمی‌شود.', { exact: true }).waitFor();
+  assert.equal(await recoveryAi.getByText('اعلام‌نشده', { exact: true }).count(), 2);
+  aiVariant = 'failure';
+  await recoveryPage.getByRole('button', { name: 'بررسی دوباره', exact: true }).click();
+  await recoveryAi.getByRole('alert').waitFor();
+  assert.equal(await recoveryAi.locator('dd').count(), 0);
+  await recoveryPage.getByText('وضعیت حساب‌ها و ثبت‌نام', { exact: true }).waitFor();
+  aiVariant = observedAi;
+  await recoveryPage.getByRole('button', { name: 'بررسی دوباره', exact: true }).click();
+  await recoveryAi.getByText('فراخوانی سرویس AI', { exact: true }).waitFor();
+  results.checks.push('AI unavailable, empty, unknown-token and independent failure recovery states');
   analyticsVariant = structuredClone(unmeasured);
   await recoveryPage.getByRole('navigation').getByRole('button', { name: 'داشبورد', exact: true }).click();
   await recoveryPage.getByText('داده‌ای برای این نمودار در دسترس نیست؛ مقدار ناموجود صفر محسوب نمی‌شود.', { exact: true }).waitFor();

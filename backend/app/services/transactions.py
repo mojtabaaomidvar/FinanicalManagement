@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert
 
 from app.core.errors import AppError
+from app.core.feature_policy import require_feature
 from app.db.financial_lock import lock_financial_family
 from app.models.account import Account
 from app.models.category import CustomCategory, Subcategory
@@ -242,6 +243,7 @@ def create_uncommitted(
     همهٔ اعتبارسنجی‌ها از `_prepare` می‌آید، پس هیچ قاعده‌ای دوباره نوشته
     نمی‌شود: یک موتورِ قاعده، یک commit.
     """
+    require_feature("transactions", write=True)
     lock_financial_family(db, family_id)
     values = _prepare(db, family_id, req)
     if actor is not None:

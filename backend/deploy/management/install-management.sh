@@ -18,7 +18,7 @@ for command in python3 docker nginx systemctl visudo runuser; do command -v "$co
 python3 -c 'import sys; assert sys.version_info >= (3, 11), "Python 3.11 or newer is required"'
 [[ -f "$certificate/fullchain.pem" && -f "$certificate/privkey.pem" ]]
 [[ -f "$deploy/.env" && -f "$deploy/docker-compose.yml" && -f "$web_root/management.html" ]]
-[[ -f "$source_root/backend/app/management/main.py" && -f "$source_root/backend/management-worker.py" ]]
+[[ -f "$source_root/backend/app/management/main.py" && -f "$source_root/backend/management-worker.py" && -f "$source_root/backend/app/core/feature_policy.py" ]]
 [[ ! -e /etc/nginx/sites-available/khaneyar-management.conf && ! -L /etc/nginx/sites-available/khaneyar-management.conf && ! -L /etc/nginx/sites-enabled/khaneyar-management.conf && ! -e /etc/nginx/sites-enabled/khaneyar-management.conf ]] || { echo 'Existing management nginx configuration requires review.' >&2; exit 1; }
 if [[ "$hosting" == shared-support ]]; then
     python3 "$source_root/backend/deploy/management/support_host.py" check
@@ -59,6 +59,9 @@ install -d -m 750 -o root -g khaneyar-management /etc/khaneyar-management
 install -d -m 700 -o khaneyar-management -g khaneyar-management /var/lib/khaneyar-management
 install -d -m 700 "$base/releases" /var/backups/khaneyar/management
 install -d -m 755 "$base/source/backend/app/management"
+install -d -m 755 "$base/source/backend/app/core"
+install -m 644 "$source_root/backend/app/core/__init__.py" "$base/source/backend/app/core/__init__.py"
+install -m 644 "$source_root/backend/app/core/feature_policy.py" "$base/source/backend/app/core/feature_policy.py"
 for module in "$source_root/backend/app/management/"*.py; do
     install -m 644 "$module" "$base/source/backend/app/management/"
 done

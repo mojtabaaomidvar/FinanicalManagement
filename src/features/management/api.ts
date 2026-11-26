@@ -7,10 +7,12 @@ export type Operation = { kind: OperationKind; target?: string; values?: Record<
 export type Plan = { id: string; operation: Operation; expires_at: number; demo: boolean };
 export type Credential = { password: string; code: string };
 export type Service = { id: "api" | "db" | "nginx"; state: string; health: string; image: string };
-export type Overview = { api: string; database: string; version: string; cpu_load: number; cpu_cores: number;
+export type Overview = { api: string; database: string; version: string; software_version?: string; api_version?: string; management_version?: string; cpu_load: number; cpu_cores: number;
   memory_total: number; memory_used: number; disk_total: number; disk_used: number; uptime_seconds: number; services: Service[]; checked_at: number };
 export type User = { id: string; role: string; state: string; phone: string; created_at: string; last_login: string | null };
-export type Settings = { flags: Record<string, boolean>; environment: Record<string, string | boolean>; revision: string; runtime_supported: boolean };
+export type Settings = { flags: Record<string, boolean>; environment: Record<string, string | boolean>;
+  features?: Record<string, string>; feature_controls_supported?: boolean; ai_controls_supported?: boolean;
+  ai_configuration_applied?: boolean; runtime_applied?: boolean; revision: string; runtime_supported: boolean };
 export type Backup = { id: string; created_at: number; bytes: number; image: string };
 export type Release = { tag: string; sha256: string; fetched_at: number };
 export type Job = { id: string; actor: string; operation: Operation; status: "queued" | "running" | "succeeded" | "failed" | "interrupted"; created: number; finished: number | null;
@@ -25,9 +27,9 @@ export class ManagementApiError extends Error {
 let csrf = "";
 const prefix = "/management/api";
 
-async function response(path: string, method: string, body?: unknown): Promise<Response> {
+async function response(path: string, method: string, body?: unknown, signal?: AbortSignal): Promise<Response> {
   const result = await fetch(prefix + path, {
-    method, credentials: "same-origin", cache: "no-store", redirect: "error",
+    method, credentials: "same-origin", cache: "no-store", redirect: "error", signal,
     headers: { "Content-Type": "application/json", ...(csrf ? { "X-Management-CSRF": csrf } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
@@ -42,7 +44,7 @@ async function response(path: string, method: string, body?: unknown): Promise<R
 
 export const managementApi = {
   setSession(session: Session | null) { csrf = session?.csrf ?? ""; },
-  async get<T>(path: string): Promise<T> { return (await response(path, "GET")).json() as Promise<T>; },
+  async get<T>(path: string, signal?: AbortSignal): Promise<T> { return (await response(path, "GET", undefined, signal)).json() as Promise<T>; },
   async post<T>(path: string, body: unknown): Promise<T> { return (await response(path, "POST", body)).json() as Promise<T>; },
   async patch<T>(path: string, body: unknown): Promise<T> { return (await response(path, "PATCH", body)).json() as Promise<T>; },
   async download(backupId: string, credential: Credential) {

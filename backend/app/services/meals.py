@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.errors import AppError
+from app.core.feature_policy import require_feature
 from app.models.family import Family, Member
 from app.models.meal import Dish, MealEntry
 from app.schemas.meals import (
@@ -239,6 +240,7 @@ def _commit_entry(db: Session) -> None:
 
 
 def create_entry_row(db: Session, actor: Member, body: MealEntryWrite) -> MealEntry:
+    require_feature("meals", write=True)
     _get_dish(db, actor, body.dish_id, lock=True)
     row = MealEntry(
         family_id=actor.family_id,

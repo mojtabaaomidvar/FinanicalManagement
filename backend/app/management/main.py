@@ -24,6 +24,14 @@ from app.management.contracts import READS, Config, ManagementError, Operation, 
 from app.management.driver import DemoDriver, Driver
 from app.management.store import Store
 
+HISTORY_PAGE_SIZE = 100
+MAX_HISTORY_OFFSET = 1_000_000
+
+
+def validate_history_offset(offset: int) -> None:
+    if type(offset) is not int or not 0 <= offset <= MAX_HISTORY_OFFSET:
+        raise ManagementError("INVALID_OFFSET", "شمارهٔ صفحهٔ گزارش معتبر نیست.", 422)
+
 
 class Body(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
@@ -280,6 +288,12 @@ def create_app(config: Config, *, driver=None) -> FastAPI:
 
             period(days)
             return validate_report(driver.read(section, {"days": days}))
+        if section == "ai-analytics":
+            from app.management.ai_analytics import validate_ai_report
+            from app.management.analytics import period
+
+            period(days)
+            return validate_ai_report(driver.read(section, {"days": days}))
         return driver.read(section, {"search": search, "offset": offset, "target": target})
 
     @app.post(prefix + "/plans")
@@ -399,17 +413,25 @@ def create_app(config: Config, *, driver=None) -> FastAPI:
         return result
 
     @app.get(prefix + "/jobs")
-    def jobs(_actor=principal_dependency):
-        return {"items": store.jobs()}
+    def jobs(offset: int = 0, _actor=principal_dependency):
+        validate_history_offset(offset)
+        return store.jobs_page(offset, HISTORY_PAGE_SIZE)
 
     @app.get(prefix + "/audit")
-    def audit(_actor=owner_dependency):
+    def audit(offset: int = 0, _actor=owner_dependency):
+        validate_history_offset(offset)
         with store.connect() as db:
+            total = db.execute("SELECT count(*) FROM audit").fetchone()[0]
             return {
                 "items": [
                     dict(row)
-                    for row in db.execute("SELECT * FROM audit ORDER BY id DESC LIMIT 200")
-                ]
+                    for row in db.execute(
+                        "SELECT * FROM audit ORDER BY id DESC LIMIT ? OFFSET ?",
+                        (HISTORY_PAGE_SIZE, offset),
+                    )
+                ],
+                "total": total,
+                "offset": offset,
             }
 
     @app.get(prefix + "/accounts")

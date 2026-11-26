@@ -20,15 +20,23 @@ from app.models.account import Account
 from app.models.family import Member
 from app.models.messaging import SmsMessage
 from app.schemas.sms_assistant import SmsAssistantImportIn
+from app.services.ai_controls import connection_mode, family_calls
 from app.services.bank_catalog import ALIASES, BANKS
 from app.services.financial_text import amount_unit, normalize_financial_text
 from app.services.financial_text import source_amounts as financial_source_amounts
 from app.services.sms_ai_protocol import EXPENSE_CATEGORIES as _EXPENSE_CATEGORIES
 from app.services.sms_ai_protocol import INCOME_CATEGORIES as _INCOME_CATEGORIES
 from app.services.sms_ai_protocol import build_messages
-from app.services.sms_ai_provider import ERRORS, provider_error, request_deepseek
+from app.services.sms_ai_provider import (
+    ERRORS,
+    ai_attempt_started,
+    capture_gateway_usage,
+    provider_error,
+    request_deepseek,
+)
 from app.services.sms_ai_provider import OUTPUT_FAILED as _OUTPUT_FAILED
 from app.services.sms_parser import detect_bank, normalize_sms, parse_sms, to_en
+from app.services.usage import measure_ai
 
 
 def _digits(value: str | None) -> str:
@@ -110,6 +118,7 @@ def _model_request(messages: list[dict[str, str]]) -> dict:
     return request_deepseek(
         messages, api_key=settings.deepseek_api_key,
         model=settings.ai_sms_model, timeout=settings.ai_sms_timeout_seconds,
+        max_output_tokens=settings.ai_max_output_tokens,
     )
 
 
@@ -133,6 +142,7 @@ def _gateway_request(items: list[dict]) -> dict:
     except ValueError:
         raise provider_error("AI_GATEWAY_NOT_CONFIGURED") from None
     try:
+        ai_attempt_started()
         response = httpx.post(
             url + "/v1/sms/analyze",
             headers={"Authorization": f"Bearer {token}"},
@@ -140,6 +150,7 @@ def _gateway_request(items: list[dict]) -> dict:
             timeout=settings.ai_sms_timeout_seconds + 5,
             follow_redirects=False,
         )
+        capture_gateway_usage(response.headers)
         if response.status_code in {401, 403}:
             raise provider_error("AI_GATEWAY_AUTH_FAILED")
         if response.is_error:
@@ -255,6 +266,7 @@ def _normalize_bank(value: str | None) -> str:
     return compact
 
 
+@family_calls
 def analyze(db: Session, actor: Member, items: list) -> dict:
     if not settings.ai_sms_gateway_url.strip() and not settings.deepseek_api_key.strip():
         raise provider_error("AI_NOT_CONFIGURED")
@@ -273,13 +285,14 @@ def analyze(db: Session, actor: Member, items: list) -> dict:
                 for key, value in aliases.items()
             ],
         })
-    payload = (
-        _gateway_request(masked_items) if settings.ai_sms_gateway_url.strip()
-        else _model_request(build_messages(masked_items))
-    )
-    raw_events = payload.get("transactions") if isinstance(payload, dict) else None
-    if not isinstance(raw_events, list) or len(raw_events) > 80:
-        raise AppError("AI_INVALID_RESULT", _OUTPUT_FAILED, 502)
+    with measure_ai("sms"):
+        payload = (
+            _gateway_request(masked_items) if connection_mode() == "gateway"
+            else _model_request(build_messages(masked_items))
+        )
+        raw_events = payload.get("transactions") if isinstance(payload, dict) else None
+        if not isinstance(raw_events, list) or len(raw_events) > 80:
+            raise AppError("AI_INVALID_RESULT", _OUTPUT_FAILED, 502)
     parsed_events: list[dict] = []
     source_event_counts: dict[int, int] = {}
     for raw_event in raw_events:
