@@ -8,6 +8,7 @@ import io
 import json
 import os
 import sqlite3
+import subprocess
 import tempfile
 import tarfile
 import sys
@@ -127,7 +128,7 @@ class ReleaseTests(unittest.TestCase):
     def test_bootstrap_extracts_verified_files_and_rejects_traversal_or_drift(self):
         source = package.bootstrap("a" * 64).decode().split("<<'EXTRACT'\n", 1)[1].split("\nEXTRACT\n", 1)[0]
         target = self.root / "extracted"
-        source = source.replace("target=pathlib.Path('/opt/khaneyar-management/releases/analytics-0.3.0')",
+        source = source.replace("target=pathlib.Path('/opt/khaneyar-management/releases/" + package.RELEASE_DIRECTORY + "')",
                                 "target=pathlib.Path(" + repr(str(target)) + ")")
         code = compile(source, "generated-safe-extraction", "exec")
         archive = self.root / "bundle.tgz"
@@ -167,6 +168,44 @@ class ReleaseTests(unittest.TestCase):
         self.file("api/pyproject.toml", b"different-project\n")
         with self.assertRaisesRegex(ValueError, "dependencies"):
             container.source_state(contract, self.root / "api")
+
+    def test_exported_baseline_license_matches_canonical_git_contents(self):
+        name = "data/iranian-banks/LICENSE"
+        canonical = subprocess.run(["git", "show", "v0.11.0:backend/app/" + name], cwd=ROOT,
+                                   capture_output=True, check=True).stdout
+        self.assertEqual(package.git_tree("v0.11.0", "backend/app")[name],
+                         package.sha(canonical.replace(b"\r\n", b"\n")))
+
+    def test_license_accepts_only_line_ending_differences(self):
+        self.file("api/app/main.py")
+        license_path = self.file("api/app/data/iranian-banks/LICENSE", b"MIT License\r\nCopyright\r\n")
+        self.file("api/alembic/env.py")
+        project = self.file("api/pyproject.toml")
+        contract = {"pyproject_sha256": release.digest(project), "app_sha256": {}, "alembic_sha256": {},
+                    "baseline_alembic_sha256": container.tree(self.root / "api/alembic"),
+                    "baseline_app_variants": [container.tree(self.root / "api/app")]}
+        license_path.write_bytes(b"MIT License\nCopyright\n")
+        self.assertEqual(container.source_state(contract, self.root / "api"), "BASELINE")
+        license_path.write_bytes(b"MIT License\nDifferent copyright\n")
+        with self.assertRaisesRegex(ValueError, "source differs"):
+            container.source_state(contract, self.root / "api")
+        license_path.unlink()
+        with self.assertRaisesRegex(ValueError, "source differs"):
+            container.source_state(contract, self.root / "api")
+
+    def test_archive_keeps_license_and_accepts_inherited_linux_copy(self):
+        with tarfile.open(package.OUTPUT / "management-0.3.0.tgz", "r:gz") as archive:
+            archive.extractall(self.root / "package", filter="data")
+        api = self.root / "package/api"
+        manifest = json.loads((self.root / "package/validation.json").read_bytes())
+        self.assertEqual(container.source_state(manifest["container"], api), "NEW")
+        name = "data/iranian-banks/LICENSE"
+        license_path = api / "app" / name
+        canonical = subprocess.run(["git", "show", "v0.11.0:backend/app/" + name], cwd=ROOT,
+                                   capture_output=True, check=True).stdout.replace(b"\r\n", b"\n")
+        self.assertEqual(license_path.read_bytes().replace(b"\r\n", b"\n"), canonical)
+        license_path.write_bytes(canonical)
+        self.assertEqual(container.source_state(manifest["container"], api), "NEW")
 
     def test_failed_activation_stops_services_without_restoring_database(self):
         installer = self.installer()

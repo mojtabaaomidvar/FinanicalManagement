@@ -167,7 +167,7 @@ class Installer:
         return hashlib.sha256(json.dumps(values, separators=(",", ":")).encode()).hexdigest()
 
     def preflight(self):
-        if (self.manifest.get("tag"), self.manifest.get("management_version")) != ("management-v0.3.0", "0.3.0"):
+        if (self.manifest.get("tag"), self.manifest.get("management_version")) != ("management-v0.3.0-r1", "0.3.0"):
             raise ValueError("Unexpected release")
         verify_tree(self.bundle, self.manifest["files_sha256"] | {"validation.json": digest(self.bundle / "validation.json")})
         for path in (BASE, DEPLOY, CONFIG, STATE, BACKUPS, PWA, BASE / "source", BASE / "web",

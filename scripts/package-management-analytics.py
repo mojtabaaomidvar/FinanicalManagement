@@ -12,8 +12,9 @@ import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TAG = "management-v0.3.0"
-OUTPUT = ROOT / ".local-test/management-analytics-release"
+TAG = "management-v0.3.0-r1"
+RELEASE_DIRECTORY = "analytics-0.3.0-r1"
+OUTPUT = ROOT / ".local-test/management-analytics-release-r1"
 REPOSITORY = "mojtabaaomidvar/FinanicalManagement"
 
 
@@ -28,7 +29,7 @@ def git_tree(ref, prefix):
         for item in source:
             if item.isfile():
                 data = source.extractfile(item).read()
-                if Path(item.name).suffix in {".py", ".json", ".mako", ".ini", ".toml"}:
+                if Path(item.name).suffix in {".py", ".json", ".mako", ".ini", ".toml"} or Path(item.name).name == "LICENSE":
                     data = data.replace(b"\r\n", b"\n")
                 result[item.name[len(prefix.rstrip("/")) + 1:]] = sha(data)
     return result
@@ -84,7 +85,7 @@ printf '%s  %s\\n' '{checksum}' "$archive" | sha256sum --check -
 python3 - "$archive" <<'EXTRACT'
 import hashlib, os, pathlib, sys, tarfile
 os.umask(0o077)
-target=pathlib.Path('/opt/khaneyar-management/releases/analytics-0.3.0')
+target=pathlib.Path('/opt/khaneyar-management/releases/{RELEASE_DIRECTORY}')
 if any(p.is_symlink() for p in [target,*target.parents]):
     raise SystemExit('Linked release path; stopped.')
 with tarfile.open(sys.argv[1],'r:gz') as source:
@@ -113,7 +114,7 @@ with tarfile.open(sys.argv[1],'r:gz') as source:
                 out.write(source.extractfile(m).read())
             p.chmod(0o644)
 EXTRACT
-release=/opt/khaneyar-management/releases/analytics-0.3.0
+release=/opt/khaneyar-management/releases/{RELEASE_DIRECTORY}
 exec python3 "$release/upgrade-analytics.py" "$release"
 '''.encode()
 
@@ -121,6 +122,7 @@ exec python3 "$release/upgrade-analytics.py" "$release"
 def main():
     files = {}
     add_tree(files, ROOT / "backend/app", "api/app/", {".py", ".json"})
+    files["api/app/data/iranian-banks/LICENSE"] = (ROOT / "backend/app/data/iranian-banks/LICENSE").read_bytes()
     add_tree(files, ROOT / "backend/alembic", "api/alembic/", {".py", ".mako"})
     for name in ("pyproject.toml", "alembic.ini"):
         files["api/" + name] = (ROOT / "backend" / name).read_bytes()

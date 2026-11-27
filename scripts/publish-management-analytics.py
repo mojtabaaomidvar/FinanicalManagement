@@ -11,9 +11,9 @@ from pathlib import Path
 from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parents[1]
-DIRECTORY = ROOT / ".local-test/management-analytics-release"
+DIRECTORY = ROOT / ".local-test/management-analytics-release-r1"
 REPOSITORY = "mojtabaaomidvar/FinanicalManagement"
-TAG = "management-v0.3.0"
+TAG = "management-v0.3.0-r1"
 ASSETS = ("management-0.3.0.tgz", "validation.json", "install.sh", "SHA256SUMS")
 
 
@@ -103,14 +103,17 @@ def main():
     if code == 404:
         code, release = github.request("POST", api + "/releases", payload={
             "tag_name": TAG, "target_commitish": commit,
-            "name": "Management 0.3.0 — AI analytics, offline counters and controls",
+            "name": "Management 0.3.0 r1 — portable API license verification",
             "draft": True, "prerelease": True, "make_latest": "false",
             "body": "Coordinated API and independent management upgrade from API v0.11.0 / schema 0037 and management 0.2.0. "
                     "Preserves the installed PWA 0.12.0, credentials, TOTP, private AI gateway and uploads. "
                     "Includes aggregate AI reporting, offline operation classification, feature/AI controls, Excel exports and configuration-file import.\n\n"
+                    "Installer revision r1 normalizes CRLF/LF when checking the bundled Iranian banks LICENSE and includes that license in the replacement API source. "
+                    "Uses a separate extracted-release directory; original published assets remain available.\n\n"
                     "Manual root-console installer checks source, backs up and rehearses restore/migration in a temporary database before additive 0038/0039 migrations. "
                     "No production database rollback/downgrade. After activation failure, services remain stopped and the same package can resume.\n\n"
-                    "Validation: 60 isolated PostgreSQL regressions, 136 management tests, 15 installer tests, 21 browser checks and 33 screenshots; "
+                    "R1 validation: 18 installer tests, including three license regressions. Previous application validation for the unchanged application/web/migrations: "
+                    "60 isolated PostgreSQL regressions, 136 management tests, 21 browser checks and 33 screenshots; "
                     "no browser console errors or external requests; 5967 editable texts covered. Linux Docker/systemd are explicit doubles in local lifecycle tests; "
                     "VPS acceptance is performed by the owner during manual installation. Publication is not installation.\n\n"
                     "Review verification.json and the deployment notes in the tagged source. Verify install.sh against SHA256SUMS before running it."})

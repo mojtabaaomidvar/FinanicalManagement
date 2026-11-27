@@ -33,7 +33,7 @@ def tree(root):
             raise ValueError("Linked source")
         if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc":
             data = path.read_bytes()
-            if path.suffix in {".py", ".json", ".mako", ".ini", ".toml"}:
+            if path.suffix in {".py", ".json", ".mako", ".ini", ".toml"} or path.name == "LICENSE":
                 data = data.replace(b"\r\n", b"\n")
             result[path.relative_to(root).as_posix()] = hashlib.sha256(data).hexdigest()
     return result
