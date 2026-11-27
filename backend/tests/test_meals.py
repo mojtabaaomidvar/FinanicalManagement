@@ -100,8 +100,8 @@ def test_dish_crud_cleans_aggregates_and_advances_noop_revision(client, home_a):
     )
     assert dish["title"] == "عدس پلو"
     assert dish["ingredients"] == [
-        {"title": "برنج", "qty": "1.51", "unit": "پیمانه"},
-        {"title": "عدس", "qty": "1.00", "unit": None},
+        {"title": "برنج", "catalog_id": None, "qty": "1.51", "unit": "پیمانه"},
+        {"title": "عدس", "catalog_id": None, "qty": "1.00", "unit": None},
     ]
     assert dish["created_by"] == home_a.member_id
     assert dish["revision"] == 1 and dish["can_edit"] and dish["can_delete"]
@@ -132,8 +132,8 @@ def test_name_only_ingredients_remain_null_across_save_edit_and_plan(client, hom
         {"title": " برنج ", "qty": None}, {"title": "عدس"},
     ])
     assert dish["ingredients"] == [
-        {"title": "برنج", "qty": None, "unit": None},
-        {"title": "عدس", "qty": None, "unit": None},
+        {"title": "برنج", "catalog_id": None, "qty": None, "unit": None},
+        {"title": "عدس", "catalog_id": None, "qty": None, "unit": None},
     ]
     changed = expect_status(edit_dish(client, home_a, dish, title="عدس‌پلو"), 200).json()
     assert changed["ingredients"] == dish["ingredients"]
@@ -148,7 +148,7 @@ def test_duplicate_unknown_ingredient_never_becomes_a_known_total(client, home_a
     dish = create_dish(client, home_a, ingredients=[
         {"title": "برنج", "qty": qty, "unit": "پیمانه"} for qty in amounts
     ])
-    assert dish["ingredients"] == [{"title": "برنج", "qty": None, "unit": "پیمانه"}]
+    assert dish["ingredients"] == [{"title": "برنج", "catalog_id": None, "qty": None, "unit": "پیمانه"}]
 
 
 def test_entry_change_keeps_slot_and_prevents_referenced_dish_deletion(client, home_a):
@@ -390,7 +390,7 @@ def test_duplicate_ingredient_units_and_aggregate_overflow_reject_atomically(cli
         {"date": 0},
         {"date": "2026-11-14T00:00:00Z"},
         {"date": "2026-02-30"},
-        {"meal_type": "snack"},
+        {"meal_type": "invalid-meal"},
         {"dish_id": "bad-id"},
         {"family_id": str(uuid.uuid4())},
         {"created_by": str(uuid.uuid4())},

@@ -106,11 +106,11 @@ export function DocumentsPage({ onChanged }: { onChanged?: () => Promise<void> |
     return () => { mounted.current = false; scopeRef.current = ""; fileSequence.current += 1; revokeUrls(); };
   }, [revokeUrls]);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (silent = false) => {
     if (!scope || !useCases) return;
     const sequence = ++requestSequence.current;
     const identity = accessIdentity.current;
-    setLoading(true); setLoadError("");
+    if (!silent) setLoading(true); setLoadError("");
     try {
       const rows = await useCases.listDocuments.execute();
       if (!mounted.current || accessIdentity.current !== identity || scopeRef.current !== scope || sequence !== requestSequence.current) return;
@@ -126,6 +126,7 @@ export function DocumentsPage({ onChanged }: { onChanged?: () => Promise<void> |
       if (mounted.current && accessIdentity.current === identity && scopeRef.current === scope && sequence === requestSequence.current) setLoading(false);
     }
   }, [scope, useCases, clearDeniedAccess]);
+  useHouseholdRefresh(() => reload(true));
 
   useEffect(() => {
     requestSequence.current += 1;
@@ -386,3 +387,4 @@ export function DocumentsPage({ onChanged }: { onChanged?: () => Promise<void> |
     </AppPage>
   );
 }
+import { useHouseholdRefresh } from "@/shared/lib/useHouseholdRefresh";

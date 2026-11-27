@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -18,6 +19,7 @@ from app.core.logging import configure_logging
 from app.core.managed_runtime import ManagedRuntimeMiddleware
 from app.services import support as support_service
 from app.services import usage as usage_service
+from app.services.household_changes import HouseholdChanges
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +40,16 @@ def _error_headers(request: Request) -> dict[str, str]:
 def create_app() -> FastAPI:
     configure_logging(debug=settings.debug)
 
+    @asynccontextmanager
+    async def lifespan(app):
+        app.state.household_changes = HouseholdChanges()
+        try:
+            yield
+        finally:
+            await app.state.household_changes.close()
+
     app = FastAPI(
+        lifespan=lifespan,
         title="KhanehYar API",
         version=__version__,
         # مستندات تعاملی فقط در حالت غیرتولید

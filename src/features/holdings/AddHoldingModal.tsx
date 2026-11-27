@@ -12,7 +12,9 @@
    فهرست را شلوغ می‌کنند. */
 
 import { useEffect, useState } from "react";
-import { Field, Modal, TextInput } from "@/shared/ui";
+import { Field, Modal, TextInput, CurrencyUnit } from "@/shared/ui";
+import { useApp } from "@/app/providers/AppProvider";
+import { shownPrice } from "@/domain/market/market.rules";
 import { formatAmount } from "@/shared/lib/format";
 import { toFa } from "@/shared/lib/digits";
 import {
@@ -66,6 +68,7 @@ export function AddHoldingModal({
   onSubmit: (quantity: number) => void;
 }) {
   const [raw, setRaw] = useState("");
+  const { cur } = useApp();
   const [touched, setTouched] = useState(false);
 
   const editing = existingQuantity !== undefined;
@@ -85,7 +88,8 @@ export function AddHoldingModal({
   const showError = touched && !check.ok;
   /* پیش‌نمایش فقط وقتی هم مقدار معتبر است هم قیمت داریم. قیمت ۰ یعنی
      بالادست این قلم را نداده؛ آن‌وقت «۰ تومان» گمراه‌کننده است. */
-  const preview = check.ok && target.price > 0 ? quantity * target.price : null;
+  const price = shownPrice(target.price, target.unit, 0, cur).price;
+  const preview = check.ok && price > 0 ? quantity * price : null;
 
   const submit = () => {
     setTouched(true);
@@ -104,8 +108,8 @@ export function AddHoldingModal({
         <b className="hold-target-name">{target.name}</b>
         {target.price > 0 ? (
           <span className="hold-target-price" dir="ltr">
-            {formatAmount(target.price)}
-            <small>{target.unit}</small>
+            {formatAmount(price)}
+            <CurrencyUnit />
           </span>
         ) : (
           <span className="hold-target-price is-muted">قیمت در دسترس نیست</span>
@@ -143,7 +147,7 @@ export function AddHoldingModal({
           <span>ارزش امروز</span>
           <b dir="ltr">
             {formatAmount(preview)}
-            <small>{target.unit}</small>
+            <CurrencyUnit />
           </b>
         </div>
       ) : null}

@@ -13,6 +13,12 @@ import type {
   TripInput,
   TripResult,
 } from "@/domain/shopping/shopping.types";
+import type { InventoryCatalogRepository, InventorySuggestion } from "@/domain/inventory/inventory.catalog";
+
+export class ListInventoryCatalogUseCase {
+  constructor(private readonly repo: InventoryCatalogRepository) {}
+  execute(): Promise<InventorySuggestion[]> { return this.repo.list(); }
+}
 
 export class ListShoppingListsUseCase {
   constructor(private readonly repo: ShoppingRepository) {}

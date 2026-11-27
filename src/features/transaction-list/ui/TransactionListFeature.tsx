@@ -1,10 +1,10 @@
-import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
 /* UI لیست تراکنش‌ها — گروه‌بندی روزانه، فیلتر، جستجو، فیلتر پیشرفته */
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState, type CSSProperties } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useTxListModel, type TxAdvFilter, type TxRange } from "../model/useTxListModel";
-import { Modal, Segmented, Field, JalaliDateInput } from "@/shared/ui";
+import { Modal, Segmented, Field, JalaliDateInput, CurrencyUnit } from "@/shared/ui";
+import { memberFirstName, memberHues } from "@/shared/lib/memberPresentation";
 import { isoToJalali, formatISO, parse, jalaliToIso } from "@/shared/lib/jalali";
 import { validTransactionDateRange } from "../model/transactionFilters";
 import { formatAmount } from "@/shared/lib/format";
@@ -149,7 +149,7 @@ export function TransactionListFeature({
       </div>
 
       {m.totalTransferFees !== "0" || m.adv.hasTransferFee ? <p className="tx-simple-hint" role="status">
-        مجموع کارمزد انتقال: {formatAmount(toDisplay(m.totalTransferFees, cur))} {currencyDisplayLabel(cur)}
+        مجموع کارمزد انتقال: {formatAmount(toDisplay(m.totalTransferFees, cur))} <CurrencyUnit />
       </p> : null}
 
       {m.groups.length ? (
@@ -163,14 +163,14 @@ export function TransactionListFeature({
                   {g.income !== "0" ? (
                     <span style={{ color: "var(--income)" }}>
                       {formatAmount(toDisplay(g.income, cur))}
-                      <span className="cur-tag">{currencyDisplayLabel(cur)}</span>
+                      <CurrencyUnit className="cur-tag" />
                     </span>
                   ) : null}
                   {g.income !== "0" && g.expense !== "0" ? " · " : ""}
                   {g.expense !== "0" ? (
                     <span style={{ color: "var(--expense)" }}>
                       {formatAmount(toDisplay(g.expense, cur))}
-                      <span className="cur-tag">{currencyDisplayLabel(cur)}</span>
+                      <CurrencyUnit className="cur-tag" />
                     </span>
                   ) : null}
                 </span>
@@ -336,26 +336,30 @@ export function TxRow({
   onClick: () => void;
   accountScope?: string;
 }) {
+  const { members, txs, cur, accounts } = useApp();
+  const hues = useMemo(() => memberHues([...members.map(member => member.id), ...txs.map(item => item.memberId)]), [members, txs]);
+  const [detailOpen, setDetailOpen] = useState(false);
   const cat = resolve ? resolve(tx.category) : { name: tx.category, icon: "i-more" };
   const sub = subcategoryName ? ` (${subcategoryName})` : "";
   const isTransfer = tx.type === "transfer";
+  const fromName = fromAccountName ?? accounts.find(account => account.id === tx.accountId)?.title;
+  const toName = toAccountName ?? accounts.find(account => account.id === tx.toAccountId)?.title;
   const feeAmount = tx.sourceKind === "transfer_fee" || (accountScope && tx.accountId !== accountScope) ? "0" : transactionFeeAmount(tx);
 
   /* عنوان انتقال: از حساب مبدأ به مقصد */
   const title = isTransfer
     ? tx.note ||
-      `انتقال از «${fromAccountName ?? "حساب"}» به «${toAccountName ?? "حساب"}»`
+      `انتقال از «${fromName ?? "حساب"}» به «${toName ?? "حساب"}»`
     : tx.note || cat.name + sub;
 
-  const subtitle = isTransfer
-    ? `انتقال وجه · ${memberName} · ${formatISO(isoToJalali(tx.date))}${tx.time ? ` · ${toFa(tx.time)}` : ""}`
-    : `${cat.name}${sub} · ${memberName} · ${formatISO(isoToJalali(tx.date))}${tx.time ? ` · ${toFa(tx.time)}` : ""}`;
+  const subtitle = `${formatISO(isoToJalali(tx.date))}${tx.time ? ` · ${toFa(tx.time)}` : ""}`;
 
   return (
-    <div className="tx-item" role="button" tabIndex={0} onClick={onClick} onKeyDown={event => {
+    <><div className="tx-item" role="button" tabIndex={0} onClick={() => setDetailOpen(true)} onKeyDown={event => {
+      if (event.target !== event.currentTarget) return;
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        onClick();
+        setDetailOpen(true);
       }
     }}>
       <div className={`tx-icon ${tx.type}`}>
@@ -364,8 +368,26 @@ export function TxRow({
         </svg>
       </div>
       <div className="tx-info">
-        <h4>
-          {title}
+        <div className="tx-line-one">
+          <h4><button type="button" className="tx-description-preview" aria-label="مشاهدهٔ توضیح کامل تراکنش" onClick={event => { event.stopPropagation(); setDetailOpen(true); }}>
+            {title}
+          </button></h4>
+          <span className="tx-member-label" title={memberName} style={{ "--member-hue": hues.get(tx.memberId) ?? 0 } as CSSProperties}>{memberFirstName(memberName)}</span>
+        </div>
+        <p className="tx-date-time" dir="ltr">{subtitle}</p>
+        <div className={`tx-amount ${tx.type}`}>
+          <b dir="ltr">{formatAmount(toDisplay(tx.amount, currency))}</b>
+          <CurrencyUnit currency={currency} />
+        </div>
+      </div>
+    </div>
+    <Modal open={detailOpen} onClose={() => setDetailOpen(false)} title="جزئیات تراکنش" sheetClassName="tx-detail-sheet">
+      <p className="tx-description-full" dir="auto">{title}</p>
+      <p>{memberName} · {cat.name}{sub}</p>
+      {isTransfer ? <p>از حساب «{fromName ?? "حساب"}» به حساب «{toName ?? "حساب"}»</p> : null}
+      <p dir="ltr">{subtitle}</p>
+      <p className="tx-detail-amount"><b dir="ltr">{formatAmount(toDisplay(tx.amount, cur))}</b> <CurrencyUnit /></p>
+      <div className="tx-detail-badges">
           {tx.photos?.length ? (
             <span className="tx-photo-badge" aria-label="تصاویر پیوست">
               <svg>
@@ -381,18 +403,14 @@ export function TxRow({
               </svg>
             </span>
           ) : null}
-        </h4>
-        <p>{subtitle}</p>
+      </div>
         {feeAmount !== "0" ? <p>
-          کارمزد انتقال: {formatAmount(toDisplay(feeAmount, currency))} {currencyDisplayLabel(currency)}
+          کارمزد انتقال: {formatAmount(toDisplay(feeAmount, cur))} <CurrencyUnit />
           <br />
-          جمع برداشت از حساب: {formatAmount(toDisplay(addMoney(tx.amount, feeAmount), currency))} {currencyDisplayLabel(currency)}
+          جمع برداشت از حساب: {formatAmount(toDisplay(addMoney(tx.amount, feeAmount), cur))} <CurrencyUnit />
         </p> : null}
-      </div>
-      <div className={`tx-amount ${tx.type}`}>
-        <b>{formatAmount(toDisplay(tx.amount, currency))}</b>
-        <span>{currencyDisplayLabel(currency)}</span>
-      </div>
-    </div>
+      <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setDetailOpen(false)}>بستن</button>
+        <button type="button" className="btn-primary" onClick={() => { setDetailOpen(false); onClick(); }}>بازکردن تراکنش</button></div>
+    </Modal></>
   );
 }

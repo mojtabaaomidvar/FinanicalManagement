@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { TxType } from "@/domain/transaction/transaction.types";
-import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
+import { CurrencyUnit } from "@/shared/ui/CurrencyUnit";
 import { formatAccountAmount } from "@/shared/lib/format";
 import { toFa } from "@/shared/lib/digits";
 import { Icon } from "@/shared/ui";
@@ -114,7 +114,7 @@ export function HomeBillboard({ wallets, budget, dues, currency, loading, incomp
   }
   function amount(value: string | number) {
     return <span className="home-billboard-amount"><bdi>{formatAccountAmount(value, currency)}</bdi>
-      <small>{currencyDisplayLabel(currency)}</small></span>;
+      <CurrencyUnit currency={currency} /></span>;
   }
   return <section className="home-billboard" aria-label="دسترسی‌های مهم خانه" aria-roledescription="نمایش کارت‌های خانه"
     onFocus={event => setFocused((event.target as Element).matches(":focus-visible"))}

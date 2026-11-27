@@ -361,7 +361,8 @@ function CatTile({
   }
 
   return (
-    <button type="button" className="market-tile" onClick={onOpen}>
+    <div role="button" tabIndex={0} className="market-tile" onClick={onOpen}
+      onKeyDown={event => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onOpen(); } }}>
       <div className="market-tile-top">
         <b className="market-tile-title">{cat.title}</b>
         {cat.icon ? <span className={`market-tile-ic is-${cat.tone}`} aria-hidden="true">
@@ -373,7 +374,7 @@ function CatTile({
         <span className="market-tile-label">{info.label}</span>
         <b className="market-tile-value" dir="ltr">
           {info.value}
-          {info.unit ? <small>{info.unit}</small> : null}
+          {info.unit ? ["تومان", "ریال"].includes(info.unit) ? <CurrencyUnit currency={info.unit} /> : <small>{info.unit}</small> : null}
         </b>
       </div>
 
@@ -385,7 +386,7 @@ function CatTile({
           {toFa(String(info.count))} مورد
         </span>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -617,11 +618,12 @@ function PriceTile({
       ? cryptoUsd(it.price, it.unit, rates.tether, rates.usd)
       : 0;
   return (
-    <button
-      type="button"
+    <div
+      role="button" tabIndex={0}
       className={`pt-tile${held !== undefined ? " is-held" : ""}`}
       style={{ "--brand": tintOf(brand) } as CSSProperties}
       onClick={onPick}
+      onKeyDown={event => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onPick(); } }}
     >
       <span className="pt-top">
         <BrandMark brand={brand} size={38} />
@@ -637,7 +639,7 @@ function PriceTile({
       {shown.price > 0 ? (
         <span className="pt-price" dir="ltr">
           {formatAmount(shown.price)}
-          <small>{shown.unit}</small>
+          <CurrencyUnit currency={shown.unit} />
         </span>
       ) : (
         <span className="pt-price is-muted">بی‌قیمت</span>
@@ -655,7 +657,7 @@ function PriceTile({
       {held !== undefined ? (
         <span className="pt-held">{formatQuantity(held)} دارید</span>
       ) : null}
-    </button>
+    </div>
   );
 }
 
@@ -796,11 +798,12 @@ function StockRow({
   const last = board(s.price);
   return (
     <div className={`market-stock${open ? " is-open" : ""}`}>
-      <button
-        type="button"
+      <div
+        role="button" tabIndex={0}
         className="market-stock-head"
         onClick={onToggle}
         aria-expanded={open}
+        onKeyDown={event => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onToggle(); } }}
       >
         <span className="market-stock-id">
           <b className="market-stock-symbol">{s.symbol}</b>
@@ -817,10 +820,10 @@ function StockRow({
           </span>
           <b className="market-row-price" dir="ltr">
             {formatAmount(last.price)}
-            <small>{last.unit}</small>
+            <CurrencyUnit currency={last.unit} />
           </b>
         </span>
-      </button>
+      </div>
 
       {open ? (
         <div className="market-stock-detail">
@@ -874,3 +877,4 @@ function StockRow({
     </div>
   );
 }
+import { CurrencyUnit } from "@/shared/ui/CurrencyUnit";

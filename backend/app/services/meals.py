@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import uuid
 from datetime import date, timedelta
 from decimal import Decimal
@@ -15,21 +17,27 @@ from app.core.errors import AppError
 from app.core.feature_policy import require_feature
 from app.models.family import Family, Member
 from app.models.meal import Dish, MealEntry
+from app.models.shopping import InventoryItem
+from app.models.shopping_sync import ShoppingSyncReceipt
 from app.schemas.meals import (
     DishOut,
     DishWrite,
     Ingredient,
+    IngredientCheck,
     MealEntryOut,
     MealEntryUpdate,
     MealEntryWrite,
     MealPlanOut,
+    MealSelectionOut,
+    MealSelectionWrite,
     calendar_day,
 )
+from app.services import inventory_catalog, shopping
 from app.services.common import is_admin
 from app.services.inventory import clean_number, clean_opt_text, clean_title
 
 _MAX_DISHES = 200
-_MEAL_ORDER = {"breakfast": 0, "lunch": 1, "dinner": 2}
+_MEAL_ORDER = {"breakfast": 0, "lunch": 1, "dinner": 2, "snack": 3}
 
 
 def _allowed(actor: Member, row: Dish | MealEntry) -> bool:
@@ -130,7 +138,12 @@ def _ingredients(items: list[Ingredient]) -> list[dict]:
                 None if existing.qty is None or qty is None
                 else clean_number(existing.qty + qty, "مقدار", minimum=Decimal("0.01"))
             )
-        grouped[title] = Ingredient(title=title, qty=qty, unit=unit)
+        grouped[title] = Ingredient(
+            title=title,
+            catalog_id=existing.catalog_id if existing else item.catalog_id,
+            qty=qty,
+            unit=unit,
+        )
     # JSONB never receives raw Decimal objects.
     return [item.model_dump(mode="json") for item in grouped.values()]
 
@@ -152,6 +165,13 @@ def list_dishes(db: Session, actor: Member) -> list[DishOut]:
 
 
 def create_dish(db: Session, actor: Member, body: DishWrite) -> DishOut:
+    row = create_dish_row(db, actor, body)
+    db.commit()
+    db.refresh(row)
+    return _dish_out(row, actor, False)
+
+
+def create_dish_row(db: Session, actor: Member, body: DishWrite) -> Dish:
     title = clean_title(body.title, "نام غذا")
     ingredients = _ingredients(body.ingredients)
     # Serialize dish-count checks for the household without locking any dish.
@@ -163,9 +183,7 @@ def create_dish(db: Session, actor: Member, body: DishWrite) -> DishOut:
         raise AppError("LIMIT_REACHED", "تعداد غذاها به سقف رسیده است.", 409)
     row = Dish(family_id=actor.family_id, created_by=actor.id, title=title, ingredients=ingredients)
     db.add(row)
-    db.commit()
-    db.refresh(row)
-    return _dish_out(row, actor, False)
+    return row
 
 
 def update_dish(
@@ -278,3 +296,147 @@ def delete_entry(db: Session, actor: Member, entry_id: uuid.UUID, revision: int)
     _authorize(actor, row, revision)
     db.delete(row)
     db.commit()
+
+
+def review_ingredients(
+    db: Session, actor: Member, ingredients: list[Ingredient], *, lock=False
+) -> list[IngredientCheck]:
+    """Match exact reviewed catalog identities; unknown amounts never imply sufficiency."""
+    entries = inventory_catalog.public_catalog(db)
+    valid_ids = {entry.catalog_id for entry in entries}
+    names: dict[str, set[str]] = {}
+    for entry in entries:
+        for name in [entry.title, *entry.aliases]:
+            names.setdefault(inventory_catalog.name_key(name), set()).add(entry.catalog_id)
+
+    def resolve(title: str, catalog_id: str | None) -> str | None:
+        if catalog_id is not None:
+            if catalog_id not in valid_ids:
+                raise AppError("INVALID_INPUT", "شناسهٔ ماده در فهرست کالاها معتبر نیست.", 422)
+            return catalog_id
+        matches = names.get(inventory_catalog.name_key(title), set())
+        return next(iter(matches)) if len(matches) == 1 else None
+
+    query = (select(InventoryItem).where(InventoryItem.family_id == actor.family_id)
+             .order_by(InventoryItem.id).execution_options(populate_existing=True))
+    stock = list(db.scalars(query.with_for_update() if lock else query))
+    by_id: dict[str, list[InventoryItem]] = {}
+    for row in stock:
+        catalog_id = resolve(row.title, row.catalog_id)
+        if catalog_id:
+            by_id.setdefault(catalog_id, []).append(row)
+    checks = []
+    for index, raw in enumerate(_ingredients(ingredients)):
+        item = Ingredient(**raw)
+        catalog_id = resolve(item.title, item.catalog_id)
+        item.catalog_id = catalog_id
+        rows = by_id.get(catalog_id, [])
+        available = any(row.quantity > 0 for row in rows)
+        if item.qty is not None:
+            matching = [row for row in rows if row.unit == item.unit]
+            total = sum((row.quantity for row in matching), Decimal(0))
+            available = bool(matching) and total >= item.qty
+        status = "unresolved" if catalog_id is None else "available" if available else "missing"
+        checks.append(IngredientCheck(key=f"ingredient:{index}", ingredient=item, status=status))
+    return checks
+
+
+def commit_selection(db: Session, actor: Member, body: MealSelectionWrite) -> MealSelectionOut:
+    """Recheck stock and atomically save one meal, selected purchases and opaque receipt."""
+    encoded = json.dumps({"kind": "meal.confirm", "body": body.model_dump(mode="json")},
+                         sort_keys=True, separators=(",", ":"))
+    request_hash = hashlib.sha256(encoded.encode()).hexdigest()
+    shopping._lock_operation(db, actor, body.operation_id)
+    receipt = db.get(ShoppingSyncReceipt, (actor.family_id, actor.id, body.operation_id))
+    if receipt is not None:
+        if receipt.request_hash != request_hash:
+            raise AppError(
+                "OPERATION_REUSED", "شناسهٔ این تغییر قبلاً با اطلاعات دیگری استفاده شده است.", 409
+            )
+        entry = _get_entry(db, actor, receipt.entity_id)
+        dish = _get_dish(db, actor, uuid.UUID(receipt.result_json["dish_id"]))
+        return MealSelectionOut(entry=_entry_out(entry, actor), dish=_dish_out(dish, actor, True),
+                                replayed=True, added_count=receipt.result_json["added_count"],
+                                skipped_count=receipt.result_json["skipped_count"])
+    # Match existing write lock order: family (new dish), entry, dish, list, inventory.
+    if body.dish is not None:
+        db.scalar(select(Family).where(Family.id == actor.family_id).with_for_update())
+    entry = _get_entry(db, actor, body.entry_id) if body.entry_id else None
+    if entry is not None:
+        _authorize(actor, entry, body.base_revision)
+        if entry.date != body.date or entry.meal_type != body.meal_type:
+            raise AppError("SYNC_CONFLICT", "وعده تغییر کرده است؛ دوباره بررسی کنید.", 409)
+    dish = _get_dish(db, actor, body.dish_id, lock=True) if body.dish_id else None
+    if dish is not None and dish.revision != body.dish_revision:
+        raise AppError("SYNC_CONFLICT", "مواد این غذا تغییر کرده است؛ دوباره بررسی کنید.", 409)
+    ingredients = [Ingredient(**row) for row in dish.ingredients] if dish else body.dish.ingredients
+    parent = shopping._get_list(db, actor, body.list_id) if body.list_id else None
+    checks = review_ingredients(db, actor, ingredients, lock=True)
+    choices = {choice.key: choice for choice in body.decisions}
+    if len(choices) != len(body.decisions) or choices.keys() - {check.key for check in checks}:
+        raise AppError("INVALID_INPUT", "گزینه‌های مواد اولیه را دوباره بررسی کنید.", 422)
+    prepared: dict[str, dict] = {}
+    catalog = inventory_catalog.public_catalog(db)
+    canonical_titles = {row.catalog_id: row.title for row in catalog}
+    name_ids: dict[str, set[str]] = {}
+    for row in catalog:
+        for name in [row.title, *row.aliases]:
+            name_ids.setdefault(inventory_catalog.name_key(name), set()).add(row.catalog_id)
+
+    def shopping_identity(title: str) -> str:
+        key = inventory_catalog.name_key(title)
+        matches = name_ids.get(key, set())
+        return next(iter(matches)) if len(matches) == 1 else "title:" + key
+
+    for check in checks:
+        if check.status == "available":
+            continue
+        choice = choices.get(check.key)
+        if choice is None:
+            raise AppError(
+                "MEAL_REVIEW_REQUIRED",
+                "موجودی مواد تغییر کرده است؛ همهٔ اقلام ناموجود را تعیین تکلیف کنید.", 409
+            )
+        if choice.action == "available":
+            continue
+        if parent is None or choice.qty is None:
+            raise AppError("INVALID_INPUT", "لیست خرید مقصد و مقدار هر ماده را مشخص کنید.", 422)
+        item = check.ingredient
+        # A catalog link provides one canonical shopping title, including aliases.
+        canonical = canonical_titles.get(item.catalog_id, item.title)
+        title = clean_title(canonical)
+        unit = clean_opt_text(choice.unit, 20, "واحد")
+        qty = clean_number(choice.qty, "مقدار خرید", minimum=Decimal("0.01"))
+        if title in prepared:
+            if prepared[title]["unit"] != unit:
+                raise AppError(
+                    "UNIT_CONFLICT", "برای مواد یکسان، واحد خرید یکسان انتخاب کنید.", 422
+                )
+            qty = clean_number(prepared[title]["qty"] + qty, "مقدار خرید", minimum=Decimal("0.01"))
+        prepared[title] = {"title": title, "qty": qty, "unit": unit}
+    # The existing shopping batch helper preserves quantities/prices on duplicates.
+    added, skipped = (shopping.ensure_missing_rows(
+        db, actor, parent, list(prepared.values()), identity_key=shopping_identity
+    ) if prepared else ([], []))
+    if dish is None:
+        linked = [check.ingredient for check in checks]
+        dish = create_dish_row(db, actor, DishWrite(title=body.dish.title, ingredients=linked))
+        db.flush()
+    if entry is None:
+        entry = MealEntry(id=uuid.uuid4(), family_id=actor.family_id, created_by=actor.id,
+                          date=body.date, meal_type=body.meal_type, dish_id=dish.id)
+        db.add(entry)
+    else:
+        entry.dish_id = dish.id
+        flag_modified(entry, "dish_id")
+    db.add(ShoppingSyncReceipt(
+        family_id=actor.family_id, member_id=actor.id, operation_id=body.operation_id,
+        request_hash=request_hash, entity_type="meal", entity_id=entry.id, revision=None,
+        result_json={"dish_id": str(dish.id), "added_count": len(added),
+                     "skipped_count": len(skipped)}
+    ))
+    _commit_entry(db)
+    db.refresh(entry)
+    db.refresh(dish)
+    return MealSelectionOut(entry=_entry_out(entry, actor), dish=_dish_out(dish, actor, True),
+                            replayed=False, added_count=len(added), skipped_count=len(skipped))

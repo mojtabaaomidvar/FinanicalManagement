@@ -54,7 +54,9 @@ describe("Persian food library", () => {
     expect(selectedLibraryIngredients(variant, choices)).toBeNull();
     choices.or.name = "مرغ"; choices.herb.name = "جعفری"; choices.review.included = false;
     expect(selectedLibraryIngredients(variant, choices)).toEqual([
-      { title: "برنج", qty: null, unit: null }, { title: "مرغ", qty: null, unit: null }, { title: "جعفری", qty: null, unit: null },
+      { title: "برنج", catalogId: "preset:برنج", qty: null, unit: null },
+      { title: "مرغ", catalogId: "preset:مرغکامل", qty: null, unit: null },
+      { title: "جعفری", catalogId: "preset:جعفریتازه", qty: null, unit: null },
     ]);
     choices.or.name = "مرغ و گوشت";
     expect(selectedLibraryIngredients(variant, choices)).toBeNull();

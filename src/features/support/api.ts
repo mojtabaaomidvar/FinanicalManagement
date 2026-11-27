@@ -4,6 +4,7 @@ export type SupportPage = "overview" | "users" | "technical" | "usage" | "catalo
 export interface CatalogProposal {
   id: string; title: string; category: string; unit: string | null;
   status: "pending" | "approved" | "rejected"; submitted_at: string; reviewed_at: string | null;
+  published_at?: string | null;
 }
 export interface CatalogProposals { items: CatalogProposal[]; total: number; offset: number; limit: number }
 export type RegistrationState = "registered" | "introduced" | "managed";
@@ -48,5 +49,6 @@ export const supportApi = {
   usage: (days: number) => supportRequest<SupportUsage>(`/usage?days=${days}`),
   catalog: (status: string, offset: number) => supportRequest<CatalogProposals>(
     "/catalog?" + new URLSearchParams({ status, offset: String(offset), limit: "25" })),
-  reviewCatalog: (id: string, status: "approved" | "rejected") => supportRequest<CatalogProposal>("/catalog/review", { id, status }),
+  reviewCatalog: (id: string, status: "approved" | "rejected", changes?: { title: string; category: string; unit: string | null }) =>
+    supportRequest<CatalogProposal>("/catalog/review", { id, status, ...changes }),
 };

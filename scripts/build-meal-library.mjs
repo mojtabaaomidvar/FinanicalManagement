@@ -5,11 +5,28 @@ import { fileURLToPath } from 'node:url';
 
 const hash = text => createHash('sha256').update(text).digest('hex');
 const categoryId = (kind, label) => kind + '-' + hash(label).slice(0, 12);
+const nameKey = value => value.normalize('NFKC').toLowerCase()
+  .replace(/[يىكآأإٱۀە]/g, char => ({ ي: 'ی', ى: 'ی', ك: 'ک', آ: 'ا', أ: 'ا', إ: 'ا', ٱ: 'ا', ۀ: 'ه', ە: 'ه' }[char] ?? char))
+  .replace(/[\u064B-\u065F\u0670\u0640\u200c\u200d]/g, '')
+  .replace(/\s+/g, '').trim();
+
+function inventoryCatalogMap(catalog = {}) {
+  const result = new Map();
+  for (const [group, items] of Object.entries(catalog)) {
+    for (const item of items) {
+      const id = 'preset:' + nameKey(item.title);
+      result.set(nameKey(item.title), id);
+      for (const alias of item.aliases ?? []) result.set(nameKey(alias), id);
+    }
+  }
+  return result;
+}
 
 /** Display-only projection. Reviewed source quantities never enter this library. */
-export function projectMealLibrary(source, sourceHash) {
+export function projectMealLibrary(source, sourceHash, inventoryCatalog = {}) {
   if (source.schema_version !== '2.0.0' || !Array.isArray(source.recipes)) throw new Error('Unsupported reviewed recipe schema');
   const categories = new Map(), meals = new Map(), details = new Map(), foods = [];
+  const inventoryIds = inventoryCatalogMap(inventoryCatalog);
   const ids = new Set(), variantIds = new Set();
   let variantCount = 0;
   const tags = (kind, labels, target) => labels.map(label => {
@@ -19,7 +36,11 @@ export function projectMealLibrary(source, sourceHash) {
   });
   const projectItem = item => {
     const base = { id: item.id, kind: item.kind, required: item.required !== false };
-    if (item.kind === 'ingredient' || item.kind === 'equipment') return { ...base, name: item.name };
+    if (item.kind === 'ingredient' || item.kind === 'equipment') return {
+      ...base, name: item.name,
+      ...(item.kind === 'ingredient' && inventoryIds.has(nameKey(item.name))
+        ? { catalogId: inventoryIds.get(nameKey(item.name)) } : {}),
+    };
     if (item.kind === 'choice' || item.kind === 'open_choice') return {
       ...base, label: item.label, options: (item.options ?? []).map(option => option.name),
       allowCustom: item.allow_custom === true || item.kind === 'open_choice',
@@ -53,7 +74,9 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const input = process.argv[2];
   if (!input) throw new Error('Usage: node scripts/build-meal-library.mjs <reviewed recipes.json> [output directory]');
   const bytes = await readFile(resolve(input));
-  const projection = projectMealLibrary(JSON.parse(bytes.toString('utf8')), hash(bytes));
+  const catalogPath = resolve(dirname(fileURLToPath(import.meta.url)), '../src/domain/inventory/inventory.catalog.json');
+  const catalog = JSON.parse((await readFile(catalogPath)).toString('utf8'));
+  const projection = projectMealLibrary(JSON.parse(bytes.toString('utf8')), hash(bytes), catalog);
   const output = resolve(process.argv[3] ?? 'public/meal-library');
   await mkdir(output, { recursive: true });
   const files = [['index.json', projection.index], ...projection.details];

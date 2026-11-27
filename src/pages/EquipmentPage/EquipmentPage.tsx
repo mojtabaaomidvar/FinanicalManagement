@@ -116,11 +116,11 @@ export function EquipmentPage({ initialEquipmentId, onInitialEquipmentConsumed, 
     return true;
   }, [forget]);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (silent = false) => {
     if (!scope || !useCases) return;
     const captured = identity.current;
     const request = ++sequence.current;
-    setLoading(true); setLoadError("");
+    if (!silent) setLoading(true); setLoadError("");
     try {
       const [nextItems, nextDocuments] = await Promise.all([
         useCases.listEquipment.execute(),
@@ -136,6 +136,7 @@ export function EquipmentPage({ initialEquipmentId, onInitialEquipmentConsumed, 
       if (mounted.current && identity.current === captured && sequence.current === request) setLoading(false);
     }
   }, [scope, useCases, deny]);
+  useHouseholdRefresh(() => reload(true));
 
   useEffect(() => {
     mounted.current = true;
@@ -390,3 +391,4 @@ function EquipmentDate({ label, value, onChange, required = false }: { label: st
   return <div className="equipment-date" role="group" aria-label={label}><Field label={label}><JalaliDateInput value={value} onChange={onChange} placeholder={required ? "انتخاب تاریخ" : "اختیاری؛ انتخاب تاریخ"} minYear={1300} maxYear={1500} /></Field>
     {!required && value ? <button type="button" className="equipment-text-action" aria-label={`پاک‌کردن ${label}`} onClick={() => onChange("")}>پاک‌کردن تاریخ</button> : null}</div>;
 }
+import { useHouseholdRefresh } from "@/shared/lib/useHouseholdRefresh";

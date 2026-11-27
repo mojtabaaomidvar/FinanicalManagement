@@ -4,6 +4,8 @@ import { toFa } from "@/shared/lib/digits";
 import { filterLibrary, LIBRARY_PAGE_SIZE, loadLibrary } from "../model/mealLibrary";
 import type { LibraryFood, LibraryIndex } from "../model/mealLibrary";
 
+const MEAL_LABEL_ORDER = ["صبحانه", "ناهار", "شام", "میان وعده"];
+
 export function MealLibrary({ onSelect, disabled = false, compact = false }: {
   onSelect: (food: LibraryFood) => void; disabled?: boolean; compact?: boolean;
 }) {
@@ -21,6 +23,11 @@ export function MealLibrary({ onSelect, disabled = false, compact = false }: {
     return () => { current = false; };
   }, [attempt]);
   const matches = useMemo(() => index ? filterLibrary(index, query, meal, category) : [], [index, query, meal, category]);
+  const orderedMeals = useMemo(() => index ? [...index.meals].sort((left, right) => {
+    const leftOrder = MEAL_LABEL_ORDER.indexOf(left.label);
+    const rightOrder = MEAL_LABEL_ORDER.indexOf(right.label);
+    return (leftOrder < 0 ? MEAL_LABEL_ORDER.length : leftOrder) - (rightOrder < 0 ? MEAL_LABEL_ORDER.length : rightOrder);
+  }) : [], [index]);
   const visible = matches.slice(page * LIBRARY_PAGE_SIZE, (page + 1) * LIBRARY_PAGE_SIZE);
   const changeFilter = (action: () => void) => { action(); setPage(0); };
   const reset = () => { setQuery(""); setMeal(""); setCategory(""); setPage(0); };
@@ -34,7 +41,7 @@ export function MealLibrary({ onSelect, disabled = false, compact = false }: {
       : !index ? <div className="meal-empty" role="status"><p>در حال آماده‌کردن کتابخانهٔ غذاها…</p></div> : <>
       <div className="meal-category-strip" role="group" aria-label="دستهٔ وعدهٔ غذایی">
         <button type="button" className={`meal-category${!meal ? " active" : ""}`} aria-pressed={!meal} disabled={disabled} onClick={() => changeFilter(() => setMeal(""))}>همهٔ غذاها</button>
-        {index.meals.map(tag => <button type="button" key={tag.id} className={`meal-category${meal === tag.id ? " active" : ""}`}
+         {orderedMeals.map(tag => <button type="button" key={tag.id} className={`meal-category${meal === tag.id ? " active" : ""}`}
           aria-pressed={meal === tag.id} disabled={disabled} onClick={() => changeFilter(() => setMeal(tag.id))} data-meal-content>{tag.label}</button>)}
       </div>
       <div className="meal-library-tools"><label className="meal-type-filter"><span>نوع غذا</span>

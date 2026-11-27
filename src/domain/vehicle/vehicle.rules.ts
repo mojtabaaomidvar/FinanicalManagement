@@ -1,7 +1,6 @@
 import type { VehicleInput, VehicleServiceInput } from "./vehicle.types";
 import { toEn } from "@/shared/lib/digits";
-import { parseAmountInput } from "@/shared/lib/format";
-import { fromDisplay } from "@/shared/lib/currency";
+import { moneyFits, parseMoneyInput } from "@/shared/lib/money";
 // Vehicle costs retain their existing integer-only API contract.
 const MAX_AMOUNT = 999_999_999_999;
 
@@ -26,10 +25,10 @@ const validKm = (value: number) => Number.isSafeInteger(value) && value >= 0 && 
 /** Reuse Finance's display-currency parser and integer toman conversion. */
 export function serviceCost(raw: string, currency: string | null | undefined): number | null {
   if (!raw.trim()) return null;
-  if (!/^[\d\s,٬]+$/.test(toEn(raw))) throw new Error("مبلغ هزینه را با عدد مثبت بنویسید.");
-  const amount = fromDisplay(parseAmountInput(raw), currency);
-  if (!Number.isSafeInteger(amount) || amount <= 0 || amount > MAX_AMOUNT) throw new Error("مبلغ هزینه باید مثبت و در محدودهٔ مجاز مالی باشد.");
-  return amount;
+  const amount = parseMoneyInput(raw, currency ?? "تومان");
+  if (amount === null) throw new Error("مبلغ هزینه را با عدد مثبت بنویسید.");
+  if (!moneyFits(amount, { scale: 0, min: "1", max: String(MAX_AMOUNT) })) throw new Error("مبلغ هزینه باید مثبت و در محدودهٔ مجاز مالی باشد.");
+  return Number(amount);
 }
 export function vehicleError(input: VehicleInput, previousOdometer = 0, todayIso = vehicleToday()): string {
   if (!input.title.trim()) return "نام خودرو را بنویسید.";

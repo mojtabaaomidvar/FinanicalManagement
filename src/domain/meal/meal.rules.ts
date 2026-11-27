@@ -6,7 +6,8 @@ export const MEAL_LIMITS = { dishes: 200, ingredients: 50, importItems: 250, tit
 const cleanText = (text: string) => text.trim().replace(/\s+/g, " ");
 
 export function cleanIngredient(ingredient: MealIngredient): MealIngredient {
-  return { title: cleanText(ingredient.title), qty: ingredient.qty === null ? null : roundQty(ingredient.qty), unit: ingredient.unit ? cleanText(ingredient.unit) || null : null };
+  return { title: cleanText(ingredient.title), ...(ingredient.catalogId !== undefined ? { catalogId: ingredient.catalogId } : {}),
+    qty: ingredient.qty === null ? null : roundQty(ingredient.qty), unit: ingredient.unit ? cleanText(ingredient.unit) || null : null };
 }
 
 export function ingredientError(ingredient: MealIngredient): string {

@@ -120,6 +120,10 @@
 .meal-name-check { display: flex; align-items: center; gap: var(--sp-3); min-block-size: var(--sp-8); font-size: var(--fs-4); }
 .meal-name-check > span { flex: 1; overflow-wrap: anywhere; }
 .meal-name-check small { color: var(--text-2); font-size: var(--fs-2); }
+.meal-inventory-status { display: block; margin-inline-start: var(--sp-8); font-size: var(--fs-2); }
+.meal-inventory-status.available { color: var(--t-green-fg); }
+.meal-inventory-status.missing { color: var(--t-amber-fg); }
+.meal-inventory-status.unresolved { color: var(--text-2); }
 .meal-name-ingredient > .text-input { margin-block: var(--sp-2); }
 .meal-equipment { background: var(--card-2); border-radius: var(--r-lg); padding: var(--sp-4); margin-block-end: var(--sp-5); }
 .meal-equipment h3 { font-size: var(--fs-3); }
@@ -149,6 +153,10 @@
 .meal-readonly-ingredients li { padding-block: var(--sp-2); border-block-end: 1px solid var(--border); }
 .meal-import-check { display: flex; align-items: center; gap: var(--sp-3); min-block-size: var(--sp-8); }
 .meal-unit-warning { color: var(--t-amber-fg); font-size: var(--fs-2); }
+.meal-missing-choice { border: 1px solid var(--border); border-radius: var(--r-lg); padding: var(--sp-3); margin-block-end: var(--sp-3); }
+.meal-missing-choice legend { font-weight: 600; padding-inline: var(--sp-1); }
+.meal-missing-choice > label { display: flex; align-items: center; gap: var(--sp-2); min-block-size: var(--sp-8); }
+.meal-missing-choice .meal-ingredient-values { margin-block-start: var(--sp-2); }
 .meals-import-result { font-size: var(--fs-5); line-height: 1.9; }
 .meal-result-list { padding-inline-start: var(--sp-5); margin-block: var(--sp-3); font-size: var(--fs-3); }
 .meals-page :is(button,input,select,summary):focus-visible, .meals-sheet :is(button,input,select):focus-visible { outline: 2px solid var(--accent-strong); outline-offset: var(--sp-1); }

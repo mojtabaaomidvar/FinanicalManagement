@@ -5,6 +5,7 @@ export const MEAL_TYPES: Array<{ value: MealType; label: string }> = [
   { value: "breakfast", label: "صبحانه" },
   { value: "lunch", label: "ناهار" },
   { value: "dinner", label: "شام" },
+  { value: "snack", label: "میان‌وعده‌ها" },
 ];
 
 export function mealWeekStart(date = jalaliToIso(today())): string {

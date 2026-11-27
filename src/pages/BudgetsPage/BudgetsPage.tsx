@@ -1,6 +1,6 @@
 import { AppPage } from "@/shared/ui/AppPage";
 import { absMoney, compareMoney, legacyBudgetInteger, legacyIntegerMoney, subtractMoney } from "@/shared/lib/money";
-import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
+import { CurrencyUnit, InputCurrencyUnit } from "@/shared/ui";
 /* صفحه بودجه‌بندی — بودجه ماهانه هر دسته هزینه + مصرف ماه جاری
    ───────────────────────────────────────────────────────────
    یک قاعده مهم: مجموع بودجهٔ دسته‌ها نباید از «سقف بودجهٔ ماهانه»‌ای که
@@ -42,13 +42,15 @@ export function BudgetsPage() {
   const { show } = useToast();
   const canManage = member?.role === "owner" || member?.role === "admin";
   const restricted = offlineSession || shoppingSync.offline || (typeof navigator !== "undefined" && navigator.onLine === false);
-  const identity = `${family?.id ?? ""}:${member?.id ?? ""}:${member?.role ?? ""}:${currency}:${restricted}`;
+  const identity = `${family?.id ?? ""}:${member?.id ?? ""}:${member?.role ?? ""}:${restricted}`;
   const identityRef = useRef(identity); identityRef.current = identity;
   const mounted = useRef(true);
 
   const [jy, jm, jd] = today();
   const [editing, setEditing] = useState<Category | null>(null);
   const [amountStr, setAmountStr] = useState("");
+  const [entryCurrency, setEntryCurrency] = useState(currency);
+  const [capCurrency, setCapCurrency] = useState(currency);
   const [busy, setBusy] = useState(false);
   const writing = useRef(false);
   const [notice, setNotice] = useState("");
@@ -165,6 +167,7 @@ export function BudgetsPage() {
   function openEdit(cat: Category) {
     if (!canManage || writing.current || budgetDataStatus !== "ready") return;
     const b = budgetMap.get(cat.id);
+    setEntryCurrency(currency);
     setAmountStr(b ? formatAmount(toDisplay(b.amount, currency)) : "");
     setOverflow(null);
     setNotice("");
@@ -245,7 +248,7 @@ export function BudgetsPage() {
 
   async function save() {
     if (!editing || writing.current || !canManage) return;
-    const amount = parseCategoryBudgetAmount(amountStr, currency);
+    const amount = parseCategoryBudgetAmount(amountStr, entryCurrency);
     if (amount === null) {
       const message = "مبلغ بودجه را کامل و در محدودهٔ مجاز وارد کنید";
       setNotice(message);
@@ -269,7 +272,7 @@ export function BudgetsPage() {
       می‌شود و بعد بودجهٔ دسته ذخیره می‌شود */
   async function raiseCapAndSave() {
     if (!editing || overflow === null || writing.current) return;
-    const amount = parseCategoryBudgetAmount(amountStr, currency);
+    const amount = parseCategoryBudgetAmount(amountStr, entryCurrency);
     if (amount === null) return;
     await persist(amount, overflow);
   }
@@ -326,12 +329,13 @@ export function BudgetsPage() {
   function openCap() {
     if (!canManage || writing.current || budgetDataStatus !== "ready") return;
     setCapStr(formatAmount(toDisplay(monthlyCap, currency)));
+    setCapCurrency(currency);
     setCapSnapshot({ budget: monthlyCap, total: budgetTotalLegacy });
     setCapNotice(""); setCapOpen(true);
   }
 
   async function saveCap() {
-    const amount = parseMonthlyBudgetAmount(capStr, currency);
+    const amount = parseMonthlyBudgetAmount(capStr, capCurrency);
     if (amount === null) { setCapNotice("مبلغ سقف ماهانه را معتبر وارد کنید"); return; }
     if (!capSnapshot || !beginWrite()) return;
     const current = currentRequest();
@@ -381,7 +385,7 @@ export function BudgetsPage() {
             </div>
             <div className="budget-monthly-cap"><span>سقف ماهانهٔ خانواده</span>
               <b dir="ltr">{monthlyCap > 0 ? formatAmount(toDisplay(monthlyCap, currency)) : "—"}</b>
-              {monthlyCap > 0 ? <span>{currencyDisplayLabel(currency)}</span> : null}
+              {monthlyCap > 0 ? <CurrencyUnit /> : null}
             </div>
             <div className="budget-summary-nums">
               <div>
@@ -392,7 +396,7 @@ export function BudgetsPage() {
                       ? formatAmount(toDisplay(totals.budgetSum, currency))
                       : "—"}
                     {totals.budgetSum !== "0" ? (
-                      <span className="cur-tag">{currencyDisplayLabel(currency)}</span>
+                      <CurrencyUnit className="cur-tag" />
                     ) : null}
                   </FitText>
                 </b>
@@ -402,7 +406,7 @@ export function BudgetsPage() {
                 <b className="expense">
                   <FitText>
                     {formatAmount(toDisplay(totals.spentSum, currency))}
-                    <span className="cur-tag">{currencyDisplayLabel(currency)}</span>
+                    <CurrencyUnit className="cur-tag" />
                   </FitText>
                 </b>
               </div>
@@ -415,13 +419,13 @@ export function BudgetsPage() {
                     {totals.active ? formatAmount(
                       toDisplay(absMoney(totals.remaining), currency),
                     ) : "—"}
-                    {totals.active ? <span className="cur-tag">{currencyDisplayLabel(currency)}</span> : null}
+                    {totals.active ? <CurrencyUnit className="cur-tag" /> : null}
                   </FitText>
                 </b>
               </div>
             </div>
             {compareMoney(totals.unbudgetedSpent, "0") > 0 ? <p className="budget-unbudgeted">
-              هزینهٔ بدون بودجه: {formatAmount(toDisplay(totals.unbudgetedSpent, currency))} {currencyDisplayLabel(currency)}
+              هزینهٔ بدون بودجه: {formatAmount(toDisplay(totals.unbudgetedSpent, currency))} <CurrencyUnit />
             </p> : null}
             <p className="budget-reset-hint">
               مصرف هر دسته فقط در همان ماه تقویمی حساب می‌شود
@@ -435,9 +439,9 @@ export function BudgetsPage() {
             <div className="budget-cap over">
               <p>
                 مجموع بودجه‌بندی دسته‌ها (
-                {formatAmount(toDisplay(totals.budgetSum, currency))} {currencyDisplayLabel(currency)}
+                {formatAmount(toDisplay(totals.budgetSum, currency))} <CurrencyUnit />
                 ) از سقف بودجه ماهانه‌تان (
-                {formatAmount(toDisplay(monthlyCap, currency))} {currencyDisplayLabel(currency)})
+                {formatAmount(toDisplay(monthlyCap, currency))} <CurrencyUnit />)
                 بیشتر شده است.
               </p>
               {canManage ? (
@@ -458,9 +462,9 @@ export function BudgetsPage() {
           ) : (
             <p className="budget-cap">
               بودجه ماهانه: {formatAmount(toDisplay(monthlyCap, currency))}{" "}
-              {currencyDisplayLabel(currency)} —{" "}
+              <CurrencyUnit /> —{" "}
               {formatAmount(toDisplay(subtractMoney(legacyIntegerMoney(monthlyCap), totals.budgetSum), currency))}{" "}
-              {currencyDisplayLabel(currency)} از آن هنوز دسته بندی نشده است.
+              <CurrencyUnit /> از آن هنوز دسته‌بندی نشده است.
             </p>
           )
         ) : (
@@ -505,14 +509,14 @@ export function BudgetsPage() {
                     <span className="spent">
                       <FitText>
                         {formatAmount(toDisplay(spent, currency))}
-                        <span className="cur-tag">{currencyDisplayLabel(currency)}</span>
+                        <CurrencyUnit className="cur-tag" />
                       </FitText>
                     </span>
                     {b ? (
                       <span className="cap">
                         <FitText>
                           از {formatAmount(toDisplay(b.amount, currency))}
-                          <span className="cur-tag">{currencyDisplayLabel(currency)}</span>
+                          <CurrencyUnit className="cur-tag" />
                         </FitText>
                       </span>
                     ) : (
@@ -533,8 +537,8 @@ export function BudgetsPage() {
                       <span>{toFa(st.percent)}٪ مصرف‌شده</span>
                       <span className={compareMoney(remaining, "0") >= 0 ? "income" : "expense"}>
                         {compareMoney(remaining, "0") >= 0
-                          ? `${formatAmount(toDisplay(remaining, currency))} ${currencyDisplayLabel(currency)} باقی‌مانده`
-                          : `${formatAmount(toDisplay(absMoney(remaining), currency))} ${currencyDisplayLabel(currency)} بیشتر از بودجه`}
+                          ? <>{formatAmount(toDisplay(remaining, currency))} <CurrencyUnit /> باقی‌مانده</>
+                          : <>{formatAmount(toDisplay(absMoney(remaining), currency))} <CurrencyUnit /> بیشتر از بودجه</>}
                       </span>
                     </div>
                   </>
@@ -574,7 +578,7 @@ export function BudgetsPage() {
                 value={amountStr}
                 onChange={amountChanged} onKeyDown={amountKeyDown}
               />
-              <span className="cur-suffix">{currencyDisplayLabel(currency)}</span>
+              <InputCurrencyUnit value={amountStr} currency={entryCurrency} disabled={busy} onChange={(value, unit) => { setAmountStr(value); setEntryCurrency(unit); setOverflow(null); setNotice(""); }} />
               </div>
             </div>
             <p className="modal-sub">
@@ -583,7 +587,7 @@ export function BudgetsPage() {
             </p>
           </div>
         </div>
-        {snapshot && snapshot.amount > 0 ? <p className="budget-stored-amount">بودجهٔ ثبت‌شده: {formatAmount(toDisplay(snapshot.amount, currency))} {currencyDisplayLabel(currency)}</p> : null}
+        {snapshot && snapshot.amount > 0 ? <p className="budget-stored-amount">بودجهٔ ثبت‌شده: {formatAmount(toDisplay(snapshot.amount, currency))} <CurrencyUnit /></p> : null}
         {notice ? <p className="budget-save-notice" role="alert">{notice}</p> : null}
 
         {/* رد شدن از سقف ماهانه — پیشنهاد بالا بردن سقف به‌جای رد کردن */}
@@ -591,9 +595,9 @@ export function BudgetsPage() {
           <div className="budget-cap over" style={{ marginTop: 10 }}>
             <p>
               با این مبلغ، مجموع بودجه‌بندی دسته‌ها به{" "}
-              {formatAmount(toDisplay(overflow, currency))} {currencyDisplayLabel(currency)} می‌رسد و
+              {formatAmount(toDisplay(overflow, currency))} <CurrencyUnit /> می‌رسد و
               از سقف بودجه ماهانه‌تان (
-              {formatAmount(toDisplay(snapshot?.cap ?? monthlyCap, currency))} {currencyDisplayLabel(currency)}) بیشتر
+              {formatAmount(toDisplay(snapshot?.cap ?? monthlyCap, currency))} <CurrencyUnit />) بیشتر
               می‌شود. اگر می‌خواهید، سقف را روی همین مجموع می‌گذاریم.
             </p>
             <button
@@ -640,10 +644,10 @@ export function BudgetsPage() {
         <fieldset className="budget-fields" disabled={busy}>
           <div className="form-row"><label>سقف ماهانهٔ خانواده</label>
             <div className="amt-field"><TextInput value={capStr} onChange={value => { setCapStr(normalizeExpressionInput(value)); setCapNotice(""); }}
-              dir="ltr" inputMode="numeric" aria-label="سقف بودجهٔ ماهانه" /><span className="cur-suffix">{currencyDisplayLabel(currency)}</span></div>
+              dir="ltr" inputMode="numeric" aria-label="سقف بودجهٔ ماهانه" /><InputCurrencyUnit value={capStr} currency={capCurrency} disabled={busy} onChange={(value, unit) => { setCapStr(value); setCapCurrency(unit); setCapNotice(""); }} /></div>
           </div>
           <p className="modal-sub">این سقف برای هر ماه شمسی تکرار می‌شود. صفر یعنی سقف ماهانه تعیین نشده است.</p>
-          <p className="budget-stored-amount">مجموع بودجهٔ دسته‌ها: {formatAmount(toDisplay(capSnapshot?.total ?? totals.budgetSum, currency))} {currencyDisplayLabel(currency)}</p>
+          <p className="budget-stored-amount">مجموع بودجهٔ دسته‌ها: {formatAmount(toDisplay(capSnapshot?.total ?? totals.budgetSum, currency))} <CurrencyUnit /></p>
           {capNotice ? <p className="budget-save-notice" role="alert">{capNotice}</p> : null}
           <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setCapOpen(false)}>انصراف</button>
             <button type="button" className="btn-primary" disabled={budgetDataStatus !== "ready"} onClick={() => void saveCap()}>{busy ? "در حال ذخیره…" : "ذخیره سقف"}</button></div>

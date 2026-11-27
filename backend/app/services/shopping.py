@@ -414,6 +414,31 @@ def _batch_result(
     )
 
 
+def ensure_missing_rows(
+    db: Session, actor: Member, parent: ShoppingList, prepared: list[dict], *, identity_key=None
+) -> tuple[list[dict], list[dict]]:
+    """Stage the existing batch operation without committing its caller's work."""
+    pending = _pending_of(db, actor, parent.id)
+    key_for = identity_key or (lambda title: title)
+    existing = {key_for(item.title): item for item in _sort_items(pending)}
+    missing_count = sum(key_for(item["title"]) not in existing for item in prepared)
+    if len(pending) + missing_count > _MAX_ITEMS:
+        raise AppError("LIMIT_REACHED", "تعداد اقلامِ این لیست به سقف رسیده است.", 409)
+    added: list[dict] = []
+    skipped: list[dict] = []
+    for index, values in enumerate(prepared):
+        found = existing.get(key_for(values["title"]))
+        if found is not None:
+            skipped.append({"id": str(found.id), "index": index})
+            continue
+        row = ShoppingItem(id=uuid.uuid4(), family_id=actor.family_id,
+                           list_id=parent.id, created_by=actor.id, **values)
+        db.add(row)
+        existing[key_for(row.title)] = row
+        added.append({"id": str(row.id), "index": index})
+    return added, skipped
+
+
 def ensure_missing(
     db: Session, actor: Member, list_id: uuid.UUID, req: ShoppingBatchRequest
 ) -> ShoppingBatchResult:
@@ -439,28 +464,7 @@ def ensure_missing(
 
     require_feature("shopping", write=True)
     parent = _get_list(db, actor, list_id)
-    pending = _pending_of(db, actor, parent.id)
-    existing = {item.title: item for item in _sort_items(pending)}
-    missing_count = sum(item["title"] not in existing for item in prepared)
-    if len(pending) + missing_count > _MAX_ITEMS:
-        raise AppError("LIMIT_REACHED", "تعداد اقلامِ این لیست به سقف رسیده است.", 409)
-
-    added: list[dict] = []
-    skipped: list[dict] = []
-    for index, values in enumerate(prepared):
-        found = existing.get(values["title"])
-        if found is not None:
-            skipped.append({"id": str(found.id), "index": index})
-            continue
-        row = ShoppingItem(
-            id=uuid.uuid4(),
-            family_id=actor.family_id,
-            list_id=parent.id,
-            created_by=actor.id,
-            **values,
-        )
-        db.add(row)
-        added.append({"id": str(row.id), "index": index})
+    added, skipped = ensure_missing_rows(db, actor, parent, prepared)
 
     # Acknowledgments retain only opaque ids and request positions. The matching
     # retry supplies its own validated content even after an item was deleted.
@@ -590,7 +594,8 @@ def complete_trip(
 
     stamp = utcnow()
     inventory_service.lock_items_uncommitted(
-        db, actor.family_id, {item.inventory_item_id for item in items if item.inventory_item_id is not None},
+        db, actor.family_id,
+        {item.inventory_item_id for item in items if item.inventory_item_id is not None},
     )
     for item in items:
         item.bought_at = stamp

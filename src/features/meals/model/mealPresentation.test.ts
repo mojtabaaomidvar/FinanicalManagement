@@ -8,7 +8,7 @@ describe("Saturday to Friday meal planning", () => {
     expect(days.map(mealWeekStart)).toEqual(Array(7).fill("2026-11-14"));
     expect(mealWeekDays("2026-11-14")).toEqual(days);
     expect(mealWeekStart("2026-11-21")).toBe("2026-11-21");
-    expect(MEAL_TYPES.map((row) => row.value)).toEqual(["breakfast", "lunch", "dinner"]);
+    expect(MEAL_TYPES.map((row) => row.value)).toEqual(["breakfast", "lunch", "dinner", "snack"]);
   });
 
   it("crosses the Jalali year without dropping the last Friday or Nowruz Saturday", () => {

@@ -1,5 +1,10 @@
 import type { ContextFact, ContextRow, ContextSection, HouseholdSection, JsonValue } from "@/domain/assistant/contextual.types";
 import { toFa } from "@/shared/lib/digits";
+import { useApp } from "@/app/providers/AppProvider";
+import { CurrencyUnit } from "@/shared/ui/CurrencyUnit";
+import { formatMoney, normalizeMoney } from "@/shared/lib/money";
+import { shownPrice } from "@/domain/market/market.rules";
+import { formatAmount } from "@/shared/lib/format";
 
 export const SECTION_LABELS: Record<HouseholdSection, string> = {
   inventory: "انبار خانه", shopping: "لیست‌های خرید", meals: "غذاها و برنامهٔ غذایی", tasks: "کارهای خانه",
@@ -15,21 +20,33 @@ const FOOD_LABELS = {
   available: "مقدار ثبت‌شده کافی است", missing: "مواد ثبت‌شده کافی نیست", unknown: "امکان تهیه روشن نیست",
 };
 const FIELD_LABELS: Record<string, string> = {
-  title: "عنوان", name: "نام", quantity: "موجودی ثبت‌شده", qty: "مقدار", amount: "مبلغ ثبت‌شده به تومان",
-  initial_balance: "موجودی اولیه به تومان", date: "تاریخ", due_date: "موعد", note: "توضیح",
+  title: "عنوان", name: "نام", quantity: "موجودی ثبت‌شده", qty: "مقدار", amount: "مبلغ ثبت‌شده",
+  initial_balance: "موجودی اولیه", date: "تاریخ", due_date: "موعد", note: "توضیح",
   description: "توضیح", unit: "واحد", location: "محل", brand: "برند", model: "مدل",
   odometer: "کیلومتر ثبت‌شده", warranty_until: "پایان ضمانت", insurance_until: "پایان بیمه",
   inspection_until: "معاینهٔ فنی تا", service_due_date: "موعد سرویس", target_date: "روز هدف",
   expiry_date: "تاریخ انقضا", price: "قیمت ذخیره‌شده", cached_at: "زمان ذخیرهٔ قیمت",
   age_years: "سن ثبت‌شده", species: "نوع حیوان", birth_date: "روز تولد", performed_on: "روز سرویس",
-  next_due_date: "سرویس بعدی", cost_amount: "هزینهٔ ثبت‌شده به تومان",
+  next_due_date: "سرویس بعدی", cost_amount: "هزینهٔ ثبت‌شده",
 };
 
 function scalar(value: JsonValue): value is string | number { return typeof value === "string" || typeof value === "number"; }
 export function ContextRows({ rows }: { rows: ContextRow[] }) {
+  const { cur } = useApp();
+  function display(row: ContextRow, key: string, value: JsonValue) {
+    if (row.money_unit === "toman" && ["amount", "initial_balance", "cost_amount"].includes(key)) {
+      try { return <><bdi dir="ltr">{formatMoney(normalizeMoney(String(value)), cur)}</bdi> <CurrencyUnit /></>; }
+      catch { /* Unsupported evidence stays verbatim; do not guess its value. */ }
+    }
+    if (key === "price" && typeof value === "number" && (row.unit === "تومان" || row.unit === "ریال")) {
+      return <><bdi dir="ltr">{formatAmount(shownPrice(value, row.unit, 0, cur).price)}</bdi> <CurrencyUnit /></>;
+    }
+    if (key === "unit" && typeof row.price === "number" && (value === "تومان" || value === "ریال")) return <CurrencyUnit />;
+    return <bdi>{typeof value === "number" ? toFa(value) : String(value)}</bdi>;
+  }
   return <ul className="assistant-source-rows">{rows.map((row, index) => <li key={String(row.id ?? index)}>
     <dl>{Object.entries(row).filter(([key, value]) => FIELD_LABELS[key] && scalar(value)).map(([key, value]) =>
-      <div key={key}><dt>{FIELD_LABELS[key]}</dt><dd><bdi>{typeof value === "number" ? toFa(value) : String(value)}</bdi></dd></div>)}</dl>
+      <div key={key}><dt>{FIELD_LABELS[key]}</dt><dd>{display(row, key, value)}</dd></div>)}</dl>
     {typeof row.completed === "boolean" ? <p>{row.completed ? "کار انجام شده" : "کار باز"}</p> : null}
     {typeof row.stale === "boolean" && row.stale ? <p>قیمت ذخیره‌شده قدیمی است؛ قیمت روز نیست.</p> : null}
     {row.meal_type ? <p>{row.meal_type === "breakfast" ? "صبحانه" : row.meal_type === "lunch" ? "ناهار" : "شام"}</p> : null}

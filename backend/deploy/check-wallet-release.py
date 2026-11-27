@@ -7,6 +7,7 @@ import json
 import os
 import re
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path, PurePosixPath
@@ -176,7 +177,6 @@ def public(root):
         ("OPTIONS", {"Origin": "https://pwa.khaanehyar.ir", "Access-Control-Request-Method": "POST",
                      "Access-Control-Request-Headers": "X-Khaneyar-Money-Contract, Authorization, Content-Type"}, 200),
     ]:
-        import urllib.error
         request = urllib.request.Request("https://api.khaanehyar.ir/api/v1/accounts", method=method, headers=headers)
         try:
             response = urllib.request.urlopen(request, timeout=30)

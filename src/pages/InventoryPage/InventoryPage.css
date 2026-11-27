@@ -9,7 +9,7 @@
 .inv-filters { display: grid; gap: var(--sp-3); margin-block-end: var(--sp-4); }
 .inventory-page .inv-item { flex-direction: column; align-items: stretch; gap: var(--sp-2); padding: var(--sp-3); }
 .inventory-page .inv-body { border: 0; background: transparent; text-align: start; color: var(--text); font: inherit; }
-.inventory-page .inv-body b { white-space: normal; overflow-wrap: anywhere; font-size: var(--fs-4); }
+.inventory-page .inv-body b { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; font-size: var(--fs-4); line-height: 1.75; }
 .inventory-page .inv-body p { overflow-wrap: anywhere; }
 .inventory-page .inv-side { flex-wrap: wrap; gap: var(--sp-2); }
 .inventory-page .inv-step button { min-inline-size: var(--sp-8); min-block-size: var(--sp-8); }

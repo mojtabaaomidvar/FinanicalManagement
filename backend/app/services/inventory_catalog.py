@@ -1,4 +1,4 @@
-"""Static preset lookup and anonymous proposals. Approval never publishes presets."""
+"""Packaged offline presets, public approved additions and anonymous proposals."""
 
 import hashlib
 import json
@@ -11,8 +11,8 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
-from app.models.inventory_catalog import InventoryCatalogProposal
-from app.schemas.inventory_catalog import CatalogProposalOut, CatalogProposals
+from app.models.inventory_catalog import InventoryCatalogEntry, InventoryCatalogProposal
+from app.schemas.inventory_catalog import CatalogEntryOut, CatalogProposalOut, CatalogProposals, CatalogReview
 from app.services.clock import utcnow
 
 CATALOG = json.loads(
@@ -46,9 +46,60 @@ def infer_category(title: str) -> str | None:
     return next(iter(matches)) if len(matches) == 1 else None
 
 
-def clean_category(value: str | None, title: str) -> str | None:
+def preset_id(title: str) -> str:
+    # Category corrections do not change identity. Published additions receive
+    # a persisted UUID; packaged titles use the same deterministic UUID forever.
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, "https://khaanehyar.ir/inventory/" + name_key(title)))
+
+
+def preset_catalog_id(title: str) -> str:
+    """Stable cross-feature identity for a packaged catalog entry."""
+    return "preset:" + name_key(title)
+
+
+_CATALOG_KEYS: dict[str, str] = {}
+for _group, _items in CATALOG.items():
+    for _item in _items:
+        _canonical = preset_catalog_id(_item["title"])
+        _CATALOG_KEYS[name_key(_item["title"])] = _canonical
+        for _alias in _item.get("aliases", []):
+            _CATALOG_KEYS.setdefault(name_key(_alias), _canonical)
+
+
+def catalog_id_for_title(title: str, db: Session | None = None) -> str | None:
+    """Resolve a display title to its stable catalog identity."""
+    key = name_key(title)
+    if not key:
+        return None
+    if db is not None:
+        entry = approved_entry(db, title)
+        if entry is not None:
+            return "entry:" + str(entry.id)
+    return _CATALOG_KEYS.get(key)
+
+
+def public_catalog(db: Session) -> list[CatalogEntryOut]:
+    additions = list(db.scalars(select(InventoryCatalogEntry).order_by(InventoryCatalogEntry.title, InventoryCatalogEntry.id)))
+    published_keys = {row.name_key for row in additions}
+    entries = [CatalogEntryOut(id=preset_id(item["title"]), catalog_id=preset_catalog_id(item["title"]), title=item["title"], group=group,
+                              unit=item["unit"], aliases=item.get("aliases", []), common=item.get("common", False))
+               for group, items in CATALOG.items() for item in items if name_key(item["title"]) not in published_keys]
+    entries.extend(CatalogEntryOut(id=str(row.id), catalog_id="entry:" + str(row.id), title=row.title, group=row.category, unit=row.unit or "")
+                   for row in additions)
+    return entries
+
+
+def approved_entry(db: Session, title: str) -> InventoryCatalogEntry | None:
+    return db.scalar(select(InventoryCatalogEntry).where(InventoryCatalogEntry.name_key == name_key(title)))
+
+
+def clean_category(value: str | None, title: str, *, db: Session | None = None) -> str | None:
     if value is None:
-        return infer_category(title)
+        category = infer_category(title)
+        if category is None and db is not None:
+            entry = approved_entry(db, title)
+            category = entry.category if entry else None
+        return category
     if value not in GROUPS:
         raise AppError("INVALID_INPUT", "دستهٔ قلم معتبر نیست؛ دوباره انتخاب کنید.", 422)
     return value
@@ -57,7 +108,7 @@ def clean_category(value: str | None, title: str) -> str | None:
 def propose(db: Session, *, title: str, category: str | None, unit: str | None) -> None:
     """Called inside the inventory transaction; no identity or personal note enters here."""
     key = name_key(title)
-    if category is None or key in _TITLES or key in _ALIASES:
+    if category is None or key in _TITLES or key in _ALIASES or approved_entry(db, title) is not None:
         return
     digest = hashlib.sha256(
         json.dumps([key, category, name_key(unit or "")], ensure_ascii=False).encode()
@@ -71,6 +122,7 @@ def proposal_out(row: InventoryCatalogProposal) -> CatalogProposalOut:
     return CatalogProposalOut(
         id=str(row.id), title=row.title, category=row.category, unit=row.unit,
         status=row.status, submitted_at=row.submitted_at, reviewed_at=row.reviewed_at,
+        published_at=row.published_at,
     )
 
 
@@ -87,20 +139,49 @@ def list_proposals(db: Session, status: str, offset: int, limit: int) -> Catalog
     )
 
 
-def review(db: Session, proposal_id: uuid.UUID, status: str) -> CatalogProposalOut:
+def review(db: Session, proposal_id: uuid.UUID, status: str, changes: CatalogReview | None = None) -> CatalogProposalOut:
     row = db.scalar(
         select(InventoryCatalogProposal)
         .where(InventoryCatalogProposal.id == proposal_id).with_for_update()
     )
     if row is None:
         raise AppError("NOT_FOUND", "پیشنهاد کالا پیدا نشد؛ فهرست را تازه کنید.", 404)
-    if row.status != status:
-        if row.status != "pending":
-            raise AppError(
-                "SYNC_CONFLICT", "این پیشنهاد قبلاً بررسی شده است؛ فهرست را تازه کنید.", 409
-            )
-        row.status = status
-        row.reviewed_at = utcnow()
+    fields = changes.model_fields_set if changes else set()
+    title = " ".join(((changes.title if "title" in fields else row.title) or "").split())
+    category = changes.category if "category" in fields else row.category
+    unit = " ".join(((changes.unit if "unit" in fields else row.unit) or "").split()) or None
+    if not title or len(title) > 120 or not name_key(title) or category not in GROUPS or (unit and len(unit) > 20):
+        raise AppError("INVALID_INPUT", "نام، دسته و واحد پیشنهاد را بررسی کنید.", 422)
+    unchanged = (name_key(row.title), row.category, row.unit) == (name_key(title), category, unit)
+    if row.published_at is not None or row.status == "rejected":
+        if row.status != status or not unchanged:
+            raise AppError("SYNC_CONFLICT", "این پیشنهاد قبلاً بررسی شده است؛ فهرست را تازه کنید.", 409)
+        return proposal_out(row)
+
+    now = utcnow()
+    if status == "approved":
+        key = name_key(title)
+        # A packaged title/alias already identifies a public item. Never create
+        # a second identity for it or silently overwrite its metadata.
+        if key in _TITLES or key in _ALIASES:
+            matches = [(group, item) for group, items in CATALOG.items() for item in items
+                       if name_key(item['title']) == key]
+            if not matches:
+                matches = [(group, item) for group, items in CATALOG.items() for item in items
+                           if any(name_key(alias) == key for alias in item.get('aliases', []))]
+            if len(matches) != 1 or matches[0][0] != category or unit != matches[0][1]['unit']:
+                raise AppError("SYNC_CONFLICT", "این نام با مشخصات دیگری در فهرست کالاها وجود دارد؛ پیشنهاد را بررسی کنید.", 409)
+        else:
+            db.execute(insert(InventoryCatalogEntry).values(
+                id=row.id, name_key=key, title=title, category=category, unit=unit, published_at=now,
+            ).on_conflict_do_nothing(index_elements=["name_key"]))
+            entry = approved_entry(db, title)
+            if entry is None or (entry.category, entry.unit) != (category, unit):
+                raise AppError("SYNC_CONFLICT", "قلمی با این نام و مشخصات متفاوت منتشر شده است؛ پیشنهاد را اصلاح کنید.", 409)
+        row.published_at = now
+    row.title, row.category, row.unit = title, category, unit
+    row.status = status
+    row.reviewed_at = now
     db.commit()
     db.refresh(row)
     return proposal_out(row)

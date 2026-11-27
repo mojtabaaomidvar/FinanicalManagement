@@ -99,12 +99,12 @@
       navigate({ override }); await pause(250); installObservation(); send({ type: 'copy-preview-ready', mode }); return;
     }
     send({ type: 'copy-preview-status', message: 'در حال بازکردن حساب نمونه…' });
-    const phone = await poll(() => document.querySelector('.auth-track form:first-of-type input[type="tel"]') ?? document.querySelector('.hub-page'));
+    const phone = await poll(() => document.querySelector('.auth-track form:first-of-type input[type="tel"]') ?? document.querySelector('.application-shell'));
     if (phone instanceof HTMLInputElement) {
       const form = phone.closest('form'), password = form.querySelector('input[type="password"]');
       setInput(phone, config.credentials?.phone ?? '09000000001'); setInput(password, config.credentials?.password ?? 'Test12345!'); await pause(100); form.requestSubmit();
     }
-    await poll(() => document.querySelector('.hub-page'));
+    await poll(() => document.querySelector('.application-shell'));
     await pause(150);
     const routeInfo = config.routeInfo ?? config.routeMeta ?? {};
     const baseRoute = routeInfo.baseRoute ?? routeId.split('/')[0]; navigate({ route: baseRoute, override: null }); await pause(250);

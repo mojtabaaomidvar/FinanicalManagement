@@ -1,17 +1,18 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { findInventorySuggestions, type InventoryCatalogGroup, type InventorySuggestion } from "@/domain/inventory/inventory.catalog";
+import { findInventorySuggestions, INVENTORY_PRESETS, type InventoryCatalogGroup, type InventorySuggestion } from "@/domain/inventory/inventory.catalog";
 import { toFa } from "@/shared/lib/digits";
 import { Icon } from "@/shared/ui";
 import { InventoryCategorySelect } from "./InventoryCategories";
 
 const RESULTS_PAGE = 24;
 
-export function InventorySuggestions({ value, category, onChange, onCategoryChange, inventory, onPick }: {
+export function InventorySuggestions({ value, category, onChange, onCategoryChange, inventory, onPick, catalog = INVENTORY_PRESETS }: {
   value: string; category: InventoryCatalogGroup | "";
   onChange: (value: string) => void;
   onCategoryChange: (group: InventoryCatalogGroup | "") => void;
   inventory: readonly { title: string }[];
   onPick: (suggestion: InventorySuggestion) => void;
+  catalog?: readonly InventorySuggestion[];
 }) {
   const id = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -21,7 +22,7 @@ export function InventorySuggestions({ value, category, onChange, onCategoryChan
   const [limit, setLimit] = useState(RESULTS_PAGE);
   const typing = lookup && !!value.trim();
   // Category selection does not hide a matching preset from another category.
-  const results = useMemo(() => typing ? findInventorySuggestions(value, null, inventory) : [], [typing, value, inventory]);
+  const results = useMemo(() => typing ? findInventorySuggestions(value, null, inventory, catalog) : [], [typing, value, inventory, catalog]);
   const visible = results.slice(0, limit);
   const listId = `${id}-matches`;
   const popupOpen = typing && visible.length > 0;
@@ -74,8 +75,9 @@ export function InventorySuggestions({ value, category, onChange, onCategoryChan
               closeLookup(); inputRef.current?.focus();
             }}><Icon name="i-x" size={18} /></button></div>
           {popupOpen && <ul id={listId} ref={listRef} className="inv-catalog-list" role="listbox" aria-label="پیشنهادهای نام کالا">
-            {visible.map((suggestion, index) => <li key={suggestion.title} role="presentation">
+            {visible.map((suggestion, index) => <li key={suggestion.id ?? suggestion.title} role="presentation">
               <button id={`${listId}-${index}`} type="button" role="option" aria-selected={index === activeIndex}
+                onPointerDown={event => event.preventDefault()}
                 onClick={() => { pick(suggestion); inputRef.current?.focus({ preventScroll: true }); }}>
                 <bdi>{suggestion.title}</bdi></button></li>)}
           </ul>}

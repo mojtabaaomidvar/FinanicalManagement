@@ -2,7 +2,7 @@ import { AppPage } from "@/shared/ui/AppPage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
-import type { MealDish, MealEntry, MealIngredient, MealShoppingResult, MealType } from "@/domain/meal/meal.types";
+import type { MealDish, MealEntry, MealIngredient, MealIngredientCheck, MealSelectionInput, MealShoppingResult, MealType } from "@/domain/meal/meal.types";
 import { cleanIngredient, dishError, importError, MEAL_LIMITS, weeklyIngredients } from "@/domain/meal/meal.rules";
 import type { ShoppingList } from "@/domain/shopping/shopping.types";
 import { MEAL_TYPES, mealWeekDays, mealWeekStart, shiftMealWeek } from "@/features/meals/model/mealPresentation";
@@ -17,10 +17,12 @@ import { MealLibrary } from "@/features/meals/ui/MealLibrary";
 import { MealLibraryDetail } from "@/features/meals/ui/MealLibraryDetail";
 import { normalizeFoodSearch } from "@/features/meals/model/mealLibrary";
 import type { LibraryFood } from "@/features/meals/model/mealLibrary";
+import { checkMealIngredient } from "@/features/meals/model/mealInventory";
+import { useHouseholdRefresh } from "@/shared/lib/useHouseholdRefresh";
 import type { DishInput } from "@/domain/meal/meal.types";
 import "./MealsPage.css";
 
-interface IngredientForm { key: string; title: string; qty: string; unit: string; selected: boolean; conflictingUnit?: boolean }
+interface IngredientForm { key: string; title: string; catalogId?: string | null; qty: string; unit: string; selected: boolean; conflictingUnit?: boolean }
 interface MealData { scope: string; week: string; dishes: MealDish[]; entries: MealEntry[]; lists: ShoppingList[] }
 interface MealSlot { date: string; mealType: MealType; entry: MealEntry | null }
 type Dialog = { scope: string } & (
@@ -30,10 +32,20 @@ type Dialog = { scope: string } & (
   | { kind: "deleteDish"; dish: MealDish }
   | { kind: "import" }
 );
+type PendingMissing = MealIngredientCheck;
+interface PendingDecision { action: "shopping" | "available" | ""; qty: string; unit: string }
+interface PendingMealFlow {
+  scope: string;
+  slot: MealSlot;
+  missing: PendingMissing[];
+  dishId?: string;
+  dishRevision?: number;
+  input?: DishInput;
+}
 const EMPTY_DATA: MealData = { scope: "", week: "", dishes: [], entries: [], lists: [] };
 const quantityText = (qty: number | null) => qty === null ? "" : toFa(qty).replace(".", "٫");
 const quantityValue = (raw: string) => !raw.trim() || !/^[\d۰-۹٠-٩\s.,٫٬،_]+$/.test(raw) ? NaN : Number(normalizeNumeric(raw));
-const ingredientInput = (row: IngredientForm): MealIngredient => ({ title: row.title, qty: row.qty.trim() ? quantityValue(row.qty) : null, unit: row.unit || null });
+const ingredientInput = (row: IngredientForm): MealIngredient => ({ title: row.title, catalogId: row.catalogId ?? null, qty: row.qty.trim() ? quantityValue(row.qty) : null, unit: row.unit || null });
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : "انجام عملیات ناموفق بود. دوباره تلاش کنید.";
 
 export function MealsPage() {
@@ -49,6 +61,7 @@ export function MealsPage() {
   const sequence = useRef(0);
   const mutationPending = useRef(false);
   const operation = useRef<{ key: string; id: string } | null>(null);
+  const selectionOperation = useRef<{ key: string; id: string } | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
   const [tab, setTab] = useState<"week" | "library" | "dishes">("week");
   const [dayIndex, setDayIndex] = useState(() => weekdayIndex(today()));
@@ -73,6 +86,10 @@ export function MealsPage() {
   const [dishId, setDishId] = useState("");
   const [listId, setListId] = useState("");
   const [result, setResult] = useState<MealShoppingResult | null>(null);
+  const [pending, setPending] = useState<PendingMealFlow | null>(null);
+  const [pendingChoices, setPendingChoices] = useState<Record<string, PendingDecision>>({});
+  const [pendingListId, setPendingListId] = useState("");
+  const [pendingError, setPendingError] = useState("");
   const dishes = available && data.scope === scope ? data.dishes : [];
   const entries = available && data.scope === scope && data.week === week ? data.entries : [];
   const lists = available && data.scope === scope ? data.lists : [];
@@ -84,6 +101,8 @@ export function MealsPage() {
     setDialog(null); setTitle(""); setIngredients([]); setDishId(""); setListId("");
     setDialogError(""); setResult(null); operation.current = null;
     setChooserQuery(""); setShowAmounts(false);
+    setPending(null); setPendingChoices({}); setPendingListId(""); setPendingError("");
+    selectionOperation.current = null;
   }, []);
 
   const clearDeniedAccess = useCallback((error: unknown) => {
@@ -95,18 +114,18 @@ export function MealsPage() {
     return true;
   }, [clearForms]);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (silent = false) => {
     if (!scope || !useCases) return;
     const captured = identity.current;
     const request = ++sequence.current;
-    setLoading(true); setLoadError("");
+    if (!silent) setLoading(true); setLoadError("");
     try {
       const [nextDishes, plan, nextLists] = await Promise.all([
         useCases.listDishes.execute(), useCases.getMealPlan.execute(week), useCases.listShoppingLists.execute(),
       ]);
       if (!mounted.current || identity.current !== captured || request !== sequence.current) return;
       setData({ scope, week, dishes: nextDishes, entries: plan.entries, lists: nextLists });
-      setSelected(plan.entries.map((entry) => entry.id)); setAccessDenied(false);
+      if (!silent) setSelected(plan.entries.map((entry) => entry.id)); setAccessDenied(false);
     } catch (error) {
       if (!mounted.current || identity.current !== captured || request !== sequence.current) return;
       if (clearDeniedAccess(error)) return;
@@ -115,6 +134,7 @@ export function MealsPage() {
       if (mounted.current && identity.current === captured && request === sequence.current) setLoading(false);
     }
   }, [scope, week, useCases, clearDeniedAccess]);
+  useHouseholdRefresh(() => reload(true));
 
   useEffect(() => {
     mounted.current = true;
@@ -133,7 +153,7 @@ export function MealsPage() {
     if (!available || busy || accessDenied) return;
     setTitle(dish?.title ?? ""); setDialogError(""); setResult(null); setShowAmounts(false);
     setIngredients((dish?.ingredients ?? []).map((row, index) => ({ key: String(index), title: row.title,
-      qty: quantityText(row.qty), unit: row.unit ?? "", selected: true })));
+      catalogId: row.catalogId ?? null, qty: quantityText(row.qty), unit: row.unit ?? "", selected: true })));
     setDialog({ scope, kind: "dish", dish });
   };
   const openSlot = (date: string, mealType: MealType, entry: MealEntry | null) => {
@@ -152,25 +172,110 @@ export function MealsPage() {
     if (activeDialog.slot) { setChooserSource("library"); setDialog({ scope, kind: "slot", ...activeDialog.slot }); }
     else clearForms();
   };
+
+  const beginMissingFlow = (flow: PendingMealFlow) => {
+    setPending(flow);
+    setPendingChoices(Object.fromEntries(flow.missing.map((row) => [row.key, {
+      action: "", qty: quantityText(row.ingredient.qty), unit: row.ingredient.unit ?? "",
+    }])));
+    setPendingListId("");
+    setPendingError("");
+    setDialog(null);
+  };
+
+  const findMissingIngredients = async (rows: MealIngredient[]): Promise<PendingMissing[]> => {
+    if (!useCases) return [];
+    return (await useCases.checkMealIngredients.execute(rows)).filter(row => row.status !== "available");
+  };
+
+  const changePendingChoice = (key: string, change: Partial<PendingDecision>) => {
+    setPendingError("");
+    setPendingChoices(previous => {
+      const choice: PendingDecision = previous[key] ?? { action: "", qty: "", unit: "" };
+      return { ...previous, [key]: { ...choice, ...change } };
+    });
+  };
+
+  const submitMeal = async (flow: PendingMealFlow, decisions: MealSelectionInput["decisions"], destination?: string) => {
+    if (!useCases) return;
+    const input = { date: flow.slot.date, mealType: flow.slot.mealType, dishId: flow.dishId,
+      dishRevision: flow.dishRevision, dish: flow.input, entryId: flow.slot.entry?.id,
+      baseRevision: flow.slot.entry?.revision, listId: destination, decisions };
+    const key = JSON.stringify(input);
+    if (selectionOperation.current?.key !== key) selectionOperation.current = { key, id: crypto.randomUUID() };
+    await useCases.confirmMealSelection.execute({ ...input, operationId: selectionOperation.current.id });
+  };
+
+  const completePendingMeal = async () => {
+    if (!pending || pending.scope !== scope || !available || accessDenied || !useCases || busy || mutationPending.current) return;
+    const decisions: MealSelectionInput["decisions"] = [];
+    for (const row of pending.missing) {
+      const choice = pendingChoices[row.key];
+      if (!choice?.action) { setPendingError("برای همهٔ مواد ناموجود یک گزینه انتخاب کنید."); return; }
+      if (choice.action === "shopping") {
+        const qty = quantityValue(choice.qty);
+        const invalid = importError([{ ...row.ingredient, qty, unit: choice.unit.trim() || null }]);
+        if (invalid) {
+          setPendingError(invalid);
+          return;
+        }
+        decisions.push({ key: row.key, action: choice.action, qty, unit: choice.unit.trim() || null });
+      } else {
+        decisions.push({ key: row.key, action: choice.action, qty: null, unit: null });
+      }
+    }
+    const withShopping = decisions.some(row => row.action === "shopping");
+    if (withShopping && !lists.some((list) => list.id === pendingListId)) {
+      setPendingError("لیست خرید مقصد را انتخاب کنید."); return;
+    }
+    const captured = identity.current;
+    mutationPending.current = true; setBusy(true); setPendingError("");
+    try {
+      await submitMeal(pending, decisions, withShopping ? pendingListId : undefined);
+      if (!stillCurrent(captured)) return;
+      clearForms(); show("وعده ثبت شد و مواد انتخاب‌شده تعیین تکلیف شدند."); await reload();
+    } catch (error) {
+      if (stillCurrent(captured) && !clearDeniedAccess(error)) {
+        setPendingError(errorMessage(error));
+        // Recheck after a rejected commit. Never discard the submitted receipt
+        // key on a lost response: a retry must return the committed result.
+        if (isAppError(error) && error.code !== "NETWORK") {
+          try {
+            const nextDishes = pending.dishId ? await useCases.listDishes.execute() : null;
+            if (!stillCurrent(captured)) return;
+            const latestDish = nextDishes?.find(row => row.id === pending.dishId);
+            const rows = pending.input?.ingredients ?? latestDish?.ingredients ?? [];
+            const missing = await findMissingIngredients(rows);
+            if (stillCurrent(captured)) {
+              const changed = latestDish && latestDish.revision !== pending.dishRevision;
+              if (changed) setPendingChoices({});
+              if (nextDishes) setData(previous => ({ ...previous, dishes: nextDishes }));
+              setPending(previous => previous ? { ...previous, missing,
+                dishRevision: latestDish?.revision ?? previous.dishRevision } : previous);
+            }
+          } catch { /* Keep the review and original error until a successful retry. */ }
+        }
+      }
+    } finally {
+      if (stillCurrent(captured)) { setBusy(false); mutationPending.current = false; }
+    }
+  };
   const saveLibraryFood = async (input: DishInput) => {
     if (!available || !useCases || busy || mutationPending.current || accessDenied || activeDialog?.kind !== "library") return;
     const captured = identity.current, slot = activeDialog.slot;
     mutationPending.current = true; setBusy(true); setDialogError("");
     try {
-      const saved = await useCases.addDish.execute(input);
-      if (!stillCurrent(captured)) return;
       if (slot) {
-        try {
-          if (slot.entry) await useCases.updateMealEntry.execute(slot.entry.id, saved.id, slot.entry.revision);
-          else await useCases.addMealEntry.execute({ date: slot.date, mealType: slot.mealType, dishId: saved.id });
-        } catch (error) {
-          if (!stillCurrent(captured) || clearDeniedAccess(error)) return;
-          await reload();
-          if (!stillCurrent(captured)) return;
-          setDishId(saved.id); setChooserSource("family"); setDialog({ scope, kind: "slot", ...slot });
-          setDialogError(/* @copy-text meals.library.slot-save-failed */ `غذا در فهرست خانواده ذخیره شد، اما ثبت وعده انجام نشد: ${errorMessage(error)}`);
+        const missing = await findMissingIngredients(input.ingredients);
+        if (!stillCurrent(captured)) return;
+        const flow = { scope, slot, missing, input };
+        if (missing.length) {
+          beginMissingFlow(flow);
           return;
         }
+        await submitMeal(flow, []);
+      } else {
+        await useCases.addDish.execute(input);
       }
       if (!stillCurrent(captured)) return;
       clearForms(); show(slot ? "غذا ذخیره و برای وعده انتخاب شد." : "غذا به فهرست خانواده اضافه شد."); await reload();
@@ -179,7 +284,8 @@ export function MealsPage() {
   };
   const changeIngredient = (key: string, change: Partial<IngredientForm>) => {
     operation.current = null; setResult(null); setDialogError("");
-    setIngredients((previous) => previous.map((row) => row.key === key ? { ...row, ...change } : row));
+    setIngredients((previous) => previous.map((row) => row.key === key ? { ...row, ...change,
+      ...(change.title !== undefined ? { catalogId: null } : {}) } : row));
   };
 
   const mutate = async (action: () => Promise<unknown>, message: string) => {
@@ -200,7 +306,9 @@ export function MealsPage() {
   };
   const saveDish = () => {
     if (!useCases || activeDialog?.kind !== "dish" || activeDialog.dish && !activeDialog.dish.canEdit) return;
-    const input = { title: title.trim(), ingredients: ingredients.map(ingredientInput) };
+    const input: DishInput = { title: title.trim(), ingredients: ingredients.map(ingredientInput).map((row) => ({
+      ...row, catalogId: row.catalogId ?? checkMealIngredient(row, []).catalogId,
+    })) };
     const error = dishError(input);
     if (error) { setDialogError(error); return; }
     input.ingredients = input.ingredients.map(cleanIngredient);
@@ -208,12 +316,29 @@ export function MealsPage() {
     void mutate(() => dish ? useCases.updateDish.execute(dish.id, input, dish.revision) : useCases.addDish.execute(input),
       dish ? "غذا به‌روز شد." : "غذا ثبت شد.");
   };
-  const saveSlot = () => {
-    if (!useCases || activeDialog?.kind !== "slot" || activeDialog.entry && !activeDialog.entry.canEdit) return;
+  const saveSlot = async () => {
+    if (!available || accessDenied || busy || mutationPending.current || !useCases || activeDialog?.kind !== "slot" || activeDialog.entry && !activeDialog.entry.canEdit) return;
     if (!dishId || !catalog.has(dishId)) { setDialogError("یک غذا انتخاب کنید."); return; }
     const slot = activeDialog;
-    void mutate(() => slot.entry ? useCases.updateMealEntry.execute(slot.entry.id, dishId, slot.entry.revision)
-      : useCases.addMealEntry.execute({ date: slot.date, mealType: slot.mealType, dishId }), "وعده ثبت شد.");
+    const dish = catalog.get(dishId);
+    if (dish) {
+      const captured = identity.current;
+      mutationPending.current = true; setBusy(true); setDialogError("");
+      try {
+        const missing = await findMissingIngredients(dish.ingredients);
+        if (!stillCurrent(captured)) return;
+        const flow = { scope, slot, missing, dishId, dishRevision: dish.revision };
+        if (missing.length) {
+          beginMissingFlow(flow);
+          return;
+        }
+        await submitMeal(flow, []);
+        if (!stillCurrent(captured)) return;
+        clearForms(); show("وعده ثبت شد."); await reload();
+      } catch (error) {
+        if (stillCurrent(captured) && !clearDeniedAccess(error)) setDialogError(errorMessage(error));
+      } finally { if (stillCurrent(captured)) { setBusy(false); mutationPending.current = false; } }
+    }
   };
   const removeSlot = () => {
     if (!useCases || activeDialog?.kind !== "slot" || !activeDialog.entry?.canDelete) return;
@@ -332,7 +457,38 @@ export function MealsPage() {
     </div>
     <MealDialog open={activeDialog?.kind === "library"} onClose={closeDialog} title="مواد اولیهٔ غذا">
       {activeDialog?.kind === "library" ? <MealLibraryDetail key={activeDialog.food.id} food={activeDialog.food} busy={busy} error={dialogError}
-        forSlot={Boolean(activeDialog.slot)} onBack={backFromLibrary} onSave={input => void saveLibraryFood(input)} /> : null}
+        checkIngredients={useCases!.checkMealIngredients} forSlot={Boolean(activeDialog.slot)} onBack={backFromLibrary} onSave={input => void saveLibraryFood(input)} /> : null}
+    </MealDialog>
+    <MealDialog open={available && !accessDenied && pending?.scope === scope} onClose={() => { if (!busy) clearForms(); }} title="تعیین تکلیف مواد ناموجود">
+      {available && pending?.scope === scope ? <form onSubmit={event => { event.preventDefault(); void completePendingMeal(); }}>
+        <p className="modal-sub">برخی از مواد اولیهٔ این غذا در موجودی انبار شما ثبت نشده‌اند. برای هر ماده یکی از گزینه‌ها را انتخاب کنید.</p>
+        {pending.missing.map((row, index) => {
+          const choice: PendingDecision = pendingChoices[row.key] ?? { action: "", qty: quantityText(row.ingredient.qty), unit: row.ingredient.unit ?? "" };
+          return <fieldset className="meal-missing-choice" key={row.key}>
+            <legend>{row.ingredient.title}</legend>
+            {row.status === "unresolved" ? <p className="form-note">این ماده هنوز به قلم استاندارد متصل نیست؛ موجودی آن تأیید نشده است.</p> : null}
+            <label><input type="radio" name={`missing-${index}`} checked={choice.action === "shopping"} disabled={busy}
+              onChange={() => changePendingChoice(row.key, { ...choice, action: "shopping" })} />افزودن به لیست خرید</label>
+            <label><input type="radio" name={`missing-${index}`} checked={choice.action === "available"} disabled={busy}
+              onChange={() => changePendingChoice(row.key, { ...choice, action: "available" })} />موجود است، اما در انبار ثبت نشده</label>
+            {choice.action === "shopping" ? <div className="meal-ingredient-values">
+              <Field label="مقدار خرید"><input className="text-input" inputMode="decimal" aria-label={`مقدار خرید ${row.ingredient.title}`}
+                 value={choice.qty} disabled={busy} onChange={event => changePendingChoice(row.key, { ...choice, qty: event.target.value })} /></Field>
+              <Field label="واحد (اختیاری)"><input className="text-input" aria-label={`واحد خرید ${row.ingredient.title}`}
+                 value={choice.unit} maxLength={MEAL_LIMITS.unit} disabled={busy} onChange={event => changePendingChoice(row.key, { ...choice, unit: event.target.value })} /></Field>
+            </div> : null}
+          </fieldset>;
+        })}
+        {Object.values(pendingChoices).some(choice => choice.action === "shopping") ? <Field label="لیست خرید مقصد">
+          <select className="text-input" aria-label="لیست خرید مقصد" value={pendingListId} disabled={busy}
+             onChange={event => { setPendingError(""); setPendingListId(event.target.value); }}><option value="">انتخاب لیست خرید</option>
+            {lists.map(list => <option key={list.id} value={list.id}>{list.title}</option>)}</select>
+        </Field> : null}
+        {Object.values(pendingChoices).some(choice => choice.action === "shopping") && !lists.length ? <p className="form-note">ابتدا در بخش لیست خرید یک لیست بسازید؛ یا موجودبودن مواد را تأیید کنید.</p> : null}
+        {pendingError ? <p className="form-error" role="alert">{pendingError}</p> : null}
+        <button type="submit" className="btn-primary meal-form-submit" disabled={busy}>{busy ? "در حال ثبت…" : "تأیید و ثبت وعده"}</button>
+        <button type="button" className="btn-secondary" disabled={busy} onClick={clearForms}>انصراف</button>
+      </form> : null}
     </MealDialog>
     <MealDialog open={activeDialog?.kind === "dish"} onClose={closeDialog} title={readOnlyDish ? "جزئیات غذا" : activeDialog?.kind === "dish" && activeDialog.dish ? "ویرایش غذا" : "غذای جدید"}>
       <form onSubmit={event => { event.preventDefault(); saveDish(); }} autoComplete="off">

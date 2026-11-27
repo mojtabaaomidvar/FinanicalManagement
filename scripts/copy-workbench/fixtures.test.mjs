@@ -150,21 +150,33 @@ test('support preview exposes empty, failed and delayed display states', () => {
   assert.equal(request(session, '/auth/join', 'POST', {}).body.support_code.length, 36);
 });
 
-test('catalog preview reviews anonymous proposals without publishing or modifying household data', () => {
+test('catalog preview publishes only reviewed metadata without modifying household data', () => {
   const session = create('auth-login', 'support'), before = structuredClone(session.data);
   assert.equal(request(session, '/support/catalog').status, 401);
   assert.equal(request(session, '/support/catalog/review', 'POST', {}).status, 401);
   request(session, '/support/login', 'POST', { username: 'support', password: 'fixture' });
   const list = request(session, '/support/catalog').body;
   assert.equal(list.total, 1);
-  assert.deepEqual(Object.keys(list.items[0]).sort(), ['category','id','reviewed_at','status','submitted_at','title','unit']);
-  const body = { id: list.items[0].id, status: 'approved' };
+  assert.deepEqual(Object.keys(list.items[0]).sort(), ['category','id','published_at','reviewed_at','status','submitted_at','title','unit']);
+  const body = { id: list.items[0].id, status: 'approved', title:'نمونه: نام اصلاح‌شده', category:'personal_care', unit:'پاکت' };
   assert.equal(request(session, '/support/catalog/review', 'POST', body).body.status, 'approved');
   assert.equal(request(session, '/support/catalog/review', 'POST', body).status, 200);
   assert.equal(request(session, '/support/catalog/review', 'POST', { ...body, status: 'rejected' }).status, 409);
   assert.equal(request(session, '/support/catalog').body.total, 0);
   assert.equal(request(session, '/support/catalog?status=approved').body.total, 2);
+  assert.deepEqual(session.publishedCatalog, [{ id:body.id, title:body.title, group:body.category, unit:body.unit, aliases:[], common:false }]);
   assert.deepEqual({ ...session.data, requests: [] }, before);
+});
+
+test('catalog fixture exposes published additions to the household while keeping pending reviews private', () => {
+  const session = create('full-owner', 'support');
+  const [pending] = request(session, '/support/catalog').body.items;
+  assert.deepEqual(request(session, '/inventory/catalog').body, []);
+  request(session, '/support/catalog/review', 'POST', { id:pending.id, status:'approved' });
+  assert.equal(request(session, '/inventory/catalog').body[0].title, pending.title);
+  assert.equal(request(create('auth-login'), '/inventory/catalog').status, 401);
+  assert.equal(request(create('errors'), '/inventory/catalog').status, 503);
+  assert.equal(request(create('loading'), '/inventory/catalog').delayMs, 20000);
 });
 
 test('catalog preview includes empty, loading, read/write errors and review conflict states', () => {

@@ -10,10 +10,10 @@ const BANK_ALIASES: Record<string, string> = {
 export const BANK_NAMES = BANK_CATALOG.map(bank => bank.value);
 export const BANK_OPTIONS = BANK_CATALOG.map(bank => ({ value: bank.value, label: bank.label }));
 export const BANK_BINS = Object.fromEntries(BANK_CATALOG.map(bank => [bank.value, bank.bins]));
-function entryFor(value: string) {
+export function bankEntryFor(value: string) {
   return BANK_CATALOG.find(bank => bank.value === value || bank.id === value || bank.id === BANK_ALIASES[value]);
 }
-export function bankDisplayLabel(value: string): string { return entryFor(value)?.label ?? value; }
+export function bankDisplayLabel(value: string): string { return bankEntryFor(value)?.label ?? value; }
 function cardCandidates(cardNumber: string) {
   const digits = toEn(cardNumber).replace(/\D/g, "");
   if (digits.length < 6) return [];
@@ -28,7 +28,7 @@ export function bankOfCard(cardNumber: string): string | null {
   return candidates.length === 1 ? candidates[0].value : null;
 }
 export function cardMatchesBank(cardNumber: string, value: string): boolean {
-  const selected = entryFor(value), candidates = cardCandidates(cardNumber);
+  const selected = bankEntryFor(value), candidates = cardCandidates(cardNumber);
   if (!selected || !candidates.length) return true;
   return candidates.some(bank => bank.id === selected.id || bank.parentId === selected.id
     || selected.parentId === bank.id || (!!selected.parentId && selected.parentId === bank.parentId));

@@ -6,7 +6,8 @@ import { AppPage } from "@/shared/ui/AppPage";
 import { useMemo, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
-import { Field, JalaliDateInput, Modal, FitText } from "@/shared/ui";
+import { Field, JalaliDateInput, Modal, FitText, CurrencyUnit } from "@/shared/ui";
+import { smoothChartPath } from "@/shared/lib/smoothChartPath";
 import { AccountsFeature, AccountAddButton, useAccountsModel } from "@/features/accounts";
 import {
   wealthSeries,
@@ -123,13 +124,11 @@ function AccountsOverview({ m, onOpenTransactions }: { m: AccountsModel; onOpenT
               <FitText>
                 {m.totalWealth === null ? /* @copy-text accounts.wealth_unavailable */ "—" : <>
                 {formatMoney(m.totalWealth, m.cur)}
-                <span>{m.cur}</span>
+                 <CurrencyUnit />
                 </>}
               </FitText>
             </b>
           </div>
-
-          <p className="section-hint">عدد بالا شامل موجودی فعلی کیف پول‌ها و ارزش برآوردی دارایی‌هاست؛ نمودار فقط روند موجودی حاصل از تراکنش‌ها را نشان می‌دهد.</p>
 
           <div className="wealth-chart">
             <svg
@@ -232,9 +231,6 @@ function AccountsOverview({ m, onOpenTransactions }: { m: AccountsModel; onOpenT
               />
             </Field>
           </div>
-          <p className="modal-sub full" style={{ gridColumn: "1 / -1" }}>
-            نمودار، موجودی حاصل از تراکنش‌ها را در این بازه نشان می‌دهد؛ مغایرت‌گیری گذشتهٔ نمودار را تغییر نمی‌دهد.
-          </p>
         </div>
         <div className="modal-actions">
           <button
@@ -263,9 +259,7 @@ function WealthPath({ points }: { points: string[] }) {
   const span = subtractMoney(max, min);
   const x = (i: number) => (i / (points.length - 1)) * w;
   const y = (v: string) => pad + (1 - moneyRatio(subtractMoney(v, min), span)) * (h - pad * 2);
-  const d = points
-    .map((v, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(v)}`)
-    .join(" ");
+   const d = smoothChartPath(points.map((v, i) => ({ x: x(i), y: y(v) })));
   const area = `${d} L${w},${h} L0,${h} Z`;
   const last = points[points.length - 1];
   const zeroY = y("0");

@@ -1,5 +1,6 @@
 import { AppPage } from "@/shared/ui/AppPage";
 import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
+import { CurrencyUnit, InputCurrencyUnit } from "@/shared/ui";
 /* §۱.۸ — صفحهٔ لیست خرید.
 
    چیزی که این صفحه از صفحهٔ تراکنش‌ها جدا می‌کند: این‌جا **قصدِ خرید**
@@ -78,11 +79,7 @@ export function ShoppingPage() {
   const offline = !online || shoppingSync.offline;
 
   function showChange(message: string) {
-    show(
-      offline
-        ? "تغییر روی این دستگاه نگه داشته شد و پس از اتصال ارسال می‌شود"
-        : message,
-    );
+    if (!offline) show(message);
   }
 
   const [activeId, setActiveId] = useState("");
@@ -98,6 +95,7 @@ export function ShoppingPage() {
   const [itemOpen, setItemOpen] = useState(false);
   const [itemEditing, setItemEditing] = useState<ShoppingItem | null>(null);
   const [itemForm, setItemForm] = useState<ItemForm>(EMPTY_ITEM);
+  const [entryCurrency, setEntryCurrency] = useState(cur);
 
   /* بستنِ سفرِ خرید */
   const [tripOpen, setTripOpen] = useState(false);
@@ -201,6 +199,7 @@ export function ShoppingPage() {
   }
 
   function openEditItem(item: ShoppingItem) {
+    setEntryCurrency(cur);
     setItemEditing(item);
     setItemForm({
       title: item.title,
@@ -217,6 +216,7 @@ export function ShoppingPage() {
   }
 
   function openNewItem() {
+    setEntryCurrency(cur);
     setItemEditing(null);
     setItemForm({ ...EMPTY_ITEM, title: quick.trim() });
     setItemOpen(true);
@@ -234,7 +234,7 @@ export function ShoppingPage() {
       show("تعداد باید بزرگ‌تر از صفر باشد");
       return;
     }
-    const price = offline ? "0" : parseShoppingPrice(itemForm.price, cur);
+    const price = offline ? "0" : parseShoppingPrice(itemForm.price, entryCurrency);
     if (price === null) { show("قیمت را درست وارد کنید؛ مبلغ بدون گرد کردن ثبت می‌شود"); return; }
     const input = {
       title,
@@ -445,7 +445,7 @@ export function ShoppingPage() {
                       </span>
                       {!offline ? (
                         <b>
-                          {formatAmount(toDisplay(sum.checkedTotal, cur))} {currencyDisplayLabel(cur)}
+                          {formatAmount(toDisplay(sum.checkedTotal, cur))} <CurrencyUnit />
                         </b>
                       ) : (
                         <p className="form-note">ثبت نتیجهٔ خرید به اتصال اینترنت نیاز دارد</p>
@@ -550,12 +550,15 @@ export function ShoppingPage() {
         </Field>
         {!offline ? (
           <>
-            <Field label={`قیمت (${currencyDisplayLabel(cur)}) — اختیاری`}>
+            <Field label="قیمت — اختیاری">
+              <div className="amt-field">
               <TextInput
                 inputMode="decimal" className="num-input" aria-label="قیمت کل قلم خرید"
                 value={itemForm.price}
                 onChange={(v) => setItemForm((f) => ({ ...f, price: normalizeExpressionInput(v) }))}
               />
+              <InputCurrencyUnit value={itemForm.price} currency={entryCurrency} disabled={busy} onChange={(price, unit) => { setItemForm(previous => ({ ...previous, price })); setEntryCurrency(unit); }} />
+              </div>
             </Field>
             <p className="form-note">
               قیمتِ کلِ همین قلم است، نه قیمتِ واحد. خالی بگذارید اگر نمی‌دانید؛
@@ -722,7 +725,7 @@ function ItemRow({
       <div className="shop-side">
         {!hidePrices && item.price !== null ? (
           <b className="shop-price">
-            {formatAmount(toDisplay(item.price, cur))}
+            {formatAmount(toDisplay(item.price, cur))} <CurrencyUnit />
           </b>
         ) : null}
         <button

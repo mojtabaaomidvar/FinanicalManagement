@@ -375,6 +375,7 @@ function MainShell({
      دارد (لمسِ سررسید فرمِ تراکنش را باز می‌کند) و به ناوبریِ زیرصفحهٔ
      تنظیمات. refreshKey را می‌گیرد تا پس از هر رفرشِ داده دوباره بخواند. */
   const notif = useNotificationsModel(refreshKey);
+  useHouseholdRefresh(() => { if (!restricted) return pendingSms.load(); });
   const pendingSms = usePendingSmsModel(useCases!, currentMemberId, show, cur, !restricted);
   useEffect(() => { if (!restricted) void pendingSms.load(); }, [refreshKey, useCases, currentMemberId, restricted]);
 
@@ -601,3 +602,4 @@ function MainShell({
     </PageNavigationContext.Provider>
   );
 }
+import { useHouseholdRefresh } from "@/shared/lib/useHouseholdRefresh";

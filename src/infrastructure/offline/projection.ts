@@ -22,6 +22,7 @@ export function sanitizeSnapshot(source: OfflineSnapshot): OfflineSnapshot {
     })),
     inventory: source.inventory.map((item) => ({
       id: item.id, title: item.title, unit: item.unit, quantity: item.quantity,
+      catalog_id: item.catalog_id ?? null,
       category: item.category ?? null, note: item.note, revision: item.revision,
       created_at: item.created_at, updated_at: item.updated_at,
     })),
@@ -124,6 +125,7 @@ export function projectSnapshot(
       case "inventory.create":
         view.inventory.push({
           id, title: op.payload.title, unit: op.payload.unit ?? null,
+          catalog_id: null,
           quantity: op.payload.quantity ?? 0, category: op.payload.category ?? null,
           note: op.payload.note ?? null, revision: 1,
           created_at: entry.createdAt, updated_at: entry.createdAt,
@@ -137,6 +139,7 @@ export function projectSnapshot(
           item.quantity = Math.max(0, Math.round((item.quantity + op.payload.delta) * 100) / 100);
         } else {
           item.title = op.payload.title;
+          item.catalog_id = null;
           if (op.payload.unit !== undefined) item.unit = op.payload.unit;
           if (op.payload.quantity !== undefined) item.quantity = op.payload.quantity ?? 0;
           if (op.payload.category !== undefined) item.category = op.payload.category;

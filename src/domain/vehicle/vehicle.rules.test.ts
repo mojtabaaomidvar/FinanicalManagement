@@ -46,6 +46,8 @@ describe("vehicle completion and financial input", () => {
     expect(vehicleServiceError({ ...service, nextDueDate: today }, 50000, today)).not.toBe("");
   });
   it("reuses toman storage and personal rial display conversion", () => {
+    expect(serviceCost("15000000.0", "ریال")).toBe(1500000);
+    expect(() => serviceCost("15", "ریال")).toThrow();
     expect(serviceCost("۱,۵۰۰,۰۰۰", "تومان")).toBe(1500000);
     expect(serviceCost("۱,۵۰۰,۰۰۰", "ریال")).toBe(150000);
     expect(() => serviceCost("۰", "تومان")).toThrow();

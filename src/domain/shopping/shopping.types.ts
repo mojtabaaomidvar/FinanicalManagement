@@ -72,6 +72,8 @@ export interface InventoryItem {
   title: string;
   unit: string | null;
   quantity: number;
+  /** Stable reviewed-catalog identity used by meal availability checks. */
+  catalogId?: string | null;
   /** Stable catalog subgroup; older cached rows may not have a category yet. */
   category?: string | null;
   note: string | null;

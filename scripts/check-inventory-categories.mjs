@@ -135,7 +135,7 @@ try {
   await support.button('بررسی کالاهای تازه').click();
   await support.page.locator('.support-catalog-list').waitFor();
   await support.shot('inventory-support', support.page.locator('.support-catalog'));
-  await support.button('تأیید برای بازبینی').click();
+   await support.button('تأیید و انتشار').click();
   await support.page.getByText('پیشنهادی با این وضعیت وجود ندارد.', { exact:true }).waitFor();
   await support.field('وضعیت بررسی پیشنهاد کالا').selectOption('approved');
   await support.page.locator('.support-catalog-list').waitFor();

@@ -1,6 +1,9 @@
 import type { DishInput, MealDish, MealEntry, MealEntryInput, MealIngredient, MealPlan, MealShoppingResult } from "./meal.types";
+import type { MealIngredientCheck, MealSelectionInput, MealSelectionResult } from "./meal.types";
 
 export interface MealRepository {
+  checkIngredients(ingredients: MealIngredient[]): Promise<MealIngredientCheck[]>;
+  confirmSelection(input: MealSelectionInput): Promise<MealSelectionResult>;
   listDishes(): Promise<MealDish[]>;
   addDish(input: DishInput): Promise<MealDish>;
   updateDish(id: string, input: DishInput, expectedRevision: number): Promise<MealDish>;

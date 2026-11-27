@@ -53,6 +53,7 @@ export async function createWorkbench({ root = defaultRoot, port = 5701, build, 
   const secret = randomBytes(32).toString('hex');
   let origin = `http://127.0.0.1:${port}`, activeBuild, activeBuildRevision, activeCompilerRevision, catalog, visualCatalog, busy = false, ready = false, initError, operation, latestBatch = null, history = [], restartClaim = null, restartTimer;
   const sessions = new Map(), knownBuilds = [], previewReplacements = new Map();
+  const changeStreams = new Map();
   const status = () => ({ ready, busy, message: initError ?? operation?.message ?? (busy ? 'در حال بررسی و آماده‌سازی پیش‌نمایش…' : 'آماده'), entries: catalog?.entries.length ?? 0,
     sourceRevision: catalog?.revision ?? null, buildRevision: activeBuildRevision ?? null,
     previewCurrent: Boolean(catalog?.revision && activeBuildRevision === catalog.revision),
@@ -382,10 +383,25 @@ export async function createWorkbench({ root = defaultRoot, port = 5701, build, 
       if (url.pathname.startsWith('/api/v1/')) {
         const session = sessions.get(request.headers['x-copy-preview-session']);
         if (!session) throw new WorkbenchError('NO_PREVIEW', 'نشست پیش‌نمایش موجود نیست.', 401);
+        if (url.pathname === '/api/v1/household/changes' && request.method === 'GET') {
+          if (request.headers.authorization !== `Bearer ${session.token}`) return send(response, 401, { error:'UNAUTHORIZED' });
+          response.writeHead(200, { 'Content-Type':'text/event-stream', 'Cache-Control':'no-store' });
+          response.write('event: ready\ndata: {}\n\n');
+          if (!changeStreams.has(session)) changeStreams.set(session, new Set());
+          changeStreams.get(session).add(response);
+          const heartbeat = setInterval(() => response.write(': keepalive\n\n'), 12000);
+          heartbeat.unref();
+          response.on('close', () => { clearInterval(heartbeat); changeStreams.get(session)?.delete(response); });
+          return;
+        }
+        const beforeChange = !['GET', 'HEAD'].includes(request.method) ? JSON.stringify(session.data) : null;
         const input = !['GET', 'HEAD'].includes(request.method) && /^application\/json\b/i.test(request.headers['content-type'] ?? '')
           ? await body(request) : undefined;
         if (input === undefined && !['GET', 'HEAD'].includes(request.method)) request.resume();
         const result = handlePreviewRequest(session, { method: request.method, path: url.pathname.slice('/api/v1'.length), query: url.searchParams, body: input });
+        if (beforeChange !== null && result.status >= 200 && result.status < 300 && beforeChange !== JSON.stringify(session.data)) {
+          for (const stream of changeStreams.get(session) ?? []) if (!stream.destroyed) stream.write('event: invalidate\ndata: {}\n\n');
+        }
         if (result.delayMs) await new Promise(done => setTimeout(done, Math.min(result.delayMs, 30000)));
         if (result.raw && !response.destroyed) {
           response.writeHead(result.status, { 'Cache-Control': 'no-store', ...result.headers });
@@ -431,7 +447,12 @@ export async function createWorkbench({ root = defaultRoot, port = 5701, build, 
   await new Promise((done, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', done); });
   origin = `http://127.0.0.1:${server.address().port}`;
   const initialized = loadInitial();
-  return { server, origin, initialized, status, close: () => { clearTimeout(restartTimer); return new Promise(done => server.close(done)); } };
+  return { server, origin, initialized, status, close: () => {
+    clearTimeout(restartTimer);
+    for (const streams of changeStreams.values()) for (const stream of streams) stream.end();
+    changeStreams.clear();
+    return new Promise(done => server.close(done));
+  } };
 }
 
 if (resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) {

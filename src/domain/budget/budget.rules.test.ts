@@ -12,6 +12,9 @@ describe("monthly budget amount", () => {
     expect(parseMonthlyBudgetAmount(String(MAX_MONTHLY_BUDGET + 1), "تومان")).toBeNull();
     expect(parseMonthlyBudgetAmount("۲۰,۰۰۰,۰۰۰", "ریال")).toBe(2_000_000);
     expect(parseMonthlyBudgetAmount("1", "ریال")).toBeNull();
+    expect(parseMonthlyBudgetAmount("15", "ریال")).toBeNull();
+    expect(parseCategoryBudgetAmount("19", "ریال")).toBeNull();
+    expect(parseMonthlyBudgetAmount("20.0", "ریال")).toBe(2);
   });
 });
 
@@ -143,10 +146,11 @@ describe("spendCapacity", () => {
 });
 
 describe("budget amount parsing", () => {
-  it("accepts grouped digit sets and converts the selected currency before rounding", () => {
+  it("accepts grouped digit sets and converts without rounding unsupported fractional budgets", () => {
     for (const raw of ["1234000", "۱٬۲۳۴٬۰۰۰", "١,٢٣٤,٠٠٠"]) expect(parseCategoryBudgetAmount(raw, "تومان")).toBe(1234000);
     expect(parseCategoryBudgetAmount("۱۲,۳۴۰,۰۰۰", "ریال")).toBe(1234000);
-    expect(parseCategoryBudgetAmount("۱۵", "ریال")).toBe(2);
+    expect(parseCategoryBudgetAmount("۱۵", "ریال")).toBeNull();
+    expect(parseCategoryBudgetAmount("۲۰", "ریال")).toBe(2);
   });
 
   it("rejects malformed amounts instead of discarding their characters", () => {

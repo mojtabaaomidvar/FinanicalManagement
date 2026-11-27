@@ -46,12 +46,12 @@ export function useHoldings() {
     };
   }, []);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (silent = false) => {
     if (!useCases) return false;
     const request = ++requestId.current;
     const active = () => alive.current && currentScope.current === scope && requestId.current === request;
     reading.current = true;
-    setLoading(true);
+    if (!silent) setLoading(true);
     setLoadError(null);
     try {
       const next = await useCases.listHoldings.execute();
@@ -71,6 +71,7 @@ export function useHoldings() {
       if (active()) { reading.current = false; setLoading(false); }
     }
   }, [useCases, scope]);
+  useHouseholdRefresh(() => reload(true));
 
   useEffect(() => {
     saving.current = null;
@@ -153,3 +154,4 @@ export function useHoldings() {
 }
 
 export type HoldingsModel = ReturnType<typeof useHoldings>;
+import { useHouseholdRefresh } from "@/shared/lib/useHouseholdRefresh";

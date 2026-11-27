@@ -2,9 +2,7 @@
 
 import type { Transaction } from "../transaction/transaction.types";
 import { isoToJalali, monthKey } from "@/shared/lib/jalali";
-import { toEn } from "@/shared/lib/digits";
-import { fromDisplay } from "@/shared/lib/currency";
-import { addMoney, compareMoney, floorMoneyPerDay, legacyIntegerMoney, moneyRatio, subtractMoney, type Money } from "@/shared/lib/money";
+import { addMoney, compareMoney, floorMoneyPerDay, legacyIntegerMoney, moneyRatio, moneyFits, parseMoneyInput, subtractMoney, type Money } from "@/shared/lib/money";
 
 export const MAX_CATEGORY_BUDGET = 999_999_999_999;
 export const MAX_MONTHLY_BUDGET = 9_999_999_999_999;
@@ -19,11 +17,8 @@ export function parseMonthlyBudgetAmount(raw: string, currency: string): number 
 }
 
 function parseBudgetAmount(raw: string, currency: string, limit: number, allowZero: boolean): number | null {
-  const normalized = toEn(raw).replace(/[,٬،]/g, "").trim();
-  if (!/^\d+$/.test(normalized)) return null;
-  const base = fromDisplay(Number(normalized), currency);
-  const amount = Math.round(base);
-  return Number.isFinite(base) && base <= limit && (amount > 0 || (allowZero && base === 0)) ? amount : null;
+  const base = parseMoneyInput(raw, currency);
+  return base !== null && moneyFits(base, { scale: 0, min: allowZero ? "0" : "1", max: String(limit) }) ? Number(base) : null;
 }
 
 export type BudgetLevel = "ok" | "warn" | "over";

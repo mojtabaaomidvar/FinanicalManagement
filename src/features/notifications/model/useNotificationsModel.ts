@@ -144,20 +144,18 @@ export function useNotificationsModel(refreshKey: number): NotificationsModel {
     leadDays: { ...DEFAULT_NOTIFICATION_PREFS.leadDays, tasks: taskNotificationPrefs.lead_days },
   } : prefs, [restricted, taskNotificationPrefs, prefs]);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (silent = false) => {
     const version = ++requestVersion.current;
-    setDocumentSnapshot(null);
-    setEquipmentSnapshot(null);
-    setVehicleSnapshot(null);
-    setGoalSnapshot(null);
-    setActivitySnapshot(null);
-    setSummarySnapshot(null);
+    if (!silent) {
+      setDocumentSnapshot(null); setEquipmentSnapshot(null); setVehicleSnapshot(null);
+      setGoalSnapshot(null); setActivitySnapshot(null); setSummarySnapshot(null);
+    }
     if (!useCases || phase !== "ready" || !member || !family || restricted) {
       setJoinRequests([]);
       return;
     }
     const failedSources: OnlineSummarySource[] = [];
-    setSummarySnapshot({ scope, loading: true, failedSources: [] });
+    if (!silent) setSummarySnapshot({ scope, loading: true, failedSources: [] });
     const current = () => requestVersion.current === version
       && context.current.scope === scope && !context.current.restricted
       && (typeof navigator === "undefined" || navigator.onLine !== false);
@@ -227,6 +225,7 @@ export function useNotificationsModel(refreshKey: number): NotificationsModel {
     ]);
     if (current()) setSummarySnapshot({ scope, loading: false, failedSources });
   }, [useCases, phase, role, member?.id, member?.status, member?.membershipState, family?.id, scope, restricted]);
+  useHouseholdRefresh(() => reload(true));
 
   useEffect(() => {
     void reload();
@@ -353,3 +352,4 @@ export function useNotificationsModel(refreshKey: number): NotificationsModel {
     onlineSummaryState,
   };
 }
+import { useHouseholdRefresh } from "@/shared/lib/useHouseholdRefresh";

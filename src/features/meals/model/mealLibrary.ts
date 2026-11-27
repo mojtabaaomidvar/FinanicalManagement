@@ -1,4 +1,5 @@
 import type { MealIngredient } from "@/domain/meal/meal.types";
+import { exactInventorySuggestion, inventoryCatalogId } from "@/domain/inventory/inventory.catalog";
 
 export interface LibraryTag { id: string; label: string }
 export interface LibraryFood {
@@ -28,6 +29,7 @@ export interface LibraryItem {
   label?: string;
   options?: string[];
   allowCustom?: boolean;
+  catalogId?: string;
 }
 export interface LibraryVariant { id: string; items: LibraryItem[]; needsReview: boolean }
 export interface LibraryDetail { id: string; variants: LibraryVariant[] }
@@ -87,7 +89,9 @@ export function selectedLibraryIngredients(variant: LibraryVariant, selections: 
     const name = selections[item.id].name.trim();
     if (!name || name.length > 120) return null;
     if (item.kind === "choice" && !item.allowCustom && !item.options?.includes(name)) return null;
-    result.push({ title: name, qty: null, unit: null });
+    const suggestion = exactInventorySuggestion(name);
+    result.push({ title: name, catalogId: name === item.name ? item.catalogId ?? (suggestion ? inventoryCatalogId(suggestion) : null)
+      : suggestion ? inventoryCatalogId(suggestion) : null, qty: null, unit: null });
   }
   return result;
 }

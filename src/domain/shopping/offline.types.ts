@@ -25,6 +25,7 @@ export interface OfflineInventoryItem {
   title: string;
   unit: string | null;
   quantity: number;
+  catalog_id?: string | null;
   /** Optional only for snapshots encrypted before categories were introduced. */
   category?: string | null;
   note: string | null;

@@ -1,5 +1,6 @@
 import { AppPage } from "@/shared/ui/AppPage";
-import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
+import { CurrencyUnit } from "@/shared/ui/CurrencyUnit";
+import type { ReactNode } from "react";
 /* خانه: بیلبورد → دسترسی شخصی → موعدهای واقعی؛ بخش‌ها در صفحهٔ جدا.
    دادهٔ آنلاین از snapshot مجاز همان نشست می‌آید؛ دادهٔ آفلاین محدود است. */
 
@@ -12,7 +13,7 @@ import { toDisplay } from "@/shared/lib/currency";
 import { txsInJalaliMonth } from "@/domain/transaction/transaction.rules";
 import { monthTotals } from "@/domain/report/report.rules";
 import { monthCategorySpend } from "@/domain/budget/budget.rules";
-import { findDollar } from "@/domain/market/market.rules";
+import { findDollar, shownPrice } from "@/domain/market/market.rules";
 import { totalPending } from "@/domain/shopping/shopping.rules";
 import { useMarket } from "@/features/market";
 import { cmp, isoToJalali, jalaliToIso } from "@/shared/lib/jalali";
@@ -130,30 +131,30 @@ export function HubPage({
     };
   }, [txs, accounts, budgets, bills, events, shoppingLists, inventory, todayIso, member?.id]);
 
-  const money = (n: string | number) => `${formatSignedAmount(toDisplay(n, cur))} ${currencyDisplayLabel(cur)}`;
+  const money = (n: string | number) => <>{formatSignedAmount(toDisplay(n, cur))} <CurrencyUnit /></>;
 
   /* زیرنویس زنده‌ی هر کاشی فعال */
-  const liveSub: Record<string, string> = {
-    finance: `خرج این ماه ${money(stats.monthExpense)}`,
+  const liveSub: Record<string, ReactNode> = {
+    finance: <>خرج این ماه {money(stats.monthExpense)}</>,
     transactions: stats.monthCount
       ? `${toFa(stats.monthCount)} تراکنش در این ماه`
       : "هنوز تراکنشی ثبت نشده",
     accounts: accounts.length
-      ? walletBalances.summary.status === "ready" ? `${toFa(accounts.length)} حساب · ${money(walletBalances.summary.balance)}`
+      ? walletBalances.summary.status === "ready" ? <>{toFa(accounts.length)} حساب · {money(walletBalances.summary.balance)}</>
         : walletBalances.summary.status === "error" ? "موجودی حساب‌ها دریافت نشد" : "در حال دریافت موجودی حساب‌ها…"
       : "حساب یا کارت اضافه کن",
     budgets: budgets.length
       ? `${toFa(budgets.length)} بودجه‌ی فعال`
       : "هنوز بودجه‌ای نداری",
     market: usd
-      ? `دلار ${formatAmount(usd.price)} ${usd.unit}`
+      ? <>دلار {formatAmount(shownPrice(usd.price, usd.unit, 0, cur).price)} <CurrencyUnit /></>
       : market.loading
         ? "در حال دریافت قیمت‌ها…"
         : "قیمت‌ها موقتاً در دسترس نیست",
     /* §۱.۹ — زیرنویسِ واقعی، نه تزئینی: اگر بدهی هست مبلغش را می‌گوید.
        همان قاعدهٔ بقیهٔ کاشی‌ها. */
     bills: stats.unpaidBills
-      ? `${toFa(stats.unpaidBills)} قبض · ${money(stats.unpaidTotal)}`
+      ? <>{toFa(stats.unpaidBills)} قبض · {money(stats.unpaidTotal)}</>
       : "قبض پرداخت‌نشده‌ای نداری",
     /* §۱.۱۰ — نزدیک‌ترین رویداد، نه شمارشِ خشک: «۳ رویداد» چیزی نمی‌گوید،
        «تولد نسیم ۵ روز دیگر» می‌گوید. */
@@ -182,7 +183,7 @@ export function HubPage({
     goals: overviewData.goals.length ? `${toFa(overviewData.goals.filter((row) => row.status === "active").length)} هدف و آرزوی فعال من` : "هدف‌ها و آرزوهای شخصی من",
     activities: summary.activities.length ? `${toFa(summary.activities.filter((row) => row.status === "planned").length)} برنامهٔ پیش رو` : "ثبت برنامهٔ خانوادگی",
   };
-  const subtitle = (module: HubModule): string | undefined => {
+  const subtitle = (module: HubModule): ReactNode => {
     if (restricted && !["chores", "shopping", "inventory"].includes(module.id)) return "نیاز به اتصال اینترنت";
     const source = module.id === "docs" ? "documents" : module.id;
     if (["documents", "equipment", "vehicles", "goals", "activities"].includes(source)) {

@@ -6,15 +6,16 @@ import { ShoppingSyncStatus } from "@/features/shopping-offline/ui/ShoppingSyncS
 import { useOnline } from "@/shared/lib/useOnline";
 import { Card, Field, Icon, Modal, Segmented, Select, TextInput } from "@/shared/ui";
 import type { InventoryItem } from "@/domain/shopping/shopping.types";
-import { UNIT_PRESETS } from "@/domain/shopping/shopping.types";
+import { INVENTORY_UNIT_OPTIONS } from "@/domain/inventory/inventory.units";
 import { formatQty } from "@/domain/shopping/shopping.rules";
 import { filterInventory, inventoryShoppingLists, liveInventoryQuantity, MAX_INVENTORY_QUANTITY,
   parseInventoryQuantity, type InventoryFilter } from "@/domain/inventory/inventory.rules";
-import { inventoryCategory, INVENTORY_CATALOG_SECTIONS, type InventoryCatalogGroup } from "@/domain/inventory/inventory.catalog";
+import { exactInventorySuggestion, inventoryCategory, inventoryNameFields, INVENTORY_CATALOG_SECTIONS, type InventoryCatalogGroup } from "@/domain/inventory/inventory.catalog";
 import { INVENTORY_GROUP_LABELS } from "@/domain/inventory/inventory.labels";
 import { InventoryCategories, type InventorySectionFilter } from "./InventoryCategories";
 import { toFa } from "@/shared/lib/digits";
 import { InventorySuggestions } from "./InventorySuggestions";
+import { useInventoryCatalog } from "./useInventoryCatalog";
 import "./InventoryPage.css";
 
 interface ItemForm { title: string; unit: string; quantity: string; category: InventoryCatalogGroup | ""; note: string }
@@ -29,6 +30,7 @@ export function InventoryPage() {
   const [section, setSection] = useState<InventorySectionFilter>(null);
   const [subgroup, setSubgroup] = useState<InventoryCatalogGroup | null>(null);
   const [open, setOpen] = useState(false);
+  const catalog = useInventoryCatalog(open, !offline);
   const [editing, setEditing] = useState<InventoryItem | null>(null);
   const [form, setForm] = useState<ItemForm>(EMPTY);
   const [busy, setBusy] = useState(false);
@@ -57,6 +59,15 @@ export function InventoryPage() {
   const sending = inventory.find(item => item.id === sendingId);
   const adjustment = parseInventoryQuantity(adjustQty, false);
   const purchase = parseInventoryQuantity(sendQty, false);
+  useEffect(() => {
+    if (!open) return;
+    setForm(previous => {
+      const known = exactInventorySuggestion(previous.title, catalog.entries);
+      // A delayed catalog response can fill missing defaults, never overwrite
+      // category/unit edits made while the request was running.
+      return known ? { ...previous, category: previous.category || known.group, unit: previous.unit || known.unit } : previous;
+    });
+  }, [catalog.entries, open]);
 
   /** All mutations use the existing encrypted outbox, including while online. */
   async function runChange(change: () => Promise<unknown>, done: () => void, message: string | null) {
@@ -71,12 +82,11 @@ export function InventoryPage() {
       if (!current()) return;
       // A saved command must not be repeated just because refreshing failed.
       done();
-      if (message !== null) show(offline ? "تغییر روی این دستگاه نگه داشته شد و پس از اتصال ارسال می‌شود" : message);
+      if (message !== null && !offline) show(message);
       await refreshData();
     } catch (cause) {
-      if (current()) {
-        const message = saved ? "تغییر ثبت شده است؛ برای دیدن نتیجه صفحه را تازه کنید."
-          : (cause as Error).message || "ذخیرهٔ تغییر ناموفق بود؛ دوباره تلاش کنید.";
+      if (current() && !saved) {
+        const message = (cause as Error).message || "ذخیرهٔ تغییر ناموفق بود؛ دوباره تلاش کنید.";
         setError(message); show(message);
       }
     } finally {
@@ -101,8 +111,9 @@ export function InventoryPage() {
     const title = form.title.trim(), quantity = parseInventoryQuantity(form.quantity);
     if (!title) { setError("نام قلم را بنویسید."); return; }
     if (quantity === null) { setError("موجودی را با عدد معتبر و نامنفی وارد کنید."); return; }
-    const category = form.category || inventoryCategory({ title });
+    const category = form.category || inventoryCategory({ title }, catalog.entries);
     if (!category) { setError("دستهٔ این قلم را انتخاب کنید."); return; }
+    if (!editing && !form.unit.trim()) { setError("واحد این قلم را انتخاب کنید یا بنویسید."); return; }
     const latest = editing && inventory.find(item => item.id === editing.id);
     if (editing && (!latest || latest.quantity !== editing.quantity || latest.category !== editing.category
       || latest.title !== editing.title || latest.unit !== editing.unit || latest.note !== editing.note)) {
@@ -184,23 +195,25 @@ export function InventoryPage() {
     <Modal open={open} onClose={() => close(() => setOpen(false))} title={editing ? "ویرایش قلم انبار" : "قلم جدید"} dragToClose sheetClassName="inv-edit-sheet">
       <form aria-busy={busy} onSubmit={event => { event.preventDefault(); void save(); }}>
         <fieldset className="inv-form-fields" disabled={busy}>
-          <InventorySuggestions value={form.title} category={form.category} inventory={editing ? inventory.filter(item => item.id !== editing.id) : inventory}
+          <InventorySuggestions value={form.title} category={form.category} catalog={catalog.entries} inventory={editing ? inventory.filter(item => item.id !== editing.id) : inventory}
               onCategoryChange={category => { setForm(previous => ({ ...previous, category })); setError(null); }}
-              onChange={title => { setForm(previous => ({ ...previous, title })); setError(null); }}
+              onChange={title => { setForm(previous => inventoryNameFields(previous, title, catalog.entries)); setError(null); }}
               onPick={suggestion => {
                 setForm(previous => ({ ...previous, title: suggestion.title, unit: suggestion.unit, category: suggestion.group }));
                 setError(null);
               }} />
-          {form.title.trim() && !inventoryCategory({ title: form.title }) && <p className="form-note">
+          {catalog.loading && <p className="form-note" role="status">در حال دریافت فهرست کالاها…</p>}
+          {catalog.failed && !offline && <div className="form-note"><p>فهرست تازه دریافت نشد؛ پیشنهادهای ذخیره‌شده در دسترس‌اند.</p>
+            <button type="button" className="btn-ghost" onClick={catalog.retry}>دریافت دوبارهٔ فهرست کالاها</button></div>}
+          {form.title.trim() && !inventoryCategory({ title: form.title }, catalog.entries) && <p className="form-note">
             برای بررسی و تکمیل فهرست کالاها، فقط نام، دسته و واحد این قلم تازه به پشتیبانی فرستاده می‌شود.
           </p>}
-          <Field label="واحد (اختیاری)"><TextInput aria-label="واحد قلم انبار" value={form.unit} maxLength={20}
+          <Field label="واحد"><TextInput aria-label="واحد قلم انبار" value={form.unit} maxLength={20}
             onChange={unit => setForm(previous => ({ ...previous, unit }))} placeholder="مثلاً کیلوگرم یا بطری" />
             <div className="quick-chips inv-unit-options" role="group" aria-label="واحدهای پیشنهادی">
-              {UNIT_PRESETS.map((value, index) => <button key={value} type="button" className={`chip${form.unit === value ? " active" : ""}`}
+              {INVENTORY_UNIT_OPTIONS.map(({ value, label }) => <button key={value} type="button" className={`chip${form.unit === value ? " active" : ""}`}
                 aria-pressed={form.unit === value} onClick={() => setForm(previous => ({ ...previous, unit: value }))}>
-                {index === 0 ? "عدد" : index === 1 ? "بسته" : index === 2 ? "کیلو" : index === 3 ? "گرم"
-                  : index === 4 ? "لیتر" : index === 5 ? "شیشه" : index === 6 ? "قوطی" : "جعبه"}
+                {label}
               </button>)}
             </div>
           </Field>

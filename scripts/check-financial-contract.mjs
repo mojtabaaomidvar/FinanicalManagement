@@ -42,7 +42,7 @@ try {
   await page.goto(base + (await response.json()).url);
   await page.waitForFunction(() => window.__COPY_PREVIEW_OBSERVED__ === true);
   const card = page.locator('.page-visit:not([hidden]) .account-card.flat:visible').first();
-  await card.getByRole('button', { name: 'اصلاح موجودی', exact: true }).waitFor();
+  await card.waitFor();
   assert.ok(results.financialRequests.length > 0);
   assert.ok(results.financialRequests.every(request => request.contract === 'decimal-v1'));
   results.checks.push('financial reads send the exact-money capability through the actual browser transport');
@@ -56,20 +56,21 @@ try {
     await route.fulfill({ status: 409, contentType: 'application/json',
       headers: { 'Cache-Control': 'no-store' }, body: JSON.stringify({ error: 'CLIENT_UPDATE_REQUIRED', message }) });
   });
-  await card.getByRole('button', { name: 'اصلاح موجودی', exact: true }).click();
+  await card.click();
+  await page.locator('.modal-sheet:visible').getByRole('button', { name: 'اصلاح موجودی', exact: true }).click();
   const sheet = page.locator('.modal-sheet:visible');
-  await sheet.getByLabel('موجودی هدف', { exact: true }).fill('۱۴۹۹.۹');
-  await sheet.getByLabel('توضیح اصلاح موجودی').fill('User-authored draft — keep me');
-  await sheet.getByRole('button', { name: 'بررسی روش ثبت' }).click();
-  await sheet.getByRole('radio', { name: 'صرفاً اصلاح جهت مغایرت‌گیری', exact: true }).check();
+  await sheet.getByLabel('موجودی موردنظر', { exact: true }).fill('۱۴۹۹.۹');
+  await sheet.getByLabel('توضیحات اصلاح موجودی').fill('User-authored draft — keep me');
+  await sheet.getByRole('radio', { name: 'مغایرت‌گیری', exact: true }).check();
+  await sheet.getByRole('button', { name: 'بررسی و ادامه' }).click();
   await sheet.getByRole('button', { name: 'تأیید و ثبت اصلاح' }).click();
   await sheet.getByText(message, { exact: true }).waitFor();
   assert.equal(writes, 1);
   results.checks.push('update-required rejection remains visible and does not retry the financial write');
   // A rejected write must not force a reload or clear the entered note.
   await sheet.getByRole('button', { name: 'دریافت دوبارهٔ اطلاعات' }).click();
-  await sheet.getByLabel('توضیح اصلاح موجودی').waitFor();
-  assert.equal(await sheet.getByLabel('توضیح اصلاح موجودی').inputValue(), 'User-authored draft — keep me');
+  await sheet.getByLabel('توضیحات اصلاح موجودی').waitFor();
+  assert.equal(await sheet.getByLabel('توضیحات اصلاح موجودی').inputValue(), 'User-authored draft — keep me');
   assert.equal(writes, 1);
   results.checks.push('update-required rejection preserves the user draft without a forced reload');
   assert.deepEqual(results.externalRequests, []);

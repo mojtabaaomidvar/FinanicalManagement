@@ -110,6 +110,7 @@ def snapshot(db: Session, actor: Member) -> OfflineSnapshot:
                 title=row.title,
                 unit=row.unit,
                 quantity=row.quantity,
+                catalog_id=row.catalog_id or inventory_catalog.catalog_id_for_title(row.title, db),
                 category=row.category,
                 note=row.note,
                 revision=row.revision,
@@ -210,7 +211,7 @@ def _create(db: Session, actor: Member, req: OfflineMutation, data: dict):
             **values,
         )
     else:
-        values = inventory._prepare(InventoryWrite(**data))
+        values = inventory._prepare(InventoryWrite(**data), db=db)
         inventory._assert_unique(db, actor.family_id, values["title"])
         row = InventoryItem(
             id=req.entity_id, family_id=actor.family_id, created_by=actor.id, **values
@@ -243,7 +244,7 @@ def _update(db: Session, actor: Member, req: OfflineMutation, data: dict):
         row.quantity = inventory.clean_number(max(Decimal(0), row.quantity + delta), "موجودی")
         row.updated_at = utcnow()
     else:
-        values = inventory._prepare(InventoryWrite(**data), existing_category=row.category)
+        values = inventory._prepare(InventoryWrite(**data), existing_category=row.category, db=db)
         inventory._assert_unique(db, actor.family_id, values["title"], exclude=row.id)
         for key, value in values.items():
             setattr(row, key, value)

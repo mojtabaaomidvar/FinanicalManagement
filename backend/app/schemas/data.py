@@ -824,6 +824,7 @@ class InventoryOut(BaseModel):
     title: str
     unit: str | None
     quantity: Decimal
+    catalog_id: str | None = None
     category: str | None
     note: str | None
     created_by: str | None

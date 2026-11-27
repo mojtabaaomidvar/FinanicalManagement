@@ -12,6 +12,7 @@ import { SupabaseSmsRepository } from "./smsRepository";
 import { RestSmsSettingsRepository } from "./smsSettingsRepository";
 import { SupabaseAccountRepository } from "./accountRepository";
 import { RestWalletRepository } from "./walletRepository";
+import { RestInventoryCatalogRepository } from "./inventoryCatalogRepository";
 import { SupabaseBridgeRepository } from "./bridgeRepository";
 import { SupabaseSubcategoryRepository } from "./subcategoryRepository";
 import { SupabaseCustomCategoryRepository } from "./customCategoryRepository";
@@ -38,8 +39,10 @@ import { RestActivityRepository } from "./activityRepository";
 import { RestChildRepository } from "./childRepository";
 import { RestPetRepository } from "./petRepository";
 import { RestAssistantRepository } from "./assistantRepository";
+import { watchHouseholdChanges } from "@/infrastructure/realtime/householdChanges";
 
 export interface Repositories {
+  inventoryCatalog: RestInventoryCatalogRepository;
   wallets: RestWalletRepository;
   assistant: RestAssistantRepository;
   auth: SupabaseAuthRepository;
@@ -71,6 +74,7 @@ export interface Repositories {
 }
 
 export interface Container {
+  watchHouseholdChanges: (refresh: () => Promise<void>) => () => void;
   storage: SecureStorage;
   session: SessionRepository;
   shoppingOffline: ShoppingOfflineEngine;
@@ -92,11 +96,13 @@ export function getContainer(): Promise<Container> {
       const client = new RestClient(tokenProvider);
       const shoppingOffline = createShoppingOffline(storage);
       return {
+        watchHouseholdChanges: refresh => watchHouseholdChanges(client, refresh),
         storage,
         session,
         shoppingOffline,
         offlineCache: new BrowserOfflineCache(() => shoppingOffline.clear()),
         repos: {
+          inventoryCatalog: new RestInventoryCatalogRepository(client),
           assistant: new RestAssistantRepository(client),
           auth: new SupabaseAuthRepository(client),
           family: new SupabaseFamilyRepository(client, session),

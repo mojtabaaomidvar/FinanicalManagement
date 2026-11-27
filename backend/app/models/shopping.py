@@ -86,6 +86,9 @@ class InventoryItem(Base):
     quantity: Mapped[Decimal] = mapped_column(
         Numeric(10, 2), nullable=False, server_default=text("0")
     )
+    # Stable identity shared with reviewed meal ingredients. Null is retained
+    # for legacy/manual rows that have not yet been linked to the catalog.
+    catalog_id: Mapped[str | None] = mapped_column(Text)
     category: Mapped[str | None] = mapped_column(Text)
     note: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(

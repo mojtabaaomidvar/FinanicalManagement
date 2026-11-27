@@ -42,6 +42,7 @@ class OfflineInventoryOut(BaseModel):
     title: str
     unit: str | None
     quantity: Decimal
+    catalog_id: str | None = None
     category: str | None
     note: str | None
     revision: int

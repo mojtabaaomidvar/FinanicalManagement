@@ -17,7 +17,7 @@ import {
 } from "./equipment/equipment.usecases";
 import {
   ListDishesUseCase, AddDishUseCase, UpdateDishUseCase, DeleteDishUseCase,
-  GetMealPlanUseCase, AddMealEntryUseCase, UpdateMealEntryUseCase,
+  GetMealPlanUseCase, AddMealEntryUseCase, UpdateMealEntryUseCase, CheckMealIngredientsUseCase, ConfirmMealSelectionUseCase,
   DeleteMealEntryUseCase, AddMealIngredientsToShoppingUseCase,
 } from "./meal/meal.usecases";
 import {
@@ -167,6 +167,7 @@ import {
   DeleteShoppingItemUseCase,
   DeleteShoppingListUseCase,
   ListInventoryUseCase,
+  ListInventoryCatalogUseCase,
   ListShoppingListsUseCase,
   RenameShoppingListUseCase,
   UpdateInventoryItemUseCase,
@@ -218,6 +219,8 @@ export interface UseCases {
   deleteDish: DeleteDishUseCase;
   getMealPlan: GetMealPlanUseCase;
   addMealEntry: AddMealEntryUseCase;
+  checkMealIngredients: CheckMealIngredientsUseCase;
+  confirmMealSelection: ConfirmMealSelectionUseCase;
   updateMealEntry: UpdateMealEntryUseCase;
   deleteMealEntry: DeleteMealEntryUseCase;
   addMealIngredientsToShopping: AddMealIngredientsToShoppingUseCase;
@@ -364,6 +367,7 @@ export interface UseCases {
   deleteShoppingItem: DeleteShoppingItemUseCase;
   completeTrip: CompleteTripUseCase;
   listInventory: ListInventoryUseCase;
+  listInventoryCatalog: ListInventoryCatalogUseCase;
   addInventoryItem: AddInventoryItemUseCase;
   updateInventoryItem: UpdateInventoryItemUseCase;
   adjustInventory: AdjustInventoryUseCase;
@@ -416,6 +420,8 @@ export function createUseCases(c: Container): UseCases {
     deleteDish: new DeleteDishUseCase(c.repos.meals),
     getMealPlan: new GetMealPlanUseCase(c.repos.meals),
     addMealEntry: new AddMealEntryUseCase(c.repos.meals),
+    checkMealIngredients: new CheckMealIngredientsUseCase(c.repos.meals),
+    confirmMealSelection: new ConfirmMealSelectionUseCase(c.repos.meals),
     updateMealEntry: new UpdateMealEntryUseCase(c.repos.meals),
     deleteMealEntry: new DeleteMealEntryUseCase(c.repos.meals),
     addMealIngredientsToShopping: new AddMealIngredientsToShoppingUseCase(c.repos.meals),
@@ -575,6 +581,7 @@ export function createUseCases(c: Container): UseCases {
     deleteShoppingItem: new DeleteShoppingItemUseCase(c.repos.shopping),
     completeTrip: new CompleteTripUseCase(c.repos.shopping),
     listInventory: new ListInventoryUseCase(c.repos.inventory),
+    listInventoryCatalog: new ListInventoryCatalogUseCase(c.repos.inventoryCatalog),
     addInventoryItem: new AddInventoryItemUseCase(c.repos.inventory),
     updateInventoryItem: new UpdateInventoryItemUseCase(c.repos.inventory),
     adjustInventory: new AdjustInventoryUseCase(c.repos.inventory),

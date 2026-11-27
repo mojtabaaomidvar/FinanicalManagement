@@ -1,5 +1,5 @@
 import { AppPage } from "@/shared/ui/AppPage";
-import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
+import { CurrencyUnit } from "@/shared/ui/CurrencyUnit";
 import { recurringTemplate } from "@/domain/transaction/recurring.rules";
 /* §۷ — مرکزِ اعلان (زنگ + فهرست).
 
@@ -14,7 +14,7 @@ import { recurringTemplate } from "@/domain/transaction/recurring.rules";
    تنظیمات (نه فهرستِ تنظیمات) · رویداد → روز همان رویداد در تقویم.
    اعلانی که جایی نمی‌برد، فقط نگرانی تولید می‌کند. */
 
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { Icon } from "@/shared/ui";
 import { buildCategoryResolver } from "@/domain/category/resolve";
@@ -112,7 +112,7 @@ export function NotificationCenterFeature({
     return map;
   }, [joinRequests]);
 
-  function label(n: AppNotification): { title: string; sub: string } | null {
+  function label(n: AppNotification): { title: string; sub: ReactNode } | null {
     if (n.ref.kind === "activities") {
       const activityId = n.ref.activityId;
       const item = m.activities.find((row) => row.id === activityId);
@@ -192,7 +192,7 @@ export function NotificationCenterFeature({
       const when = formatLong(isoToJalali(n.ref.dueIso));
       return {
         title: tx.note?.trim() || cat.name,
-        sub: `${when} · ${formatAmount(toDisplay(tx.amount, cur))} ${currencyDisplayLabel(cur)}`,
+        sub: <>{when} · {formatAmount(toDisplay(tx.amount, cur))} <CurrencyUnit /></>,
       };
     }
     if (n.ref.kind === "event") {
@@ -212,9 +212,9 @@ export function NotificationCenterFeature({
          آن معلوم نشود برق است یا گاز. */
       return {
         title: bill.title,
-        sub: `${kind?.label ?? "قبض"} · ${when} · ${formatAmount(
+        sub: <>{kind?.label ?? "قبض"} · {when} · {formatAmount(
           toDisplay(bill.amount, cur),
-        )} ${currencyDisplayLabel(cur)}`,
+        )} <CurrencyUnit /></>,
       };
     }
     const req = requestById.get(n.ref.requestId);
@@ -335,11 +335,12 @@ export function NotificationCenterFeature({
         {group.items.map(({ n, text }) => {
           const clickable = n.ref.kind !== "event" || Boolean(onOpenCalendar);
           return <article key={n.id} className={`notif-item sev-${n.severity}`}>
-            <button type="button" className="notif-main" disabled={!clickable} onClick={() => act(n)}>
+            <div role="button" tabIndex={clickable ? 0 : -1} className="notif-main" aria-disabled={!clickable} onClick={() => { if (clickable) act(n); }}
+              onKeyDown={event => { if (clickable && event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); act(n); } }}>
               {DOMAIN_ICON[n.domain] ? <span className="notif-ic" aria-hidden="true"><Icon name={DOMAIN_ICON[n.domain]} size={18} /></span> : null}
               <span className="notif-txt"><b>{text.title}</b><span>{text.sub}</span></span>
               <Icon name="i-arrow-l" size={16} />
-            </button>
+            </div>
             {n.dismissible ? <button type="button" className="notif-skip" disabled={m.busy === n.id}
               onClick={() => void m.dismiss(n)}>نادیده بگیر</button> : null}
           </article>;

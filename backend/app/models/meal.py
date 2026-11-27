@@ -70,7 +70,7 @@ class MealEntry(Base):
         UniqueConstraint("family_id", "date", "meal_type", name="uq_meal_entries_family_slot"),
         CheckConstraint("revision >= 1", name="meal_entry_revision_positive"),
         CheckConstraint(
-            "meal_type IN ('breakfast', 'lunch', 'dinner')", name="meal_entry_type_valid"
+            "meal_type IN ('breakfast', 'lunch', 'dinner', 'snack')", name="meal_entry_type_valid"
         ),
         Index("ix_meal_entries_family_date", "family_id", "date"),
         Index("ix_meal_entries_dish_family", "dish_id", "family_id"),

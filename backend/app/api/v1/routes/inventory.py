@@ -21,9 +21,18 @@ from app.api.deps import get_tenant_member
 from app.db.session import get_db
 from app.models.family import Member
 from app.schemas.data import InventoryAdjust, InventoryOut, InventoryWrite
-from app.services import inventory as inventory_service
+from app.services import inventory as inventory_service, inventory_catalog
+from app.schemas.inventory_catalog import CatalogEntryOut
 
 router = APIRouter(tags=["inventory"])
+
+
+@router.get("/inventory/catalog", response_model=list[CatalogEntryOut])
+def catalog(
+    member: Member = Depends(get_tenant_member),
+    db: Session = Depends(get_db),
+) -> list[CatalogEntryOut]:
+    return inventory_catalog.public_catalog(db)
 
 
 @router.get("/inventory", response_model=list[InventoryOut])

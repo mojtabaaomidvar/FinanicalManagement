@@ -1,4 +1,5 @@
 import { AppPage } from "@/shared/ui/AppPage";
+import { CurrencyUnit } from "@/shared/ui/CurrencyUnit";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
@@ -128,11 +129,11 @@ export function VehiclesPage({ initialVehicleId, onInitialVehicleConsumed, onOpe
     return true;
   }, [forget]);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (silent = false) => {
     if (!scope || !useCases) return;
     const captured = identity.current;
     const request = ++sequence.current;
-    setLoading(true); setLoadError("");
+    if (!silent) setLoading(true); setLoadError("");
     try {
       const [nextItems, nextDocuments] = await Promise.all([
         useCases.listVehicles.execute(),
@@ -149,6 +150,7 @@ export function VehiclesPage({ initialVehicleId, onInitialVehicleConsumed, onOpe
       if (mounted.current && identity.current === captured && sequence.current === request) setLoading(false);
     }
   }, [scope, useCases, deny]);
+  useHouseholdRefresh(() => reload(true));
 
   useEffect(() => {
     mounted.current = true;
@@ -355,7 +357,7 @@ export function VehiclesPage({ initialVehicleId, onInitialVehicleConsumed, onOpe
           <span>تاریخ سرویس بعدی: {dateText(record.nextDueDate)}</span>
           <span>کیلومتر سرویس بعدی: {record.nextDueOdometer === null ? "ثبت نشده" : `${toFa(record.nextDueOdometer)} کیلومتر`}</span>
           <p className="vehicle-service-cost">{record.costStatus === "none" ? "بدون هزینهٔ ثبت‌شده" : record.costStatus === "recorded" && record.costAmount !== null
-            ? `هزینهٔ ثبت‌شده در مالی: ${formatAmount(toDisplay(record.costAmount, cur))} ${currencyLabel(cur)}` : "هزینهٔ قبلی اکنون در دسترس نیست."}</p>
+            ? <>هزینهٔ ثبت‌شده در مالی: {formatAmount(toDisplay(record.costAmount, cur))} <CurrencyUnit /></> : "هزینهٔ قبلی اکنون در دسترس نیست."}</p>
           {record.costStatus === "recorded" && record.transactionId && onOpenFinance ? <button type="button" className="btn-secondary" onClick={() => {
             const transactionId = record.transactionId!; onOpenFinance(transactionId);
           }}>مشاهدهٔ هزینه در مالی</button> : null}</li>)}</ol></> : <p className="form-note">سابقهٔ سرویس برای این حساب در دسترس نیست.</p>}
@@ -400,7 +402,7 @@ export function VehiclesPage({ initialVehicleId, onInitialVehicleConsumed, onOpe
           <VehicleDate label="تاریخ سرویس بعدی" value={nextDue} onChange={(value) => changeService(setNextDue, value)} />
           <Field label="کیلومتر سرویس بعدی"><input className="text-input" aria-label="کیلومتر سرویس بعدی" inputMode="numeric" value={nextKm} placeholder="اختیاری" onChange={(event) => changeService(setNextKm, event.target.value)} /></Field>
           <p className="form-note">موعدهای قبلی با انتخاب جدید جایگزین می‌شوند. می‌توانید تاریخ، کیلومتر یا هر دو را ثبت کنید؛ خالی‌بودن هر دو یعنی فعلاً سرویس دیگری برنامه‌ریزی نشده است.</p>
-          <div role="group" aria-label="هزینهٔ سرویس"><Field label={`هزینهٔ سرویس (${currencyLabel(entryCurrency)}؛ اختیاری)`}><AmountInput value={cost} currency={currencyLabel(entryCurrency)} onChange={(value) => {
+          <div role="group" aria-label="هزینهٔ سرویس"><Field label="هزینهٔ سرویس — اختیاری"><AmountInput value={cost} currency={currencyLabel(entryCurrency)} disabled={busy} onCurrencyChange={(value, unit) => { changeService(setCost, value); setEntryCurrency(unit); }} onChange={(value) => {
             changeService(setCost, value); if (!value.trim()) setAccountId("");
           }} /></Field></div>
           <Field label="حساب پرداخت هزینه"><select className="text-input" aria-label="حساب پرداخت هزینه" value={accountId} disabled={!cost.trim()} onChange={(event) => changeService(setAccountId, event.target.value)}>
@@ -436,3 +438,4 @@ function VehicleDate({ label, value, onChange, required = false }: { label: stri
   return <div className="vehicle-date" role="group" aria-label={label}><Field label={label}><JalaliDateInput value={value} onChange={onChange} placeholder={required ? "انتخاب تاریخ" : "اختیاری؛ انتخاب تاریخ"} minYear={1300} maxYear={1500} /></Field>
     {!required && value ? <button type="button" className="vehicle-text-action" aria-label={`پاک‌کردن ${label}`} onClick={() => onChange("")}>پاک‌کردن تاریخ</button> : null}</div>;
 }
+import { useHouseholdRefresh } from "@/shared/lib/useHouseholdRefresh";

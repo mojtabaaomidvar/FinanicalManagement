@@ -1,7 +1,9 @@
-export type MealType = "breakfast" | "lunch" | "dinner";
+export type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 
 export interface MealIngredient {
   title: string;
+  /** Stable reviewed inventory identity when the ingredient is catalogued. */
+  catalogId?: string | null;
   /** Null means no recipe amount was supplied; never a synthetic quantity of one. */
   qty: number | null;
   unit: string | null;
@@ -55,6 +57,33 @@ export interface MealShoppingResult {
   replayed: boolean;
   added: Array<MealIngredient & { id: string }>;
   skipped: Array<{ id: string; title: string }>;
+  addedCount: number;
+  skippedCount: number;
+}
+
+export interface MealIngredientCheck {
+  key: string;
+  ingredient: MealIngredient;
+  status: "available" | "missing" | "unresolved";
+}
+
+export interface MealSelectionInput {
+  operationId: string;
+  date: string;
+  mealType: MealType;
+  dishId?: string;
+  dishRevision?: number;
+  dish?: DishInput;
+  entryId?: string;
+  baseRevision?: number;
+  listId?: string;
+  decisions: Array<{ key: string; action: "shopping" | "available"; qty: number | null; unit: string | null }>;
+}
+
+export interface MealSelectionResult {
+  entry: MealEntry;
+  dish: MealDish;
+  replayed: boolean;
   addedCount: number;
   skippedCount: number;
 }

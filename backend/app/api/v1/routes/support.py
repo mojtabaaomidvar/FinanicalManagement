@@ -95,4 +95,4 @@ def review_catalog(request: Request, body: CatalogReview,
                    _operator: None = Depends(require_operator),
                    db: Session = Depends(get_db)) -> CatalogProposalOut:
     support.require_origin(request)  # Cookie-authenticated writes require CSRF origin validation.
-    return inventory_catalog.review(db, body.id, body.status)
+    return inventory_catalog.review(db, body.id, body.status, body)

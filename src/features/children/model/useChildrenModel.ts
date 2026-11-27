@@ -67,21 +67,22 @@ export function useChildrenModel(onChanged?: () => void | Promise<void>) {
     session.invalidate(); forget(); setAccessDenied(true); setLoadError(messageOf(error)); setLoading(false);
     return true;
   }, [session, forget]);
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (silent = false) => {
     if (!scope || !useCases) return;
     const ticket = session.capture(); const request = ++listSequence.current;
-    detailSequence.current += 1; setDetail(null); setDetailLoading(false); setLoading(true); setLoadError("");
+    if (!silent) { detailSequence.current += 1; setDetail(null); setDetailLoading(false); setLoading(true); } setLoadError("");
     try {
       const result = await useCases.listChildren.execute();
       if (!current(ticket) || listSequence.current !== request) return;
       setSnapshot({ ticket, children: result.children, canCreate: result.canCreate }); setAccessDenied(false);
       // Related records are read again whenever the focused profile is reopened.
-      setDetail(null);
+      if (!silent) setDetail(null);
     } catch (error) {
       if (!current(ticket) || listSequence.current !== request) return;
       if (!deny(error)) { forget(); setLoadError(messageOf(error)); setLoading(false); }
     } finally { if (current(ticket) && listSequence.current === request) setLoading(false); }
   }, [scope, useCases, session, current, deny, forget]);
+  useHouseholdRefresh(() => reload(true));
 
   useEffect(() => {
     mounted.current = true; session.setScope(scope);
@@ -147,3 +148,4 @@ export function useChildrenModel(onChanged?: () => void | Promise<void>) {
     refreshConflict: () => { if (!busy) { clearForm(); void reload(); } },
   };
 }
+import { useHouseholdRefresh } from "@/shared/lib/useHouseholdRefresh";

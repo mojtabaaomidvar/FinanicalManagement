@@ -2,6 +2,21 @@ import { randomUUID } from 'node:crypto';
 import { walletEndpointFixture, walletHasCorrections, walletBalanceFixture, walletCents, walletLedger, walletText } from './wallet-fixtures.mjs';
 import { parseSms } from './sms-fixture-parser.mjs';
 
+function mealIngredientChecks(data, ingredients) {
+  const key = value => String(value).normalize('NFKC').replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')
+    .replace(/[آأإٱ]/g, 'ا').replace(/[\p{M}\p{Cf}ـ]/gu, '').replace(/[^\p{L}\p{N}]/gu, '').toLowerCase();
+  const grouped = new Map();
+  for (const row of ingredients) if (!grouped.has(row.title.trim())) grouped.set(row.title.trim(), row);
+  return [...grouped.values()].map((row, index) => {
+    const catalogId = row.catalog_id ?? null;
+    const matching = catalogId ? data.inventory.filter(stock => (stock.catalog_id ?? 'preset:' + key(stock.title)) === catalogId) : [];
+    const available = row.qty == null ? matching.some(stock => Number(stock.quantity) > 0)
+      : matching.filter(stock => (stock.unit ?? null) === (row.unit ?? null)).reduce((sum, stock) => sum + Number(stock.quantity), 0) >= Number(row.qty);
+    return { key: 'ingredient:' + index, ingredient: { title: row.title.trim(), catalog_id: catalogId, qty: row.qty ?? null, unit: row.unit ?? null },
+      status: catalogId ? available ? 'available' : 'missing' : 'unresolved' };
+  });
+}
+
 function samplePdfBytes() {
   const stream = '0.95 0.97 0.95 rg 0 0 640 420 re f\n0.12 0.28 0.24 rg\nBT /F1 24 Tf 120 220 Td (Sample household document) Tj ET\n';
   const objects = [
@@ -525,6 +540,13 @@ export function handlePreviewRequest(session, request) {
   }
   if (method === 'OPTIONS') return response(null, 204);
   if (!['GET', 'HEAD', 'POST', 'PATCH', 'DELETE'].includes(method)) return error('METHOD_NOT_ALLOWED', 'این عملیات در پیش‌نمایش پشتیبانی نمی‌شود.', 405);
+  if (path === '/inventory/catalog' && method === 'GET') {
+    if (session.guest) return error('UNAUTHORIZED', 'نشست نمونه لازم است.', 401);
+    if (mode === 'errors') return error('SERVER', 'فهرست کالاها دریافت نشد.', 503);
+    // The UI retains its packaged baseline; only reviewed additions are needed
+    // here. These fictional values live solely in this preview session.
+    return response(session.publishedCatalog ?? [], 200, { delayMs:mode === 'loading' ? 20_000 : 0 });
+  }
   if (path.startsWith('/support/')) {
     if (path === '/support/session' && method === 'GET') return response({ authenticated: session.supportAuthenticated });
     if (path === '/support/login' && method === 'POST') {
@@ -534,8 +556,8 @@ export function handlePreviewRequest(session, request) {
     if (path === '/support/logout' && method === 'POST') { session.supportAuthenticated = false; return response(null, 204); }
     if (!session.supportAuthenticated) return error('SUPPORT_UNAUTHORIZED', 'برای مشاهدهٔ پنل، وارد حساب پشتیبانی شوید.', 401);
     const proposals = session.catalogProposals ??= mode === 'empty' ? [] : [
-      { id: id(9900), title: 'نمونه: شویندهٔ تازه', category: 'cleaning', unit: 'بطری', status: 'pending', submitted_at: data.timestamp, reviewed_at: null },
-      { id: id(9901), title: 'نمونه: یدکی خانه', category: 'repairs', unit: 'عدد', status: 'approved', submitted_at: data.timestamp, reviewed_at: data.timestamp },
+      { id: id(9900), title: 'نمونه: شویندهٔ تازه', category: 'cleaning', unit: 'بطری', status: 'pending', submitted_at: data.timestamp, reviewed_at: null, published_at:null },
+      { id: id(9901), title: 'نمونه: یدکی خانه', category: 'repairs', unit: 'عدد', status: 'approved', submitted_at: data.timestamp, reviewed_at: data.timestamp, published_at:null },
     ];
     if (path === '/support/catalog/review' && method === 'POST') {
       if (mode === 'save-errors' || mode === 'errors') return error('SERVER', 'بررسی پیشنهاد انجام نشد؛ دوباره تلاش کنید.', 503);
@@ -543,8 +565,16 @@ export function handlePreviewRequest(session, request) {
       const proposal = proposals.find(item => item.id === body.id);
       if (!proposal) return error('NOT_FOUND', 'پیشنهاد کالا پیدا نشد؛ فهرست را تازه کنید.', 404);
       if (!['approved', 'rejected'].includes(body.status)) return error('INVALID_INPUT', 'وضعیت بررسی معتبر نیست.', 422);
-      if (proposal.status !== 'pending' && proposal.status !== body.status) return error('SYNC_CONFLICT', 'این پیشنهاد قبلاً بررسی شده است؛ فهرست را تازه کنید.', 409);
-      proposal.status = body.status; proposal.reviewed_at = data.timestamp; return response(proposal);
+      if ((proposal.published_at || proposal.status === 'rejected') && (proposal.status !== body.status
+        || ['title','category','unit'].some(key => key in body && body[key] !== proposal[key]))) return error('SYNC_CONFLICT', 'این پیشنهاد قبلاً بررسی شده است؛ فهرست را تازه کنید.', 409);
+      for (const key of ['title','category','unit']) if (key in body) proposal[key] = body[key];
+      proposal.status = body.status; proposal.reviewed_at = data.timestamp;
+      if (body.status === 'approved') {
+        proposal.published_at = data.timestamp;
+        const catalog = session.publishedCatalog ??= [];
+        if (!catalog.some(item => item.id === proposal.id)) catalog.push({ id:proposal.id, title:proposal.title, group:proposal.category, unit:proposal.unit ?? '', aliases:[], common:false });
+      }
+      return response(proposal);
     }
     if (method !== 'GET') return error('METHOD_NOT_ALLOWED', 'این عملیات در پیش‌نمایش پشتیبانی نمی‌شود.', 405);
     if (mode === 'errors') return error('SERVER', 'دریافت اطلاعات پنل انجام نشد.', 503);
@@ -690,6 +720,10 @@ export function handlePreviewRequest(session, request) {
   if (path === '/notifications/dismissals' && method === 'POST') { data.prefs.dismissed.push(body.key); return response(null, 204); }
   if (path.startsWith('/notifications/dismissals/') && method === 'DELETE') { data.prefs.dismissed = data.prefs.dismissed.filter(key => key !== decodeURIComponent(path.slice('/notifications/dismissals/'.length))); return response(null, 204); }
   if (path === '/events/sync-birthdays') return response(0);
+  if (path === '/meals/ingredients/check' && method === 'POST') {
+    if (mode === 'errors') return error('SERVER', 'موجودی انبار دریافت نشد.', 503);
+    return response(mealIngredientChecks(data, body.ingredients || []), 200, { delayMs: mode === 'loading' ? 20_000 : 0 });
+  }
   if (path === '/shopping/offline') return response(offlineSnapshot(data));
   if (path === '/shopping/offline/mutations') {
     if (mode === 'conflict') return error('SYNC_CONFLICT', 'این مورد تغییر کرده است؛ نسخهٔ ذخیره‌شده را بررسی کنید.', 409);
@@ -780,6 +814,47 @@ export function handlePreviewRequest(session, request) {
   }
   if (path === '/meals/dishes' && method === 'POST') { const dish = newRow(session, { title: body.title, ingredients: clone(body.ingredients || []) }); data.dishes.push(dish); return response(dish, 201); }
   if (/^\/meals\/dishes\/[^/]+$/.test(path)) return mutateRow(session, 'dishes', path.split('/')[3], method, body);
+  if (path === '/meals/plan/confirm' && method === 'POST') {
+    const receipts = session.mealReceipts ??= new Map(), key = data.actor.id + ':' + body.operation_id;
+    const fingerprint = JSON.stringify(body), receipt = receipts.get(key);
+    if (receipt) return receipt.fingerprint === fingerprint ? response({ ...clone(receipt.result), replayed: true })
+      : error('OPERATION_REUSED', 'شناسهٔ این تغییر قبلاً با اطلاعات دیگری استفاده شده است.', 409);
+    let dish = body.dish_id ? data.dishes.find(row => row.id === body.dish_id) : null;
+    if (body.dish_id && !dish) return error('NOT_FOUND', 'غذا یافت نشد.', 404);
+    if (dish && dish.revision !== body.dish_revision) return error('SYNC_CONFLICT', 'مواد غذا تغییر کرده است.', 409);
+    const entry = body.entry_id ? data.mealEntries.find(row => row.id === body.entry_id) : null;
+    if (body.entry_id && !entry) return error('NOT_FOUND', 'وعده یافت نشد.', 404);
+    if (entry && entry.created_by !== data.actor.id && !managersOnly(session)) return error('FORBIDDEN', 'اجازهٔ تغییر وعده را ندارید.', 403);
+    if (entry && entry.revision !== body.base_revision) return error('SYNC_CONFLICT', 'وعده تغییر کرده است.', 409);
+    if (data.mealEntries.some(row => row.id !== entry?.id && row.date === body.date && row.meal_type === body.meal_type))
+      return error('MEAL_SLOT_OCCUPIED', 'برای این وعده قبلاً غذا انتخاب شده است.', 409);
+    const checks = mealIngredientChecks(data, dish?.ingredients ?? body.dish?.ingredients ?? []);
+    const decisions = new Map((body.decisions ?? []).map(row => [row.key, row]));
+    const purchases = [];
+    for (const check of checks.filter(row => row.status !== 'available')) {
+      const choice = decisions.get(check.key);
+      if (!choice || !['available', 'shopping'].includes(choice.action)) return error('MEAL_REVIEW_REQUIRED', 'همهٔ مواد ناموجود را تعیین تکلیف کنید.', 409);
+      if (choice.action === 'shopping') {
+        if (!Number.isFinite(Number(choice.qty)) || Number(choice.qty) < .01 || Number(choice.qty) > 99999999)
+          return error('INVALID_INPUT', 'مقدار خرید را مشخص کنید.', 422);
+        purchases.push({ title: check.ingredient.title, qty: Number(choice.qty), unit: choice.unit ?? null });
+      }
+    }
+    const list = data.lists.find(row => row.id === body.list_id);
+    if (purchases.length && !list) return error('NOT_FOUND', 'لیست خرید یافت نشد.', 404);
+    let added = 0, skipped = 0;
+    for (const item of purchases) {
+      if (list.items.some(row => !row.bought_at && row.title === item.title)) { skipped++; continue; }
+      list.items.push(newRow(session, { list_id: list.id, ...item, checked: false, price: null, bought_at: null,
+        bought_by_member_id: null, transaction_id: null, inventory_item_id: null, note: null })); added++;
+    }
+    if (!dish) { dish = newRow(session, { title: body.dish.title, ingredients: checks.map(row => row.ingredient) }); data.dishes.push(dish); }
+    const saved = entry ?? newRow(session, { date: body.date, meal_type: body.meal_type, dish_id: dish.id });
+    if (entry) { entry.dish_id = dish.id; entry.revision++; } else data.mealEntries.push(saved);
+    const result = { entry: saved, dish, replayed: false, added_count: added, skipped_count: skipped };
+    receipts.set(key, { fingerprint, result: clone(result) });
+    return response(result);
+  }
   if (path === '/meals/plan' && method === 'POST') { const entry = newRow(session, { date: body.date, meal_type: body.meal_type, dish_id: body.dish_id }); data.mealEntries.push(entry); return response(entry, 201); }
   if (/^\/meals\/plan\/[^/]+$/.test(path)) return mutateRow(session, 'mealEntries', path.split('/')[3], method, body);
   if (path === '/shopping/lists' && method === 'GET') return response(data.lists);

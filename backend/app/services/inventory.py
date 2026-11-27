@@ -45,12 +45,13 @@ _MAX_QTY = Decimal("99999999")
 _CENT = Decimal("0.01")
 
 
-def _out(row: InventoryItem) -> InventoryOut:
+def _out(row: InventoryItem, *, catalog_id: str | None = None) -> InventoryOut:
     return InventoryOut(
         id=str(row.id),
         title=row.title,
         unit=row.unit,
         quantity=row.quantity,
+        catalog_id=catalog_id if catalog_id is not None else row.catalog_id,
         category=row.category,
         note=row.note,
         created_by=str(row.created_by) if row.created_by else None,
@@ -109,14 +110,15 @@ def clean_number(
     return num
 
 
-def _prepare(req: InventoryWrite, *, existing_category: str | None = None) -> dict:
+def _prepare(req: InventoryWrite, *, existing_category: str | None = None, db: Session | None = None) -> dict:
     title = clean_title(req.title)
     return {
         "title": title,
         "unit": clean_opt_text(req.unit, _MAX_UNIT, "واحد"),
         "quantity": clean_number(req.quantity, "موجودی"),
+        "catalog_id": inventory_catalog.catalog_id_for_title(title, db),
         "category": inventory_catalog.clean_category(
-            req.category if "category" in req.model_fields_set else existing_category, title),
+            req.category if "category" in req.model_fields_set else existing_category, title, db=db),
         "note": clean_opt_text(req.note, _MAX_NOTE, "یادداشت"),
     }
 
@@ -174,12 +176,12 @@ def list_for_family(db: Session, actor: Member) -> list[InventoryOut]:
         ).scalars()
     )
     rows.sort(key=lambda r: r.title)
-    return [_out(r) for r in rows]
+    return [_out(r, catalog_id=r.catalog_id or inventory_catalog.catalog_id_for_title(r.title, db)) for r in rows]
 
 
 # ── نوشتن ────────────────────────────────────────────────────
 def create(db: Session, actor: Member, req: InventoryWrite) -> InventoryOut:
-    values = _prepare(req)
+    values = _prepare(req, db=db)
     _assert_unique(db, actor.family_id, values["title"])
     row = InventoryItem(family_id=actor.family_id, created_by=actor.id, **values)
     db.add(row)
@@ -193,7 +195,7 @@ def update(
     db: Session, actor: Member, item_id: uuid.UUID, req: InventoryWrite
 ) -> InventoryOut:
     row = _get(db, actor, item_id)
-    values = _prepare(req, existing_category=row.category)
+    values = _prepare(req, existing_category=row.category, db=db)
     _assert_unique(db, actor.family_id, values["title"], exclude=row.id)
     for key, value in values.items():
         setattr(row, key, value)

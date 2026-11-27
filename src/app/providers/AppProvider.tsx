@@ -15,6 +15,7 @@ import type { ShoppingOfflineEngine } from "@/infrastructure/offline/shoppingOff
 import { offlineLists, offlineInventory } from "@/domain/shopping/offline.view";
 import type { OfflineTaskNotificationPrefs, ShoppingOfflineState } from "@/domain/shopping/offline.types";
 import type { Task } from "@/domain/task/task.types";
+import { useToast } from "./ToastProvider";
 import { offlineTasks } from "@/domain/task/task.view";
 import type { Member, Family } from "@/domain/family/family.types";
 import type { Transaction } from "@/domain/transaction/transaction.types";
@@ -74,10 +75,12 @@ interface AppState {
   budgets: CategoryBudget[];
   budgetDataStatus: "loading" | "ready" | "error";
   /** واحد پول نمایشی کاربر فعلی (v5.8) — شخصی است، نه خانوادگی.
-      تنها منبع مجاز برای toDisplay/fromDisplay در سراسر UI. */
+      منبع نمایش است؛ هر پیش‌نویس واحد ورودیِ مستقل و مقدار دقیق دارد. */
   cur: string;
+  currencyBusy: boolean;
+  changeDisplayCurrency: (next: string) => Promise<void>;
   useCases: UseCases | null;
-  refreshData: () => Promise<void>;
+  refreshData: (options?: { silent?: boolean }) => Promise<void>;
   shoppingSync: ShoppingSyncStatus;
   offlineSession: boolean;
   /** Readiness of the existing data used by the household overview. */
@@ -98,6 +101,7 @@ interface AppState {
 const AppContext = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const { show } = useToast();
   const [phase, setPhase] = useState<Phase>("boot");
   const [member, setMember] = useState<Member | null>(null);
   const [family, setFamily] = useState<Family | null>(null);
@@ -134,10 +138,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ? { loading: homeSnapshot.loading, incomplete: homeSnapshot.incomplete }
         : { loading: true, incomplete: false }, [phase, homeRestricted, homeSnapshot, homeScope]);
   const identity = useRef({ phase, memberId: member?.id, familyId: family?.id });
+  const currencyEpoch = useRef(0);
+  const identityChanged = identity.current.phase !== phase || identity.current.memberId !== member?.id || identity.current.familyId !== family?.id;
+  if (identityChanged) currencyEpoch.current += 1;
+  const [currencyRequest, setCurrencyRequest] = useState<{ scope: string; unit: string } | null>(null);
+  const currencyWriting = useRef<string | null>(null);
+  const currencyScope = `${phase}:${member?.familyId ?? ""}:${member?.id ?? ""}:${currencyEpoch.current}`;
+  const currencyBusy = currencyRequest?.scope === currencyScope;
+  const displayCurrency = currencyBusy ? currencyRequest.unit : member?.currency === "ریال" ? "ریال" : "تومان";
+  async function changeDisplayCurrency(next: string) {
+    if (phase !== "ready" || !member || !useCases || !["ریال", "تومان"].includes(next) || currencyWriting.current === currencyScope) return;
+    const scope = currencyScope, memberId = member.id, familyId = member.familyId, epoch = currencyEpoch.current;
+    currencyWriting.current = scope; setCurrencyRequest({ scope, unit: next });
+    const current = () => mounted.current && currencyEpoch.current === epoch && identity.current.phase === "ready"
+      && identity.current.memberId === memberId && identity.current.familyId === familyId;
+    try {
+      const updated = await useCases.setCurrency.execute(next);
+      if (!current()) return;
+      if (updated.id !== memberId || updated.familyId !== familyId) throw new Error("پاسخ تغییر واحد نمایش با حساب شما سازگار نیست.");
+      // A currency response must not overwrite a newer profile or another identity.
+      setMember(previous => previous?.id === memberId ? { ...previous, currency: updated.currency } : previous);
+      setMembers(previous => previous.map(item => item.id === memberId ? { ...item, currency: updated.currency } : item));
+    } catch (error) {
+      if (current()) show((error instanceof Error ? error.message : "") || "تغییر واحد نمایش ذخیره نشد؛ دوباره تلاش کنید.");
+    } finally {
+      if (currencyWriting.current === scope) currencyWriting.current = null;
+      setCurrencyRequest(previous => previous?.scope === scope ? null : previous);
+    }
+  }
   const dataGeneration = useRef(0);
   const mounted = useRef(true);
-  if (identity.current.phase !== phase || identity.current.memberId !== member?.id
-    || identity.current.familyId !== family?.id) dataGeneration.current += 1;
+  if (identityChanged) dataGeneration.current += 1;
   identity.current = { phase, memberId: member?.id, familyId: family?.id };
 
   useEffect(() => {
@@ -211,16 +242,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [offlineEngine, phase, member?.id, family?.id]);
 
   const refreshData = useMemo(
-    () => async () => {
+    () => async (options?: { silent?: boolean }) => {
       if (!useCases) return;
       const actor = identity.current;
       const request = ++dataGeneration.current;
       const requestScope = `${actor.phase}:${actor.memberId ?? ""}:${actor.familyId ?? ""}`;
-      setHomeSnapshot({ scope: requestScope, loading: true, incomplete: false });
-      setBillDataStatus("loading");
-      setBudgetDataStatus("loading");
+      if (!options?.silent) {
+        setHomeSnapshot({ scope: requestScope, loading: true, incomplete: false });
+        setBillDataStatus("loading"); setBudgetDataStatus("loading");
+      }
       let incomplete = !offlineEngine;
-      setEvents((rows) => rows.filter((row) => row.kind !== "activity"));
+      if (!options?.silent) setEvents((rows) => rows.filter((row) => row.kind !== "activity"));
       const stillCurrent = () => mounted.current && dataGeneration.current === request && navigator.onLine !== false
         && identity.current.phase === actor.phase
         && identity.current.memberId === actor.memberId && identity.current.familyId === actor.familyId;
@@ -262,7 +294,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           useCases.listAccounts.execute(),
           useCases.listSubcategories.execute(),
           useCases.listCustomCategories.execute(),
-          useCases.syncBirthdays.execute().then(() => {
+          (options?.silent ? Promise.resolve() : useCases.syncBirthdays.execute()).then(() => {
             if (!stillCurrent()) return [];
             return useCases.listEvents.execute();
           }),
@@ -334,6 +366,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [offlineEngine],
   );
 
+  useEffect(() => {
+    if (phase !== "ready" || !member || !family || offlineSession) return;
+    let active = true, stop: (() => void) | undefined;
+    const actor = identity.current;
+    void getContainer().then(container => {
+      if (!active) return;
+      stop = container.watchHouseholdChanges(async () => {
+        if (!active || identity.current.phase !== actor.phase || identity.current.memberId !== actor.memberId
+          || identity.current.familyId !== actor.familyId) return;
+        await refreshData({ silent: true });
+        if (active && identity.current.memberId === actor.memberId && identity.current.familyId === actor.familyId) {
+          window.dispatchEvent(new Event("household-data-changed"));
+        }
+      });
+    });
+    return () => { active = false; stop?.(); };
+  }, [phase, member?.id, family?.id, offlineSession, refreshData]);
+
   const wasOffline = useRef(false);
   const reconnecting = useRef(false);
   useEffect(() => {
@@ -365,7 +415,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       tasks,
       taskNotificationPrefs,
       refreshTasks,
-      cur: member?.currency === "ریال" ? "ریال" : "تومان",
+      cur: displayCurrency,
+      currencyBusy,
+      changeDisplayCurrency,
       useCases,
       refreshData,
       shoppingSync,
@@ -435,6 +487,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       shoppingSync,
       offlineSession,
       homeDataStatus,
+      displayCurrency,
+      currencyBusy,
     ],
   );
 

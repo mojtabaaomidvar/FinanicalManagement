@@ -1,6 +1,16 @@
 import type { MealRepository } from "@/domain/meal/meal.repository";
 import type { DishInput, MealIngredient } from "@/domain/meal/meal.types";
 import type { MealEntryInput } from "@/domain/meal/meal.types";
+import type { MealSelectionInput } from "@/domain/meal/meal.types";
+
+export class CheckMealIngredientsUseCase {
+  constructor(private readonly repo: MealRepository) {}
+  execute(ingredients: MealIngredient[]) { return this.repo.checkIngredients(ingredients); }
+}
+export class ConfirmMealSelectionUseCase {
+  constructor(private readonly repo: MealRepository) {}
+  execute(input: MealSelectionInput) { return this.repo.confirmSelection(input); }
+}
 
 export class ListDishesUseCase {
   constructor(private readonly repo: MealRepository) {}

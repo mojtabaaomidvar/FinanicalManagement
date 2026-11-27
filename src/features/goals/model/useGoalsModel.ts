@@ -75,11 +75,11 @@ export function useGoalsModel(initialGoalId?: string, onChanged?: () => void | P
     return true;
   }, [session, forget]);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (silent = false) => {
     if (!scope || !useCases) return;
     const ticket = session.capture();
     const request = ++sequence.current;
-    setLoading(true); setLoadError("");
+    if (!silent) setLoading(true); setLoadError("");
     try {
       const result = await useCases.listGoals.execute();
       if (!current(ticket) || sequence.current !== request) return;
@@ -90,6 +90,7 @@ export function useGoalsModel(initialGoalId?: string, onChanged?: () => void | P
       if (!deny(error)) { forget(); setLoadError(messageOf(error)); setLoading(false); }
     } finally { if (current(ticket) && sequence.current === request) setLoading(false); }
   }, [scope, useCases, session, current, deny, forget]);
+  useHouseholdRefresh(() => reload(true));
 
   useEffect(() => {
     mounted.current = true; session.setScope(scope, ownerId);
@@ -184,3 +185,4 @@ export function useGoalsModel(initialGoalId?: string, onChanged?: () => void | P
     refreshConflict: () => { if (!busy) { clearForm(); void reload(); } },
   };
 }
+import { useHouseholdRefresh } from "@/shared/lib/useHouseholdRefresh";

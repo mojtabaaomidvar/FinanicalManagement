@@ -1,0 +1,28 @@
+{
+  "passed": true,
+  "version": "0.13.0",
+  "baseline_api": "management-v0.3.0-r1",
+  "baseline_pwa": "0.12.0",
+  "database_from": "0039",
+  "database_to": "0042_meal_inventory_links",
+  "frontend_tests_passed": 995,
+  "copy_editor_tests_passed": 143,
+  "editable_texts": 6040,
+  "backend_tests_passed": 174,
+  "migration_tests_in_backend_suite": 6,
+  "management_tests_passed": 136,
+  "home2_installer_tests_passed": 5,
+  "retained_installer_tests_passed": 18,
+  "isolated_browser_tests_passed": 2,
+  "isolated_browser_assertion_groups": 8,
+  "production_build_passed": true,
+  "isolated_postgres": true,
+  "manual_database_used": false,
+  "production_test_writes": false,
+  "installed_on_server": false,
+  "limitations": [
+    "Docker/systemd lifecycle tests use explicit doubles on Windows",
+    "Existing large application chunk warning remains",
+    "Physical installed-PWA acceptance is checked after manual VNC installation"
+  ]
+}

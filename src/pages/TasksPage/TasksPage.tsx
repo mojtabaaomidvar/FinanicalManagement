@@ -111,9 +111,7 @@ export function TasksPage() {
 
   const closeForm = () => { if (!busy) setOpen(false); };
 
-  const savedMessage = (message: string, pending = false) => show(offline || pending
-    ? "تغییر روی این دستگاه نگه داشته شد و پس از اتصال ارسال می‌شود."
-    : message);
+  const savedMessage = (message: string, pending = false) => { if (!offline && !pending) show(message); };
 
   const save = async () => {
     if (!useCases || !member || busy || !editable) return;
@@ -133,7 +131,6 @@ export function TasksPage() {
       if (editing) await useCases.updateTask.execute(editing.id, input, editing.revision);
       else await useCases.addTask.execute(input);
       const status = await refreshTasks();
-      if (status.issues.length) throw new Error(status.issues[0].message);
       setOpen(false);
       savedMessage(editing ? "کار به‌روز شد." : "کار ثبت شد.", status.pendingCount > 0);
     } catch (error) {
@@ -181,7 +178,6 @@ export function TasksPage() {
         completing.id, true, completing.revision, completionPhoto,
       );
       const status = await refreshTasks();
-      if (status.issues.length) throw new Error(status.issues[0].message);
       setCompleting(null); setCompletionPhoto(null);
       savedMessage("انجام‌شدن کار ثبت شد؛ در فهرست انجام‌شده می‌توانید آن را ببینید.", status.pendingCount > 0);
     } catch (error) {
@@ -201,7 +197,6 @@ export function TasksPage() {
     try {
       await useCases.setTaskCompleted.execute(task.id, false, task.revision);
       const status = await refreshTasks();
-      if (status.issues.length) throw new Error(status.issues[0].message);
       savedMessage("کار دوباره باز شد.", status.pendingCount > 0);
     } catch (error) { show((error as Error).message || "تغییر وضعیت کار ناموفق بود."); }
     finally { setBusy(false); }
@@ -213,7 +208,6 @@ export function TasksPage() {
     try {
       await useCases.deleteTask.execute(deleting.id, deleting.revision);
       const status = await refreshTasks();
-      if (status.issues.length) throw new Error(status.issues[0].message);
       setDeleting(null);
       savedMessage("کار حذف شد.", status.pendingCount > 0);
     } catch (error) { show((error as Error).message || "حذف کار ناموفق بود."); }

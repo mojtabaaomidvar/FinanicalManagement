@@ -86,10 +86,7 @@ export function ProfileCard() {
       /* refreshData همگام‌سازی تولد و دریافت رویدادهای جدید را انجام می‌دهد. */
       try {
         await refreshData();
-      } catch {
-        show("پروفایل ذخیره شد؛ به‌روزرسانی اطلاعات خانه کامل نشد.");
-        return;
-      }
+      } catch { /* The saved profile stays successful while silent refresh retries. */ }
 
       show("پروفایل ذخیره شد");
     } catch (e) {

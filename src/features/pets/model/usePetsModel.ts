@@ -86,10 +86,10 @@ export function usePetsModel(onChanged?: () => void | Promise<void>) {
     session.invalidate(); forget(); setAccessDenied(true); setLoadError(messageOf(error)); setLoading(false);
     return true;
   }, [session, forget]);
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (silent = false) => {
     if (!scope || !useCases || !connected()) return;
     const ticket = session.capture(); const request = ++listSequence.current;
-    detailSequence.current += 1; setDetail(null); setDetailLoading(false); setLoading(true); setLoadError("");
+    if (!silent) { detailSequence.current += 1; setDetail(null); setDetailLoading(false); setLoading(true); } setLoadError("");
     try {
       const result = await useCases.listPets.execute();
       if (!current(ticket) || listSequence.current !== request) return;
@@ -99,6 +99,7 @@ export function usePetsModel(onChanged?: () => void | Promise<void>) {
       if (!deny(error)) { forget(); setLoadError(messageOf(error)); setLoading(false); }
     } finally { if (current(ticket) && listSequence.current === request) setLoading(false); }
   }, [scope, useCases, session, current, deny, forget]);
+  useHouseholdRefresh(() => reload(true));
   const readDetail = useCallback(async (id: string) => {
     if (!useCases || !scope || !connected()) return;
     const ticket = session.capture(); const request = ++detailSequence.current;
@@ -212,3 +213,4 @@ export function usePetsModel(onChanged?: () => void | Promise<void>) {
     closeForm: () => { if (!busy) clearForm(); }, refreshConflict: () => { if (!busy) { clearForm(); void reload(); } },
   };
 }
+import { useHouseholdRefresh } from "@/shared/lib/useHouseholdRefresh";

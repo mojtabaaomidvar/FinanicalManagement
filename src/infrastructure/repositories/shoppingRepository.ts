@@ -58,6 +58,7 @@ type InventoryRow = {
   title: string;
   unit: string | null;
   quantity: string | number;
+  catalog_id?: string | null;
   category?: string | null;
   note: string | null;
   created_by: string | null;
@@ -114,6 +115,7 @@ function mapInventory(r: InventoryRow): InventoryItem {
     title: r.title,
     unit: r.unit ?? null,
     quantity: num(r.quantity),
+    catalogId: r.catalog_id ?? null,
     category: r.category ?? null,
     note: r.note ?? null,
     createdBy: r.created_by ?? null,

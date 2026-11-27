@@ -31,7 +31,7 @@ const REST_ERROR_MAP: {
      می‌داند کدام‌یک رخ داده — نگاشتِ ثابتِ این‌سو ناچار دروغ می‌گفت. */
   keepServerMsg?: true;
 }[] = [
-  { re: /^(SYNC_CONFLICT|OFFLINE_CONFLICT|OPERATION_REUSED|OPERATION_CONFLICT|WALLET_CONFLICT|MEAL_SLOT_OCCUPIED|DISH_IN_USE)$/, code: "CONFLICT", msg: "این مورد تغییر کرده است؛ نسخهٔ سرور را بررسی کنید.", keepServerMsg: true },
+  { re: /^(SYNC_CONFLICT|OFFLINE_CONFLICT|OPERATION_REUSED|OPERATION_CONFLICT|WALLET_CONFLICT|MEAL_SLOT_OCCUPIED|MEAL_REVIEW_REQUIRED|DISH_IN_USE)$/, code: "CONFLICT", msg: "این مورد تغییر کرده است؛ نسخهٔ سرور را بررسی کنید.", keepServerMsg: true },
   // نشست: UNAUTHORIZED/INVALID_TOKEN هم به SESSION_EXPIRED نگاشته می‌شوند تا ورود دوباره راه بیفتد
   {
     re: /SESSION_EXPIRED|UNAUTHORIZED|INVALID_TOKEN/,
@@ -320,6 +320,17 @@ type Method = "GET" | "POST" | "PATCH" | "DELETE";
 /** کلاینت REST که همهٔ مخازن از آن استفاده می‌کنند. یک نمونه در container ساخته می‌شود. */
 export class RestClient {
   constructor(private readonly tokenProvider: TokenProvider) {}
+
+  async changes(signal: AbortSignal): Promise<Response> {
+    const url = API_URL + "/household/changes";
+    assertHttps(url);
+    const token = await this.tokenProvider.getToken();
+    if (!token || signal.aborted) throw new DOMException("Aborted", "AbortError");
+    const response = await fetch(url, { signal, cache: "no-store", credentials: "omit",
+      headers: { Accept: "text/event-stream", Authorization: `Bearer ${token}`, "X-Khaneyar-Money-Contract": "decimal-v1" } });
+    if (!response.ok) await parseResponse<never>(response);
+    return response;
+  }
 
   get<T>(path: string, opts?: ReqOpts): Promise<T> {
     return this.request<T>("GET", path, undefined, opts);

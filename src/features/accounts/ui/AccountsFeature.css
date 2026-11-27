@@ -41,22 +41,22 @@
   display: none !important;
 }
 
-.accounts-feature .account-actions.wallet-card-actions {
-  position: static;
-  inset: auto;
-  grid-column: 1 / -1;
+.wallet-account-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin-block-start: var(--sp-4);
 }
 
-.wallet-card-actions .btn-secondary {
-  min-height: 44px;
+.wallet-account-actions button {
+  min-block-size: var(--sp-8);
 }
 
-.accounts-feature .wallet-card > .section-hint {
-  grid-column: 1 / -1;
+.account-detail-number {
+  font-size: var(--fs-4);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  text-align: end;
 }
 
 .accounts-feature .account-card.flat {
@@ -123,7 +123,7 @@
 
 .accounts-feature .wallet-card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   align-items: center;
   gap: 8px 12px;
 }
@@ -144,7 +144,8 @@
   align-items: flex-end;
   flex-direction: column;
   gap: 0;
-  max-width: 190px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .accounts-feature .wallet-card > .account-negative-notice {
@@ -221,5 +222,107 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.accounts-feature .account-card.flat.bank-wallet-card {
+  padding: var(--sp-4);
+  margin-block-end: var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--card-2);
+}
+
+.accounts-feature .account-card.flat.bank-wallet-card.is-branded {
+  border-inline-start: var(--sp-1) solid var(--bank-color);
+  background: color-mix(in srgb, var(--bank-color) 8%, var(--card));
+}
+
+.accounts-feature .bank-wallet-card .account-head {
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+
+.accounts-feature .bank-wallet-card .account-icon {
+  inline-size: var(--sp-8);
+  block-size: var(--sp-8);
+  background: #fff;
+  padding: var(--sp-1);
+}
+
+.bank-wallet-card .account-icon img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: contain;
+}
+
+.accounts-feature .bank-wallet-card .account-title {
+  min-width: 0;
+}
+
+.accounts-feature .bank-wallet-card .account-balance-wrap {
+  flex-basis: 100%;
+  max-width: 100%;
+}
+
+.wallet-correction-sheet > p,
+.wallet-correction-sheet article,
+.wallet-correction-note {
+  overflow-wrap: anywhere;
+}
+
+.wallet-correction-sheet .form-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-4);
+  margin-block-start: var(--sp-4);
+}
+
+.wallet-correction-sheet .form-row {
+  margin-block-end: 0;
+}
+
+/* روش اصلاح پیش از مبلغ؛ توضیح هر روش در سطر مستقل و خوانا. */
+.wallet-mode-options { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-1); }
+.wallet-mode-options legend { font-size: var(--fs-3); font-weight: 600; margin-block-end: var(--sp-2); }
+.wallet-mode-option { display: flex; align-items: center; gap: var(--sp-2); min-block-size: var(--sp-8); padding: var(--sp-2); border: 1px solid var(--border-strong); border-radius: var(--r-btn); font-size: var(--fs-3); line-height: 1.45; cursor: pointer; }
+.wallet-mode-option:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.wallet-mode-option input { accent-color: var(--accent); flex-shrink: 0; }
+.wallet-mode-hint { font-size: var(--fs-2); color: var(--text-2); line-height: 1.9; margin: 0 0 var(--sp-2); }
+.wallet-target-label { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.wallet-refresh { min-block-size: var(--sp-8); }
+
+.wallet-correction-sheet .bal-warn-ack {
+  min-block-size: var(--sp-8);
+  font-size: var(--fs-3);
+  line-height: 1.6;
+}
+
+.wallet-correction-sheet .modal-sub {
+  margin: var(--sp-1) 0 var(--sp-4);
+  text-align: start;
+}
+
+.wallet-input-unit {
+  margin-inline-start: var(--sp-2);
+  color: var(--text-3);
+  font-size: var(--fs-2);
+}
+
+.wallet-correction-sheet .text-input {
+  font-size: var(--fs-4);
+  line-height: 1.6;
+}
+
+.wallet-correction-sheet textarea {
+  resize: vertical;
+}
+
+.wallet-correction-history {
+  margin-block-start: var(--sp-4);
+}
+
+.wallet-correction-history time {
+  color: var(--text-3);
+  font-size: var(--fs-2);
+  font-variant-numeric: tabular-nums;
 }
 

@@ -12,7 +12,7 @@ import {
   expressionInputCaret,
   normalizeExpressionInput,
 } from "@/shared/ui";
-import { currencyDisplayLabel } from "@/shared/lib/uiLabels";
+import { InputCurrencyUnit } from "@/shared/ui/InputCurrencyUnit";
 import { BANK_OPTIONS, bankDisplayLabel } from "@/shared/lib/banks";
 import type { AccountKind } from "@/domain/account/account.types";
 import type { AccountsModel } from "../model/useAccountsModel";
@@ -185,7 +185,7 @@ export function AccountFormFeature({ m }: { m: AccountsModel }) {
                 onChange={amountChanged}
                 onKeyDown={amountKeyDown}
               />
-              <span className="cur-suffix">{currencyDisplayLabel(m.cur)}</span>
+              <InputCurrencyUnit value={m.form.balance} currency={m.entryCurrency} disabled={m.locked} onChange={(balance, currency) => { m.patch({ balance }); m.setEntryCurrency(currency); }} />
             </div>
           </div>
         </div> : <p className="modal-sub full">این فرم فقط اطلاعات حساب را تغییر می‌دهد. برای تغییر موجودی، دکمهٔ «اصلاح موجودی» روی کارت را بزنید.</p>}

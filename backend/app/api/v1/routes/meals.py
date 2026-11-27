@@ -15,16 +15,30 @@ from app.schemas.meals import (
     DishOut,
     DishUpdate,
     DishWrite,
+    IngredientCheck,
+    IngredientReviewRequest,
     MealEntryOut,
     MealEntryUpdate,
     MealEntryWrite,
     MealPlanOut,
+    MealSelectionOut,
+    MealSelectionWrite,
 )
 from app.services import meals
 
 router = APIRouter(prefix="/meals", tags=["meals"])
 TenantMember = Annotated[Member, Depends(get_tenant_member)]
 DbSession = Annotated[Session, Depends(get_db)]
+
+
+@router.post("/ingredients/check", response_model=list[IngredientCheck])
+def check_ingredients(body: IngredientReviewRequest, member: TenantMember, db: DbSession):
+    return meals.review_ingredients(db, member, body.ingredients)
+
+
+@router.post("/plan/confirm", response_model=MealSelectionOut)
+def confirm_selection(body: MealSelectionWrite, member: TenantMember, db: DbSession):
+    return meals.commit_selection(db, member, body)
 
 
 @router.get("/dishes", response_model=list[DishOut])
