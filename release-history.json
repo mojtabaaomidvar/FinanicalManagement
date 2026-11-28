@@ -1,0 +1,231 @@
+{
+  "schema_version": 1,
+  "releases": [
+    {
+      "id": "pwa-0.12.0", "component": "pwa", "version": "0.12.0", "notes_status": "complete",
+      "user_notes": {
+        "summary": "کیف پول خواناتر، دسترسی ساده‌تر به عملیات حساب و کنترل بهتر واحد نمایش مبلغ.",
+        "features": [],
+        "improvements": [
+          { "id": "wallet-cards", "text": "لمس کارت حساب، عملیات آن را باز می‌کند. رنگ و نشان بانک‌ها از فایل‌های محلی نمایش داده می‌شوند." },
+          { "id": "correction-review", "text": "دو روش اصلاح موجودی، پیش از ورود مبلغ توضیح داده می‌شوند و سابقهٔ اصلاح‌ها همچنان در دسترس است." },
+          { "id": "transaction-layout", "text": "شرح کامل تراکنش از جزئیات باز می‌شود و مبلغ و واحد آن جای مشخصی دارند." },
+          { "id": "display-currency", "text": "انتخاب ریال یا تومان، واحد نمایش شخصی شما را در برنامه هماهنگ می‌کند؛ واحد ورود هر فرم جدا باقی می‌ماند." }
+        ],
+        "fixes": []
+      },
+      "technical_notes": [{ "id": "pwa-only", "text": "انتشار فقط PWA؛ API و پایگاه داده نسبت به 0.11.0 تغییر نکرده‌اند. قرارداد decimal-v1 و فایل‌های محلی نشان بانک‌ها حفظ شده‌اند." }]
+    },
+    {
+      "id": "pwa-0.11.0", "component": "pwa", "version": "0.11.0", "notes_status": "complete",
+      "user_notes": {
+        "summary": "اصلاح دقیق و قابل‌پیگیری موجودی کیف پول.",
+        "features": [{ "id": "correction-modes", "text": "هنگام اصلاح موجودی می‌توانید بین ثبت در تراکنش‌ها و اصلاح برای مغایرت‌گیری انتخاب کنید؛ نتیجه پیش از ثبت مرور می‌شود." }],
+        "improvements": [{ "id": "correction-history", "text": "رسید و سابقهٔ اصلاح موجودی در دسترس است و نتیجهٔ درخواست با پاسخ نامعلوم، بدون ثبت دوباره بازیابی می‌شود." }],
+        "fixes": [{ "id": "decimal-money", "text": "دقت مبلغ‌ها و کسری‌های پشتیبانی‌شده در نمایش و ثبت مالی حفظ می‌شود." }]
+      },
+      "technical_notes": [{ "id": "money-contract", "text": "ارتقای هماهنگ API/PWA با قرارداد decimal-v1 و مهاجرت افزایشی 0037_wallet_corrections؛ حفظ سوابق مالی و رسیدهای اتمی." }]
+    },
+    {
+      "id": "pwa-0.10.0", "component": "pwa", "version": "0.10.0", "notes_status": "complete",
+      "user_notes": {
+        "summary": "بازگشت و رفت‌وبرگشت بین صفحه‌ها با حفظ وضعیت کار.",
+        "features": [],
+        "improvements": [
+          { "id": "retained-pages", "text": "فرم ناتمام، فیلتر و موقعیت پیمایش هنگام رفت‌وبرگشت بین صفحه‌ها حفظ می‌شوند، بدون ذخیرهٔ خودکار اطلاعات." },
+          { "id": "mobile-shell", "text": "هدر، صفحه و نوار شناور با فضای کیبورد گوشی هماهنگ شده‌اند." }
+        ],
+        "fixes": [{ "id": "back-order", "text": "بازگشت مرورگر و برنامه ابتدا پنجره یا زیرصفحهٔ باز را می‌بندد و سپس به مسیر قبلی می‌رود." }]
+      },
+      "technical_notes": [{ "id": "navigation-scope", "text": "انتشار فقط PWA؛ تاریخچهٔ مرورگر منبع ناوبری است و صفحه‌های حفظ‌شده به نشست عضو/خانواده محدودند." }]
+    },
+    {
+      "id": "pwa-0.9.0", "component": "pwa", "version": "0.9.0", "notes_status": "complete",
+      "user_notes": {
+        "summary": "ثبت مالی مطمئن‌تر و تفکیک روش پرداخت و کارمزد.",
+        "features": [{ "id": "payment-method", "text": "روش پرداخت با کارت، پرداخت آنلاین یا انتقال بانکی در تراکنش ثبت می‌شود." }],
+        "improvements": [{ "id": "linked-fees", "text": "کارمزد پیوندخورده زیر پرداخت اصلی نمایش داده می‌شود و در مجموع هزینه دوباره شمرده نمی‌شود." }],
+        "fixes": [
+          { "id": "sms-integrity", "text": "تشخیص بانک و حفظ تاریخ و ساعت پیامک بهتر شده و ثبت هم‌زمان یا تکراری، تراکنش مالی دوباره ایجاد نمی‌کند." },
+          { "id": "valid-categories", "text": "دسته‌های معتبر هزینه و درآمد، از جمله تاکسی اینترنتی، قابل ثبت‌اند و دستهٔ تاریخی هنگام ویرایش حفظ می‌شود." }
+        ]
+      },
+      "technical_notes": [{ "id": "sms-migrations", "text": "مهاجرت‌های افزایشی 0035_sms_integrity و 0036_payment_method؛ حذف نقش دستیار AI از ثبت مالی و حفظ دستیار غیرمالی خانه." }]
+    },
+    {
+      "id": "pwa-0.8.0", "component": "pwa", "version": "0.8.0", "notes_status": "complete",
+      "user_notes": {
+        "summary": "کتابخانهٔ غذا و برنامهٔ هفتگی در دفتر آشپزخانه.",
+        "features": [
+          { "id": "meal-library", "text": "جست‌وجو در کتابخانهٔ ۴٬۵۸۳ غذا و ترکیب‌های مواد اولیه، با برچسب وعده و دستهٔ غذا." },
+          { "id": "weekly-meals", "text": "برنامه‌ریزی صبحانه، ناهار و شام در نمای روزانه و هفتگی و ذخیرهٔ ترکیب انتخاب‌شده در غذاهای خانواده." }
+        ],
+        "improvements": [{ "id": "unknown-ingredients", "text": "مقدار نامعلوم مواد اولیه با مقدار حدسی جایگزین نمی‌شود و در گزارش دستیار هم نامشخص باقی می‌ماند." }],
+        "fixes": []
+      },
+      "technical_notes": [{ "id": "meal-library-storage", "text": "کتابخانه به‌صورت شاخص جست‌وجو و بخش‌های جزئیات بارگیری می‌شود؛ تغییر schema دیتابیس ندارد." }]
+    },
+    {
+      "id": "pwa-0.7.2", "component": "pwa", "version": "0.7.2", "notes_status": "complete",
+      "user_notes": {
+        "summary": "رفع ردشدن پاسخ معتبر دستیار خانه.", "features": [], "improvements": [],
+        "fixes": [{ "id": "household-results", "text": "پاسخ‌های معتبر برنامه‌ریزی و گزارش دستیار خانه پذیرفته می‌شوند و خطاهای شناخته‌شدهٔ سرویس دقیق‌تر نمایش داده می‌شوند." }]
+      },
+      "technical_notes": [{ "id": "separate-protocols", "text": "تفکیک اعتبارسنجی پاسخ عمومی JSON از قرارداد transactions پیامک؛ قرارداد پیامک و revision دیتابیس تغییر نکرده‌اند." }]
+    },
+    {
+      "id": "pwa-0.7.1", "component": "pwa", "version": "0.7.1", "notes_status": "complete",
+      "user_notes": {
+        "summary": "اصلاح آماده‌سازی سرویس دستیار خانه.", "features": [], "improvements": [],
+        "fixes": [{ "id": "gateway-image", "text": "اشکال بسته‌بندی‌ای که مانع راه‌اندازی سرویس دستیار خانه می‌شد برطرف شد؛ رابط برنامه همان نسخهٔ قبل است." }]
+      },
+      "technical_notes": [{ "id": "gateway-copy", "text": "اضافه‌شدن ماژول پروتکل مفقود به تصویر درگاه و بررسی import پیش از فعال‌سازی؛ کد برنامه و مهاجرت‌های 0.7.0 ثابت‌اند." }]
+    },
+    {
+      "id": "pwa-0.7.0", "component": "pwa", "version": "0.7.0", "notes_status": "complete",
+      "user_notes": {
+        "summary": "دستیار خانه با توجه به اطلاعات مرتبط خانواده پیشنهاد می‌دهد.",
+        "features": [{ "id": "contextual-assistant", "text": "با درخواست متنی، موجودی، خرید، کارها و برنامهٔ غذا در بخش‌های مجاز بررسی می‌شوند و پیشنهاد مرتبط دریافت می‌کنید." }],
+        "improvements": [
+          { "id": "explicit-confirmation", "text": "هر تغییر پیشنهادی پیش از ثبت، جداگانه مرور و با تأیید مشخص شما اجرا می‌شود." },
+          { "id": "receipt-recovery", "text": "نتیجهٔ اجرای نامعلوم بدون درخواست دوباره از هوش مصنوعی قابل بررسی است؛ اتصال مجدد چیزی را خودکار ارسال نمی‌کند." }
+        ],
+        "fixes": []
+      },
+      "technical_notes": [{ "id": "assistant-receipts", "text": "رسیدهای اتمی محدود به عضو و خانواده، حداکثر دو استنتاج برای هر ارسال، و مهاجرت افزایشی 0034_assistant_receipts." }]
+    },
+    {
+      "id": "pwa-0.6.0", "component": "pwa", "version": "0.6.0", "notes_status": "complete",
+      "user_notes": {
+        "summary": "دسته‌بندی و پیشنهاد نام برای موجودی خانه.",
+        "features": [{ "id": "inventory-categories", "text": "انتخاب دسته، پیشنهاد زندهٔ نام کالا و فیلتر دسته‌ها به انبار اضافه شد." }],
+        "improvements": [{ "id": "offline-inventory", "text": "دسته و تغییرهای موجودی در نسخهٔ آفلاین و صف همگام‌سازی حفظ می‌شوند؛ مقدار صفر و اعشاری قابل ثبت‌اند." }],
+        "fixes": []
+      },
+      "technical_notes": [{ "id": "inventory-schema", "text": "مهاجرت 0033_inventory_categories دسته را اضافه و threshold را حذف می‌کند؛ نام، موجودی و بازبینی رکوردهای قبلی حفظ می‌شوند." }]
+    },
+    {
+      "id": "pwa-0.5.0", "component": "pwa", "version": "0.5.0", "notes_status": "complete",
+      "user_notes": {
+        "summary": "بودجه‌بندی با ویرایش سقف ماهانه و دسترسی سریع‌تر به دسته‌ها.",
+        "features": [{ "id": "budget-search", "text": "جست‌وجو و فیلتر دسته‌های بودجه و ویرایش سقف ماهانه از صفحهٔ بودجه‌ها اضافه شد." }],
+        "improvements": [{ "id": "budget-conflict", "text": "تغییر هم‌زمان بودجه توسط مدیران برای بررسی دوباره نمایش داده می‌شود و خطای دریافت، امکان تلاش دوباره دارد." }],
+        "fixes": [{ "id": "budget-history", "text": "حذف تخصیص بودجه، تراکنش‌های مالی قبلی را حذف نمی‌کند." }]
+      },
+      "technical_notes": [{ "id": "atomic-budget", "text": "افزایش سقف و ذخیرهٔ تخصیص در یک تراکنش؛ انتشار API/PWA بدون مهاجرت جدید." }]
+    },
+    {
+      "id": "pwa-0.4.0", "component": "pwa", "version": "0.4.0", "notes_status": "partial",
+      "user_notes": { "summary": "بهبود دسترسی و چیدمان کیف پول.", "features": [], "improvements": [], "fixes": [] },
+      "technical_notes": [{ "id": "historical-evidence", "text": "نسخهٔ رسمی و موضوع اصلی در اسناد نسخه‌گذاری تأیید شده‌اند؛ فهرست کامل تغییرهای تاریخی بازسازی نشده است." }]
+    },
+    {
+      "id": "pwa-0.3.0", "component": "pwa", "version": "0.3.0", "notes_status": "partial",
+      "user_notes": { "summary": "", "features": [], "improvements": [], "fixes": [] },
+      "technical_notes": [{ "id": "legacy-version", "text": "سند نسخه‌گذاری، نسخهٔ پیشین را 0.3.0 و نمایش قبلی آن را 0.3 ثبت کرده است؛ شرح کامل این انتشار موجود نیست." }]
+    },
+    {
+      "id": "api-0.11.0", "component": "api", "version": "0.11.0", "notes_status": "complete", "user_notes": null,
+      "technical_notes": [{ "id": "wallet-corrections", "text": "انتشار API همراه v0.11.0 با قرارداد decimal-v1، رسید اتمی اصلاح موجودی و schema برابر 0037_wallet_corrections. شمارهٔ ثابت health نسخهٔ این انتشار نیست." }]
+    },
+    {
+      "id": "api-0.9.0", "component": "api", "version": "0.9.0", "notes_status": "complete", "user_notes": null,
+      "technical_notes": [{ "id": "sms-payments", "text": "ثبت اتمی پیامک، تراکنش و کارمزد؛ روش پرداخت و مهاجرت‌های 0035_sms_integrity و 0036_payment_method." }]
+    },
+    {
+      "id": "api-0.8.0", "component": "api", "version": "0.8.0", "notes_status": "complete", "user_notes": null,
+      "technical_notes": [{ "id": "meal-projections", "text": "کتابخانهٔ غذا، نمای مرتبط برای دستیار و حفظ مقدار نامعلوم مواد؛ schema همچنان 0034_assistant_receipts." }]
+    },
+    {
+      "id": "api-0.7.2", "component": "api", "version": "0.7.2", "notes_status": "complete", "user_notes": null,
+      "technical_notes": [{ "id": "provider-contract", "text": "تفکیک قرارداد پاسخ خانه و پیامک و نگاشت خطاهای شناخته‌شدهٔ درگاه؛ بدون مهاجرت تازه." }]
+    },
+    {
+      "id": "api-0.7.0", "component": "api", "version": "0.7.0", "notes_status": "complete", "user_notes": null,
+      "technical_notes": [{ "id": "assistant-actions", "text": "دستیار زمینه‌مند و رسیدهای اجرای اتمی، با migration برابر 0034_assistant_receipts؛ بازبینی امضاشده و تأیید جداگانهٔ تغییرها." }]
+    },
+    {
+      "id": "api-0.6.0", "component": "api", "version": "0.6.0", "notes_status": "complete", "user_notes": null,
+      "technical_notes": [{ "id": "inventory-categories", "text": "دسته‌بندی انبار و صف پیشنهاد کالا؛ migration برابر 0033_inventory_categories با حفظ RLS و بازبینی اقلام موجود." }]
+    },
+    {
+      "id": "api-0.5.0", "component": "api", "version": "0.5.0", "notes_status": "complete", "user_notes": null,
+      "technical_notes": [{ "id": "budget-transactions", "text": "سقف و تخصیص بودجه با ذخیرهٔ اتمی و مدیریت تعارض؛ بدون migration تازه نسبت به 0.4.0." }]
+    },
+    {
+      "id": "management-0.3.0", "component": "management", "version": "0.3.0", "notes_status": "complete", "user_notes": null,
+      "technical_notes": [
+        { "id": "aggregate-ai", "text": "گزارش تجمیعی مصرف AI، تفکیک عملیات آفلاین، کنترل امکانات و سقف مصرف، خروجی Excel و ورود تنظیمات از فایل." },
+        { "id": "additive-schema", "text": "ارتقای هماهنگ کد API و مدیریت با مهاجرت‌های افزایشی 0038 و 0039 و بازیابی آزمایشی پشتیبان پیش از مهاجرت؛ نسخهٔ PWA برابر 0.12.0 حفظ می‌شود." },
+        { "id": "installer-r1", "text": "اصلاح بستهٔ r1 برای یکسان‌سازی پایان‌خط مجوز بانک‌ها و نگهداری همان مجوز در ایمیج جدید؛ رمز و هویت مدیریت حفظ می‌شوند." }
+      ]
+    },
+    {
+      "id": "management-0.2.0", "component": "management", "version": "0.2.0", "notes_status": "complete", "user_notes": null,
+      "technical_notes": [{ "id": "dashboard", "text": "داشبورد نموداری رشد و فعالیت، رتبه‌بندی بخش‌ها، ترکیب حساب‌ها و سلامت میزبان؛ انتشار فقط رابط مدیریت با حفظ بک‌اند و نشست‌ها." }]
+    },
+    {
+      "id": "management-0.1.0", "component": "management", "version": "0.1.0", "notes_status": "complete", "user_notes": null,
+      "technical_notes": [{ "id": "independent-management", "text": "پنل مستقل با هویت و نقش‌های مدیریت، گزارش تجمیعی، کنترل سرویس‌ها، پشتیبان، نصب نسخه‌ها و سابقهٔ عملیات." }]
+    },
+    {
+      "id": "pwa-0.13.0", "component": "pwa", "version": "0.13.0", "released_on": "2026-11-27", "notes_status": "complete",
+      "user_notes": {
+        "summary": "انتخاب غذا و اقلام خرید با توجه به موجودی خانه و دریافت تغییرهای تازهٔ خانواده.",
+        "features": [{ "id": "meal-shopping", "text": "هنگام انتخاب غذا، برای مواد ناکافی یا نامشخص جداگانه تصمیم می‌گیرید و مقدار خرید را مشخص می‌کنید؛ میان‌وعده هم قابل برنامه‌ریزی است." }],
+        "improvements": [
+          { "id": "atomic-meal-selection", "text": "انتخاب غذا، وعده و اقلام خرید انتخاب‌شده با هم ذخیره می‌شوند؛ پیش از ذخیره، موجودی دوباره بررسی می‌شود." },
+          { "id": "household-refresh", "text": "تغییرهای اعضای خانواده در بخش‌های مرتبط تازه می‌شوند و فرم ناتمام هنگام تازه‌سازی حفظ می‌شود." }
+        ],
+        "fixes": [{ "id": "meal-review", "text": "تغییر تصمیم یا مقدار خرید، خطای قبلی مرور غذا را پاک می‌کند؛ لغو انتخاب چیزی به خرید اضافه نمی‌کند." }]
+      },
+      "technical_notes": [{ "id": "home2-baseline", "text": "انتشار هماهنگ API/PWA با حفظ مدیریت 0.3.0؛ مهاجرت‌های افزایشی 0040_inventory_catalog، 0041_household_changes و 0042_meal_inventory_links. انتخاب وعده موجودی را مصرف نمی‌کند و رکورد مالی نمی‌سازد." }]
+    },
+    {
+      "id": "api-0.13.0", "component": "api", "version": "0.13.0", "released_on": "2026-11-27", "notes_status": "complete", "user_notes": null,
+      "technical_notes": [{ "id": "home2-api", "text": "ذخیرهٔ اتمی غذا، وعده و خرید، بررسی دوبارهٔ موجودی و بازیابی درخواست تکراری؛ جریان تغییرهای خانواده و کاتالوگ انبار با حفظ شمارنده‌ها و کنترل‌های مدیریت. revision برابر 0042_meal_inventory_links است." }]
+    },
+    {
+      "id": "pwa-0.15.0", "component": "pwa", "version": "0.15.0", "released_on": "2026-11-28", "notes_status": "complete",
+      "user_notes": {
+        "summary": "تاریخچهٔ تغییرات برنامه همیشه در دسترس است، حتی بدون اینترنت.",
+        "features": [{ "id": "local-release-history", "text": "از تنظیمات و بخش درباره، تغییرات نسخه‌های برنامه را بخوانید. یادداشت‌ها همراه برنامه ذخیره می‌شوند و به سایت دیگری وابسته نیستند." }],
+        "improvements": [{ "id": "update-notice", "text": "پس از به‌روزرسانی‌های بعدی از داخل برنامه، پیوند تغییرات نسخهٔ تازه یک‌بار روی همان دستگاه نمایش داده می‌شود؛ تاریخچه همواره از بخش درباره در دسترس است." }],
+        "fixes": []
+      },
+      "technical_notes": [{ "id": "history-web-release", "text": "انتشار رابط برنامه و مدیریت برای تاریخچهٔ محلی با منبع مشترک؛ API، schema و تنظیمات تولید تغییر نمی‌کنند. خروجی برنامه فقط یادداشت‌های عمومی PWA را دارد و تاریخچه هیچ نصب خودکاری اجرا نمی‌کند." }]
+    },
+    {
+      "id": "management-0.4.0", "component": "management", "version": "0.4.0", "released_on": "2026-11-28", "notes_status": "complete", "user_notes": null,
+      "technical_notes": [{ "id": "local-history", "text": "دو نمای مستقل تغییرات نسخه‌ها و بسته‌های نصب؛ تاریخچهٔ همراه ساخت برای PWA، API و مدیریت با متن قابل‌ویرایش. نسخهٔ فعال از وضعیت میزبان خوانده می‌شود و نسخهٔ ثابت health، شناسهٔ انتشار API فرض نمی‌شود. حساب‌ها، نشست‌ها، گزارش‌ها و عملیات نصب فعلی حفظ می‌شوند." }]
+    },
+    {
+      "id": "pwa-0.14.0", "component": "pwa", "version": "0.14.0", "released_on": "2026-11-28", "notes_status": "complete",
+      "user_notes": {
+        "summary": "انتخاب کیف پول بر اساس عضو و نمایش فشرده‌تر مبلغ‌ها.",
+        "features": [{ "id": "member-filter", "text": "مالک و مدیر خانواده می‌توانند کیف پول‌ها، حساب‌های بانکی، دارایی‌ها و مجموع آن‌ها را برای همه یا یک عضو ببینند." }],
+        "improvements": [{ "id": "compact-wallet", "text": "نام صاحب کیف پول و مبلغ در ردیفی فشرده قرار می‌گیرند؛ مبلغ‌های بزرگ و منفی نیز خوانا باقی می‌مانند." }],
+        "fixes": [{ "id": "private-transfers", "text": "عضو عادی جزئیات مالی خودش را می‌بیند و همچنان می‌تواند بدون دریافت اطلاعات خصوصی حساب مقصد، به اعضای خانواده انتقال وجه بدهد." }]
+      },
+      "technical_notes": [{ "id": "wallet-contract", "text": "انتشار هماهنگ API/PWA روی پایهٔ 0.13.0؛ محدودیت دسترسی پیش از سریال‌سازی حساب و قیمت‌گذاری دارایی اعمال می‌شود. شناسه‌های مقصد انتقال جدا هستند و schema برابر 0042_meal_inventory_links حفظ می‌شود." }]
+    },
+    {
+      "id": "api-0.14.0", "component": "api", "version": "0.14.0", "released_on": "2026-11-28", "notes_status": "complete", "user_notes": null,
+      "technical_notes": [{ "id": "wallet-access", "text": "محدودسازی حساب و دارایی به عضو مجاز و پاسخ حداقلی شناسه‌های مقصد انتقال؛ حفظ decimal-v1، تاریخچهٔ اصلاح موجودی و schema بدون مهاجرت تازه." }]
+    },
+    {
+      "id": "pwa-0.15.1", "component": "pwa", "version": "0.15.1", "released_on": "2026-11-28", "notes_status": "complete",
+      "user_notes": {
+        "summary": "تاریخچهٔ آفلاین نسخه‌ها همراه با بهبودهای تازهٔ کیف پول.",
+        "features": [],
+        "improvements": [{ "id": "wallet-history", "text": "تاریخچهٔ نسخه‌ها از بخش درباره در دسترس است و انتخاب عضو، دسترسی حساب‌ها و نمایش فشردهٔ کیف پول را حفظ می‌کند." }],
+        "fixes": [{ "id": "wallet-baseline", "text": "نصب تاریخچه با نسخهٔ تازهٔ کیف پول سازگار شد." }]
+      },
+      "technical_notes": [{ "id": "wallet-source-contract", "text": "بستهٔ مستقل v0.15.1 بر پایهٔ رسمی API/PWA 0.14.0؛ جایگزینی فقط فایل‌های وب برنامه و مدیریت، بدون تعویض API، مهاجرت یا restart. بستهٔ v0.15.0 حفظ شده و قابل نصب روی پایهٔ 0.14.0 نیست." }]
+    },
+    {
+      "id": "management-0.4.1", "component": "management", "version": "0.4.1", "released_on": "2026-11-28", "notes_status": "complete", "user_notes": null,
+      "technical_notes": [{ "id": "wallet-history", "text": "تاریخچهٔ محلی شامل انتشار کیف پول 0.14.0 و اصلاح نصب 0.15.1 است. بررسی نصب به پایهٔ دقیق 0.14.0 محدود است و مرحلهٔ شکست را جدا گزارش می‌کند؛ هویت و سرویس مدیریت حفظ می‌شوند." }]
+    }
+  ]
+}

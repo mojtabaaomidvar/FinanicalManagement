@@ -15,6 +15,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { APP_VERSION } from "@/shared/config/version";
+import { rememberReleaseUpdate } from "@/features/release-history/update-notice";
 
 export interface PwaUpdateState {
   /** نسخه جدید نصب‌شده و منتظر فعال‌سازی است */
@@ -113,6 +115,7 @@ export function usePwaUpdate(): PwaUpdateState {
       const reg = await navigator.serviceWorker.getRegistration();
       const waiting = reg?.waiting;
       if (waiting) {
+        try { rememberReleaseUpdate(APP_VERSION, window.localStorage); } catch { /* Storage may be disabled. */ }
         waiting.postMessage({ type: "SKIP_WAITING" });
         waiting.addEventListener("statechange", () => {
           if (waiting.state === "activated") location.reload();

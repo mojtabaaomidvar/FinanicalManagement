@@ -11,6 +11,7 @@ import { ConfigurationImport } from "./ConfigurationImport";
 import { ReportsExport } from "./ReportsExport";
 import type { AnalyticsDays } from "./analytics.types";
 import { ManagementDashboard } from "./ManagementDashboard";
+import { ReleaseHistoryPanel } from "./ReleaseHistoryPanel";
 import "./management.css";
 
 const number = (value: number, digits = 0) => value.toLocaleString("fa-IR", { maximumFractionDigits: digits });
@@ -140,11 +141,19 @@ function BackupsPage(props: Props & { download: (id: string) => void }) {
   </State>;
 }
 
-function ReleasesPage(props: Props) {
+function ReleasePackages(props: Props) {
   const [tag, setTag] = useState("");
   const resource = useResource<{ items: Release[] }>("/state/releases", props.refresh);
   return <><Section title="دریافت نسخهٔ رسمی" note="دریافت و بررسی بسته، پیش از نصب انجام می‌شود.">{props.role !== "viewer" && <form className="mg-filter" onSubmit={event => { event.preventDefault(); props.act({ kind: "release.fetch", target: tag }); }}><label>شمارهٔ نسخه<input required pattern="v[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4}" placeholder="v0.6.0" value={tag} onChange={e => setTag(e.target.value)} dir="ltr" /></label><button disabled={props.busy}>دریافت و بررسی</button></form>}</Section>
     <State {...resource}><Section title="نسخه‌های آمادهٔ نصب">{resource.data?.items.length ? <ul className="mg-records">{resource.data.items.map(release => <li key={release.tag}><div><h3><bdi dir="ltr">{release.tag}</bdi></h3><p>{date(release.fetched_at)}</p><code className="mg-hash" dir="ltr">{release.sha256}</code><span className="mg-hint">هش بسته بررسی شده است.</span></div><Action {...props} operation={{ kind: "release.install", target: release.tag }}>بررسی و نصب</Action></li>)}</ul> : <Empty>بسته‌ای دریافت نشده است. شمارهٔ نسخهٔ رسمی را وارد کنید.</Empty>}</Section></State></>;
+}
+
+function ReleasesPage(props: Props) {
+  const [view, setView] = useState<"history" | "packages">("history");
+  return <><div className="release-history-views" role="group" aria-label="نمای نسخه‌ها">
+    <button type="button" aria-pressed={view === "history"} onClick={() => setView("history")}>تغییرات نسخه‌ها</button>
+    <button type="button" aria-pressed={view === "packages"} onClick={() => setView("packages")}>بسته‌های نصب</button>
+  </div>{view === "history" ? <ReleaseHistoryPanel refresh={props.refresh} /> : <ReleasePackages {...props} />}</>;
 }
 
 function LogsPage({ refresh }: Props) {

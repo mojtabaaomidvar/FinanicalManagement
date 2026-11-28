@@ -4,6 +4,7 @@ import { build, transform } from 'esbuild';
 import ts from 'typescript';
 import { instrumentCopySource } from './instrument.mjs';
 import { SCENARIOS, ROUTES } from './fixtures.mjs';
+import { noteCopyId, projectReleaseHistory, summaryCopyId, validateReleaseHistory } from '../../src/domain/release-history/release-history.ts';
 
 const jsonScript = value => JSON.stringify(value).replaceAll('<', '\\u003c');
 const inlineScript = value => '<script>' + value.replace(/<\/script/gi, '<\\/script') + '<' + '/script>';
@@ -58,6 +59,17 @@ export async function buildPortablePreview(root, portable, { catalog, visualCata
     alias: { '@': join(root, 'src') }, loader: { '.woff2': 'dataurl', '.woff': 'dataurl', '.ttf': 'dataurl', '.svg': 'dataurl', '.png': 'dataurl', '.jpg': 'dataurl', '.webp': 'dataurl' },
     define: { 'import.meta.env.MODE': '"copy-workbench"', 'import.meta.env.DEV': 'false', 'import.meta.env.PROD': 'true', 'import.meta.env.VITE_API_URL': '""', 'import.meta.env.VITE_SUPPORT_HOST': '""', 'import.meta.env.VITE_APP_URL': '""', '__BUILD_TIME__': JSON.stringify(new Date().toISOString()), 'process.env.NODE_ENV': '"production"' },
     plugins: [{ name: 'portable-public-source-metadata', setup(builder) {
+      builder.onResolve({ filter: /^virtual:release-history$/ }, () => ({ path: 'release-history', namespace: 'portable-history' }));
+      builder.onLoad({ filter: /.*/, namespace: 'portable-history' }, async () => {
+        const history = validateReleaseHistory(JSON.parse(await readFile(join(root, 'release-history.json'), 'utf8')));
+        const version = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')).version;
+        const releases = projectReleaseHistory(history, 'pwa', version);
+        const permitted = new Set(releases.flatMap(release => [summaryCopyId(release.id),
+          ...Object.values(release.user_notes ?? {}).flatMap(notes => Array.isArray(notes) ? notes.map(note => noteCopyId(release.id, note.id)) : [])]));
+        const sources = Object.fromEntries((byFile.get('release-history.json') ?? []).filter(entry => permitted.has(entry.annotationId)).map(entry => [entry.annotationId,
+          { id: entry.id, text: entry.text, context: entry.context }]));
+        return { contents: 'export default ' + JSON.stringify({ releases, sources }), loader: 'js' };
+      });
       builder.onLoad({ filter: /\.[cm]?[jt]sx?$/ }, async args => {
         const file = slash(relative(root, args.path));
         if (!file.startsWith('src/')) return;

@@ -4,6 +4,7 @@ import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
+import { scanReleaseHistory } from './release-history.mjs';
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
 const privateCatalogs = new WeakMap();
@@ -78,10 +79,13 @@ async function sourceFiles(root) {
   await Promise.all([walk(join(root, 'src')), walk(join(root, 'backend', 'app')), walk(join(root, 'site')), walk(join(root, 'public'))]);
   const entry = join(root, 'index.html');
   try { if ((await stat(entry)).isFile() && await realpath(entry) === entry) files.push({ file: 'index.html', absolute: entry, source: await readFile(entry, 'utf8') }); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  const history = join(root, 'release-history.json');
+  try { if ((await stat(history)).isFile() && await realpath(history) === history) files.push({ file: 'release-history.json', absolute: history, source: await readFile(history, 'utf8') }); } catch (error) { if (error.code !== 'ENOENT') throw error; }
   return files.sort((a, b) => a.file.localeCompare(b.file, 'en'));
 }
 
 function sectionFor(file) {
+  if (file === 'release-history.json') return 'تاریخچهٔ نسخه‌ها';
   const sections = [
     [/HubPage|domain\/home/, 'خانه'], [/DashboardPage|TransactionsPage|transaction|weekly-flow|ReportsPage|domain\/report/, 'مالی و گزارش‌ها'],
     [/AccountsPage|domain\/account|repositories\/account/, 'کیف پول'], [/BudgetsPage|domain\/budget/, 'بودجه‌ها'],
@@ -373,7 +377,8 @@ export async function collectCatalog(workspaceRoot) {
   const pythonByFile = new Map(pythonResults.map(result => [result.file, result]));
   const scannedFiles = files.map(file => {
     const extension = extname(file.file);
-    const result = extension === '.py' ? pythonByFile.get(file.file) : extension === '.html' ? scanHtml(file.source, file.file) : extension === '.css' ? scanCss(file.source) : scanTs(file.source, file.file);
+    const result = file.file === 'release-history.json' ? scanReleaseHistory(file.source)
+      : extension === '.py' ? pythonByFile.get(file.file) : extension === '.html' ? scanHtml(file.source, file.file) : extension === '.css' ? scanCss(file.source) : scanTs(file.source, file.file);
     return { file, result };
   });
   const registeredIds = new Set();
@@ -418,6 +423,7 @@ function templateChunks(text, tokens) {
 }
 
 function replacement(plan, text, id) {
+  if (plan.kind === 'release-history-text') return JSON.stringify(text);
   const inlineEscape = value => plan.embeddedJs ? value.replaceAll('<', '\\u003c').replaceAll('>', '\\u003e') : value;
   if (plan.kind === 'typescript-string') return `/* @copy-text ${id}${plan.annotationFormat === 'jsx-body' ? ' jsx-body' : ''} */ `
     + inlineEscape(JSON.stringify((plan.padding?.leading ?? '') + text + (plan.padding?.trailing ?? '')));
@@ -471,6 +477,7 @@ export async function prepareChanges(workspaceRoot, suppliedCatalog, request) {
     let updated = group.original;
     for (const edit of edits) updated = updated.slice(0, edit.start) + edit.replacement + updated.slice(edit.end);
     const extension = extname(group.file);
+    if (group.file === 'release-history.json') scanReleaseHistory(updated);
     if (['.ts', '.tsx', '.js', '.jsx'].includes(extension)) {
       const parsed = scanTs(updated, group.file);
       if (parsed.diagnostics.length) throw new CatalogError('SOURCE_SYNTAX', 'تغییر متن، ساختار فایل را نامعتبر کرده است.');

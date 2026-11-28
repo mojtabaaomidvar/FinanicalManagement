@@ -84,10 +84,12 @@ const THEME_ICON: Partial<Record<ThemeMode, string>> = {
 
 /* مقصد خارجی یک‌بار مصرف می‌شود؛ بازگشت عادی زیرصفحه و پیش‌نویسش را حفظ می‌کند. */
 export function SettingsPage({
+  onOpenReleaseHistory,
   initialSection,
   onInitialSectionConsumed,
   onNotificationPrefsChanged,
 }: {
+  onOpenReleaseHistory?: () => void;
   initialSection?: SettingsSection | null;
   onInitialSectionConsumed?: () => void;
   /* §۷ — پس از تغییرِ ترجیحاتِ اعلان صدا زده می‌شود تا زنگِ هاب دوباره
@@ -526,6 +528,8 @@ export function SettingsPage({
             </p>
           </div>
         </Card>
+        <SettingsCard><SettingsRow icon="download" label="تاریخچهٔ نسخه‌ها" trailing={{ type: "chevron" }}
+          onClick={onOpenReleaseHistory} /></SettingsCard>
       </SettingsSubPage>
     );
   }

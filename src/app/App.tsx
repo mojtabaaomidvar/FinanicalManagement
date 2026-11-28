@@ -67,6 +67,10 @@ import { useOnline } from "@/shared/lib/useOnline";
 import type { NotificationRef } from "@/domain/notification/notification.types";
 import { useHouseholdAssistant } from "@/features/household-assistant/model/useHouseholdAssistant";
 import { HouseholdAssistant } from "@/features/household-assistant/ui/HouseholdAssistant";
+import { ReleaseHistoryDialog } from "@/features/release-history/ReleaseHistory";
+import { claimReleaseNotice } from "@/features/release-history/update-notice";
+import { APP_VERSION } from "@/shared/config/version";
+import releaseHistory from "virtual:release-history";
 
 export function App() {
   return (
@@ -77,6 +81,7 @@ export function App() {
 }
 
 function AppBody() {
+  const [releaseHistoryOpen, setReleaseHistoryOpen] = useState(false);
   const { phase, useCases, member, refreshData } = useApp();
   const navigation = useNavigation(member ? `${member.familyId}:${member.id}` : "anonymous");
   const { route, navigate: setRoute } = navigation;
@@ -145,6 +150,17 @@ function AppBody() {
       });
     }
   }, [updateReady, phase, applyUpdate, show]);
+
+  useEffect(() => {
+    if (phase !== "ready" || updateReady) return;
+    try {
+      if (claimReleaseNotice(APP_VERSION, releaseHistory.releases.some(item => item.version === APP_VERSION), window.localStorage)) {
+        show("نسخهٔ تازهٔ خانه‌یار آمادهٔ استفاده است.", {
+          label: "دیدن تغییرات نسخه", onClick: () => setReleaseHistoryOpen(true),
+        });
+      }
+    } catch { /* The optional notice never blocks startup. */ }
+  }, [phase, updateReady, show]);
 
   const bumpRefresh = useCallback(async () => {
     await refreshData();
@@ -251,6 +267,7 @@ function AppBody() {
 
     return (
       <MainShell
+        onOpenReleaseHistory={() => setReleaseHistoryOpen(true)}
         key={`${member?.familyId ?? ""}:${member?.id ?? ""}`}
         route={route}
         setRoute={setRoute}
@@ -281,7 +298,8 @@ function AppBody() {
           صفحهٔ ورود گیر کرده بیشتر از همه به این خبر نیاز دارد، چون بدونش
           «رمزم غلط است» برداشت می‌کند. خودش وقتی چیزی برای گفتن نداشته
           باشد null برمی‌گردد. */}
-      <OfflineBar />
+      <OfflineBar onOpenReleaseHistory={() => setReleaseHistoryOpen(true)} />
+      <ReleaseHistoryDialog open={releaseHistoryOpen} close={() => setReleaseHistoryOpen(false)} />
       {import.meta.env.DEV ? (
         <DevPanel
           route={route}
@@ -302,6 +320,7 @@ function AppBody() {
    · budgets «بودجه‌ها» · settings «بیشتر»                          */
 
 function MainShell({
+  onOpenReleaseHistory,
   route,
   setRoute,
   replaceRoute,
@@ -315,6 +334,7 @@ function MainShell({
   filterSignal,
   bumpFilterSignal,
 }: {
+  onOpenReleaseHistory: () => void;
   route: Route;
   setRoute: (r: Route) => void;
   replaceRoute: (r: Route) => void;
@@ -543,6 +563,7 @@ function MainShell({
           onChanged={async () => { await refreshTasks(); await notif.reload(); }} /> : null}
         {route === "settings" ? (
           <SettingsPage
+            onOpenReleaseHistory={onOpenReleaseHistory}
             initialSection={settingsSection}
             onInitialSectionConsumed={() => setSettingsSection(null)}
             onNotificationPrefsChanged={() => void Promise.all([notif.reload(), refreshTasks()])}
