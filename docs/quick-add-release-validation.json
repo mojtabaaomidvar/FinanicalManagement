@@ -1,0 +1,104 @@
+{
+  "release": "v0.17.0",
+  "passed": true,
+  "scope": "PWA-only; approved roadmap stage 1",
+  "baseline": {
+    "tag": "v0.16.0",
+    "source_commit": "b794b15ed29dd86a2d5d77830bf1917016508127",
+    "public_pwa_version": "0.16.0",
+    "public_pwa_build": "2026-11-28T07:41:45.027Z",
+    "manifest_sha256": "72743fa711ffe8c104285e44ca84c3d7e70c9b9f402830cd54e501c82a846190",
+    "public_files_verified": 79,
+    "public_management_version": "0.4.1",
+    "api_health": "ok",
+    "api_release_source": "0.14.0; installed source/dependencies/schema verified again by installer",
+    "database_revision": "0042_meal_inventory_links"
+  },
+  "production_build": {
+    "version": "0.17.0",
+    "build_time": "2026-11-28T09:40:21.754Z",
+    "command": "npm run build with production API/support/PWA origins",
+    "typecheck": "passed",
+    "build": "passed",
+    "copy_coverage": "6221 editable UI texts; no unregistered display candidates",
+    "warning": "The existing application chunk exceeds 500 kB after minification."
+  },
+  "tests": [
+    { "command": "npm test -- --reporter=json --outputFile=.local-test/quick-add-frontend-tests.json", "passed": 1012, "failed": 0, "report_success": true },
+    { "command": "npm run copy:studio:test", "passed": 147, "failed": 0 },
+    { "command": "python -X utf8 scripts/test-quick-add-release.py", "passed": 16, "failed": 0 },
+    { "command": "python -X utf8 scripts/test-history-release.py", "passed": 17, "failed": 0 },
+    { "command": "python -m ruff check backend/deploy/upgrade-quick-add.py scripts/package-quick-add-release.py scripts/publish-quick-add-release.py scripts/test-quick-add-release.py scripts/verify-quick-add-baseline.py", "result": "passed" },
+    { "command": "Git Bash -n generated pinned bootstrap", "result": "passed" }
+  ],
+  "browser": [
+    {
+      "command": "node scripts/check-quick-add.mjs",
+      "checks": 19,
+      "screenshots": 14,
+      "errors": [],
+      "external_requests": [],
+      "report_sha256": "98517877d1104b1314c75e5aa55e1661927aef5862cf5301ecde5275763d1596",
+      "coverage": ["menu order and financial types", "Tab/Shift+Tab and child calendar", "background inert and focus restore", "Escape/outside click/browser Back", "320/360/390/1440 layouts", "shopping list then item", "task validation", "activity create and save failure", "first meal with no dishes", "full week", "meal read failure/retry", "offline task/shopping and online restrictions", "ordinary member", "scroll collapse", "dark/reduced motion", "English/empty editable copy"]
+    },
+    {
+      "command": "node scripts/check-navigation-shell.mjs",
+      "checks": 15,
+      "screenshots": 28,
+      "errors": [],
+      "external_requests": [],
+      "report_sha256": "fe4661a111b678d447fced904d387d459e8eb7b1fa6b1e68027faae05a3cf0da",
+      "coverage": ["24 route headers and scroll owners", "retained draft/filter/scroll", "native and visible Back/Forward", "inactive modal/date overlays", "nested vehicle sheets and pointer order", "SMS draft reset", "keyboard viewport", "offline financial eviction"]
+    },
+    {
+      "command": "node scripts/check-quick-add-built.mjs",
+      "checks": 3,
+      "screenshots": 3,
+      "errors": [],
+      "external_requests": [],
+      "report_sha256": "8468a0573039aa608a51d65b60882c6a718c9fc5cb931f2433b09bcbb8792d2a",
+      "coverage": ["production task form", "public local 0.17.0 history and retained 0.16.0 notes", "actual service worker offline reload and permitted task form"]
+    },
+    {
+      "command": "node scripts/check-wallet-access.mjs",
+      "checks": 21,
+      "screenshots": 17,
+      "errors": [],
+      "external_requests": [],
+      "report_sha256": "be3b1fca3e0fd9f11d3ccac65d637d70bf6079a4e32d9053fa66acc68ce0097d",
+      "coverage": ["retained compact 0.16.0 wallets", "persistent owner filters and settings", "card reveal without editing", "private member reads", "exact negative and large money", "transfer target failure/loading/retry", "English and empty editable copy"]
+    }
+  ],
+  "visual_review": ["menu-320.png", "full-owner-360.png", "production-task.png", "production-history.png"],
+  "merged_release": {
+    "previous_quick_add_source": "41b8c8c0f19bbed18ec0c1dac59e95a0b787769c",
+    "wallet_016_source_preserved": true,
+    "conflict_resolution": "Retained the complete 0.16.0 wallet history entry and added quick add as 0.17.0.",
+    "frontend_dependency_lock": "Unchanged except the root package version.",
+    "accepts_newer_independent_installs": false
+  },
+  "resolved_validation_failures": [
+    "A node_modules junction prevented Vitest from resolving a Workbox test import; isolated npm ci restored all 1012 tests.",
+    "The general sheet max-height initially constrained mobile fullscreen; the quick-add viewport rule now overrides that limit.",
+    "Browser selectors now open the existing transaction details before its calendar.",
+    "The save-error task fixture correctly queues an offline write; online save-failure assertions use the activity form instead.",
+    "Reduced-motion validation accepts the existing global 0.01ms transition instead of requiring an exact zero string."
+  ],
+  "data_protection": {
+    "production_business_writes": 0,
+    "manual_sandbox_writes": 0,
+    "paid_ai_calls": 0,
+    "database_migrations": 0,
+    "original_workspace_changes": "preserved; release worktree based on the official installed wallet 0.16.0 source",
+    "browser_data": "isolated fictional in-memory fixtures; external runtime requests blocked",
+    "installer_scope": "PWA replacement only; protected backup and resumable journal; no API/management replacement, service restart or DB restore"
+  },
+  "limits": [
+    "Docker/systemd/HTTPS failure paths use explicit local doubles in installer tests.",
+    "Physical phone, actual virtual-keyboard/assistive-technology acceptance and Linux VPS execution await the owner installation.",
+    "Generic API health version 0.1.0 is not an installed API release identifier.",
+    "Publication does not establish installation."
+  ],
+  "published": false,
+  "installed_on_server": false
+}

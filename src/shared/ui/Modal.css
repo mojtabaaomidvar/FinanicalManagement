@@ -1,0 +1,48 @@
+/* شیت‌های افزودن سریع: قدِ viewport و ناحیهٔ امن، بدون اسکرولِ جداگانهٔ بدنه. */
+@media (max-width: 639px) {
+  .modal-overlay.is-mobile-fullscreen-overlay { align-items: stretch; top: var(--app-viewport-top, 0px); height: var(--app-viewport-height, 100dvh); bottom: auto; }
+  body:has(.application-shell) .modal-sheet.is-mobile-fullscreen {
+    inline-size: 100%;
+    max-inline-size: none;
+    block-size: var(--app-viewport-height, 100dvh);
+    min-block-size: 0;
+    max-block-size: var(--app-viewport-height, 100dvh);
+    max-height: var(--app-viewport-height, 100dvh);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 0;
+    padding-block-start: max(var(--sp-2), env(safe-area-inset-top));
+    padding-block-end: max(var(--sp-5), env(safe-area-inset-bottom));
+  }
+  .modal-sheet.is-mobile-fullscreen > .modal-grabber { display: none; }
+  .modal-sheet.is-mobile-fullscreen :is(button, .text-input, .select) { min-block-size: 44px; }
+  .modal-sheet.is-mobile-fullscreen > .quick-form-close { float: inline-end; margin-block-end: var(--sp-2); }
+  .modal-sheet.is-mobile-fullscreen.tx-simple-sheet {
+    overflow: hidden;
+    padding-block-end: 0;
+  }
+  .modal-sheet.is-mobile-fullscreen .tx-simple {
+    min-block-size: 0;
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .modal-sheet.is-mobile-fullscreen .tx-simple-fields { min-block-size: 0; }
+  .modal-sheet.is-mobile-fullscreen .tx-simple-footer { inset-block-end: 0; }
+}
+.quick-form-close { min-inline-size: 44px; min-block-size: 44px; }
+@media (prefers-reduced-motion: reduce) { .modal-sheet.is-mobile-fullscreen { animation: none; transition: none; } }
+
+@media (min-width: 640px) {
+  .modal-overlay.is-mobile-fullscreen-overlay { align-items: flex-end; }
+  .modal-sheet.is-mobile-fullscreen {
+    inline-size: 100%;
+    max-inline-size: 552px;
+    block-size: auto;
+    min-block-size: 0;
+    max-block-size: 92dvh;
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
+    padding: var(--sp-2) var(--sp-5) calc(var(--sp-6) + env(safe-area-inset-bottom));
+  }
+  .modal-sheet.is-mobile-fullscreen > .modal-grabber { display: block; }
+}

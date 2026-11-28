@@ -21,6 +21,8 @@ import { checkMealIngredient } from "@/features/meals/model/mealInventory";
 import { useHouseholdRefresh } from "@/shared/lib/useHouseholdRefresh";
 import type { DishInput } from "@/domain/meal/meal.types";
 import "./MealsPage.css";
+import { useQuickAddRequest, type QuickAddPageProps } from "@/shared/lib/useQuickAddRequest";
+import { usePageActivity } from "@/shared/lib/pageActivity";
 
 interface IngredientForm { key: string; title: string; catalogId?: string | null; qty: string; unit: string; selected: boolean; conflictingUnit?: boolean }
 interface MealData { scope: string; week: string; dishes: MealDish[]; entries: MealEntry[]; lists: ShoppingList[] }
@@ -48,7 +50,7 @@ const quantityValue = (raw: string) => !raw.trim() || !/^[\d۰-۹٠-٩\s.,٫٬،
 const ingredientInput = (row: IngredientForm): MealIngredient => ({ title: row.title, catalogId: row.catalogId ?? null, qty: row.qty.trim() ? quantityValue(row.qty) : null, unit: row.unit || null });
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : "انجام عملیات ناموفق بود. دوباره تلاش کنید.";
 
-export function MealsPage() {
+export function MealsPage({ quickAddId, onQuickAddConsumed }: QuickAddPageProps) {
   const { phase, member, family, useCases, shoppingSync, offlineSession } = useApp();
   const { show } = useToast();
   const online = useOnline();
@@ -80,6 +82,9 @@ export function MealsPage() {
   const [loadError, setLoadError] = useState("");
   const [accessDenied, setAccessDenied] = useState(false);
   const [dialog, setDialog] = useState<Dialog | null>(null);
+  const [quickForm, setQuickForm] = useState(false);
+  const quickSlot = useRef<MealSlot | null>(null);
+  const pageActive = usePageActivity();
   const [dialogError, setDialogError] = useState("");
   const [title, setTitle] = useState("");
   const [ingredients, setIngredients] = useState<IngredientForm[]>([]);
@@ -98,6 +103,7 @@ export function MealsPage() {
   const stillCurrent = (captured: { scope: string }) => mounted.current && captured.scope !== "" && identity.current === captured;
 
   const clearForms = useCallback(() => {
+    setQuickForm(false); quickSlot.current = null;
     setDialog(null); setTitle(""); setIngredients([]); setDishId(""); setListId("");
     setDialogError(""); setResult(null); operation.current = null;
     setChooserQuery(""); setShowAmounts(false);
@@ -161,6 +167,20 @@ export function MealsPage() {
     setDishId(entry?.dishId ?? ""); setDialogError(""); setChooserQuery(""); setChooserSource(dishes.length ? "family" : "library");
     setDialog({ scope, kind: "slot", date, mealType, entry });
   };
+  useEffect(() => {
+    if (quickAddId && pageActive && !dialog && !pending) { setWeekOffset(0); setTab("week"); }
+  }, [quickAddId, pageActive]);
+  useQuickAddRequest(quickAddId, available && !loading && !busy && !loadError && data.scope === scope && data.week === currentWeek, () => {
+    if (activeDialog || pending) { show("فرم باز قبلی حفظ شده است؛ ابتدا همان فرم را تکمیل یا ببندید."); return; }
+    const weekDays = mealWeekDays(currentWeek);
+    const free = weekDays.flatMap(date => MEAL_TYPES.map(type => ({ date, mealType: type.value, entry: null })))
+      .find(slot => !data.entries.some(entry => entry.date === slot.date && entry.mealType === slot.mealType));
+    if (!free) { setWeekView(true); show("جای خالی در برنامهٔ این هفته نیست؛ می‌توانید وعده‌های ثبت‌شده را بررسی کنید."); return; }
+    setDayIndex(weekDays.indexOf(free.date)); setWeekView(false);
+    if (dishes.length) openSlot(free.date, free.mealType, null);
+    else { openDish(null); quickSlot.current = free; }
+    setQuickForm(true);
+  }, onQuickAddConsumed);
   const openLibraryFood = (food: LibraryFood) => {
     if (!available || busy || accessDenied) return;
     const slot = activeDialog?.kind === "slot" ? { date: activeDialog.date, mealType: activeDialog.mealType, entry: activeDialog.entry } : undefined;
@@ -288,14 +308,14 @@ export function MealsPage() {
       ...(change.title !== undefined ? { catalogId: null } : {}) } : row));
   };
 
-  const mutate = async (action: () => Promise<unknown>, message: string) => {
+  const mutate = async (action: () => Promise<unknown>, message: string, afterSaved?: () => void) => {
     if (!available || !useCases || busy || mutationPending.current || accessDenied) return;
     const captured = identity.current;
     mutationPending.current = true; setBusy(true); setDialogError("");
     try {
       await action();
       if (!stillCurrent(captured)) return;
-      clearForms(); show(message); await reload();
+      clearForms(); show(message); await reload(); afterSaved?.();
     } catch (error) {
       if (!stillCurrent(captured) || clearDeniedAccess(error)) return;
       setDialogError(errorMessage(error));
@@ -313,8 +333,13 @@ export function MealsPage() {
     if (error) { setDialogError(error); return; }
     input.ingredients = input.ingredients.map(cleanIngredient);
     const dish = activeDialog.dish;
-    void mutate(() => dish ? useCases.updateDish.execute(dish.id, input, dish.revision) : useCases.addDish.execute(input),
-      dish ? "غذا به‌روز شد." : "غذا ثبت شد.");
+    const destination = !dish ? quickSlot.current : null;
+    let saved: MealDish | undefined;
+    void mutate(async () => { saved = dish ? await useCases.updateDish.execute(dish.id, input, dish.revision) : await useCases.addDish.execute(input); },
+      dish ? "غذا به‌روز شد." : "غذا ثبت شد.", destination ? () => {
+        if (!saved) return;
+        setDialog({ scope, kind: "slot", ...destination }); setDishId(saved.id); setChooserSource("family"); setQuickForm(true);
+      } : undefined);
   };
   const saveSlot = async () => {
     if (!available || accessDenied || busy || mutationPending.current || !useCases || activeDialog?.kind !== "slot" || activeDialog.entry && !activeDialog.entry.canEdit) return;
@@ -455,11 +480,11 @@ export function MealsPage() {
         </> : null}
       </>}
     </div>
-    <MealDialog open={activeDialog?.kind === "library"} onClose={closeDialog} title="مواد اولیهٔ غذا">
+    <MealDialog open={activeDialog?.kind === "library"} fullscreenOnMobile={quickForm} onClose={closeDialog} title="مواد اولیهٔ غذا">
       {activeDialog?.kind === "library" ? <MealLibraryDetail key={activeDialog.food.id} food={activeDialog.food} busy={busy} error={dialogError}
         checkIngredients={useCases!.checkMealIngredients} forSlot={Boolean(activeDialog.slot)} onBack={backFromLibrary} onSave={input => void saveLibraryFood(input)} /> : null}
     </MealDialog>
-    <MealDialog open={available && !accessDenied && pending?.scope === scope} onClose={() => { if (!busy) clearForms(); }} title="تعیین تکلیف مواد ناموجود">
+    <MealDialog open={available && !accessDenied && pending?.scope === scope} fullscreenOnMobile={quickForm} onClose={() => { if (!busy) clearForms(); }} title="تعیین تکلیف مواد ناموجود">
       {available && pending?.scope === scope ? <form onSubmit={event => { event.preventDefault(); void completePendingMeal(); }}>
         <p className="modal-sub">برخی از مواد اولیهٔ این غذا در موجودی انبار شما ثبت نشده‌اند. برای هر ماده یکی از گزینه‌ها را انتخاب کنید.</p>
         {pending.missing.map((row, index) => {
@@ -490,7 +515,7 @@ export function MealsPage() {
         <button type="button" className="btn-secondary" disabled={busy} onClick={clearForms}>انصراف</button>
       </form> : null}
     </MealDialog>
-    <MealDialog open={activeDialog?.kind === "dish"} onClose={closeDialog} title={readOnlyDish ? "جزئیات غذا" : activeDialog?.kind === "dish" && activeDialog.dish ? "ویرایش غذا" : "غذای جدید"}>
+    <MealDialog open={activeDialog?.kind === "dish"} fullscreenOnMobile={quickForm} onClose={closeDialog} title={readOnlyDish ? "جزئیات غذا" : activeDialog?.kind === "dish" && activeDialog.dish ? "ویرایش غذا" : "غذای جدید"}>
       <form onSubmit={event => { event.preventDefault(); saveDish(); }} autoComplete="off">
         <Field label="نام غذا"><input className="text-input" aria-label="نام غذا" value={title} maxLength={MEAL_LIMITS.title} disabled={busy || readOnlyDish}
           placeholder="مثلاً عدس‌پلو" onChange={event => setTitle(event.target.value)} /></Field>
@@ -513,7 +538,7 @@ export function MealsPage() {
         {!readOnlyDish ? <button type="submit" className="btn-primary meal-form-submit" disabled={busy}>{busy ? "در حال ذخیره…" : "ذخیرهٔ غذا"}</button> : null}
       </form>
     </MealDialog>
-    <MealDialog open={activeDialog?.kind === "slot"} onClose={closeDialog} title="انتخاب غذای وعده">
+    <MealDialog open={activeDialog?.kind === "slot"} fullscreenOnMobile={quickForm} onClose={closeDialog} title="انتخاب غذای وعده">
       {activeDialog?.kind === "slot" ? <>
         <p className="meal-slot-caption">{MEAL_TYPES.find(type => type.value === activeDialog.mealType)?.label} · {formatWeekday(isoToJalali(activeDialog.date))}</p>
         {activeDialog.entry && !activeDialog.entry.canEdit ? <><h3 data-meal-content>{catalog.get(activeDialog.entry.dishId)?.title}</h3>

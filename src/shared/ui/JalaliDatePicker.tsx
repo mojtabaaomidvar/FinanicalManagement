@@ -20,6 +20,7 @@ import { nowTime } from "@/shared/lib/format";
 import { useBackGuard } from "@/shared/lib/useBackGuard";
 import { usePageActivity } from "@/shared/lib/pageActivity";
 import { WheelColumn } from "./Wheel";
+import { useDialogFocus } from "./dialogFocus";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
@@ -77,6 +78,7 @@ export function JalaliDatePicker({
 
   /* کلیک بیرون یا Escape → بستن فقط همین تقویم */
   const boxRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(boxRef, active, order, onClose);
   useEffect(() => {
     if (!active) return;
     const onDown = (e: MouseEvent | TouchEvent) => {
@@ -84,19 +86,11 @@ export function JalaliDatePicker({
         onClose();
       }
     };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.preventDefault();
-      e.stopPropagation();
-      onClose();
-    };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("touchstart", onDown);
-    document.addEventListener("keydown", onKey, true);
     return () => {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("touchstart", onDown);
-      document.removeEventListener("keydown", onKey, true);
     };
   }, [onClose, active]);
 
@@ -142,7 +136,7 @@ export function JalaliDatePicker({
 
   return <RetainedPortal visible={active} order={order!}>
     <div className="dp-overlay">
-      <div className="dp-box" ref={boxRef}>
+      <div className="dp-box" ref={boxRef} role="dialog" aria-modal="true" aria-label="انتخاب تاریخ" tabIndex={-1}>
         <div className="dp-head">
           {view === "date" ? (
             <button
@@ -344,6 +338,9 @@ export function JalaliDatePicker({
                     key={`${i < overflow ? "w" : ""}${d}`}
                     type="button"
                     className={`dp-day ${isToday ? "today" : ""} ${isSelected ? "selected" : ""}`}
+                    aria-label={formatLong([jy, jm, d])}
+                    aria-pressed={isSelected}
+                    aria-current={isToday ? "date" : undefined}
                     onClick={() => pickDay(jy, jm, d)}
                   >
                     {toFa(d)}

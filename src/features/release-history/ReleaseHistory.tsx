@@ -12,7 +12,7 @@ export function ReleaseHistoryDialog({ open, close }: { open: boolean; close: ()
     dialog.current?.focus();
     return () => { if (opener instanceof HTMLElement && opener.isConnected) opener.focus(); };
   }, [open]);
-  return <Modal open={open} onClose={close} sheetClassName="release-history-sheet" dragToClose>
+  return <Modal open={open} onClose={close} sheetClassName="release-history-sheet" dragToClose dialogSemantics={false}>
     <section ref={dialog} role="dialog" aria-modal="true" aria-labelledby="release-history-title" tabIndex={-1}
       onKeyDown={event => {
         if (event.key !== "Tab") return;

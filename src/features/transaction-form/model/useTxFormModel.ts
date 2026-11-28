@@ -82,6 +82,7 @@ export function useTxFormModel(
   const [editing, setEditing] = useState<Transaction | null>(null);
   const serviceExpense = editing?.sourceKind === "vehicle_service";
   const [open, setOpen] = useState(false);
+  const [fullscreenOnMobile, setFullscreenOnMobile] = useState(false);
   const [form, writeForm] = useState<TxFormState>(defaults());
   const [photos, setPhotos] = useState<TxPhotoItem[]>([]);
   const [activity, setActivity] = useState<"checkBalance" | "checkOccurrence" | "save" | "saveCategory" | "delete" | "preparePhotos" | "removePhoto" | null>(null);
@@ -159,10 +160,11 @@ export function useTxFormModel(
     };
   }
 
-  function openNew() {
+  function openNew(options: { fullscreenOnMobile?: boolean } = {}) {
     if (saving.current) return;
     generation.current += 1;
     savedTransaction.current = null;
+    setFullscreenOnMobile(options.fullscreenOnMobile ?? false);
     setEditing(null);
     setOccurrence(null);
     setOccurrenceError(null);
@@ -175,6 +177,7 @@ export function useTxFormModel(
   }
 
   function openEdit(tx: Transaction) {
+    setFullscreenOnMobile(false);
     if (saving.current) return;
     if (tx.sourceKind === "transfer_fee") return notify("برای تغییر کارمزد، پرداخت اصلی را ویرایش کنید.");
     if (tx.sourceKind === "wallet_correction") return notify("تراکنش اصلاح موجودی تغییرناپذیر است؛ اصلاح تازه را از کیف پول ثبت کنید.");
@@ -220,6 +223,7 @@ export function useTxFormModel(
       کند. repeat=none چون این رخداد یک تراکنش عادی است، نه تعهدی دوباره. */
   async function openForOccurrence(tx: Transaction, dueDate: string) {
     if (saving.current) return;
+    setFullscreenOnMobile(false);
     generation.current += 1;
     saving.current = true;
     savedTransaction.current = null;
@@ -645,6 +649,7 @@ export function useTxFormModel(
 
   return {
     open,
+    fullscreenOnMobile,
     editing,
     serviceExpense,
     recurringOccurrence: occurrence !== null,
@@ -666,7 +671,8 @@ export function useTxFormModel(
       reviewedBalance.current = null;
       setBalanceWarning(null);
     },
-    openNew,
+    openNew: () => openNew(),
+    openQuickAdd: () => openNew({ fullscreenOnMobile: true }),
     openEdit,
     openForOccurrence,
     setType,

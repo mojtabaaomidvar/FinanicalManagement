@@ -17,6 +17,7 @@ import {
 import { useOnline } from "@/shared/lib/useOnline";
 import { Card, Field, Icon, JalaliDateInput, Modal } from "@/shared/ui";
 import "./TasksPage.css";
+import { useQuickAddRequest, type QuickAddPageProps } from "@/shared/lib/useQuickAddRequest";
 
 interface TaskForm {
   title: string;
@@ -33,7 +34,7 @@ const FILTERS: { value: TaskFilter; label: string; empty: string }[] = [
   { value: "completed", label: "انجام‌شده", empty: "هنوز کاری انجام‌شده ثبت نشده." },
 ];
 
-export function TasksPage() {
+export function TasksPage({ quickAddId, onQuickAddConsumed }: QuickAddPageProps) {
   const {
     useCases, tasks, member, members, refreshTasks, shoppingSync, offlineSession,
   } = useApp();
@@ -46,6 +47,7 @@ export function TasksPage() {
   const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
+  const [quickForm, setQuickForm] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const [deleting, setDeleting] = useState<Task | null>(null);
   const [completing, setCompleting] = useState<Task | null>(null);
@@ -98,10 +100,12 @@ export function TasksPage() {
   };
 
   const openNew = () => {
+    setQuickForm(false);
     setEditing(null); setForm(EMPTY); setFormError(""); setOpen(true);
   };
 
   const openTask = (task: Task) => {
+    setQuickForm(false);
     setEditing(task);
     setForm({ title: task.title, description: task.description ?? "",
       assigneeId: task.assigneeId ?? "",
@@ -110,6 +114,10 @@ export function TasksPage() {
   };
 
   const closeForm = () => { if (!busy) setOpen(false); };
+  useQuickAddRequest(quickAddId, Boolean(useCases && member) && !busy && !loading, () => {
+    if (open || completing || deleting) { show("فرم باز قبلی حفظ شده است؛ ابتدا همان فرم را تکمیل یا ببندید."); return; }
+    openNew(); setQuickForm(true);
+  }, onQuickAddConsumed);
 
   const savedMessage = (message: string, pending = false) => { if (!offline && !pending) show(message); };
 
@@ -309,7 +317,7 @@ export function TasksPage() {
           <p className="form-note">برای مدیریت کارهای دیگران به اتصال نیاز دارید. کارهایی که ساخته‌اید یا مسئولشان هستید در دسترس‌اند.</p>
         ) : null}
       </div>
-      <Modal open={open} onClose={closeForm}
+      <Modal open={open} onClose={closeForm} fullscreenOnMobile={quickForm}
         title={editing ? editable ? "ویرایش کار" : "جزئیات کار" : "کار جدید"} dragToClose>
         <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
           <Field label="عنوان کار">
@@ -362,7 +370,7 @@ export function TasksPage() {
           </button>
         </form>
       </Modal>
-      <Modal open={completing !== null} onClose={closeCompletion} title="تأیید انجام کار">
+      <Modal open={completing !== null} onClose={closeCompletion} title="تأیید انجام کار" dialogSemantics={false}>
         <div role="dialog" aria-modal="true" aria-label="تأیید انجام کار">
           <p className="modal-sub">کار «{completing?.title}» انجام شده است؟</p>
           <p className="form-note">پس از تأیید، کار به فهرست «انجام‌شده» منتقل می‌شود.</p>
