@@ -8,6 +8,7 @@ import { createWorkbench } from './copy-workbench/server.mjs';
 import { createPreviewSession, handlePreviewRequest } from './copy-workbench/fixtures.mjs';
 
 const output = resolve('.local-test/history-browser');
+const currentVersion = JSON.parse(await readFile(resolve('package.json'), 'utf8')).version;
 await mkdir(output, { recursive: true });
 const results = { checks: [], errors: [], externalRequests: [], screenshots: [], productionWrites: 0, manualWrites: 0 };
 const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json' };
@@ -68,7 +69,7 @@ try {
   await page.getByRole('button', { name: 'تاریخچهٔ نسخه‌ها', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'تاریخچهٔ نسخه‌ها', exact: true });
   await dialog.waitFor();
-   assert.equal(await dialog.locator('[data-release-id="pwa-0.15.1"] small').innerText(), 'نسخهٔ این برنامه');
+   assert.equal(await dialog.locator(`[data-release-id="pwa-${currentVersion}"] small`).innerText(), 'نسخهٔ این برنامه');
   assert.equal(await dialog.locator('[data-release-id^="management-"]').count(), 0);
   assert.equal(await dialog.getByText('یادداشت فنی', { exact: true }).count(), 0);
   for (const width of [360, 1440]) {
@@ -97,7 +98,7 @@ try {
   await page.reload();
   await page.getByRole('button', { name: 'تاریخچهٔ نسخه‌ها', exact: true }).last().click();
   await dialog.waitFor();
-   await dialog.locator('[data-release-id="pwa-0.15.1"]').waitFor();
+   await dialog.locator(`[data-release-id="pwa-${currentVersion}"]`).waitFor();
   await capture(page, 'offline-reload');
   record('Actual service worker serves history after offline reload');
   await context.close();

@@ -25,6 +25,8 @@ import { WalletAmount } from "./WalletAmount";
 import { WalletCorrectionFeature } from "./WalletCorrectionFeature";
 import { bankCardAppearance } from "../model/bankCardAppearance";
 import "./AccountsFeature.css";
+import { BankCardNumber } from "./BankCardNumber";
+import { WalletOwnerFilter } from "./WalletOwnerFilter";
 
 /** جلوی باز شدن فرم ویرایش را می‌گیرد — برای دکمه‌های داخل کارت کلیک‌پذیر */
 function stop(e: MouseEvent) {
@@ -244,7 +246,7 @@ function HoldingsCard({ m }: { m: AccountsModel }) {
   );
 }
 
-export function AccountsFeature({ m, showAddAction = true, onOpenTransactions }: { m: AccountsModel; showAddAction?: boolean; onOpenTransactions: (account: Account) => void }) {
+export function AccountsFeature({ m, showAddAction = true, showOwnerFilter = true, onOpenTransactions }: { m: AccountsModel; showAddAction?: boolean; showOwnerFilter?: boolean; onOpenTransactions: (account: Account) => void }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedAccount = m.accounts.find(account => account.id === selectedId);
   const [correction, setCorrection] = useState<Account | null>(null);
@@ -281,6 +283,7 @@ export function AccountsFeature({ m, showAddAction = true, onOpenTransactions }:
             onClick={() => void m.confirmDelete()}>{m.busy ? "در حال حذف…" : "حذف حساب"}</button> : null}
         </div>
       </Modal>
+      {showOwnerFilter ? <WalletOwnerFilter m={m} /> : null}
       {showAddAction ? <div className="accounts-toolbar"><AccountAddButton m={m} /></div> : null}
       {/* حساب‌های بانکی */}
       <Card title="حساب‌های بانکی" action={<button type="button" className="link-btn wallet-refresh" onClick={m.walletBalances.refresh}>به‌روزرسانی</button>}>
@@ -309,11 +312,10 @@ export function AccountsFeature({ m, showAddAction = true, onOpenTransactions }:
                       {appearance?.label ?? (acc.bank ? bankDisplayLabel(acc.bank) : "بانک نامشخص")}
                       {owner ? ` · ${owner.name}` : ""}
                     </p>
-                    {acc.cardNumber ? <span className="account-card-number" dir="ltr">{maskCardNumber(acc.cardNumber)}</span> : null}
                   </div>
                   <div className="account-balance-wrap"><WalletBalanceDisplay state={m.walletBalances.rows.get(acc.id)} currency={m.cur} className="account-balance" /></div>
                 </div>
-
+                {acc.cardNumber ? <BankCardNumber cardNumber={acc.cardNumber} /> : null}
               </ClickableCard>
             );
           })

@@ -119,7 +119,8 @@ function AccountsOverview({ m, onOpenTransactions }: { m: AccountsModel; onOpenT
         {/* کارت دارایی کل — فشرده: مبلغ در همان ردیف عنوان، بازه زیر نمودار */}
         <div className="balance-card wealth-card">
           <div className="wealth-top">
-            <p className="balance-label">{m.canViewFamilyWallets ? "دارایی کل خانواده" : "دارایی کل من"}</p>
+            <p className="balance-label">{!m.canViewFamilyWallets || m.selectedOwnerId === m.member?.id
+              ? "دارایی کل من" : m.selectedOwnerId ? "دارایی عضو انتخاب‌شده" : "دارایی کل خانواده"}</p>
             {m.totalWealth === null ? <b className="wealth-total">{/* @copy-text accounts.wealth_unavailable */ "—"}</b> :
               <WalletAmount className={`wealth-total${compareMoney(m.totalWealth, "0") < 0 ? " is-negative" : ""}`}
                 formattedAmount={formatMoney(m.totalWealth, m.cur)} currency={m.cur} />}
@@ -196,7 +197,7 @@ function AccountsOverview({ m, onOpenTransactions }: { m: AccountsModel; onOpenT
         </div>
 
         {/* لیست حساب‌ها و کیف‌پول‌ها + فرم افزودن/ویرایش — کامپوننت مشترک */}
-        <AccountsFeature m={m} showAddAction={false} onOpenTransactions={onOpenTransactions} />
+        <AccountsFeature m={m} showAddAction={false} showOwnerFilter={false} onOpenTransactions={onOpenTransactions} />
       </div>
 
       {/* بازه دلخواه نمودار دارایی — از طریق سه‌نقطه */}

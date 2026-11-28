@@ -225,7 +225,7 @@
 }
 
 .accounts-feature .account-card.flat.bank-wallet-card {
-  padding: var(--sp-4);
+  padding: var(--sp-2);
   margin-block-end: var(--sp-3);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
@@ -238,13 +238,14 @@
 }
 
 .accounts-feature .bank-wallet-card .account-head {
-  flex-wrap: wrap;
-  gap: var(--sp-3);
+  display: grid;
+  grid-template-columns: var(--sp-7) minmax(0, 1fr);
+  gap: var(--sp-1) var(--sp-2);
 }
 
 .accounts-feature .bank-wallet-card .account-icon {
-  inline-size: var(--sp-8);
-  block-size: var(--sp-8);
+  inline-size: var(--sp-7);
+  block-size: var(--sp-7);
   background: #fff;
   padding: var(--sp-1);
 }
@@ -260,8 +261,40 @@
 }
 
 .accounts-feature .bank-wallet-card .account-balance-wrap {
-  flex-basis: 100%;
+  grid-column: 1 / -1;
   max-width: 100%;
+  margin-block: calc(-1 * var(--sp-1));
+}
+
+/* شمارهٔ کارت مثل کارت بانکی در چهار گروه؛ دکمهٔ نمایش هدف لمس مستقل دارد. */
+.bank-card-number-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-block-size: var(--sp-7);
+  padding-inline-end: var(--sp-8);
+}
+
+.bank-card-number-row .account-card-number {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  flex: 1;
+  width: auto;
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--fs-3);
+  line-height: 1.4;
+  text-align: center;
+}
+
+.bank-card-number-toggle {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  min-inline-size: var(--sp-8);
+  min-block-size: var(--sp-8);
 }
 
 .wallet-correction-sheet > p,
@@ -326,7 +359,33 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Keep owner selection inside the viewport, including large households. */
+/* نام انتخاب‌شده و فیلتر هنگام پیمایش زیر سربرگ دیده می‌مانند. */
+.wallet-owner-context {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 5;
+  padding-block: var(--sp-1);
+  margin-block-end: var(--sp-2);
+  background: var(--bg);
+}
+.page-scroll:has(.wallet-owner-context) {
+  scroll-padding-block-start: calc(var(--sp-8) * 2 + var(--sp-4));
+}
+.wallet-owner-current {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  min-width: 0;
+  margin: 0 0 var(--sp-1);
+  color: var(--text-2);
+  font-size: var(--fs-2);
+  line-height: 1.4;
+}
+.wallet-owner-current b {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
 .wallet-owner-filter {
   display: flex;
   gap: var(--sp-1);
@@ -335,7 +394,7 @@
   overflow-x: auto;
   overscroll-behavior-inline: contain;
   padding: var(--sp-1);
-  margin-block-end: var(--sp-3);
+  margin-block-end: 0;
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   background: var(--card);
@@ -360,7 +419,8 @@
   grid-template-columns: minmax(0, 1fr) fit-content(90%);
   align-items: center;
   gap: var(--sp-1) var(--sp-2);
-  padding: var(--sp-2) var(--sp-3);
+  min-block-size: var(--sp-8);
+  padding: 0 var(--sp-2);
 }
 .accounts-feature .wallet-head,
 .accounts-feature .wallet-head > div { min-width: 0; }
@@ -388,10 +448,10 @@
   flex-flow: row nowrap;
   align-items: baseline;
   justify-content: flex-end;
-  column-gap: 0.25em;
+  column-gap: var(--sp-1);
   min-width: 0;
   max-width: 100%;
-  font-size: var(--fs-3);
+  font-size: var(--fs-2);
   font-weight: 800;
   line-height: 1.4;
   text-align: end;
@@ -417,7 +477,9 @@
 .wallet-amount .wallet-amount-unit {
   flex: none;
   margin: 0;
-  font-size: 0.8em;
+  justify-content: flex-start;
+  padding-inline: 0;
+  font-size: var(--fs-1);
   font-weight: 500;
   color: var(--text-3);
 }

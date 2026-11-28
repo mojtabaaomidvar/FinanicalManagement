@@ -23,13 +23,13 @@ test('history display fields survive English, empty, escaped text and reordering
       const [change] = await prepareChanges(root, catalog, { revision: catalog.revision, changes: [{ id, expectedText: entry.text, text }] });
       const updated = JSON.parse(change.updated);
       assert.deepEqual(contracts(updated), contracts(initial));
-      assert.equal(updated.releases[0].user_notes.improvements[0].text, text);
+      assert.equal(updated.releases.find(item => item.id === 'pwa-0.12.0').user_notes.improvements.find(item => item.id === 'wallet-cards').text, text);
       await writeFile(file, change.updated);
       catalog = await collectCatalog(root);
       assert.equal(catalog.entries.find(item => item.id === id).text, text);
     }
     const reordered = JSON.parse(await readFile(file, 'utf8'));
-    reordered.releases[0].user_notes.improvements.reverse();
+    reordered.releases.find(item => item.id === 'pwa-0.12.0').user_notes.improvements.reverse();
     await writeFile(file, JSON.stringify(reordered));
     assert.equal((await collectCatalog(root)).entries.find(item => item.id === id).text, 'A "quote"\n<script> remains text');
     await assert.rejects(prepareChanges(root, catalog, { revision: catalog.revision, changes: [{ id, expectedText: '', text: 'stale' }] }), { code: 'STALE_CATALOG' });

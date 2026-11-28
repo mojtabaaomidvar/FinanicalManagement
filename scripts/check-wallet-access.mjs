@@ -105,7 +105,7 @@ async function enrich(page) {
 
 try {
   await check('filters and transfer loading/error labels are editable', async () => {
-    for (const text of ['همه', 'خودم', 'نمایش کیف پول بر اساس عضو', 'در حال دریافت مقصدهای انتقال…', 'دریافت مقصدهای انتقال انجام نشد.'])
+    for (const text of ['همه', 'خودم', 'نمایش کیف پول بر اساس عضو', 'کیف‌پول‌های', 'نمایش شماره کارت', 'پنهان کردن شماره کارت', 'دارایی عضو انتخاب‌شده', 'در حال دریافت مقصدهای انتقال…', 'دریافت مقصدهای انتقال انجام نشد.'])
       assert.ok(catalog.entries.some(entry => entry.text === text), text);
   });
   for (const scenario of ['full-owner', 'full-admin']) await check(scenario + ' filters accounts, holdings and authoritative totals together', async () => {
@@ -120,6 +120,7 @@ try {
       await page.waitForFunction(() => document.querySelector('.wealth-total bdi'));
       assert.notEqual(await page.locator('.wealth-total bdi').innerText(), total);
       assert.equal(await filters.locator('[aria-pressed=true]').count(), 1);
+      await expect(page.locator('.balance-label')).toHaveText(index === 1 ? 'دارایی کل من' : 'دارایی عضو انتخاب‌شده');
     }
     await buttons.first().click(); await page.waitForFunction(total => document.querySelector('.wealth-total bdi')?.textContent === total, total);
     for (const width of [320, 360, 390, 768, 1440]) {
@@ -172,6 +173,71 @@ try {
     await capture(page, 'selected-member-empty-390');
     await page.locator('.wallet-owner-option').first().click();
     await expect(page.locator('.wallet-card')).toHaveCount(1);
+    await page.context().close();
+  });
+  await check('selected owner stays visible while scrolling and moving the member strip', async () => {
+    const page = await session('full-owner');
+    await enrich(page);
+    const scroll = page.locator('.accounts-page > .page-scroll');
+    const context = page.locator('.wallet-owner-context');
+    const filters = page.locator('.wallet-owner-filter');
+    const buttons = filters.getByRole('button');
+    for (const width of [320, 360, 390, 1440]) {
+      await page.setViewportSize({ width, height: 700 });
+      await scroll.evaluate(element => { element.scrollTop = element.scrollHeight; });
+      await expect(context).toBeInViewport();
+      await expect.poll(async () => Math.abs((await context.boundingBox()).y - (await scroll.boundingBox()).y)).toBeLessThan(2);
+      assert.equal(await page.locator('.wallet-owner-current b').innerText(), await buttons.first().innerText());
+      if ([360, 1440].includes(width)) await capture(page, 'sticky-owner-bottom-' + width);
+    }
+    await buttons.last().click();
+    await expect(page.locator('.wallet-card')).toHaveCount(1);
+    const selectedName = await buttons.last().innerText();
+    await expect(page.locator('.wallet-owner-current b')).toHaveText(selectedName);
+    await page.setViewportSize({ width: 360, height: 700 });
+    await filters.evaluate(element => { element.scrollLeft = 0; });
+    await expect(page.locator('.wallet-owner-current b')).toHaveText(selectedName);
+    await capture(page, 'sticky-selected-owner-360');
+    await page.context().close();
+  });
+  await check('bank numbers keep four ordered groups and reveal without opening the account', async () => {
+    const page = await session('full-owner');
+    const card = page.locator('.bank-wallet-card').first();
+    const number = card.locator('.account-card-number');
+    const groups = number.locator(':scope > span');
+    await expect(groups).toHaveCount(4);
+    assert.ok((await number.innerText()).includes('••••'));
+    const toggle = card.getByRole('button', { name: 'نمایش شماره کارت', exact: true });
+    const target = await toggle.boundingBox();
+    assert.ok(target.width >= 44 && target.height >= 44);
+    assert.equal(await number.evaluate(element => getComputedStyle(element).fontSize), '14px');
+    await toggle.click();
+    await expect(card.getByRole('button', { name: 'پنهان کردن شماره کارت', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    assert.ok(!(await number.innerText()).includes('•'));
+    assert.equal((await groups.allInnerTexts()).join('').length, 16);
+    await expect(page.locator('.wallet-account-sheet')).not.toBeVisible();
+    await page.getByRole('heading', { name: 'کیف پول‌ها', exact: true }).click();
+    for (const width of [320, 360, 390, 768, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      const height = await card.evaluate(element => element.getBoundingClientRect().height);
+      assert.ok(height <= 128, 'Compact bank card: ' + height);
+      await layout(page);
+      if ([360, 1440].includes(width)) await capture(page, 'compact-bank-card-' + width);
+    }
+    await card.getByRole('button', { name: 'پنهان کردن شماره کارت', exact: true }).press('Enter');
+    assert.ok((await number.innerText()).includes('••••'));
+    await page.context().close();
+  });
+  await check('settings account view also identifies and filters the selected owner', async () => {
+    const page = await session('full-owner', 'settings/accounts');
+    const context = page.locator('.wallet-owner-context:visible');
+    await expect(context).toHaveCount(1);
+    await context.getByRole('button', { name: 'خودم', exact: true }).click();
+    await expect(context.locator('.wallet-owner-current b')).toHaveText('خودم');
+    await expect(page.locator('.bank-wallet-card:visible')).toHaveCount(1);
+    await expect(page.locator('.wallet-card:visible')).toHaveCount(1);
+    await page.setViewportSize({ width: 360, height: 844 });
+    await capture(page, 'settings-owner-filter-360');
     await page.context().close();
   });
   await check('wallet balance failure and loading remain explicit and retryable', async () => {
