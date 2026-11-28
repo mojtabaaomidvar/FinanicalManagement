@@ -8,7 +8,8 @@ import { createWorkbench } from './copy-workbench/server.mjs';
 import { createPreviewSession, handlePreviewRequest } from './copy-workbench/fixtures.mjs';
 
 const output = resolve('.local-test/history-browser');
-const currentVersion = JSON.parse(await readFile(resolve('package.json'), 'utf8')).version;
+const { version: pwaVersion } = JSON.parse(await readFile('package.json', 'utf8'));
+const { version: managementVersion } = JSON.parse(await readFile('management-version.json', 'utf8'));
 await mkdir(output, { recursive: true });
 const results = { checks: [], errors: [], externalRequests: [], screenshots: [], productionWrites: 0, manualWrites: 0 };
 const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json' };
@@ -69,12 +70,27 @@ try {
   await page.getByRole('button', { name: 'تاریخچهٔ نسخه‌ها', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'تاریخچهٔ نسخه‌ها', exact: true });
   await dialog.waitFor();
-   assert.equal(await dialog.locator(`[data-release-id="pwa-${currentVersion}"] small`).innerText(), 'نسخهٔ این برنامه');
+   const currentRelease = dialog.locator(`[data-release-id="pwa-${pwaVersion}"]`);
+   assert.equal(await currentRelease.locator('small').innerText(), 'نسخهٔ این برنامه');
+   assert.equal(await dialog.locator('details, summary, h4').count(), 0);
+   const source = JSON.parse(await readFile('release-history.json', 'utf8'));
+   for (const release of source.releases.filter(release => release.component === 'pwa' && release.version.startsWith('0.'))) {
+     const entry = dialog.locator(`[data-release-id="${release.id}"]`);
+     assert.equal(await entry.getByRole('heading', { level: 3 }).count(), 1);
+     assert.equal(await entry.locator('ul').count(), 1);
+     const notes = release.user_notes;
+     assert.deepEqual(await entry.locator('li').allTextContents(), [notes.summary,
+       ...['features', 'improvements', 'fixes'].flatMap(group => notes[group].map(note => note.text))]);
+   }
   assert.equal(await dialog.locator('[data-release-id^="management-"]').count(), 0);
   assert.equal(await dialog.getByText('یادداشت فنی', { exact: true }).count(), 0);
-  for (const width of [360, 1440]) {
-    await page.setViewportSize({ width, height: 840 }); await capture(page, 'pwa-' + width);
-  }
+   for (const width of [320, 360, 390, 768, 1440]) {
+     await page.setViewportSize({ width, height: 840 });
+     assert.equal(await currentRelease.locator('li').first().evaluate(node => getComputedStyle(node).fontSize), '13px');
+     assert.equal(await currentRelease.locator('h3').evaluate(node => getComputedStyle(node).fontSize), '14px');
+     await capture(page, 'pwa-' + width);
+   }
+   await page.setViewportSize({ width: 360, height: 840 });
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
   await capture(page, 'pwa-dark');
@@ -82,7 +98,7 @@ try {
   await page.keyboard.press('Shift+Tab');
   assert.ok(await dialog.evaluate(node => node.contains(document.activeElement)));
   await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'hidden' });
-  record('About opens public history with current version, keyboard close and mobile/desktop layouts');
+   record('Continuous public history retains every note in one compact bullet list per version, at 320–1440 pixels, with keyboard close');
   assert.equal(await page.getByRole('button', { name: 'دیدن تغییرات نسخه', exact: true }).count(), 0);
    await page.evaluate(() => localStorage.setItem('khaneyar:release-history:pending-update', '0.14.0'));
   await page.reload();
@@ -98,7 +114,7 @@ try {
   await page.reload();
   await page.getByRole('button', { name: 'تاریخچهٔ نسخه‌ها', exact: true }).last().click();
   await dialog.waitFor();
-   await dialog.locator(`[data-release-id="pwa-${currentVersion}"]`).waitFor();
+   await dialog.locator(`[data-release-id="pwa-${pwaVersion}"]`).waitFor();
   await capture(page, 'offline-reload');
   record('Actual service worker serves history after offline reload');
   await context.close();
@@ -117,7 +133,7 @@ try {
     } });
     if (url.pathname.endsWith('/state/overview')) {
       if (status === 'waiting') await new Promise(done => held.push(done));
-      if (status === 'missing') return route.fulfill({ json: { software_version: '9.0.0', management_version: '0.4.1', api_version: '0.1.0' } });
+      if (status === 'missing') return route.fulfill({ json: { software_version: '9.0.0', management_version: managementVersion, api_version: '0.1.0' } });
     }
     return route.fulfill({ status: 503, json: { message: 'Fixture status unavailable' } }).catch(() => {});
   });
@@ -137,7 +153,7 @@ try {
   await managementPage.getByText('نامشخص', { exact: true }).waitFor();
   assert.equal(await managementPage.locator('[data-release-id^="api-"] small').count(), 0);
   await managementPage.getByLabel('بخش نرم‌افزار', { exact: true }).selectOption('management');
-   await managementPage.locator('[data-release-id="management-0.4.1"] small').waitFor();
+   await managementPage.locator(`[data-release-id="management-${managementVersion}"] small`).waitFor();
   await capture(managementPage, 'management-current-version');
   record('Local management history survives loading/error, flags missing notes and never infers API release from health');
   await managementContext.close();
@@ -145,6 +161,11 @@ try {
   workbench = await createWorkbench({ port: 0 });
   await workbench.initialized;
   assert.ok(workbench.status().ready, workbench.status().message);
+  // Scan the actual source before opening the picker: cold Windows file scans
+  // can exceed the editor's interactive request timeout on the release machine.
+  const catalogResponse = await fetch(workbench.origin + '/__copy/catalog');
+  assert.equal(catalogResponse.status, 200);
+  const pickerCatalog = await catalogResponse.json();
   const copyContext = await browser.newContext({ viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block' });
   await copyContext.route('**/*', async route => {
     const url = new URL(route.request().url());
@@ -157,6 +178,7 @@ try {
     const response = await route.fetch();
     await route.fulfill({ response, body: (await response.text()).replace("location.port !== '5701'", `location.port !== '${new URL(workbench.origin).port}'`) });
   });
+  await copyContext.route('**/__copy/catalog', route => route.fulfill({ json: pickerCatalog }));
   const editor = await copyContext.newPage(); editor.setDefaultTimeout(25000);
   editor.on('pageerror', error => results.errors.push(error.message));
   await editor.goto(workbench.origin);
@@ -164,7 +186,7 @@ try {
   await editor.locator('#copy-preview').scrollIntoViewIfNeeded();
   const frame = editor.frameLocator('#copy-preview');
   await frame.getByRole('button', { name: 'تاریخچهٔ نسخه‌ها', exact: true }).click();
-  await frame.locator('[data-release-id="pwa-0.12.0"] summary').click();
+   await frame.locator('[data-release-id="pwa-0.12.0"] h3').scrollIntoViewIfNeeded();
   const id = 'release-history.pwa-0.12.0.notes.wallet-cards';
   const note = frame.locator('span[data-copy-sources]').filter({ hasText: 'لمس کارت حساب، عملیات آن را باز می‌کند.' });
   await note.waitFor();

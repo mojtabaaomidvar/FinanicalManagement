@@ -22,6 +22,27 @@ describe("release history", () => {
     expect(JSON.stringify(projectReleaseHistory(data, "management", "0.3.0"))).toContain("TECHNICAL_SENTINEL");
     expect(data.releases[0].technical_notes).toHaveLength(2);
   });
+  it("limits application history to the installed major while management retains all majors and components", () => {
+    const data = history();
+    const template = data.releases.find(item => item.component === "pwa")!;
+    for (const version of ["1.0.0", "1.2.2", "1.2.10", "1.3.0", "2.0.0"]) {
+      data.releases.push({ ...structuredClone(template), id: `pwa-${version}`, version });
+    }
+    validateReleaseHistory(data);
+    const original = structuredClone(data);
+    const application = projectReleaseHistory(data, "pwa", "1.2.10");
+    expect(application.map(item => item.version)).toEqual(["1.2.10", "1.2.2", "1.0.0"]);
+    expect(application.every(item => item.component === "pwa" && !("technical_notes" in item))).toBe(true);
+    expect(projectReleaseHistory(data, "pwa", "0.15.1").every(item => item.version.startsWith("0."))).toBe(true);
+    const management = projectReleaseHistory(data, "management", "0.4.1");
+    expect(management).toHaveLength(data.releases.length);
+    for (const version of ["0.15.1", "1.0.0", "1.2.10", "2.0.0"]) {
+      expect(management.some(item => item.component === "pwa" && item.version === version)).toBe(true);
+    }
+    expect(management.some(item => item.component === "api")).toBe(true);
+    expect(management.some(item => item.component === "management")).toBe(true);
+    expect(data).toEqual(original);
+  });
   it.each([
     (data: ReleaseHistory) => data.releases.push(data.releases[0]),
     (data: ReleaseHistory) => { data.releases[0].version = "0.12.0-dev"; },

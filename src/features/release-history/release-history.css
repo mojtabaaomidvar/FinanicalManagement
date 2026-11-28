@@ -1,7 +1,8 @@
-.release-history-sheet { max-inline-size: 552px; color: var(--text); }
-.release-history-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-block-end: 12px; }
-.release-history-heading h2 { margin: 0; font-size: 1.15rem; }
-.release-history-heading button { flex-shrink: 0; }
+/* تاریخچهٔ برنامه با متن کوچک و تیتر هم‌اندازهٔ رابط، در یک شیت پیوسته خوانده می‌شود. */
+.release-history-sheet { max-inline-size: 552px; color: var(--text); font-size: var(--fs-2); }
+.release-history-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-block-end: var(--sp-2); }
+.release-history-heading h2 { margin: 0; font-size: var(--fs-4); line-height: 1.45; }
+.release-history-heading button { flex-shrink: 0; font-size: var(--fs-2); min-block-size: var(--sp-8); }
 .release-history-list { display: grid; gap: 12px; margin-block-start: 20px; text-align: start; }
 .release-history-entry { min-inline-size: 0; border: 1px solid var(--line, var(--border)); border-radius: 12px; padding: 16px; }
 .release-history-entry summary { cursor: pointer; line-height: 1.6; }
@@ -19,3 +20,17 @@
 .release-history-views { display: flex; flex-wrap: wrap; gap: 8px; margin-block-end: 24px; }
 .release-history-views button[aria-pressed="true"] { font-weight: 700; outline: 2px solid currentColor; outline-offset: 2px; }
 .offline-bar button { pointer-events: auto; min-block-size: 44px; }
+
+/* نسخه‌های برنامه فقط با تیتر و خط جدا می‌شوند؛ همهٔ یادداشت‌ها در یک فهرست بولت‌دار هستند. */
+.release-history-list--plain { gap: 0; margin-block-start: var(--sp-4); }
+.release-history-list--plain .release-history-entry { border: 0; border-radius: 0; padding: 0; }
+.release-history-list--plain .release-history-entry + .release-history-entry { border-block-start: 1px solid var(--border); margin-block-start: var(--sp-4); padding-block-start: var(--sp-4); }
+.release-history-entry-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2); }
+.release-history-entry-heading h3 { margin: 0; font-size: var(--fs-3); font-weight: 700; line-height: 1.45; }
+.release-history-entry-heading bdi { font-variant-numeric: tabular-nums; }
+.release-history-entry-heading small { color: var(--text-3); font-size: var(--fs-1); }
+.release-history-list--plain .release-history-entry > time,
+.release-history-list--plain .release-history-entry > .release-history-hint { display: block; font-size: var(--fs-1); margin-inline-start: 0; margin-block-start: var(--sp-1); }
+.release-history-list--plain .release-history-notes { max-inline-size: 44em; margin-block-start: var(--sp-2); font-size: var(--fs-2); line-height: 1.9; }
+.release-history-list--plain .release-history-notes ul { padding-inline-start: var(--sp-4); gap: var(--sp-1); list-style-type: disc; }
+.release-history-list--plain .release-history-notes li { margin: 0; }

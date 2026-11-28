@@ -83,8 +83,9 @@ export const validateReleaseHistory = (value: unknown): ReleaseHistory => {
 
 export const projectReleaseHistory = (history: ReleaseHistory, target: "pwa" | "management", version: string): DisplayRelease[] => {
   if (!isReleaseVersion(version)) return fail();
+  const major = version.split(".")[0];
   return history.releases.filter(item => target === "management" || item.component === "pwa"
-    && compareReleaseVersions(item.version, version) <= 0)
+    && item.version.split(".")[0] === major && compareReleaseVersions(item.version, version) <= 0)
     .map(item => {
       const copy = structuredClone(item);
       if (target === "management") return copy;

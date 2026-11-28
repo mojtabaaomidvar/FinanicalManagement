@@ -13,17 +13,43 @@ const ReleaseText = ({ id, text }: { id: string; text: string }) => {
   return <span>{text}</span>;
 };
 
+function ReleaseDate({ release }: { release: DisplayRelease }) {
+  return release.released_on ? <time dateTime={release.released_on}>
+    {new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium", timeZone: "UTC" })
+      .format(new Date(release.released_on + "T12:00:00Z"))}
+  </time> : <span className="release-history-hint">تاریخ انتشار ثبت نشده</span>;
+}
+
+function PublicReleaseEntry({ release, activeVersion }: { release: DisplayRelease; activeVersion?: string | null }) {
+  const titleId = `release-history-${release.id}`;
+  return <section className="release-history-entry" data-release-id={release.id} aria-labelledby={titleId}>
+    <header className="release-history-entry-heading">
+      <h3 id={titleId}>نسخهٔ <bdi dir="ltr">{release.version}</bdi></h3>
+      {release.version === activeVersion ? <small>نسخهٔ این برنامه</small> : null}
+    </header>
+    <ReleaseDate release={release} />
+    <div className="release-history-notes">
+      {release.user_notes ? <ul>
+        <li><ReleaseText id={summaryCopyId(release.id)} text={release.user_notes.summary} /></li>
+        {NOTE_GROUPS.flatMap(group => release.user_notes![group]).map(note => <li key={note.id}>
+          <ReleaseText id={noteCopyId(release.id, note.id)} text={note.text} />
+        </li>)}
+      </ul> : null}
+      {release.notes_status === "partial" ? <p className="release-history-hint">یادداشت‌های این نسخه کامل نیست؛ فقط تغییرات تأییدشده نمایش داده می‌شوند.</p> : null}
+    </div>
+  </section>;
+}
+
 export function ReleaseHistoryList({ releases, activeVersion, technical = false, management = false }: {
   releases: DisplayRelease[]; activeVersion?: string | null; technical?: boolean; management?: boolean;
 }) {
   if (!releases.length) return <p className="release-history-hint">هنوز یادداشت نسخه‌ای در این ساخت موجود نیست.</p>;
-  return <div className="release-history-list" dir="rtl">
-    {releases.map(release => <details className="release-history-entry" key={release.id}
+  return <div className={`release-history-list${management ? "" : " release-history-list--plain"}`} dir="rtl">
+    {releases.map(release => management ? <details className="release-history-entry" key={release.id}
       data-release-id={release.id} open={release.version === activeVersion}>
       <summary><span className="release-history-version"><bdi dir="ltr">{release.version}</bdi>
-        {release.version === activeVersion ? <small>{management ? "نسخهٔ فعال" : "نسخهٔ این برنامه"}</small> : null}</span>
-        {release.released_on ? <time dateTime={release.released_on}>{new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium", timeZone: "UTC" })
-          .format(new Date(release.released_on + "T12:00:00Z"))}</time> : <span className="release-history-hint">تاریخ انتشار ثبت نشده</span>}
+        {release.version === activeVersion ? <small>نسخهٔ فعال</small> : null}</span>
+        <ReleaseDate release={release} />
       </summary>
       <div className="release-history-notes">
         {release.user_notes ? <>
@@ -42,6 +68,6 @@ export function ReleaseHistoryList({ releases, activeVersion, technical = false,
           </li>)}</ul>
         </section> : null}
       </div>
-    </details>)}
+    </details> : <PublicReleaseEntry key={release.id} release={release} activeVersion={activeVersion} />)}
   </div>;
 }

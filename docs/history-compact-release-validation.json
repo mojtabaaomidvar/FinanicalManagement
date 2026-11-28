@@ -1,0 +1,68 @@
+{
+  "passed": true,
+  "date": "2026-11-28",
+  "scope": "Compact continuous PWA history 0.16.1 and complete management history 0.4.2 on installed PWA 0.16.0 / management 0.4.1; API 0.14.0 and schema unchanged",
+  "baseline_commit": "b794b15ed29dd86a2d5d77830bf1917016508127",
+  "baseline_public_files_checked": 79,
+  "baseline_public_hashes_match": true,
+  "frontend_passed": 1013,
+  "frontend_failed": 0,
+  "copy_studio_passed": 147,
+  "editable_texts": 6192,
+  "installer_tests_passed": 25,
+  "retained_compact_wallet_installer_tests_passed": 13,
+  "retained_home2_installer_tests_passed": 5,
+  "retained_wallet_installer_tests_passed": 5,
+  "wallet_api_source_unchanged": true,
+  "manual_data_writes": 0,
+  "production_data_writes": 0,
+  "typescript_and_production_builds": "passed with isolated offline-installed dependencies",
+  "ruff": "passed",
+  "bootstrap_shell_syntax": "passed",
+  "history_browser_checks": 5,
+  "history_browser_screenshots": 10,
+  "wallet_browser_checks": 21,
+  "wallet_browser_screenshots": 17,
+  "management_browser_checks": 22,
+  "management_browser_screenshots": 35,
+  "browser_errors": 0,
+  "external_runtime_requests": 0,
+  "selected_mobile_and_desktop_screenshots_inspected": true,
+  "production_origins": {
+    "VITE_API_URL": "https://api.khaanehyar.ir",
+    "VITE_SUPPORT_HOST": "supp.khaanehyar.ir",
+    "VITE_APP_URL": "https://pwa.khaanehyar.ir"
+  },
+  "production_api_origin_verified": true,
+  "public_copy_source_metadata_absent": true,
+  "public_technical_note_text_absent": true,
+  "browser_coverage": [
+    "Continuous public history has one compact bullet list per version, with 13-pixel note text and 14-pixel version headings, at 320/360/390/768/1440 pixels and in dark mode.",
+    "Every public note remains present; category headings and per-version expanders are absent from the PWA screen. Keyboard focus stays in the dialog and Escape closes it.",
+    "A pending accepted-update marker creates one notice. Ordinary reload does not invent a new notice.",
+    "The actual production service worker serves history after offline reload.",
+    "Management retains complete local history during status loading/errors, flags missing notes and does not treat the static API health version as its release identity.",
+    "The JSON note picker retains the exact stable identity through English, empty and restored text drafts.",
+    "Existing wallet member filters, private transfers, compact amounts, loading/error/empty states and management authentication, analytics, Excel, feature controls, backups and package-install flows pass their isolated fixture checks."
+  ],
+  "installer_coverage": [
+    "The published predecessor archive, source commit and manifest digest match the installer pin.",
+    "Only the completed pinned wallet 0.16.0 journal and exact PWA/management baseline are accepted; missing, interrupted or unrelated prior journals stop before backups or activation.",
+    "Prior release journals and old history-before directories remain preserved; new staging paths include the new version.",
+    "Protected web backups, retained old management assets, interrupted staging and repeat execution are covered.",
+    "Interruption between web swaps or rename steps and public-health failure resume safely with the same release.",
+    "Read-only API source/schema checks reject migration commands and preserve private files. Unknown operator edits stop rather than being overwritten.",
+    "The pinned HTTPS bootstrap stages extraction atomically and rejects traversal, symlinks and modified retained releases.",
+    "Unknown retained installation phases and release contracts with an unrelated deployment scope stop before activation."
+  ],
+  "corrected_failures": [
+    "The new unknown-journal-phase test fixture initially attempted to create its test directories twice. The fixture was corrected and all 25 installer tests passed on repeat.",
+    "The first browser run passed public history, update notice, real offline reload and management history. A cold Windows source-catalog scan exceeded the local editor's interactive request timeout. The picker test now fetches the actual catalog before opening the editor and serves that exact catalog to the browser; application and editor source behavior are unchanged."
+  ],
+  "limits": [
+    "Docker, systemd and public-HTTP installer lifecycle tests use explicit local doubles. Production installation awaits owner VNC execution and live verification.",
+    "Physical installed-PWA and Android acceptance are not exercised.",
+    "Backend runtime source and schema are identical to the installed official baseline. Backend application and PostgreSQL integration tests are not rerun for this web-only patch.",
+    "The existing production application chunk warning above 500 kB remains."
+  ]
+}
