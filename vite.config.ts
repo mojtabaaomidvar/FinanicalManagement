@@ -6,6 +6,7 @@ import { fileURLToPath, URL } from "node:url";
 import { readFileSync } from "node:fs";
 import { copySourcePlugin } from "./scripts/copy-workbench/instrument.mjs";
 import { supportBrandingPlugin } from "./scripts/support-branding-plugin";
+import { releaseHistoryPlugin } from "./scripts/release-history-plugin";
 
 /* شناسه ساخت — هر بار که build اجرا شود عوض می‌شود، پس هر انتشار
    خودبه‌خود یکتاست و لازم نیست یادتان باشد عدد نسخه را دستی جلو ببرید.
@@ -26,6 +27,7 @@ export default defineConfig(({ mode }) => {
     } : {}),
   },
   plugins: [
+    releaseHistoryPlugin("pwa", APP_VERSION),
     {
       name: "app-version-metadata",
       generateBundle() {

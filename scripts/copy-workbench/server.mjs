@@ -87,7 +87,7 @@ export async function createWorkbench({ root = defaultRoot, port = 5701, build, 
     const results = await Promise.allSettled(directories.map(async id => {
       const manifest = JSON.parse(await readFile(join(backupDirectory, id, 'manifest.json'), 'utf8'));
       if (manifest.id !== id || !manifest.completedAt || manifest.failedAt) return null;
-      const files = (manifest.files ?? []).filter(file => typeof file.file === 'string' && /^(?:src\/|backend\/app\/|site\/|public\/|index\.html$)/.test(file.file));
+      const files = (manifest.files ?? []).filter(file => typeof file.file === 'string' && /^(?:src\/|backend\/app\/|site\/|public\/|index\.html$|release-history\.json$)/.test(file.file));
       const changes = (manifest.changes ?? []).filter(change => typeof change.id === 'string' && typeof change.text === 'string' && typeof change.expectedText === 'string').map(change => {
         const entry = catalog?.entries.find(value => value.id === change.id);
         const file = entry?.file ?? files.find(value => change.id.startsWith(value.file + ':'))?.file ?? null;
@@ -181,7 +181,7 @@ export async function createWorkbench({ root = defaultRoot, port = 5701, build, 
     for (let index = 0; index < files.length; index++) {
       const file = files[index];
       const absolute = await within(root, resolve(root, file.file));
-      if (!/^(?:src\/|backend\/app\/|site\/|public\/|index\.html$)/.test(file.file.replaceAll('\\', '/'))) throw new WorkbenchError('PATH_DENIED', 'این فایل در محدودهٔ نوشته‌های برنامه نیست.', 403);
+      if (!/^(?:src\/|backend\/app\/|site\/|public\/|index\.html$|release-history\.json$)/.test(file.file.replaceAll('\\', '/'))) throw new WorkbenchError('PATH_DENIED', 'این فایل در محدودهٔ نوشته‌های برنامه نیست.', 403);
       if (await readFile(absolute, 'utf8') !== file.original) throw new WorkbenchError('SOURCE_CHANGED', 'فایل هم‌زمان تغییر کرده است؛ فهرست را دوباره دریافت کن.', 409);
       const snapshot = index + '.before.txt';
       await writeFile(join(backup, snapshot), file.original, 'utf8');

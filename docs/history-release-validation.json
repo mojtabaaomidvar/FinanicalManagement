@@ -1,0 +1,60 @@
+{
+  "passed": true,
+  "date": "2026-11-28",
+  "scope": "PWA 0.15.0 and management web 0.4.0; API and schema unchanged",
+  "baseline_commit": "c2516e8078e9977989a750df0793c737cad8278f",
+  "frontend_passed": 1009,
+  "frontend_failed": 0,
+  "copy_studio_passed": 145,
+  "editable_texts": 6149,
+  "management_tests_passed": 132,
+  "management_tests_skipped": 4,
+  "management_skip_reason": "Native PostgreSQL binaries were not configured in the isolated release worktree. These unchanged database integration tests were not exercised in this run; no application database was used.",
+  "installer_tests_passed": 13,
+  "history_browser_checks": 5,
+  "history_browser_screenshots": 7,
+  "management_browser_checks": 22,
+  "management_browser_screenshots": 35,
+  "browser_errors": 0,
+  "external_runtime_requests": 0,
+  "manual_data_writes": 0,
+  "production_data_writes": 0,
+  "typescript_and_production_builds": "passed",
+  "ruff": "passed",
+  "projection_checks": {
+    "production_api_origin": true,
+    "copy_source_metadata_absent_from_pwa": true,
+    "technical_note_text_absent_from_pwa": true,
+    "management_has_no_pwa_update_marker": true
+  },
+  "browser_coverage": [
+    "Public PWA history at 360 and 1440 pixels; RTL, current version and keyboard close",
+    "First installation and ordinary reload have no invented notice; a pending update produces one device-only notice",
+    "History opens after a real service-worker-controlled offline reload",
+    "Management history remains during loading/error; missing notes and unknown API release are explicit",
+    "Exact JSON note identity survives preview picking, English, empty and restored drafts",
+    "Existing management authentication, analytics, Excel, feature controls, package installation, backups and operation history remain functional in the isolated demo"
+  ],
+  "installer_coverage": [
+    "Unchanged source/schema read-only probes and verified published baseline",
+    "Private environment/configuration preservation and modified-source rejection",
+    "Protected backups, retained old management assets and repeat execution",
+    "Failure between web swaps and between rename steps resumes from the durable journal",
+    "HTTP health failure retains both web backups and permits same-package retry",
+    "Unknown files and edits stop rather than being discarded",
+    "Pinned bootstrap uses atomic extraction and rejects traversal, links and modified retained releases"
+  ],
+  "corrected_failures": [
+    "The initial production-browser test used an obsolete navigation label; it now follows the profile/settings control.",
+    "The independent management build required its own source alias. Shared list rendering was separated from the PWA dialog so management does not bundle application runtime helpers.",
+    "The new offline action inherited pointer-events:none from the informational bar; only the button now accepts pointer events.",
+    "The component selector now has an explicit label/for link.",
+    "The copy-preview browser check now brings the iframe into the workbench viewport before interacting. No source writes were needed for that test correction."
+  ],
+  "limits": [
+    "Linux Docker/systemd and production HTTP failure paths use explicit local doubles; installation is not claimed.",
+    "Physical installed-PWA and Android acceptance are not exercised.",
+    "The existing application chunk warning above 500 kB remains.",
+    "Versions before this feature cannot create the update marker; their first upgrade uses the permanent About history entry."
+  ]
+}

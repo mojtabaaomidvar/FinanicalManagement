@@ -3984,8 +3984,8 @@ button:active {
    z-index از tabbar-dock (۵۰) بالاتر و از toast (۲۰۰) و date-picker (۱۲۰)
    پایین‌تر است: پیامِ گذرا و انتخاب‌گرِ تاریخ باید رویش بنشینند.
 
-   pointer-events: none — نوار دکمه‌ای ندارد و خودش با برگشتِ اتصال می‌رود،
-   پس نباید لمسِ محتوای زیرش را بگیرد. */
+   pointer-events: none — خود نوار لمس محتوای زیرش را نمی‌گیرد؛
+   دکمهٔ تاریخچه، رویداد اشاره‌گر مستقل دارد. */
 .offline-bar {
   position: fixed;
   bottom: calc(12px + env(safe-area-inset-bottom));

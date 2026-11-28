@@ -31,7 +31,7 @@ function validateText(text) {
   if (typeof text !== 'string' || text.length > maxTextLength || text.includes('\0')) fail('INVALID_TEXT', 'متن ویرایش‌شده نامعتبر یا بیش از حد طولانی است.');
 }
 async function sourceHash(root, file) {
-  if (typeof file !== 'string' || !/^(?:src\/|backend\/app\/|site\/|public\/|index\.html$)/.test(file) || file.includes('\\')) fail('PATH_DENIED', 'محل نوشته در پروژه معتبر نیست.', 403);
+  if (typeof file !== 'string' || !/^(?:src\/|backend\/app\/|site\/|public\/|index\.html$|release-history\.json$)/.test(file) || file.includes('\\')) fail('PATH_DENIED', 'محل نوشته در پروژه معتبر نیست.', 403);
   const actual = await realpath(resolve(root, file));
   const distance = relative(root, actual);
   if (!distance || distance === '..' || distance.startsWith('..' + sep) || resolve(root, distance) !== actual) fail('PATH_DENIED', 'محل نوشته در پروژه معتبر نیست.', 403);

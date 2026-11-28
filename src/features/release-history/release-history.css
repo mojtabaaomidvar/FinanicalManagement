@@ -1,0 +1,21 @@
+.release-history-sheet { max-inline-size: 552px; color: var(--text); }
+.release-history-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-block-end: 12px; }
+.release-history-heading h2 { margin: 0; font-size: 1.15rem; }
+.release-history-heading button { flex-shrink: 0; }
+.release-history-list { display: grid; gap: 12px; margin-block-start: 20px; text-align: start; }
+.release-history-entry { min-inline-size: 0; border: 1px solid var(--line, var(--border)); border-radius: 12px; padding: 16px; }
+.release-history-entry summary { cursor: pointer; line-height: 1.6; }
+.release-history-version { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-inline: 8px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.release-history-version small { font: inherit; font-size: .8rem; font-weight: 500; color: var(--text-3, var(--muted)); }
+.release-history-entry time, .release-history-entry summary > .release-history-hint { display: block; margin-inline-start: 24px; margin-block-start: 6px; font-size: .8rem; }
+.release-history-notes { max-inline-size: 68ch; margin-block-start: 20px; overflow-wrap: anywhere; line-height: 1.8; }
+.release-history-notes section { margin-block-start: 20px; }
+.release-history-notes h4 { font-size: .95rem; margin: 0 0 8px; }
+.release-history-notes p { margin: 0 0 12px; }
+.release-history-notes ul { margin: 0; padding-inline-start: 20px; display: grid; gap: 8px; }
+.release-history-hint { color: var(--text-3, var(--muted)); line-height: 1.7; }
+.release-history-notes [data-copy-sources] { min-inline-size: .65em; min-block-size: 1em; display: inline-block; }
+.release-history-entry summary:focus-visible { outline: 2px solid currentColor; outline-offset: 5px; border-radius: 2px; }
+.release-history-views { display: flex; flex-wrap: wrap; gap: 8px; margin-block-end: 24px; }
+.release-history-views button[aria-pressed="true"] { font-weight: 700; outline: 2px solid currentColor; outline-offset: 2px; }
+.offline-bar button { pointer-events: auto; min-block-size: 44px; }

@@ -310,6 +310,19 @@ try {
   results.checks.push('User suspension, activation and empty search');
 
   await navigate('نسخه‌ها');
+  await page.getByRole('heading', { name: 'تغییرات نسخه‌ها', exact: true }).waitFor();
+  assert.ok(await page.locator('[data-release-id="pwa-0.15.0"]').count() === 1);
+  await page.getByLabel('بخش نرم‌افزار', { exact: true }).selectOption('api');
+  await page.getByText('نامشخص', { exact: true }).waitFor();
+  assert.equal(await page.locator('[data-release-id^="api-"] small').count(), 0);
+  await page.getByLabel('بخش نرم‌افزار', { exact: true }).selectOption('management');
+  await page.locator('[data-release-id="management-0.4.0"]').waitFor();
+  for (const width of [360, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await screenshot(`release-history-${width}`);
+  }
+  results.checks.push('Local PWA/API/management history and unknown API release without installing a package');
+  await page.getByRole('button', { name: 'بسته‌های نصب', exact: true }).click();
   await page.getByLabel('شمارهٔ نسخه', { exact: true }).fill('v0.6.1');
   await page.getByRole('button', { name: 'دریافت و بررسی', exact: true }).click(); await confirm();
   await page.getByRole('button', { name: 'بررسی و نصب', exact: true }).click();
