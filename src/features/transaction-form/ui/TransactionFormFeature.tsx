@@ -158,7 +158,8 @@ export function TransactionFormFeature({ form: m, onImported }: {
       : m.occurrencePending ? m.occurrenceAcknowledged ? "ذخیرهٔ رسیدها" : "تأیید سررسید"
         : m.editing ? "ذخیرهٔ تغییرات" : m.form.type === "expense" ? "ثبت هزینه"
           : m.form.type === "income" ? "ثبت درآمد" : "ثبت انتقال";
-  return <Modal open={m.open} onClose={m.close} padded={false} dragToClose sheetClassName="tx-sheet tx-simple-sheet">
+  return <Modal open={m.open} onClose={m.close} padded={false} dragToClose fullscreenOnMobile={m.fullscreenOnMobile}
+    ariaLabel="تراکنش" sheetClassName="tx-sheet tx-simple-sheet">
     <form className="tx-simple" aria-busy={m.busy} onSubmit={event => { event.preventDefault(); void m.save(refreshData, accounts.filter(account => account.memberId === ownerId).length); }}>
       <header className="tx-simple-head">
         <h2>{m.occurrencePending ? "تکمیل نوبت ثبت‌شده" : m.editing ? "ویرایش تراکنش" : "تراکنش جدید"}</h2>

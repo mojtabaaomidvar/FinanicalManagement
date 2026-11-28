@@ -49,6 +49,7 @@ import { toFa } from "@/shared/lib/digits";
 import { formatAmount } from "@/shared/lib/format";
 import { toDisplay } from "@/shared/lib/currency";
 import { parseShoppingPrice } from "@/domain/shopping/shopping.rules";
+import { useQuickAddRequest, type QuickAddPageProps } from "@/shared/lib/useQuickAddRequest";
 
 interface ItemForm {
   title: string;
@@ -70,9 +71,9 @@ const EMPTY_ITEM: ItemForm = {
   inventoryItemId: "",
 };
 
-export function ShoppingPage() {
+export function ShoppingPage({ quickAddId, onQuickAddConsumed }: QuickAddPageProps) {
   const {
-    useCases, cur, accounts, shoppingLists, inventory, refreshData, shoppingSync,
+    useCases, cur, accounts, shoppingLists, inventory, refreshData, shoppingSync, homeDataStatus,
   } = useApp();
   const { show } = useToast();
   const online = useOnline();
@@ -90,6 +91,8 @@ export function ShoppingPage() {
   const [listOpen, setListOpen] = useState(false);
   const [listEditing, setListEditing] = useState<ShoppingList | null>(null);
   const [listTitle, setListTitle] = useState("");
+  const [quickForm, setQuickForm] = useState(false);
+  const [continueToItem, setContinueToItem] = useState(false);
 
   /* فرمِ قلم */
   const [itemOpen, setItemOpen] = useState(false);
@@ -120,12 +123,14 @@ export function ShoppingPage() {
   );
 
   function openNewList() {
+    setQuickForm(false); setContinueToItem(false);
     setListEditing(null);
     setListTitle("");
     setListOpen(true);
   }
 
   function openRenameList(list: ShoppingList) {
+    setQuickForm(false);
     setListEditing(list);
     setListTitle(list.title);
     setListOpen(true);
@@ -140,6 +145,7 @@ export function ShoppingPage() {
     }
     setBusy(true);
     try {
+      let createdId: string | undefined;
       if (listEditing) {
         await useCases.renameShoppingList.execute(listEditing.id, title);
       } else {
@@ -147,9 +153,14 @@ export function ShoppingPage() {
         /* به لیستِ تازه برو — وگرنه کاربر لیست می‌ساخت و هیچ اتفاقی
            نمی‌دید چون لیستِ فعال همان قبلی می‌ماند. */
         setActiveId(created.id);
+        createdId = created.id;
       }
       await refreshData();
       setListOpen(false);
+      if (continueToItem && createdId) {
+        setContinueToItem(false); setEntryCurrency(cur); setItemEditing(null);
+        setItemForm({ ...EMPTY_ITEM }); setItemOpen(true);
+      }
       showChange(listEditing ? "نام لیست عوض شد" : "لیست ساخته شد");
     } catch (e) {
       show((e as Error).message || "ذخیرهٔ لیست ناموفق بود");
@@ -199,6 +210,7 @@ export function ShoppingPage() {
   }
 
   function openEditItem(item: ShoppingItem) {
+    setQuickForm(false);
     setEntryCurrency(cur);
     setItemEditing(item);
     setItemForm({
@@ -216,11 +228,22 @@ export function ShoppingPage() {
   }
 
   function openNewItem() {
+    setQuickForm(false);
     setEntryCurrency(cur);
     setItemEditing(null);
     setItemForm({ ...EMPTY_ITEM, title: quick.trim() });
     setItemOpen(true);
   }
+
+  useQuickAddRequest(quickAddId, Boolean(useCases) && !homeDataStatus.loading && !busy, () => {
+    if (listOpen || itemOpen || tripOpen) { show("فرم باز قبلی حفظ شده است؛ ابتدا همان فرم را تکمیل یا ببندید."); return; }
+    setQuickForm(true);
+    if (active) {
+      setEntryCurrency(cur); setItemEditing(null); setItemForm({ ...EMPTY_ITEM }); setItemOpen(true);
+    } else {
+      setContinueToItem(true); setListEditing(null); setListTitle(""); setListOpen(true);
+    }
+  }, onQuickAddConsumed);
 
   async function saveItem() {
     if (!useCases || !active || busy) return;
@@ -490,10 +513,12 @@ export function ShoppingPage() {
       {/* ── فرمِ لیست ── */}
       <Modal
         open={listOpen}
-        onClose={() => setListOpen(false)}
+        onClose={() => { if (!busy) { setListOpen(false); setContinueToItem(false); } }}
+        fullscreenOnMobile={quickForm}
         title={listEditing ? "تغییر نام لیست" : "لیست جدید"}
         dragToClose
       >
+        {quickForm ? <button type="button" className="btn-ghost quick-form-close" disabled={busy} onClick={() => { setListOpen(false); setContinueToItem(false); }}>بستن</button> : null}
         <Field label="نام لیست">
           <TextInput
             value={listTitle}
@@ -514,10 +539,12 @@ export function ShoppingPage() {
       {/* ── فرمِ قلم ── */}
       <Modal
         open={itemOpen}
-        onClose={() => setItemOpen(false)}
+        onClose={() => { if (!busy) setItemOpen(false); }}
+        fullscreenOnMobile={quickForm}
         title={itemEditing ? "ویرایش قلم" : "افزودن قلم"}
         dragToClose
       >
+        {quickForm ? <button type="button" className="btn-ghost quick-form-close" disabled={busy} onClick={() => setItemOpen(false)}>بستن</button> : null}
         <Field label="نام">
           <TextInput
             value={itemForm.title}

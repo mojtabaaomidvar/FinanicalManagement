@@ -15,6 +15,8 @@ spec.loader.exec_module(common)
 common.DIRECTORY = ROOT / ".local-test/history-release"
 common.TAG = "v0.15.1"
 common.ASSETS = ("history-0.15.1.tgz", "validation.json", "install.sh", "SHA256SUMS")
+NOTES_PATH = ROOT / "docs/deployment-history-0.15.1.md"
+RELEASE_NAME = "KhanehYar 0.15.1 / Management 0.4.1 — History after wallet update"
 
 
 def main():
@@ -29,9 +31,9 @@ def main():
     api = "https://api.github.com/repos/" + common.REPOSITORY
     code, release = github.request("GET", api + "/releases/tags/" + common.TAG)
     if code == 404:
-        notes = (ROOT / "docs/deployment-history-0.15.1.md").read_text(encoding="utf-8")
+        notes = NOTES_PATH.read_text(encoding="utf-8")
         code, release = github.request("POST", api + "/releases", payload={
-            "tag_name": common.TAG, "target_commitish": commit, "name": "KhanehYar 0.15.1 / Management 0.4.1 — History after wallet update",
+            "tag_name": common.TAG, "target_commitish": commit, "name": RELEASE_NAME,
             "draft": True, "prerelease": False, "make_latest": "true", "body": notes})
         if code != 201:
             raise RuntimeError("Release creation failed with HTTP " + str(code))

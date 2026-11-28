@@ -5,6 +5,7 @@ import { useApp } from "./providers/AppProvider";
 import { requestBack } from "@/shared/lib/backGuard";
 import { useNavigation } from "./useNavigation";
 import { useMobileViewport } from "./useMobileViewport";
+import type { QuickAddKind } from "@/widgets/quick-actions/FloatingNavigation";
 import { PageActivityContext } from "@/shared/lib/pageActivity";
 import { PageNavigationContext } from "@/shared/ui/AppPage";
 import { FloatingNavigation } from "@/widgets/quick-actions/FloatingNavigation";
@@ -407,6 +408,9 @@ function MainShell({
   const [goalId, setGoalId] = useState<string | undefined>();
   const [activityId, setActivityId] = useState<string | undefined>();
   const [calendarDate, setCalendarDate] = useState<string | undefined>();
+  const quickSequence = useRef(0);
+  const [quickRequest, setQuickRequest] = useState<{ id: number; kind: QuickAddKind } | null>(null);
+  const consumeQuickAdd = () => setQuickRequest(null);
 
   const nav = useCallback(
     (r: Route) => {
@@ -415,6 +419,7 @@ function MainShell({
         return;
       }
       setRoute(r);
+      setQuickRequest(null);
       /* هر ناوبریِ معمولی مقصدِ زیرصفحهٔ تنظیمات را پاک می‌کند، وگرنه
          دفعهٔ بعد که کاربر خودش روی «تنظیمات» می‌زند، باز هم همان
          زیرصفحهٔ قبلی باز می‌شد. */
@@ -448,6 +453,24 @@ function MainShell({
     },
     [setRoute],
   );
+
+  const quickAdd = (kind: QuickAddKind) => {
+    if (restricted && !["shopping", "task"].includes(kind)) {
+      show("این افزودن به اتصال اینترنت نیاز دارد؛ خرید و کار خانه آفلاین در دسترس‌اند."); return;
+    }
+    if (form.open || form.busy || pendingSms.open || assistant.open) return;
+    const destination = kind === "shopping" ? "shopping" : kind === "task" ? "tasks"
+      : kind === "activity" ? "activities" : kind === "meal" ? "meals" : "transactions";
+    nav(destination); setQuickRequest({ id: ++quickSequence.current, kind });
+  };
+  useEffect(() => {
+    if (route !== "transactions" || restricted || !quickRequest || !["expense", "income", "transfer"].includes(quickRequest.kind)) return;
+    if (!form.open && !form.busy) {
+      form.openQuickAdd();
+      form.setType(quickRequest.kind as "expense" | "income" | "transfer");
+    }
+    setQuickRequest(null);
+  }, [route, restricted, quickRequest, form.open, form.busy]);
 
   const openRecord = (ref: NotificationRef) => {
     if (restricted && ref.kind !== "tasks") return;
@@ -524,11 +547,11 @@ function MainShell({
         {route === "calendar" ? <CalendarPage initialDate={calendarDate} summary={notif}
           onInitialDateConsumed={() => setCalendarDate(undefined)}
           onOpenItem={openRecord} onRefresh={bumpRefresh} /> : null}
-        {route === "shopping" ? <ShoppingPage /> : null}
+        {route === "shopping" ? <ShoppingPage quickAddId={quickRequest?.kind === "shopping" ? quickRequest.id : undefined} onQuickAddConsumed={consumeQuickAdd} /> : null}
         {route === "inventory" ? <InventoryPage /> : null}
-        {route === "tasks" ? <TasksPage /> : null}
+        {route === "tasks" ? <TasksPage quickAddId={quickRequest?.kind === "task" ? quickRequest.id : undefined} onQuickAddConsumed={consumeQuickAdd} /> : null}
         {route === "documents" ? <DocumentsPage onChanged={notif.reload} /> : null}
-        {route === "meals" ? <MealsPage /> : null}
+        {route === "meals" ? <MealsPage quickAddId={quickRequest?.kind === "meal" ? quickRequest.id : undefined} onQuickAddConsumed={consumeQuickAdd} /> : null}
         {route === "equipment" ? <EquipmentPage initialEquipmentId={equipmentId}
           onInitialEquipmentConsumed={() => setEquipmentId(undefined)}
           onOpenDocuments={() => nav("documents")}
@@ -555,6 +578,7 @@ function MainShell({
         {route === "goals" ? <GoalsPage initialGoalId={goalId}
           onInitialGoalConsumed={() => setGoalId(undefined)} onChanged={notif.reload} /> : null}
         {route === "activities" ? <ActivitiesPage initialActivityId={activityId}
+          quickAddId={quickRequest?.kind === "activity" ? quickRequest.id : undefined} onQuickAddConsumed={consumeQuickAdd}
           onInitialActivityConsumed={() => setActivityId(undefined)}
           onChanged={async () => { await bumpRefresh(); await notif.reload(); }} /> : null}
         {route === "children" ? <ChildrenPage navigate={nav}
@@ -608,6 +632,7 @@ function MainShell({
        </div>
        </PageActivityContext.Provider>)}
       <FloatingNavigation home={route === "hub"} sections={route === "sections"} onHome={() => nav("hub")}
+        onQuickAdd={quickAdd}
         onSections={() => nav("sections")} notifications={route === "notifications"} count={notif.count + pendingSms.list.length}
         onNotifications={() => nav("notifications")} hidden={form.open || pendingSms.open || assistant.open}
         onAssistant={() => { if (!form.open && !form.busy && !pendingSms.open) assistant.show(route); }} />

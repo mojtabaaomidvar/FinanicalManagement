@@ -6,16 +6,26 @@ import { formatLong, isoToJalali } from "@/shared/lib/jalali";
 import { toFa } from "@/shared/lib/digits";
 import { Card, Field, Icon, JalaliDateInput, Modal } from "@/shared/ui";
 import "./ActivitiesPage.css";
+import { useState } from "react";
+import { useQuickAddRequest, type QuickAddPageProps } from "@/shared/lib/useQuickAddRequest";
+import { useToast } from "@/app/providers/ToastProvider";
 
 const FILTERS: { value: ActivityFilter; label: string }[] = [
   { value: "all", label: "همه" }, { value: "planned", label: "برنامه‌ریزی‌شده" },
   { value: "done", label: "انجام‌شده" }, { value: "cancelled", label: "لغوشده" },
 ];
-export function ActivitiesPage({ initialActivityId, onChanged, onInitialActivityConsumed }: {
+export function ActivitiesPage({ initialActivityId, onChanged, onInitialActivityConsumed, quickAddId, onQuickAddConsumed }: QuickAddPageProps & {
   initialActivityId?: string; onChanged?: () => void | Promise<void>; onInitialActivityConsumed?: () => void;
 }) {
   const model = useActivitiesModel(initialActivityId, onChanged, onInitialActivityConsumed);
   const { detailItem, activeDialog, form, busy } = model;
+  const [quickForm, setQuickForm] = useState(false);
+  const { show } = useToast();
+  useQuickAddRequest(quickAddId, model.available && !model.loading && !busy && (model.hasSnapshot || model.accessDenied), () => {
+    if (activeDialog || detailItem) { show("فرم باز قبلی حفظ شده است؛ ابتدا همان فرم را تکمیل یا ببندید."); return; }
+    if (!model.canCreate) { show("اجازهٔ ثبت برنامهٔ خانوادگی در دسترس نیست."); return; }
+    model.openItem(null); setQuickForm(true);
+  }, onQuickAddConsumed);
   const selectedParticipants = detailItem ? model.participants.filter((member) => detailItem.participantIds.includes(member.id)) : [];
   return <AppPage className="page active activities-page" aria-busy={model.loading || busy || model.detailLoading}>
     <header className="app-header"><div className="header-title"><h1>تفریح و برنامه‌های خانوادگی</h1><p>برنامه‌های مشترک، شرکت‌کنندگان و یادآورها</p></div></header>
@@ -23,7 +33,7 @@ export function ActivitiesPage({ initialActivityId, onChanged, onInitialActivity
       {!model.available ? <Card><p className="modal-sub" role="status">مشاهده و مدیریت برنامه‌های خانوادگی به اتصال اینترنت و ورود معتبر نیاز دارد.</p></Card> : <>
         <Card><div className="activities-summary"><div><p className="activities-count">{toFa(model.items.length)} برنامهٔ خانوادگی</p>
           <p className="form-note">برنامه‌های مشترک خانواده در تقویم هم نمایش داده می‌شوند.</p></div><Icon name="i-grid4" size={30} /></div>
-          <button type="button" className="btn-primary" disabled={model.loading || busy || !model.canCreate || model.accessDenied} onClick={() => model.openItem(null)}>ثبت برنامهٔ جدید</button></Card>
+          <button type="button" className="btn-primary" disabled={model.loading || busy || !model.canCreate || model.accessDenied} onClick={() => { setQuickForm(false); model.openItem(null); }}>ثبت برنامهٔ جدید</button></Card>
         <input type="search" className="text-input" aria-label="جست‌وجوی برنامه‌ها" placeholder="عنوان، توضیح یا مکان" value={model.query} onChange={(event) => model.setQuery(event.target.value)} />
         <div className="activities-tabs" role="group" aria-label="فیلتر وضعیت">{FILTERS.map((option) => <button type="button" key={option.value}
           className={`activities-tab${model.filter === option.value ? " active" : ""}`} aria-pressed={model.filter === option.value} onClick={() => model.setFilter(option.value)}>{option.label}</button>)}</div>
@@ -57,7 +67,7 @@ export function ActivitiesPage({ initialActivityId, onChanged, onInitialActivity
         <button type="button" className="btn-secondary" disabled={busy} onClick={model.closeDetail}>بستن جزئیات</button>
       </div> : null}
     </Modal>
-    <Modal open={activeDialog?.kind === "item"} onClose={model.closeForm} title={activeDialog?.kind === "item" && activeDialog.item ? "ویرایش برنامه" : "برنامهٔ جدید"} sheetClassName="activities-sheet" dragToClose>
+    <Modal open={activeDialog?.kind === "item"} onClose={model.closeForm} fullscreenOnMobile={quickForm && !activeDialog?.item} title={activeDialog?.kind === "item" && activeDialog.item ? "ویرایش برنامه" : "برنامهٔ جدید"} sheetClassName="activities-sheet" dragToClose>
       <form autoComplete="off" onSubmit={(event) => { event.preventDefault(); model.saveItem(); }}>
         <fieldset className="activities-fields" disabled={busy}>
           <Field label="عنوان برنامه"><input className="text-input" aria-label="عنوان برنامه" value={form.title} maxLength={120} required onChange={(event) => model.setForm((previous) => ({ ...previous, title: event.target.value }))} /></Field>

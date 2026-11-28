@@ -171,7 +171,7 @@ export function useActivitiesModel(initialActivityId?: string, onChanged?: () =>
     setForm((previous) => ({ ...previous, participantIds: previous.participantIds.includes(id)
       ? previous.participantIds.filter((selected) => selected !== id) : [...previous.participantIds, id] }));
   };
-  return { available, items, visible, canCreate, loading, busy, detailLoading, loadError, accessDenied, participants,
+  return { available, hasSnapshot, items, visible, canCreate, loading, busy, detailLoading, loadError, accessDenied, participants,
     query, setQuery, filter, setFilter, activeDialog, detailItem, form, setForm, formError, conflict, reload,
     openDetail, openItem, openDelete, saveItem, setStatus, deleteItem, toggleParticipant,
     closeForm: () => { if (!busy) clearForm(); }, closeDetail: () => { if (!busy) { detailSequence.current += 1; setDetail(null); } },

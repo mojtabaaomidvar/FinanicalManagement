@@ -54,7 +54,7 @@ export function HouseholdAssistant({ model, offline, lists, members, onShopping,
   const result = model.result;
   const visibleActions = result?.actions.filter(action => option === null || result.options[option]?.action_ids.includes(action.id)
     || action.kind === "shopping_list" && !lists.length) ?? [];
-  return <Modal open={model.open} onClose={close} title="دستیار خانه‌یار" dragToClose sheetClassName="household-assistant-sheet">
+  return <Modal open={model.open} onClose={close} title="دستیار خانه‌یار" dragToClose dialogSemantics={false} sheetClassName="household-assistant-sheet">
     <section ref={dialogRef} role="dialog" aria-modal="true" aria-label="دستیار خانه‌یار"
        className={`household-assistant ${model.busy ? "is-analyzing" : ""}`} aria-busy={model.restoring || model.busy || model.actionBusy}
       onKeyDown={event => {

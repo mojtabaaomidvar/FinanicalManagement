@@ -6,7 +6,7 @@
    dragToClose → کشیدن به پایین از بالای شیت (لمس موبایل) = بستن */
 
 import {
-  useEffect,
+  useId,
   useRef,
   type CSSProperties,
   type ReactNode,
@@ -15,12 +15,8 @@ import {
 import { RetainedPortal } from "./RetainedPortal";
 import { useBackGuard } from "@/shared/lib/useBackGuard";
 import { usePageActivity } from "@/shared/lib/pageActivity";
-
-/* پشتهٔ مودال‌های باز — چون مودال می‌تواند روی مودال باز شود
-   (مثل «ورود پیامک» روی شیت ثبت تراکنش):
-   • Escape فقط بالاترین مودال را می‌بندد، نه همه را
-   • اسکرول body تنها وقتی آزاد می‌شود که آخرین مودال هم بسته شده باشد */
-const openStack: { id: symbol; order: number }[] = [];
+import { useDialogFocus } from "./dialogFocus";
+import "./Modal.css";
 
 export function Modal(props: {
   open: boolean;
@@ -35,41 +31,18 @@ export function Modal(props: {
   padded?: boolean;
   /** کشیدن به پایین (لمس) از ناحیه بالای شیت = بستن */
   dragToClose?: boolean;
+  fullscreenOnMobile?: boolean;
+  ariaLabel?: string;
+  dialogSemantics?: boolean;
 }) {
   const active = usePageActivity();
   const visible = props.open && active;
   const sheetRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
   const drag = useRef({ active: false, startY: 0, y: 0 });
-  /* شناسه ثابت این مودال در پشته */
-  const idRef = useRef<symbol | null>(null);
-  idRef.current ??= Symbol("modal");
-  /* onClose تازه بدون وابسته‌کردن افکت به آن — وگرنه هر رندر
-     مودال را از پشته برداشته و دوباره بالا می‌گذارد */
-  const closeRef = useRef(props.onClose);
-  closeRef.current = props.onClose;
-
   /* بازگشت فیزیکی/نرم‌افزاری و سوایپ لبه = بستن این مودال (LIFO) */
   const order = useBackGuard(props.open, props.onClose);
-
-  useEffect(() => {
-    if (!visible) return;
-    const id = idRef.current!;
-    openStack.push({ id, order: order! });
-    openStack.sort((a, b) => a.order - b.order);
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && openStack[openStack.length - 1]?.id === id) {
-        closeRef.current();
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      const i = openStack.findIndex(entry => entry.id === id);
-      if (i !== -1) openStack.splice(i, 1);
-      if (!openStack.length) document.body.style.overflow = "";
-    };
-  }, [visible, order]);
+  useDialogFocus(sheetRef, visible, order, props.onClose);
 
   if (!props.open) return null;
 
@@ -79,7 +52,7 @@ export function Modal(props: {
        کامپوننت بالا می‌آید؛ پس لمس داخل مودال رویی به این هندلر هم می‌رسد.
        بدون این نگهبان، اسکرول در «ورود پیامک» شیت تراکنش زیر آن را می‌بندد. */
     if (!props.dragToClose) return;
-    if (openStack[openStack.length - 1]?.id !== idRef.current) return;
+    if (sheetRef.current?.closest("[inert]")) return;
     const sheet = sheetRef.current;
     if (!sheet || sheet.scrollTop > 0) return;
     drag.current = { active: true, startY: e.touches[0].clientY, y: 0 };
@@ -108,14 +81,19 @@ export function Modal(props: {
 
   return <RetainedPortal visible={visible} order={order!}>
     <div
-      className={`modal-overlay ${props.overlayClassName ?? ""}`}
+      className={`modal-overlay${props.fullscreenOnMobile ? " is-mobile-fullscreen-overlay" : ""} ${props.overlayClassName ?? ""}`}
       onClick={(e) => {
         if (e.target === e.currentTarget) props.onClose();
       }}
     >
       <div
         ref={sheetRef}
-        className={`modal-sheet ${props.padded === false ? "no-pad" : ""} ${props.sheetClassName ?? ""}`}
+        className={`modal-sheet ${props.padded === false ? "no-pad" : ""}${props.fullscreenOnMobile ? " is-mobile-fullscreen" : ""} ${props.sheetClassName ?? ""}`}
+        role={props.dialogSemantics === false ? undefined : "dialog"}
+        aria-modal={props.dialogSemantics === false ? undefined : true}
+        aria-labelledby={props.dialogSemantics === false || !props.title ? undefined : titleId}
+        aria-label={props.dialogSemantics === false || props.title ? undefined : (props.ariaLabel ?? "پنجره")}
+        tabIndex={-1}
         style={props.style}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
@@ -123,7 +101,7 @@ export function Modal(props: {
         onTouchCancel={onTouchEnd}
       >
         <div className="modal-grabber" />
-        {props.title ? <h3>{props.title}</h3> : null}
+        {props.title ? <h3 id={titleId}>{props.title}</h3> : null}
         {props.children}
       </div>
     </div>
