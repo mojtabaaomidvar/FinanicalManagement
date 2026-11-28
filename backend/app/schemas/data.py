@@ -44,6 +44,18 @@ def _isodate(value: _date | None) -> str | None:
 
 
 # ── حساب‌ها ──────────────────────────────────────────────────
+class AccountTransferTargetOut(BaseModel):
+    id: str
+    family_id: str
+    member_id: str
+    kind: str
+
+    @classmethod
+    def of(cls, account: Account) -> AccountTransferTargetOut:
+        return cls(id=str(account.id), family_id=str(account.family_id),
+                   member_id=str(account.member_id), kind=account.kind)
+
+
 class AccountOut(BaseModel):
     id: str
     family_id: str

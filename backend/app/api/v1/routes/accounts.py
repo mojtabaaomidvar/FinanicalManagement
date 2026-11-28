@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Response, status
@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_tenant_member
 from app.db.session import get_db
 from app.models.family import Member
-from app.schemas.data import AccountCreate, AccountDelete, AccountOut, AccountUpdate
+from app.schemas.data import AccountCreate, AccountDelete, AccountOut, AccountTransferTargetOut, AccountUpdate
 from app.services import accounts as account_service
 from app.services.common import to_uuid
 from app.schemas.wallet import CorrectionOut, CorrectionWrite, WalletBalanceOut
@@ -45,12 +45,15 @@ def correct_balance(account_id: UUID, req: CorrectionWrite, member: TenantMember
     return CorrectionOut.model_validate(wallet_corrections.apply_correction(db, member, account_id, req))
 
 
-@router.get("/accounts", response_model=list[AccountOut])
+@router.get("/accounts", response_model=list[AccountOut] | list[AccountTransferTargetOut])
 def list_accounts(
     member: TenantMember,
     db: DbSession,
-) -> list[AccountOut]:
-    return [AccountOut.of(a) for a in account_service.list_for_family(db, member.family_id)]
+    view: Literal["wallets", "transfer-targets"] = "wallets",
+) -> list[AccountOut] | list[AccountTransferTargetOut]:
+    if view == "transfer-targets":
+        return [AccountTransferTargetOut.of(a) for a in account_service.list_transfer_targets(db, member)]
+    return [AccountOut.of(a) for a in account_service.list_for_family(db, member)]
 
 
 @router.post("/accounts", response_model=AccountOut, status_code=status.HTTP_201_CREATED)

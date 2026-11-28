@@ -48,3 +48,5 @@ export interface AccountPatch {
   /** برای اعتبارسنجی الزامی‌بودن شماره کارت — از حساب موجود می‌آید */
   kind: AccountKind;
 }
+/** Destination routing only; never includes a peer's balance or bank details. */
+export type AccountTransferTarget = Pick<Account, "id" | "familyId" | "memberId" | "kind">;

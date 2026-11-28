@@ -109,10 +109,10 @@ def _read(db, actor, section: str, day: date) -> list[dict]:
         return [_data(row) for row in bills.list_for_family(db, actor)]
     if section == "finance":
         # Deliberately exclude another member's account details from the provider.
-        own = {row.id for row in accounts.list_for_family(db, actor.family_id)
+        own = {row.id for row in accounts.list_for_family(db, actor)
                if row.member_id == actor.id}
         rows = [_fields(row, "id title initial_balance kind") for row in
-                accounts.list_for_family(db, actor.family_id) if row.id in own]
+                accounts.list_for_family(db, actor) if row.id in own]
         for row, _photos in transactions.list_for_family(db, actor.family_id, actor):
             if row.account_id in own or row.member_id == actor.id and row.account_id is None:
                 rows.append(_fields(row, "id type amount category date note"))
@@ -134,7 +134,7 @@ def _read(db, actor, section: str, day: date) -> list[dict]:
         return [_data(row) for row in documents.list_for_member(db, actor)]
     if section == "holdings":
         return [_fields(row, "id name kind quantity unit symbol")
-                for row in holdings.list_for_family(db, actor.family_id)]
+                for row in holdings.list_for_family(db, actor)]
     if section == "market":
         return market.cached_household_prices()
     raise ValueError("Unknown context adapter")

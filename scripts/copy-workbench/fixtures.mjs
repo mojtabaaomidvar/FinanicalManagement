@@ -272,7 +272,10 @@ function collectionResponse(session, key) {
       date: item.date, note: item.note, kind: 'activity', activity_status: item.status, reminder_enabled: item.reminder_enabled,
       revision: item.revision, created_at: item.created_at })),
   ];
-  const rows = data[key];
+  const rows = ['accounts', 'holdings'].includes(key)
+    ? data[key].filter(item => item.family_id === data.actor.family_id
+      && (managersOnly(session) || item.member_id === data.actor.id))
+    : data[key];
   if (key === 'vehicles') return response({ vehicles: rows, can_create: !['minor', 'missing-birth'].includes(session.scenario.mode) });
   if (key === 'goals') return response({ goals: rows.filter(item => item.owner_id === data.actor.id), can_create: true });
   if (key === 'activities') return response({ activities: rows, can_create: true });
@@ -1086,6 +1089,10 @@ export function handlePreviewRequest(session, request) {
     data.categoryBudgets = data.categoryBudgets.filter(item => item.category !== segments[1]); return response(null, 204);
   }
   if (collection && segments.length === 1) {
+    if (collection === 'accounts' && method === 'GET' && query.get('view') === 'transfer-targets') {
+      return { ...response(data.accounts.filter(item => item.family_id === data.actor.family_id)
+        .map(({ id, family_id, member_id, kind }) => ({ id, family_id, member_id, kind }))), delayMs };
+    }
     if (method === 'GET' || method === 'HEAD') return { ...collectionResponse(session, collection), delayMs };
     if (method === 'POST') {
       let createBody = body;

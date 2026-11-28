@@ -3,6 +3,7 @@ import { useApp } from "@/app/providers/AppProvider";
 import type { TxFormModel } from "../model/useTxFormModel";
 import { transactionAccountChoices } from "../model/transactionAccounts";
 import { useTransferFeeQuote } from "../model/useTransferFeeQuote";
+import { useTransferTargets } from "../model/useTransferTargets";
 import { BankPaymentFields } from "./BankPaymentFields";
 import { SmsImportFeature } from "@/features/sms-import";
 import { Modal, Select, TextInput, JalaliDateInput, expressionInputCaret, normalizeExpressionInput } from "@/shared/ui";
@@ -47,7 +48,7 @@ const TYPE_TABS: { value: "expense" | "income" | "transfer"; label: string }[] =
 export function TransactionFormFeature({ form: m, onImported }: {
   form: TxFormModel; onImported: () => void | Promise<void>;
 }) {
-  const { accounts, txs, subcategories, customCategories, member, refreshData, useCases } = useApp();
+  const { accounts, txs, subcategories, customCategories, member, members, refreshData, useCases } = useApp();
   const [showAll, setShowAll] = useState(false);
   const [showAddCat, setShowAddCat] = useState(false);
   const [newCatName, setNewCatName] = useState("");
@@ -58,12 +59,15 @@ export function TransactionFormFeature({ form: m, onImported }: {
   const selection = useRef<{ start: number; end: number } | null>(null);
   const amountId = useId();
   const isTransfer = m.form.type === "transfer";
+  const transferTargets = useTransferTargets(useCases, `${member?.familyId}:${member?.id}:${member?.role}`, m.open && isTransfer);
+  const familyTargets = transferTargets.items.filter(target => target.familyId === member?.familyId);
   const locked = m.busy || m.occurrencePending;
   const amount = parseScheduledAmount(m.form.amount, m.entryCurrency);
   const walletBalances = useWalletBalances(accounts, m.open);
   const ownerId = m.editing && !m.recurringOccurrence ? m.editing.memberId : member?.id ?? "";
   const sourceAccount = accounts.find(account => account.id === m.form.accountId);
-  const destinationAccount = accounts.find(account => account.id === m.form.toAccountId);
+  const destinationAccount = accounts.find(account => account.id === m.form.toAccountId)
+    ?? familyTargets.find(account => account.id === m.form.toAccountId);
   const bankTransfer = isTransfer && sourceAccount?.kind === "bank" && destinationAccount?.kind === "bank";
   const bankExpense = m.form.type === "expense" && sourceAccount?.kind === "bank";
   const quote = useTransferFeeQuote(useCases, `${ownerId}:${m.open}:${m.form.type}:${m.form.accountId}:${m.form.toAccountId}`,
@@ -72,6 +76,12 @@ export function TransactionFormFeature({ form: m, onImported }: {
     m.editing?.id, walletBalances.currentBalances).filter(({ account, balance }) => m.form.type === "income" || account.kind !== "bank" || amount === null || compareMoney(balance, addMoney(amount, multiplyMoney(quote.rial, "0.1"))) >= 0);
   const destinations = transactionAccountChoices(accounts, txs, null, null, false, showAll, undefined, walletBalances.currentBalances)
     .filter(row => row.account.id !== m.form.accountId);
+  const privateDestinations = familyTargets.filter(target => target.id !== m.form.accountId
+    && !accounts.some(account => account.id === target.id)).map((target, index) => {
+    const ownerName = members.find(person => person.id === target.memberId)?.name ?? "عضو خانواده";
+    const kindLabel = target.kind === "bank" ? "حساب بانکی" : "کیف پول";
+    return { value: target.id, label: /* @copy-text transaction.private_destination */ `${ownerName} · ${kindLabel} ${index + 1}` };
+  });
   const cats = useMemo(() => {
     if (isTransfer) return [];
     const choices = [
@@ -113,15 +123,17 @@ export function TransactionFormFeature({ form: m, onImported }: {
   useEffect(() => {
     if (m.open && !locked && m.form.accountId && (walletBalances.summary.status === "ready" || walletBalances.rows.get(m.form.accountId)?.status === "ready") && !accountAvailable) m.setForm(previous => ({ ...previous, accountId: "" }));
   }, [m.open, locked, m.form.accountId, accountAvailable, walletBalances.rows, walletBalances.summary.status]);
-  const destinationAvailable = destinations.some(row => row.account.id === m.form.toAccountId);
+  const destinationAvailable = destinations.some(row => row.account.id === m.form.toAccountId)
+    || privateDestinations.some(row => row.value === m.form.toAccountId);
   useEffect(() => {
     if (m.open && !locked && isTransfer && (sourceAccount?.kind === "wallet" || destinationAccount?.kind === "wallet")
       && (m.form.feeChoice || m.form.feeMethod)) m.setForm(previous => ({ ...previous, feeChoice: "", feeMethod: "" }));
   }, [m.open, locked, isTransfer, sourceAccount?.kind, destinationAccount?.kind, m.form.feeChoice, m.form.feeMethod]);
   useEffect(() => {
-    if (m.open && !locked && isTransfer && m.form.toAccountId && (walletBalances.summary.status === "ready" || walletBalances.rows.get(m.form.toAccountId)?.status === "ready") && !destinationAvailable)
+    if (m.open && !locked && isTransfer && !transferTargets.loading && !transferTargets.error
+      && m.form.toAccountId && (walletBalances.summary.status === "ready" || walletBalances.rows.get(m.form.toAccountId)?.status === "ready") && !destinationAvailable)
       m.setForm(previous => ({ ...previous, toAccountId: "" }));
-  }, [m.open, locked, isTransfer, m.form.toAccountId, destinationAvailable, walletBalances.rows, walletBalances.summary.status]);
+  }, [m.open, locked, isTransfer, m.form.toAccountId, destinationAvailable, walletBalances.rows, walletBalances.summary.status, transferTargets.loading, transferTargets.error]);
   function changeAmount(raw: string, start: number, end = start) {
     const formatted = normalizeExpressionInput(raw);
     selection.current = { start: expressionInputCaret(raw, formatted, start), end: expressionInputCaret(raw, formatted, end) };
@@ -183,7 +195,12 @@ export function TransactionFormFeature({ form: m, onImported }: {
           {!choices.length && walletBalances.summary.status === "ready" ? <p className="tx-simple-hint" role="status">حساب یا کیف‌پول قابل انتخابی نیست؛ مبلغ و موجودی یا فهرست همهٔ حساب‌ها را بررسی کنید.</p> : null}
           {isTransfer ? <label>به حساب<Select aria-label="حساب مقصد" value={m.form.toAccountId}
             onChange={toAccountId => m.setForm(previous => ({ ...previous, toAccountId }))}
-            options={[{ value: "", label: "انتخاب حساب مقصد…" }, ...accountOptions(destinations), ...pendingWalletOptions(accounts.filter(account => account.id !== m.form.accountId), walletBalances.rows, null)]} /></label> : null}
+             options={[{ value: "", label: "انتخاب حساب مقصد…" }, ...accountOptions(destinations), ...privateDestinations, ...pendingWalletOptions(accounts.filter(account => account.id !== m.form.accountId), walletBalances.rows, null)]} /></label> : null}
+          {isTransfer && transferTargets.loading ? <p className="tx-simple-hint" role="status">در حال دریافت مقصدهای انتقال…</p> : null}
+          {isTransfer && transferTargets.error ? <div role="status">
+            <p className="field-error">دریافت مقصدهای انتقال انجام نشد.</p>
+            <button type="button" className="link-btn" onClick={transferTargets.retry}>تلاش دوباره</button>
+          </div> : null}
           {m.form.type !== "income" ? <button type="button" className="tx-all-accounts" aria-expanded={showAll} onClick={() => setShowAll(value => !value)}>
             {showAll ? "فهرست کوتاه حساب‌ها" : "نمایش همهٔ حساب‌های من"}
           </button> : null}

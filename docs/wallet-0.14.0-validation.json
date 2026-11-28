@@ -1,0 +1,98 @@
+{
+  "passed": true,
+  "recorded_at": "2026-11-28T05:38:41.437611+00:00",
+  "release": "v0.14.0",
+  "installed_on_server": false,
+  "baseline": {
+    "tag": "v0.13.0",
+    "commit": "c2516e8078e9977989a750df0793c737cad8278f",
+    "database_revision": "0042_meal_inventory_links",
+    "management_version": "0.3.0"
+  },
+  "frontend_tests_passed": 998,
+  "backend_regressions_passed": 238,
+  "live_browser_backend_tests_passed": 1,
+  "copy_tests_passed": 145,
+  "editable_ui_texts": 6054,
+  "installer_tests_passed": {
+    "installer-tests.log": 5,
+    "retained-home2-installer.log": 5,
+    "retained-management-installer.log": 18
+  },
+  "browser": {
+    "wallet-access-browser/results.json": {
+      "checks": [
+        "filters and transfer loading/error labels are editable",
+        "full-owner 320px cash height 62",
+        "full-owner 360px cash height 62",
+        "full-owner 390px cash height 62",
+        "full-owner 768px cash height 62",
+        "full-owner 1440px cash height 62",
+        "full-owner filters accounts, holdings and authoritative totals together",
+        "full-admin 320px cash height 62",
+        "full-admin 360px cash height 62",
+        "full-admin 390px cash height 62",
+        "full-admin 768px cash height 62",
+        "full-admin 1440px cash height 62",
+        "full-admin filters accounts, holdings and authoritative totals together",
+        "member rejects leaked rows and preserves exact large negative rial/toman display",
+        "English and empty filter copy retains selection identities",
+        "selected member empty wallets keep the owner filter usable",
+        "wallet balance failure and loading remain explicit and retryable",
+        "member retries target failure and transfers without peer financial details"
+      ],
+      "errors": [],
+      "external_requests": [],
+      "manual_writes": 0,
+      "production_writes": 0
+    },
+    "wallet-access-live/results.json": {
+      "checks": [
+        "Production build logs in and filters manager wallets with real isolated API balances.",
+        "Member sees only personal wallets; peer target response contains routing identifiers only.",
+        "Real transfer saves once and produces exact source 900 / destination 100 balances."
+      ],
+      "errors": [],
+      "external_requests": [],
+      "manual_writes": 0,
+      "production_writes": 0
+    },
+    "wallet-integrity/result.json": {
+      "checks": [
+        "compact wallet overview and correction form; masked card opens its actions",
+        "exact correction review has no default mode; reconciliation preserves financial history",
+        "ledger correction adds exactly one immutable linked adjustment",
+        "history failure is retryable; committed correction remains success after refresh failure"
+      ],
+      "errors": [],
+      "external_requests": [],
+      "manual_writes": 0,
+      "production_writes": 0
+    }
+  },
+  "production_build": {
+    "version": "0.14.0",
+    "buildTime": "2026-11-28T05:36:05.056Z"
+  },
+  "bash_syntax_passed": true,
+  "schema_migration_required": false,
+  "manual_database_used": false,
+  "production_database_used": false,
+  "production_writes": 0,
+  "paid_ai_calls": 0,
+  "checked_application_sources_sha256": {
+    "backend/app/api/v1/routes/accounts.py": "3fbbd4905b980fa88ad8c145e2d86424d461a4d28db8708d46685dbc41fc3e48",
+    "backend/app/api/v1/routes/holdings.py": "d3c1d36f4099813132bf7cea5ced84e6827169c76f59ed2754d63aca9e55780d",
+    "backend/app/services/accounts.py": "8a39b10f4b4b90bd8b80f171ecb54888d8fbef9ae0b935ff40ea9932dcbcb3a3",
+    "backend/app/services/holdings.py": "688aeab5c9a865fedfe658af79a4c613f3611746be21f6559edfad32a0d852aa",
+    "src/features/accounts/ui/WalletAmount.tsx": "8b21f579746bbf40d5fcb3929842bfcc551535b2d8eae4f45608db000873dce4",
+    "src/features/accounts/ui/AccountsFeature.css": "fca5fd2e3cf94027b4095d596311fb4be1c972b39416fb999cb419ea21d5e114",
+    "src/features/accounts/ui/WalletOwnerFilter.tsx": "8e2dbd74b044c8081f15ece07b68df9f4a46875b05ee1e62d8158f2278836870",
+    "src/features/transaction-form/ui/TransactionFormFeature.tsx": "a5e9957c12b3d8d6fcde81097dbad0c689fb62bb423c2e51e9ee6eb9104b5886"
+  },
+  "limits": [
+    "Docker/systemd installer lifecycle checks use explicit local doubles.",
+    "Physical Android/iOS installed-PWA acceptance awaits the owner.",
+    "Production build retains the existing application-chunk size warning."
+  ]
+}

@@ -89,9 +89,16 @@ export function useAccountsModel() {
 
   /* موجودی هر حساب = موجودی اولیه + اثر تراکنش‌ها */
   const familyWallets = canViewFamilyWallets(member);
+  const viewerScope = `${identity}:${member?.role ?? ""}`;
+  const [ownerFilter, setOwnerFilter] = useState<{ scope: string; ownerId: string | null } | null>(null);
+  const filterMembers = members.filter(person => person.familyId === member?.familyId && person.id !== member?.id);
+  const requestedOwnerId = ownerFilter?.scope === viewerScope ? ownerFilter.ownerId : null;
+  const selectedOwnerId = familyWallets && requestedOwnerId
+    && (requestedOwnerId === member?.id || filterMembers.some(person => person.id === requestedOwnerId))
+    ? requestedOwnerId : null;
   const visibleAccounts = useMemo(
-    () => walletItemsForViewer(accounts, member),
-    [accounts, member?.id, member?.familyId, member?.role],
+    () => walletItemsForViewer(accounts, member, selectedOwnerId),
+    [accounts, member?.id, member?.familyId, member?.role, selectedOwnerId],
   );
   const walletBalances = useWalletBalances(visibleAccounts);
   const balances = useMemo(
@@ -115,8 +122,8 @@ export function useAccountsModel() {
      جمعشان مستقیم درست است و toDisplay یک‌بار روی حاصل اعمال می‌شود. */
   const allHoldings = useHoldings();
   const visibleHoldings = useMemo(
-    () => walletItemsForViewer(allHoldings.items, member),
-    [allHoldings.items, member?.id, member?.familyId, member?.role],
+    () => walletItemsForViewer(allHoldings.items, member, selectedOwnerId),
+    [allHoldings.items, member?.id, member?.familyId, member?.role, selectedOwnerId],
   );
   const holdings = {
     ...allHoldings,
@@ -382,6 +389,9 @@ export function useAccountsModel() {
     /* داده */
     accounts: visibleAccounts,
     canViewFamilyWallets: familyWallets,
+    selectedOwnerId,
+    filterMembers,
+    selectOwner: (ownerId: string | null) => setOwnerFilter({ scope: viewerScope, ownerId }),
     members,
     member,
     cur,

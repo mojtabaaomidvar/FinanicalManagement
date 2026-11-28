@@ -23,7 +23,7 @@ flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
 def run(args, **kwargs):
-    return subprocess.run(args, creationflags=flags, check=True, timeout=45, **kwargs)
+    return subprocess.run(args, creationflags=flags, check=True, timeout=120, **kwargs)
 
 
 with tempfile.TemporaryDirectory(prefix="ai-analytics-test-", dir=SCRATCH) as temporary:

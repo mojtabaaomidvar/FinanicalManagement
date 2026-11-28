@@ -24,7 +24,7 @@ def list_holdings(
     member: Member = Depends(get_tenant_member),
     db: Session = Depends(get_db),
 ) -> HoldingListOut:
-    return holding_service.valued_list(db, member.family_id)
+    return holding_service.valued_list(db, member)
 
 
 @router.post("/holdings", response_model=HoldingOut, status_code=status.HTTP_201_CREATED)

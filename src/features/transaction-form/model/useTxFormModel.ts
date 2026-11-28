@@ -397,9 +397,10 @@ export function useTxFormModel(
       }
       if (checkingBalance) {
         phase = "balance";
-        const [accounts, transactions] = await Promise.all([
+        const [accounts, transactions, transferTargets] = await Promise.all([
           useCases.listAccounts.execute(),
           useCases.listTransactions.execute(),
+          isTransfer ? useCases.listAccounts.transferTargets() : Promise.resolve([]),
         ]);
         if (!current()) return;
         const account = accounts.find(item => item.id === form.accountId);
@@ -412,8 +413,9 @@ export function useTxFormModel(
           notify("فقط حساب‌های خودتان قابل انتخاب‌اند");
           return;
         }
+        const destination = accounts.find(item => item.id === form.toAccountId)
+          ?? transferTargets.find(item => item.id === form.toAccountId && item.familyId === account.familyId);
         if (isTransfer) {
-          const destination = accounts.find(item => item.id === form.toAccountId);
           if (!destination) return notify("حساب مقصد در دسترس نیست؛ حساب دیگری انتخاب کنید.");
           if (account.kind === "bank" && destination.kind === "bank") {
             if (!form.feeChoice) return notify("مشخص کنید این انتقال کارمزد داشته است یا خیر.");
@@ -422,7 +424,7 @@ export function useTxFormModel(
         if (form.type === "expense" && account.kind === "bank" && !form.paymentMethod)
           return notify("روش پرداخت هزینه را انتخاب کنید: کارت، پرداخت آنلاین یا انتقال بانکی.");
         const bankFeePayment = account.kind === "bank" && (form.type === "expense"
-          || (isTransfer && accounts.find(item => item.id === form.toAccountId)?.kind === "bank"));
+          || (isTransfer && destination?.kind === "bank"));
         if (bankFeePayment && (form.type === "expense" ? form.paymentMethod === "bank_transfer" : form.feeChoice === "yes")) {
           if (!form.feeMethod) return notify("نوع انتقال را انتخاب کنید.");
           transferFeeMethod = form.feeMethod;

@@ -7,8 +7,9 @@ export function canViewFamilyWallets(viewer: WalletViewer | null): boolean {
 }
 
 /** Wallet-page assets only; transactions are calculated by their account endpoints. */
-export function walletItemsForViewer<T extends { familyId: string; memberId: string }>(items: T[], viewer: WalletViewer | null): T[] {
+export function walletItemsForViewer<T extends { familyId: string; memberId: string }>(items: T[], viewer: WalletViewer | null, ownerId: string | null = null): T[] {
   if (!viewer?.id || !viewer.familyId) return [];
   const familyView = canViewFamilyWallets(viewer);
-  return items.filter(item => item.familyId === viewer.familyId && (familyView || item.memberId === viewer.id));
+  return items.filter(item => item.familyId === viewer.familyId
+    && (familyView ? ownerId === null || item.memberId === ownerId : item.memberId === viewer.id));
 }

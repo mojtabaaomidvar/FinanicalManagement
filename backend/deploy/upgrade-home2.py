@@ -23,6 +23,12 @@ REVISION = "0042_meal_inventory_links"
 
 
 class Installer(common.Installer):
+    software_version = "0.13.0"
+    baseline_revision = "0039"
+    baseline_pwa_version = "0.12.0"
+    release_label = "Home 2"
+    staging_suffix = ".home2"
+
     def container(self, mode, *, running=False, database=None, image=False):
         if running and mode not in {"source", "database"}:
             raise ValueError("Running containers support read-only probes only")
@@ -44,7 +50,7 @@ class Installer(common.Installer):
         self.check = "release manifest and file hashes"
         m = self.manifest
         if (m.get("tag"), m.get("software_version"), m.get("database_baseline_revision"),
-                m.get("database_revision")) != ("v0.13.0", "0.13.0", "0039", REVISION):
+                m.get("database_revision")) != ("v" + self.software_version, self.software_version, self.baseline_revision, REVISION):
             raise ValueError("Unexpected Home 2 release contract")
         common.verify_tree(self.bundle, m["files_sha256"] | {"validation.json": common.digest(self.bundle / "validation.json")})
         for path in (common.BASE, common.DEPLOY, common.CONFIG, common.STATE, common.BACKUPS, common.PWA,
@@ -79,21 +85,21 @@ class Installer(common.Installer):
             self.quiesced = True
         else:
             self.system("is-active")
-            self.check = "installed PWA 0.12.0 files"
+            self.check = "installed PWA " + self.baseline_pwa_version + " files"
             common.verify_tree(common.PWA, m["baseline_pwa_sha256"])
-            self.check = "installed management 0.3.0 API source and dependencies"
+            self.check = "installed API source and dependencies"
             if self.container("source", running=True) != "BASELINE":
-                raise ValueError("API source differs from management 0.3.0")
-            self.check = "installed database revision 0039 and restricted grants"
-            if self.container("database", running=True) != "0039":
-                raise ValueError("Database differs from management 0.3.0")
+                raise ValueError("API source differs from the pinned baseline")
+            self.check = "installed database revision " + self.baseline_revision + " and restricted grants"
+            if self.container("database", running=True) != self.baseline_revision:
+                raise ValueError("Database differs from the pinned baseline")
             self.snapshot_identity(self.state_dir)
-            for suffix in (".home2-next", ".home2-before"):
+            for suffix in (self.staging_suffix + "-next", self.staging_suffix + "-before"):
                 if common.PWA.with_name(common.PWA.name + suffix).exists():
                     raise ValueError("Existing PWA staging directory preserved")
             common.BACKUPS.mkdir(parents=True, exist_ok=True, mode=0o700)
             import tempfile
-            self.backup = Path(tempfile.mkdtemp(prefix="before-0.13.0-", dir=common.BACKUPS))
+            self.backup = Path(tempfile.mkdtemp(prefix="before-" + self.software_version + "-", dir=common.BACKUPS))
             self.save(manifest_sha256=common.digest(self.bundle / "validation.json"), backup=str(self.backup),
                       config_sha256=common.digest(common.CONFIG), pwa_sha256=m["pwa_sha256"],
                       management_source_sha256=common.tree(common.BASE / "source", cache=True),
@@ -101,7 +107,7 @@ class Installer(common.Installer):
         self.log = (self.backup / "install.log").open("ab", buffering=0)
 
     def stage(self):
-        stage = common.PWA.with_name(common.PWA.name + ".home2-next")
+        stage = common.PWA.with_name(common.PWA.name + self.staging_suffix + "-next")
         if stage.exists() or stage.is_symlink():
             raise ValueError("Existing PWA staging directory preserved")
         shutil.copytree(self.bundle / "pwa", stage)
@@ -147,11 +153,11 @@ class Installer(common.Installer):
 
     def swap(self):
         common.verify_tree(common.PWA, self.manifest["baseline_pwa_sha256"])
-        previous = common.PWA.with_name(common.PWA.name + ".home2-before")
+        previous = common.PWA.with_name(common.PWA.name + self.staging_suffix + "-before")
         if previous.exists() or previous.is_symlink():
             raise ValueError("Existing PWA backup preserved")
         common.PWA.rename(previous)
-        common.PWA.with_name(common.PWA.name + ".home2-next").rename(common.PWA)
+        common.PWA.with_name(common.PWA.name + self.staging_suffix + "-next").rename(common.PWA)
         common.verify_tree(common.PWA, self.manifest["pwa_sha256"])
 
     def unchanged_management(self):
@@ -168,18 +174,18 @@ class Installer(common.Installer):
         for name in self.manifest["pwa_sha256"]:
             if name not in {"version.json", "index.html", "sw.js"} and not name.endswith((".js", ".css")):
                 continue
-            request = Request("https://pwa.khaanehyar.ir/" + name + "?verify=home2-0.13.0", headers={"Cache-Control": "no-cache"})
+            request = Request("https://pwa.khaanehyar.ir/" + name + "?verify=" + self.software_version, headers={"Cache-Control": "no-cache"})
             with urlopen(request, timeout=30) as response:
                 import hashlib
                 if hashlib.sha256(response.read()).hexdigest() != self.manifest["pwa_sha256"][name]:
                     raise ValueError("Public PWA differs: " + name)
 
     def restore_before_activation(self):
-        previous = common.PWA.with_name(common.PWA.name + ".home2-before")
+        previous = common.PWA.with_name(common.PWA.name + self.staging_suffix + "-before")
         if previous.exists():
             common.verify_tree(previous, self.manifest["baseline_pwa_sha256"])
             if common.PWA.exists():
-                common.PWA.rename(common.PWA.with_name(common.PWA.name + ".home2-failed-" + os.urandom(4).hex()))
+                common.PWA.rename(common.PWA.with_name(common.PWA.name + self.staging_suffix + "-failed-" + os.urandom(4).hex()))
             previous.rename(common.PWA)
         if (self.backup / "env-before").exists():
             common.atomic(common.DEPLOY / ".env", (self.backup / "env-before").read_bytes())
@@ -200,7 +206,7 @@ class Installer(common.Installer):
                 container_id = self.compose("ps", "-q", "api").decode().strip()
                 image_id = self.run(["docker", "inspect", "--format", "{{.Image}}", container_id]).decode().strip()
                 self.save(previous_image=image_id)
-                baseline_tag = "khaneyar-api:home2-0.13.0-baseline"
+                baseline_tag = "khaneyar-api:" + self.software_version + "-baseline"
                 self.run(["docker", "image", "tag", image_id, baseline_tag])
                 self.run(["docker", "build", "--pull=false", "--network=none", "--build-arg", "KHANEYAR_BASE=" + baseline_tag,
                           "-t", common.IMAGE, str(self.bundle / "api")], output=self.log, timeout=600)
@@ -226,7 +232,7 @@ class Installer(common.Installer):
             self.check = "API, management and public PWA verification"
             self.probe()
             self.save(phase="completed")
-            print("5/5 UPGRADE COMPLETE: Home 2 / PWA 0.13.0; database 0042; management 0.3.0 preserved.", flush=True)
+            print("5/5 UPGRADE COMPLETE: " + self.release_label + " / PWA " + self.software_version + "; database 0042; management 0.3.0 preserved.", flush=True)
             print("Private backup/log: " + str(self.backup), flush=True)
         except BaseException:
             if self.created_restore:
@@ -258,7 +264,7 @@ class Installer(common.Installer):
                 self.log.close()
 
 
-def main():
+def main(installer_type=Installer):
     import fcntl
 
     if os.geteuid() != 0 or len(sys.argv) != 2:
@@ -269,7 +275,7 @@ def main():
                      Path("/var/backups/khaneyar/management/.operation.lock")):
             stream = stack.enter_context(path.open("a"))
             fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        Installer(Path(sys.argv[1]).resolve(strict=True)).apply()
+        installer_type(Path(sys.argv[1]).resolve(strict=True)).apply()
 
 
 if __name__ == "__main__":

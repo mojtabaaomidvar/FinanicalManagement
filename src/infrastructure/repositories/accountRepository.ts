@@ -7,6 +7,7 @@ import type {
   Account,
   AccountInput,
   AccountPatch,
+  AccountTransferTarget,
 } from "@/domain/account/account.types";
 import type { RestClient } from "@/infrastructure/api/restClient";
 import { mapAccount, type AccountRow } from "./mappers";
@@ -17,6 +18,11 @@ export class SupabaseAccountRepository implements AccountRepository {
   async list(): Promise<Account[]> {
     const rows = await this.client.get<AccountRow[]>("/accounts");
     return (rows ?? []).map(mapAccount);
+  }
+
+  async listTransferTargets(): Promise<AccountTransferTarget[]> {
+    const rows = await this.client.get<{ id: string; family_id: string; member_id: string; kind: Account["kind"] }[]>("/accounts?view=transfer-targets");
+    return (rows ?? []).map(row => ({ id: row.id, familyId: row.family_id, memberId: row.member_id, kind: row.kind }));
   }
 
   async add(input: AccountInput): Promise<Account> {

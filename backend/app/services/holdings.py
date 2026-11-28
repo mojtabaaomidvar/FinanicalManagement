@@ -75,19 +75,16 @@ def _valid_quantity(raw: Decimal | None) -> Decimal:
 
 
 # ── خواندن + ارزش‌گذاری ─────────────────────────────────────
-def list_for_family(db: Session, family_id: uuid.UUID) -> list[Holding]:
-    return list(
-        db.execute(
-            select(Holding)
-            .where(Holding.family_id == family_id)
-            .order_by(Holding.created_at.asc())
-        ).scalars()
-    )
+def list_for_family(db: Session, actor: Member) -> list[Holding]:
+    query = select(Holding).where(Holding.family_id == actor.family_id)
+    if not is_admin(actor):
+        query = query.where(Holding.member_id == actor.id)
+    return list(db.scalars(query.order_by(Holding.created_at.asc())))
 
 
-def valued_list(db: Session, family_id: uuid.UUID) -> HoldingListOut:
+def valued_list(db: Session, actor: Member) -> HoldingListOut:
     """فهرست دارایی‌ها + قیمت امروز + جمع ارزش."""
-    rows = list_for_family(db, family_id)
+    rows = list_for_family(db, actor)
     if not rows:
         return HoldingListOut(items=[], total=0.0, unpriced=0, stale=False)
 

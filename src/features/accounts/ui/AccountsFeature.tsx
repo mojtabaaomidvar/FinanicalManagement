@@ -4,7 +4,7 @@
 
 import type { CSSProperties, KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useState } from "react";
-import { Card, Icon, Modal, TextInput, CurrencyUnit } from "@/shared/ui";
+import { Card, Icon, Modal, TextInput } from "@/shared/ui";
 import { maskCardNumber } from "@/domain/account/account.rules";
 import type { Account } from "@/domain/account/account.types";
 import { formatAmount } from "@/shared/lib/format";
@@ -21,6 +21,7 @@ import type { AccountsModel } from "../model/useAccountsModel";
 import { AccountFormFeature } from "./AccountFormFeature";
 import { bankDisplayLabel } from "@/shared/lib/banks";
 import { WalletBalanceDisplay } from "./WalletBalanceDisplay";
+import { WalletAmount } from "./WalletAmount";
 import { WalletCorrectionFeature } from "./WalletCorrectionFeature";
 import { bankCardAppearance } from "../model/bankCardAppearance";
 import "./AccountsFeature.css";
@@ -161,10 +162,7 @@ function HoldingsCard({ m }: { m: AccountsModel }) {
                     </div>
                     <div className="hold-value">
                       {x.priced ? (
-                        <>
-                          <b>{formatAmount(toDisplay(x.value, m.cur))}</b>
-                          <CurrencyUnit />
-                        </>
+                        <WalletAmount formattedAmount={formatAmount(toDisplay(x.value, m.cur))} currency={m.cur} />
                       ) : (
                         <span className="hold-noprice">قیمت ندارد</span>
                       )}
@@ -320,7 +318,7 @@ export function AccountsFeature({ m, showAddAction = true, onOpenTransactions }:
             );
           })
         ) : (
-          <p className="accounts-empty">هنوز حساب بانکی ثبت نشده</p>
+          <p className="accounts-empty">{m.selectedOwnerId ? "برای عضو انتخاب‌شده حساب بانکی ثبت نشده" : "هنوز حساب بانکی ثبت نشده"}</p>
         )}
       </Card>
 
@@ -357,7 +355,7 @@ export function AccountsFeature({ m, showAddAction = true, onOpenTransactions }:
         ) : (
           <div className="wallet-empty">
             <p>
-              برای پول نقد، پس‌انداز یا هزینه‌ی سفر و پروژه یک کیف‌پول بسازید
+              {m.selectedOwnerId ? "برای عضو انتخاب‌شده کیف‌پولی ثبت نشده" : "برای پول نقد، پس‌انداز یا هزینه‌ی سفر و پروژه یک کیف‌پول بسازید"}
             </p>
           </div>
         )}

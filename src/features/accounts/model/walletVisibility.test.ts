@@ -26,6 +26,16 @@ describe("wallet page visibility", () => {
     expect(walletItemsForViewer(accounts, null)).toEqual([]);
     expect(walletItemsForViewer(accounts, { ...viewer("owner"), familyId: "" })).toEqual([]);
   });
+  it.each(["owner", "admin"] as const)("%s filters by member id inside its own family", role => {
+    expect(walletItemsForViewer(accounts, viewer(role), "self").map(row => row.id)).toEqual(["mine"]);
+    expect(walletItemsForViewer(accounts, viewer(role), "other").map(row => row.id)).toEqual(["other"]);
+    expect(walletItemsForViewer(accounts, viewer(role), "missing")).toEqual([]);
+  });
+  it("a member cannot widen scope with a filter left by an administrator", () => {
+    for (const selected of [null, "other", "foreign"]) {
+      expect(walletItemsForViewer(accounts, viewer("member"), selected).map(row => row.id)).toEqual(["mine"]);
+    }
+  });
   it("recomputes visibility after a manager loses the role without changing shared account data", () => {
     const actor = viewer("admin");
     expect(walletItemsForViewer(accounts, actor)).toHaveLength(2);
@@ -42,6 +52,8 @@ describe("wallet page visibility", () => {
     expect(accountBalances([transfer], visible)[0].balance).toBe("125");
     const day = isoToJalali(transfer.date);
     expect(wealthSeriesBetween([transfer], day, day, "100", visible)).toEqual([{ date: transfer.date, value: "125" }]);
+    expect(accountBalances([transfer], walletItemsForViewer(accounts, viewer("admin"), "self"))[0].balance).toBe("125");
+    expect(accountBalances([transfer], walletItemsForViewer(accounts, viewer("admin"), "other"))[0].balance).toBe("875");
   });
   it("applies the same scope to asset rows so foreign holdings cannot enter personal wealth", () => {
     const holdings = [{ id: "mine", familyId: "family", memberId: "self", value: 50 },

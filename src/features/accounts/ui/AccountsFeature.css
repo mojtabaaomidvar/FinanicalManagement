@@ -326,3 +326,114 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Keep owner selection inside the viewport, including large households. */
+.wallet-owner-filter {
+  display: flex;
+  gap: var(--sp-1);
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  padding: var(--sp-1);
+  margin-block-end: var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--card);
+}
+.wallet-owner-option {
+  flex: 0 0 auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  color: var(--text-2);
+  font-size: var(--fs-2);
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.wallet-owner-option[aria-pressed="true"] { color: #fff; background: var(--accent); }
+.wallet-owner-option:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.accounts-feature .wallet-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) fit-content(90%);
+  align-items: center;
+  gap: var(--sp-1) var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+}
+.accounts-feature .wallet-head,
+.accounts-feature .wallet-head > div { min-width: 0; }
+.accounts-feature .wallet-head b {
+  max-width: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-2);
+  line-height: 1.4;
+}
+.accounts-feature .wallet-head p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-1);
+  line-height: 1.4;
+}
+.accounts-feature .wallet-icon { width: 32px; height: 32px; }
+.accounts-feature .wallet-card > .account-negative-notice { grid-column: 1 / -1; }
+
+.wallet-amount,
+.accounts-feature .wallet-amount {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  column-gap: 0.25em;
+  min-width: 0;
+  max-width: 100%;
+  font-size: var(--fs-3);
+  font-weight: 800;
+  line-height: 1.4;
+  text-align: end;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+}
+.wallet-amount .fit-text,
+.wallet-amount .fit-text-inner {
+  margin: 0;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+}
+.wallet-amount .fit-text { min-width: 0; flex: 0 1 auto; }
+.wallet-amount .fit-text-inner {
+  display: inline-flex;
+  flex-flow: row nowrap;
+  align-items: baseline;
+  column-gap: 0.25em;
+  direction: rtl;
+}
+.wallet-amount bdi { font-variant-numeric: tabular-nums; }
+.wallet-amount .wallet-amount-unit {
+  flex: none;
+  margin: 0;
+  font-size: 0.8em;
+  font-weight: 500;
+  color: var(--text-3);
+}
+.wallet-amount.is-negative { color: var(--danger); }
+.accounts-feature .wallet-balance { max-width: 100%; min-width: 0; }
+.accounts-feature .hold-value { min-width: 0; max-width: 66%; }
+.accounts-page .wealth-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 78%);
+  align-items: center;
+}
+.accounts-page .wealth-total { font-size: var(--fs-5); letter-spacing: 0; }
+
+@media (max-width: 380px) {
+  .accounts-feature .wallet-card { padding-inline: var(--sp-2); }
+  .accounts-feature .wallet-head { gap: var(--sp-1); }
+  .accounts-feature .wallet-icon { display: none; }
+}
+

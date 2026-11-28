@@ -10,6 +10,7 @@ import type {
   Account,
   AccountInput,
   AccountPatch,
+  AccountTransferTarget,
 } from "@/domain/account/account.types";
 import { AppError } from "@/shared/lib/appError";
 
@@ -25,6 +26,9 @@ export class ListAccountsUseCase {
   constructor(private readonly repo: AccountRepository) {}
   execute(): Promise<Account[]> {
     return this.repo.list();
+  }
+  transferTargets(): Promise<AccountTransferTarget[]> {
+    return this.repo.listTransferTargets();
   }
 }
 

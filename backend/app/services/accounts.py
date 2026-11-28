@@ -13,7 +13,7 @@ import uuid
 from decimal import Decimal
 
 from sqlalchemy import select, text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only
 
 from app.core.errors import AppError
 from app.db.financial_lock import lock_financial_family
@@ -27,12 +27,21 @@ _MAX_BALANCE = 999999999999999  # ۱۵ نُه — هم‌سان با add/update_
 
 
 # ── خواندن (فاز ۶) ───────────────────────────────────────────
-def list_for_family(db: Session, family_id: uuid.UUID) -> list[Account]:
-    return list(
-        db.execute(
-            select(Account).where(Account.family_id == family_id).order_by(Account.created_at.asc())
-        ).scalars()
-    )
+def list_for_family(db: Session, actor: Member) -> list[Account]:
+    query = select(Account).where(Account.family_id == actor.family_id)
+    if not is_admin(actor):
+        query = query.where(Account.member_id == actor.id)
+    return list(db.scalars(query.order_by(Account.created_at.asc(), Account.id.asc())))
+
+
+def list_transfer_targets(db: Session, actor: Member) -> list[Account]:
+    """Fetch routing identifiers only; never read another owner's financial fields."""
+    return list(db.scalars(
+        select(Account)
+        .options(load_only(Account.id, Account.family_id, Account.member_id, Account.kind, raiseload=True))
+        .where(Account.family_id == actor.family_id)
+        .order_by(Account.created_at.asc(), Account.id.asc())
+    ))
 
 
 # ── کمک‌تابع‌ها ──────────────────────────────────────────────

@@ -6,7 +6,9 @@ import { AppPage } from "@/shared/ui/AppPage";
 import { useMemo, useState } from "react";
 import { useApp } from "@/app/providers/AppProvider";
 import { useToast } from "@/app/providers/ToastProvider";
-import { Field, JalaliDateInput, Modal, FitText, CurrencyUnit } from "@/shared/ui";
+import { Field, JalaliDateInput, Modal } from "@/shared/ui";
+import { WalletOwnerFilter } from "@/features/accounts/ui/WalletOwnerFilter";
+import { WalletAmount } from "@/features/accounts/ui/WalletAmount";
 import { smoothChartPath } from "@/shared/lib/smoothChartPath";
 import { AccountsFeature, AccountAddButton, useAccountsModel } from "@/features/accounts";
 import {
@@ -103,7 +105,7 @@ function AccountsOverview({ m, onOpenTransactions }: { m: AccountsModel; onOpenT
   }
 
   return (
-    <AppPage className="page active">
+    <AppPage className="page active accounts-page">
       <header className="app-header accounts-page-header">
         <div className="header-title">
           <h1>کیف پول‌ها</h1>
@@ -113,21 +115,14 @@ function AccountsOverview({ m, onOpenTransactions }: { m: AccountsModel; onOpenT
       </header>
 
       <div className="content">
+        <WalletOwnerFilter m={m} />
         {/* کارت دارایی کل — فشرده: مبلغ در همان ردیف عنوان، بازه زیر نمودار */}
         <div className="balance-card wealth-card">
           <div className="wealth-top">
             <p className="balance-label">{m.canViewFamilyWallets ? "دارایی کل خانواده" : "دارایی کل من"}</p>
-            <b
-              className={`wealth-total ${m.totalWealth !== null && compareMoney(m.totalWealth, "0") < 0 ? "neg" : ""}`}
-              dir="ltr"
-            >
-              <FitText>
-                {m.totalWealth === null ? /* @copy-text accounts.wealth_unavailable */ "—" : <>
-                {formatMoney(m.totalWealth, m.cur)}
-                 <CurrencyUnit />
-                </>}
-              </FitText>
-            </b>
+            {m.totalWealth === null ? <b className="wealth-total">{/* @copy-text accounts.wealth_unavailable */ "—"}</b> :
+              <WalletAmount className={`wealth-total${compareMoney(m.totalWealth, "0") < 0 ? " is-negative" : ""}`}
+                formattedAmount={formatMoney(m.totalWealth, m.cur)} currency={m.cur} />}
           </div>
 
           <div className="wealth-chart">

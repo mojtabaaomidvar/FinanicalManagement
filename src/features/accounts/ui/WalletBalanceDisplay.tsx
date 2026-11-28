@@ -1,6 +1,6 @@
 import type { WalletBalanceState } from "../model/useWalletBalances";
 import { compareMoney, formatMoney } from "@/shared/lib/money";
-import { CurrencyUnit } from "@/shared/ui/CurrencyUnit";
+import { WalletAmount } from "./WalletAmount";
 import { NegativeBalanceNotice } from "./NegativeBalanceNotice";
 
 export function WalletBalanceDisplay({ state, currency, className }: {
@@ -11,10 +11,8 @@ export function WalletBalanceDisplay({ state, currency, className }: {
   const balance = state.value;
   const negative = compareMoney(balance.currentBalance, "0") < 0;
   return <>
-    <div className={`${className}${negative ? " is-negative" : ""}`}>
-      <b dir="ltr">{formatMoney(balance.currentBalance, currency)}</b>
-      <CurrencyUnit currency={currency} />
-    </div>
+    <WalletAmount className={`${className}${negative ? " is-negative" : ""}`}
+      formattedAmount={formatMoney(balance.currentBalance, currency)} currency={currency} />
     {negative ? <NegativeBalanceNotice /> : null}
   </>;
 }
